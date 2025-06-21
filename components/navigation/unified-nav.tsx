@@ -441,18 +441,17 @@ export function UnifiedNav() {
             {visibleLinks.map((link) => {
               const Icon = link.icon
               const isActive = isActivePage(link.href)
+              const activeClasses = link.hoverClasses.replace(/hover:/g, "")
 
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 ${
-                    isActive
-                      ? "bg-purple-100 text-purple-700 shadow-sm"
-                      : `text-gray-700 ${link.hoverClasses}`
-                  }`}
+                    isActive ? `${activeClasses} font-semibold` : "text-gray-600 dark:text-gray-300"
+                  } ${link.hoverClasses}`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className={`h-4 w-4 ${isActive ? "" : "text-gray-400 dark:text-gray-400"}`} />
                   <span>{link.label}</span>
                 </Link>
               )
@@ -650,28 +649,26 @@ export function UnifiedNav() {
                     )}
 
                     {/* Mobile Navigation Links */}
-                    <div className="flex-1 py-4">
-                      <div className="space-y-1">
-                        {visibleLinks.map((link) => {
-                          const Icon = link.icon
-                          const isActive = isActivePage(link.href)
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                      {visibleLinks.map((link) => {
+                        const Icon = link.icon
+                        const isActive = isActivePage(link.href)
+                        const activeClasses = link.hoverClasses.replace(/hover:/g, "")
 
-                          return (
-                            <button
-                              key={link.href}
-                              onClick={() => handleNavigation(link.href)}
-                              className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg text-left transition-colors duration-200 ${
-                                isActive
-                                  ? "bg-purple-100 text-purple-700"
-                                  : "text-gray-700 hover:bg-gray-50 hover:text-purple-600"
-                              }`}
-                            >
-                              <Icon className="w-5 h-5" />
-                              <span className="font-medium">{link.label}</span>
-                            </button>
-                          )
-                        })}
-                      </div>
+                        return (
+                          <Link
+                            key={`mobile-${link.href}`}
+                            href={link.href}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-base font-medium transition-colors ${
+                              isActive ? `${activeClasses} font-semibold` : "text-gray-600 dark:text-gray-300"
+                            } ${link.hoverClasses}`}
+                          >
+                            <Icon className={`h-5 w-5 ${isActive ? "" : "text-gray-400"}`} />
+                            <span>{link.label}</span>
+                          </Link>
+                        )
+                      })}
                     </div>
 
                     {/* Mobile User Actions */}
