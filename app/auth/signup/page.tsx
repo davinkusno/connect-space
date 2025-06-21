@@ -142,11 +142,13 @@ export default function SignupPage() {
         toast({
           title: "Registration successful!",
           description: "Please check your email to verify your account.",
+          variant: "success",
         })
       } else if (data.session) {
         toast({
           title: "Welcome to ConnectSpace!",
           description: "Your account has been created successfully.",
+          variant: "success",
         })
         router.push("/dashboard")
       }
@@ -186,6 +188,7 @@ export default function SignupPage() {
       toast({
         title: "Redirecting...",
         description: "Creating account with Google...",
+        variant: "info",
       })
     } catch (err: any) {
       console.error("Google signup error:", err)

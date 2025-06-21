@@ -13,9 +13,9 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Eye, EyeOff, Mail, Lock, Sparkles } from "lucide-react"
 import Link from "next/link"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { getSupabaseBrowser } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { toast } from "sonner"
+import { useToast } from "@/hooks/use-toast"
 
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
@@ -24,7 +24,8 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const supabase = getSupabaseBrowser()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,6 +43,11 @@ export function LoginForm() {
       } else {
         router.push("/dashboard")
         router.refresh()
+        toast({
+          title: "Signed in successfully!",
+          description: "Welcome back to ConnectSpace!",
+          variant: "success",
+        })
       }
     } catch (err) {
       setError("An unexpected error occurred")
@@ -71,14 +77,18 @@ export function LoginForm() {
         throw error
       }
 
-      toast("Redirecting...", {
+      toast({
+        title: "Redirecting...",
         description: "Signing in with Google...",
+        variant: "info",
       })
     } catch (err: any) {
       console.error("Google sign-in error:", err)
       setError(err.message || "Failed to sign in with Google. Please try again.")
-      toast("Sign-in failed", {
+      toast({
+        title: "Sign-in failed",
         description: err.message || "Please try again.",
+        variant: "destructive",
       })
     } finally {
       setIsLoading(false)

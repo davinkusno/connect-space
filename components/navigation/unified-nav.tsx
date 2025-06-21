@@ -19,6 +19,14 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Sparkles,
   Menu,
   Bell,
@@ -35,6 +43,7 @@ import {
   ShoppingBag,
   Zap,
   X,
+  AlertTriangle,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { NotificationModal, type Notification } from "@/components/notifications/notification-modal"
@@ -85,6 +94,7 @@ export function UnifiedNav() {
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isNotificationModalOpen, setNotificationModalOpen] = useState(false)
+  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false)
 
   const [notifications, setNotifications] = useState<Notification[]>([
     {
@@ -269,35 +279,33 @@ export function UnifiedNav() {
   const isSuperadminPage = pathname?.startsWith("/superadmin")
 
   const handleSignOut = async () => {
-    // Add confirmation dialog for sign out
-    const confirmSignOut = window.confirm("Are you sure you want to sign out?")
-    if (!confirmSignOut) return
+    setIsSignOutModalOpen(true)
+  }
 
+  const handleConfirmSignOut = async () => {
     setIsSigningOut(true)
+    setIsSignOutModalOpen(false)
+    
     try {
-      // Clear any local storage or session data
-      localStorage.removeItem("supabase.auth.token")
-      sessionStorage.clear()
-
-      // Sign out from Supabase
       const { error } = await supabase.auth.signOut()
 
       if (error) {
         throw error
       }
 
+      setUser(null)
+      router.push("/")
+      
       toast({
         title: "Signed out successfully",
         description: "You have been signed out of your account.",
+        variant: "success",
       })
-
-      // Force redirect to home page
-      window.location.href = "/"
     } catch (error) {
       console.error("Error signing out:", error)
       toast({
-        title: "Error signing out",
-        description: "There was a problem signing you out. Please try again.",
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -725,6 +733,71 @@ export function UnifiedNav() {
         onMarkAllAsRead={handleMarkAllAsRead}
         onDeleteAllRead={handleDeleteAllRead}
       />
+
+      {/* Sign Out Confirmation Modal */}
+      <Dialog open={isSignOutModalOpen} onOpenChange={setIsSignOutModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-semibold text-gray-900">Sign Out</DialogTitle>
+                <DialogDescription className="text-gray-600 mt-1">
+                  Are you sure you want to sign out of your account?
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={user?.user_metadata?.avatar_url || ""} alt={getUserDisplayName()} />
+                  <AvatarFallback className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold">
+                    {getUserInitials()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-medium text-gray-900">{getUserDisplayName()}</p>
+                  <p className="text-sm text-gray-500">{user?.email}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsSignOutModalOpen(false)}
+              className="w-full sm:w-auto"
+              disabled={isSigningOut}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmSignOut}
+              disabled={isSigningOut}
+              className="w-full sm:w-auto"
+            >
+              {isSigningOut ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Signing Out...
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </nav>
   )
 }
