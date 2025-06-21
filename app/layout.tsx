@@ -2,8 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
 import { WishlistProvider } from "@/components/wishlist/wishlist-provider"
-import { UnifiedNav } from "@/components/navigation/unified-nav"
 import { Toaster } from "@/components/ui/toaster"
+import { NavbarWrapper } from "@/components/navigation/navbar-wrapper"
 
 export const metadata: Metadata = {
   title: "ConnectSpace",
@@ -25,7 +25,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <WishlistProvider>
-          <UnifiedNav />
+          <NavbarWrapper />
           <main className="min-h-screen">{children}</main>
           <Toaster />
         </WishlistProvider>

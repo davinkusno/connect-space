@@ -23,6 +23,7 @@ export default function HomePage() {
       category: "Technology",
       tags: ["JavaScript", "p5.js", "Generative Art", "UI/UX"],
       gradient: "gradient-primary",
+      growth: 15,
     },
     {
       id: 2,
@@ -35,6 +36,7 @@ export default function HomePage() {
       category: "Gardening",
       tags: ["Balcony Gardens", "Composting", "Organic", "DIY"],
       gradient: "gradient-secondary",
+      growth: 22,
     },
     {
       id: 3,
@@ -47,6 +49,7 @@ export default function HomePage() {
       category: "Film",
       tags: ["Screenwriting", "Short Films", "Festivals", "Networking"],
       gradient: "gradient-tertiary",
+      growth: 18,
     },
   ]
 
@@ -179,7 +182,7 @@ export default function HomePage() {
                   </div>
                   <div className="absolute bottom-4 right-4">
                     <Badge className="bg-white/90 text-purple-600 border-0 font-bold">
-                      +{Math.floor(Math.random() * 20 + 5)}% growth
+                      +{community.growth || 12}% growth
                     </Badge>
                   </div>
                 </div>
