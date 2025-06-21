@@ -507,21 +507,6 @@
   position: relative;
 }
 
-.nav-item::after {
-  content: "";
-  position: absolute;
-  width: 0;
-  height: 2px;
-  bottom: -4px;
-  left: 0;
-  background: linear-gradient(to right, #8b5cf6, #6366f1);
-  transition: width 0.3s ease;
-}
-
-.nav-item:hover::after {
-  width: 100%;
-}
-
 /* Smooth Transitions */
 /* No changes needed here */
 
