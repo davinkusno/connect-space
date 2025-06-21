@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
@@ -15,7 +14,18 @@ import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { PageTransition } from "@/components/ui/page-transition"
 import { FloatingElements } from "@/components/ui/floating-elements"
-import { User, Mail, MapPin, Globe, Calendar, Edit3, Save, X, Camera, Users, MessageSquare, Trophy } from "lucide-react"
+import { 
+  User, 
+  Mail, 
+  MapPin, 
+  Globe, 
+  Calendar, 
+  Edit3, 
+  Save, 
+  X, 
+  Camera,
+  CheckCircle
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface UserProfile {
@@ -219,11 +229,13 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 relative overflow-hidden">
         <FloatingElements />
-        <div className="max-w-4xl mx-auto px-6 py-12 relative z-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
           <div className="animate-pulse space-y-8">
-            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-            <div className="h-64 bg-gray-200 rounded"></div>
-            <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="h-8 bg-gray-200 rounded-lg w-1/3"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="h-80 bg-gray-200 rounded-xl"></div>
+              <div className="lg:col-span-2 h-80 bg-gray-200 rounded-xl"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -239,95 +251,80 @@ export default function ProfilePage() {
       <FloatingElements />
 
       <PageTransition>
-        <div className="max-w-4xl mx-auto px-6 py-12 relative z-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">My Profile</h1>
-            <p className="text-xl text-gray-600">Manage your account information and preferences</p>
+          <div className="mb-12">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3">
+                Profile
+              </h1>
+              <p className="text-lg text-gray-600 max-w-md mx-auto">
+                Manage your personal information and account details
+              </p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
             {/* Profile Card */}
             <div className="lg:col-span-1">
-              <AnimatedCard variant="glass" className="p-6 text-center">
-                <div className="relative inline-block mb-4">
-                  <Avatar className="h-24 w-24 ring-4 ring-purple-100">
-                    <AvatarImage src={user.user_metadata?.avatar_url || ""} alt={getUserDisplayName()} />
-                    <AvatarFallback className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-2xl font-bold">
-                      {getUserInitials()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <label htmlFor="profile-picture-upload" className="absolute bottom-0 right-0 cursor-pointer">
-                    <AnimatedButton variant="glass" size="sm" className="rounded-full p-2" asChild>
-                      <div>
-                        <Camera className="h-4 w-4" />
-                      </div>
-                    </AnimatedButton>
-                    <input
-                      id="profile-picture-upload"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleProfilePictureUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
+              <AnimatedCard variant="glass" className="p-8 text-center relative overflow-hidden">
+                {/* Background decoration */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-600"></div>
+                
+                <div className="relative">
+                  {/* Avatar Section */}
+                  <div className="relative inline-block mb-6">
+                    <div className="relative">
+                      <Avatar className="h-28 w-28 ring-4 ring-white shadow-xl">
+                        <AvatarImage src={user.user_metadata?.avatar_url || ""} alt={getUserDisplayName()} />
+                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white text-3xl font-bold">
+                          {getUserInitials()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <label htmlFor="profile-picture-upload" className="absolute -bottom-2 -right-2 cursor-pointer">
+                        <AnimatedButton 
+                          variant="glass" 
+                          size="sm" 
+                          className="rounded-full p-2 shadow-lg hover:shadow-xl transition-all duration-200" 
+                          asChild
+                        >
+                          <div className="bg-white">
+                            <Camera className="h-4 w-4 text-purple-600" />
+                          </div>
+                        </AnimatedButton>
+                        <input
+                          id="profile-picture-upload"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleProfilePictureUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
 
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">{getUserDisplayName()}</h2>
-                <p className="text-gray-600 mb-4">{user.email}</p>
+                  {/* User Info */}
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{getUserDisplayName()}</h2>
+                  <p className="text-gray-600 mb-1 flex items-center justify-center gap-2">
+                    <span>@{formData.username || "username"}</span>
+                  </p>
+                  <p className="text-sm text-gray-500 mb-6">{user.email}</p>
 
-                <div className="flex justify-center space-x-2 mb-6">
-                  <Badge className="bg-purple-100 text-purple-700 border-purple-200">Community Member</Badge>
-                  <Badge className="bg-blue-100 text-blue-700 border-blue-200">Verified</Badge>
-                </div>
+                  {/* Badges */}
+                  <div className="flex justify-center gap-2 mb-6">
+                    <Badge className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-300 px-3 py-1">
+                      Community Member
+                    </Badge>
+                    <Badge className="bg-gradient-to-r from-green-100 to-green-200 text-green-800 border-green-300 px-3 py-1 flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      Verified
+                    </Badge>
+                  </div>
 
-                {/* Quick Stats */}
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-purple-600">12</div>
-                    <div className="text-sm text-gray-600">Communities</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-blue-600">48</div>
-                    <div className="text-sm text-gray-600">Events</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-green-600">156</div>
-                    <div className="text-sm text-gray-600">Posts</div>
-                  </div>
-                </div>
-              </AnimatedCard>
-
-              {/* Activity Summary */}
-              <AnimatedCard variant="glass" className="p-6 mt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                      <Users className="h-4 w-4 text-purple-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Joined Tech Innovators</p>
-                      <p className="text-xs text-gray-500">2 days ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <MessageSquare className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Posted in Writers Circle</p>
-                      <p className="text-xs text-gray-500">1 week ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
-                      <Trophy className="h-4 w-4 text-yellow-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Earned Community Helper badge</p>
-                      <p className="text-xs text-gray-500">2 weeks ago</p>
-                    </div>
+                  {/* Member Since */}
+                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-500 bg-gray-50 rounded-lg p-3">
+                    <Calendar className="h-4 w-4 text-purple-500" />
+                    <span>Member since {new Date().toLocaleDateString()}</span>
                   </div>
                 </div>
               </AnimatedCard>
@@ -335,21 +332,41 @@ export default function ProfilePage() {
 
             {/* Profile Information */}
             <div className="lg:col-span-2">
-              <AnimatedCard variant="glass" className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900">Profile Information</h3>
+              <AnimatedCard variant="glass" className="p-8">
+                <div className="flex justify-between items-center mb-8">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Profile Information</h3>
+                    <p className="text-gray-600">Update your personal details and preferences</p>
+                  </div>
                   {!isEditing ? (
-                    <AnimatedButton variant="glass" size="sm" onClick={() => setIsEditing(true)}>
+                    <AnimatedButton 
+                      variant="gradient" 
+                      size="sm" 
+                      onClick={() => setIsEditing(true)}
+                      className="px-6 py-2"
+                    >
                       <Edit3 className="h-4 w-4 mr-2" />
                       Edit Profile
                     </AnimatedButton>
                   ) : (
-                    <div className="flex space-x-2">
-                      <AnimatedButton variant="glass" size="sm" onClick={handleCancel} disabled={isSaving}>
+                    <div className="flex gap-3">
+                      <AnimatedButton 
+                        variant="glass" 
+                        size="sm" 
+                        onClick={handleCancel} 
+                        disabled={isSaving}
+                        className="px-6 py-2"
+                      >
                         <X className="h-4 w-4 mr-2" />
                         Cancel
                       </AnimatedButton>
-                      <AnimatedButton variant="gradient" size="sm" onClick={handleSave} disabled={isSaving}>
+                      <AnimatedButton 
+                        variant="gradient" 
+                        size="sm" 
+                        onClick={handleSave} 
+                        disabled={isSaving}
+                        className="px-6 py-2"
+                      >
                         <Save className="h-4 w-4 mr-2" />
                         {isSaving ? "Saving..." : "Save Changes"}
                       </AnimatedButton>
@@ -357,13 +374,16 @@ export default function ProfilePage() {
                   )}
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-8">
                   {/* Basic Information */}
                   <div>
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="fullName" className="text-sm font-medium text-gray-700">
+                    <h4 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                      <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-indigo-600 rounded-full"></div>
+                      Basic Information
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="fullName" className="text-sm font-semibold text-gray-700">
                           Full Name
                         </Label>
                         {isEditing ? (
@@ -371,18 +391,21 @@ export default function ProfilePage() {
                             id="fullName"
                             value={formData.fullName}
                             onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                            className="mt-1"
+                            className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
+                            placeholder="Enter your full name"
                           />
                         ) : (
-                          <div className="mt-1 flex items-center space-x-2">
-                            <User className="h-4 w-4 text-gray-400" />
-                            <span className="text-gray-900">{formData.fullName || "Not provided"}</span>
+                          <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                              <User className="h-5 w-5 text-purple-600" />
+                            </div>
+                            <span className="text-gray-900 font-medium">{formData.fullName || "Not provided"}</span>
                           </div>
                         )}
                       </div>
 
-                      <div>
-                        <Label htmlFor="username" className="text-sm font-medium text-gray-700">
+                      <div className="space-y-2">
+                        <Label htmlFor="username" className="text-sm font-semibold text-gray-700">
                           Username
                         </Label>
                         {isEditing ? (
@@ -390,24 +413,29 @@ export default function ProfilePage() {
                             id="username"
                             value={formData.username}
                             onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                            className="mt-1"
+                            className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
+                            placeholder="Choose a username"
                           />
                         ) : (
-                          <div className="mt-1 flex items-center space-x-2">
-                            <span className="text-gray-400">@</span>
-                            <span className="text-gray-900">{formData.username || "Not provided"}</span>
+                          <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <span className="text-blue-600 font-bold">@</span>
+                            </div>
+                            <span className="text-gray-900 font-medium">{formData.username || "Not provided"}</span>
                           </div>
                         )}
                       </div>
 
-                      <div className="md:col-span-2">
-                        <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                      <div className="md:col-span-2 space-y-2">
+                        <Label htmlFor="email" className="text-sm font-semibold text-gray-700">
                           Email Address
                         </Label>
-                        <div className="mt-1 flex items-center space-x-2">
-                          <Mail className="h-4 w-4 text-gray-400" />
-                          <span className="text-gray-900">{user.email}</span>
-                          <Badge variant="outline" className="text-xs">
+                        <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                            <Mail className="h-5 w-5 text-green-600" />
+                          </div>
+                          <span className="text-gray-900 font-medium">{user.email}</span>
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
                             Verified
                           </Badge>
                         </div>
@@ -415,14 +443,17 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  <Separator />
+                  <Separator className="my-8" />
 
                   {/* Additional Information */}
                   <div>
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h4>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="bio" className="text-sm font-medium text-gray-700">
+                    <h4 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                      <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></div>
+                      Additional Information
+                    </h4>
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="bio" className="text-sm font-semibold text-gray-700">
                           Bio
                         </Label>
                         {isEditing ? (
@@ -431,17 +462,19 @@ export default function ProfilePage() {
                             value={formData.bio}
                             onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                             placeholder="Tell us about yourself..."
-                            className="mt-1"
-                            rows={3}
+                            className="border-gray-200 focus:border-purple-500 focus:ring-purple-500 min-h-[100px]"
+                            rows={4}
                           />
                         ) : (
-                          <p className="mt-1 text-gray-900">{formData.bio || "No bio provided yet."}</p>
+                          <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                            <p className="text-gray-900 leading-relaxed">{formData.bio || "No bio provided yet."}</p>
+                          </div>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="location" className="text-sm font-medium text-gray-700">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="location" className="text-sm font-semibold text-gray-700">
                             Location
                           </Label>
                           {isEditing ? (
@@ -450,18 +483,20 @@ export default function ProfilePage() {
                               value={formData.location}
                               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                               placeholder="City, Country"
-                              className="mt-1"
+                              className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
                             />
                           ) : (
-                            <div className="mt-1 flex items-center space-x-2">
-                              <MapPin className="h-4 w-4 text-gray-400" />
-                              <span className="text-gray-900">{formData.location || "Not provided"}</span>
+                            <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                                <MapPin className="h-5 w-5 text-orange-600" />
+                              </div>
+                              <span className="text-gray-900 font-medium">{formData.location || "Not provided"}</span>
                             </div>
                           )}
                         </div>
 
-                        <div>
-                          <Label htmlFor="website" className="text-sm font-medium text-gray-700">
+                        <div className="space-y-2">
+                          <Label htmlFor="website" className="text-sm font-semibold text-gray-700">
                             Website
                           </Label>
                           {isEditing ? (
@@ -470,27 +505,18 @@ export default function ProfilePage() {
                               value={formData.website}
                               onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                               placeholder="https://yourwebsite.com"
-                              className="mt-1"
+                              className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
                             />
                           ) : (
-                            <div className="mt-1 flex items-center space-x-2">
-                              <Globe className="h-4 w-4 text-gray-400" />
-                              <span className="text-gray-900">{formData.website || "Not provided"}</span>
+                            <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                <Globe className="h-5 w-5 text-indigo-600" />
+                              </div>
+                              <span className="text-gray-900 font-medium">{formData.website || "Not provided"}</span>
                             </div>
                           )}
                         </div>
                       </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Account Information */}
-                  <div>
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Account Information</h4>
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
-                      <Calendar className="h-4 w-4" />
-                      <span>Member since {new Date().toLocaleDateString()}</span>
                     </div>
                   </div>
                 </div>
