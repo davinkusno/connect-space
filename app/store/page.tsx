@@ -554,211 +554,125 @@ export default function StorePage() {
           </div>
         )}
 
-        {/* Purchase Confirmation Dialog */}
-        <Dialog open={showPurchaseDialog} onOpenChange={setShowPurchaseDialog}>
-          <DialogContent className="max-w-lg bg-white border-0 shadow-2xl rounded-2xl">
-            <DialogHeader className="text-center pb-4">
-              <DialogTitle className="text-2xl font-bold text-gray-900 text-center">
-                {purchaseSuccess ? (
-                  "Purchase Successful!"
-                ) : (
-                  <>
-                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                      <ShoppingCart className="h-6 w-6 text-purple-600" />
+        {/* Purchase Dialog */}
+        <Dialog open={showPurchaseDialog} onOpenChange={handleCloseModal}>
+          <DialogContent className="max-w-sm bg-white dark:bg-gray-800 border-0 shadow-2xl rounded-2xl p-0">
+            {purchaseSuccess ? (
+              <div className="text-center p-8">
+                <div className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-teal-500 flex items-center justify-center mb-5 shadow-lg shadow-green-500/30">
+                  <Check className="w-12 h-12 text-white" strokeWidth={3} />
+                </div>
+                <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  Purchase Successful!
+                </DialogTitle>
+                <p className="text-gray-600 dark:text-gray-300 mb-6">
+                  You've successfully acquired the{" "}
+                  <span className="font-semibold text-violet-600 dark:text-violet-400">{selectedBadge?.name}</span>{" "}
+                  badge.
+                </p>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 my-6 text-left text-sm space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Points Spent:</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">
+                      {selectedBadge?.price.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Remaining Points:</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">
+                      {(userData.points - (selectedBadge?.price || 0)).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+                <DialogFooter className="mt-8">
+                  <Button
+                    onClick={handleCloseModal}
+                    className="w-full bg-violet-700 hover:bg-violet-800 text-white font-semibold py-3 h-auto"
+                  >
+                    Awesome!
+                  </Button>
+                </DialogFooter>
+              </div>
+            ) : (
+              <>
+                <DialogHeader className="p-6 pb-4">
+                  <DialogTitle className="flex items-center gap-3 text-xl">
+                    <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center">
+                      <ShoppingCart className="h-5 w-5 text-violet-600 dark:text-violet-400" />
                     </div>
                     Confirm Purchase
-                  </>
-                )}
-              </DialogTitle>
-            </DialogHeader>
+                  </DialogTitle>
+                </DialogHeader>
 
-            {selectedBadge && (
-              <div className="py-6">
-                {purchaseSuccess ? (
-                  <div className="text-center space-y-6">
-                    <div className="w-24 h-24 mx-auto bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center shadow-lg">
-                      <Check className="h-12 w-12 text-green-600" />
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-3">Badge Purchased!</h3>
-                      <p className="text-gray-600 text-lg">
-                        The <span className="font-semibold text-purple-600">{selectedBadge.name}</span> badge has been added to your collection.
-                      </p>
-                    </div>
-                    
-                    <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl p-6 border border-purple-200 shadow-sm">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-purple-700 font-medium">Points Spent:</span>
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-yellow-500" />
-                            <span className="font-bold text-purple-800 text-lg">{selectedBadge.price.toLocaleString()}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-purple-700 font-medium">Remaining Points:</span>
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-yellow-500" />
-                            <span className="font-bold text-purple-800 text-lg">
-                              {(userData.points - selectedBadge.price).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="pt-4">
-                      <Button 
-                        onClick={handleCloseModal}
-                        className="bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 text-white px-8 py-3 text-lg font-semibold rounded-xl"
-                      >
-                        Continue Shopping
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Badge Preview */}
-                    <div className="bg-gradient-to-br from-gray-50 to-purple-50 rounded-2xl p-6 border border-gray-200">
-                      <div className="flex items-center gap-6">
-                        <div className="relative">
-                          <div className="w-20 h-20 bg-white rounded-full p-2 shadow-lg">
-                            <Image
-                              src={selectedBadge.image || "/placeholder.svg"}
-                              alt={selectedBadge.name}
-                              width={64}
-                              height={64}
-                              className="rounded-full"
-                            />
-                          </div>
-                          <div className="absolute -top-2 -right-2">
-                            <div
-                              className={`w-8 h-8 ${getRarityColor(selectedBadge.rarity)} rounded-full flex items-center justify-center shadow-lg`}
-                            >
-                              <AnimatedIcon
-                                icon={selectedBadge.icon}
-                                animationType="pulse"
-                                className="text-white text-sm"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-xl text-gray-900 mb-2">{selectedBadge.name}</h3>
-                          <p className="text-gray-600 text-sm leading-relaxed mb-3">{selectedBadge.description}</p>
-                          <div className="flex items-center gap-2">
-                            <BadgeComponent
-                              className={`${getRarityColor(selectedBadge.rarity)} text-white border-0 text-xs capitalize font-semibold px-3 py-1`}
-                            >
-                              {selectedBadge.rarity}
-                            </BadgeComponent>
-                            {selectedBadge.isLimited && (
-                              <BadgeComponent className="bg-red-500 text-white border-0 text-xs font-semibold px-3 py-1">
-                                Limited Edition
-                              </BadgeComponent>
-                            )}
-                          </div>
-                        </div>
+                {selectedBadge && (
+                  <div className="px-6 space-y-4">
+                    <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <Image
+                        src={selectedBadge.image || "/placeholder.svg"}
+                        alt={selectedBadge.name}
+                        width={60}
+                        height={60}
+                        className="rounded-full"
+                      />
+                      <div>
+                        <h4 className="font-semibold text-gray-900 dark:text-white">{selectedBadge.name}</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                          {selectedBadge.description}
+                        </p>
                       </div>
                     </div>
 
-                    {/* Purchase Details */}
-                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                      <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                        <ShoppingCart className="h-5 w-5 text-purple-600" />
-                        Purchase Summary
-                      </h4>
-                      
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between py-2">
-                          <span className="text-gray-600 font-medium">Badge Price:</span>
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-yellow-500" />
-                            <span className="font-bold text-gray-900 text-lg">{selectedBadge.price.toLocaleString()}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between py-2">
-                          <span className="text-gray-600 font-medium">Your Current Points:</span>
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-yellow-500" />
-                            <span className="font-bold text-gray-900 text-lg">{userData.points.toLocaleString()}</span>
-                          </div>
-                        </div>
-                        
-                        <Separator className="my-4" />
-                        
-                        <div className="flex items-center justify-between py-2 bg-purple-50 rounded-lg px-4">
-                          <span className="text-purple-700 font-semibold">After Purchase:</span>
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-yellow-500" />
-                            <span className="font-bold text-purple-800 text-lg">
-                              {(userData.points - selectedBadge.price).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
+                    <div className="space-y-2 text-sm pt-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Price</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-100">
+                          {selectedBadge.price.toLocaleString()} points
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Your points</span>
+                        <span className="text-gray-800 dark:text-gray-100">{userData.points.toLocaleString()} points</span>
+                      </div>
+                      <Separator className="my-2 bg-gray-200 dark:bg-gray-700" />
+                      <div className="flex justify-between font-bold text-gray-800 dark:text-white">
+                        <span>Remaining points</span>
+                        <span>{(userData.points - selectedBadge.price).toLocaleString()} points</span>
                       </div>
                     </div>
 
-                    {/* Limited Edition Warning */}
-                    {selectedBadge.isLimited && (
-                      <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-xl p-4 border border-red-200">
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <AlertCircle className="h-4 w-4 text-red-600" />
-                          </div>
-                          <div>
-                            <div className="font-semibold text-red-700 mb-1">Limited Edition Badge</div>
-                            <p className="text-red-600 text-sm">
-                              Only <span className="font-bold">{selectedBadge.limitedRemaining}</span> remaining! 
-                              {selectedBadge.expiresAt && (
-                                <> This offer expires on <span className="font-semibold">{new Date(selectedBadge.expiresAt).toLocaleDateString()}</span>.</>
-                              )}
-                            </p>
-                          </div>
-                        </div>
+                    {!canAfford(selectedBadge.price) && (
+                      <div className="flex items-center gap-2 p-3 bg-red-100/50 dark:bg-red-900/30 border border-red-200 dark:border-red-600/50 rounded-lg">
+                        <AlertCircle className="h-5 w-5 text-red-600" />
+                        <span className="text-sm text-red-700 dark:text-red-300 font-medium">
+                          You don't have enough points for this badge.
+                        </span>
                       </div>
                     )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {!purchaseSuccess && (
-              <DialogFooter className="flex gap-3 pt-6">
-                <Button
-                  variant="outline"
-                  onClick={handleCloseModal}
-                  disabled={isPurchasing}
-                  className="border-gray-300 hover:border-gray-400 hover:bg-gray-50 px-6 py-2.5 font-medium"
-                >
-                  Cancel
-                </Button>
-                <ButtonPulse
-                  onClick={confirmPurchase}
-                  disabled={isPurchasing || !selectedBadge || !canAfford(selectedBadge.price)}
-                  pulseColor="rgba(124, 58, 237, 0.3)"
-                >
-                  <Button
-                    onClick={confirmPurchase}
-                    disabled={isPurchasing || !selectedBadge || !canAfford(selectedBadge.price)}
-                    className="bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 text-white px-8 py-2.5 font-semibold shadow-lg"
-                  >
-                    {isPurchasing ? (
-                      <>
-                        <Spinner size="sm" className="mr-2 border-white" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingCart className="h-4 w-4 mr-2" />
-                        Confirm Purchase
-                      </>
-                    )}
+                <DialogFooter className="p-6 bg-gray-50 dark:bg-gray-800/50 mt-6 rounded-b-2xl">
+                  <Button variant="ghost" onClick={handleCloseModal} disabled={isPurchasing}>
+                    Cancel
                   </Button>
-                </ButtonPulse>
-              </DialogFooter>
+                  <ButtonPulse
+                    disabled={isPurchasing || !selectedBadge || !canAfford(selectedBadge.price)}
+                    onClick={confirmPurchase}
+                    pulseColor="rgba(124, 58, 237, 0.3)"
+                  >
+                    <Button
+                      className="w-40 bg-violet-700 hover:bg-violet-800 text-white"
+                      disabled={isPurchasing || !selectedBadge || !canAfford(selectedBadge.price)}
+                    >
+                      {isPurchasing ? (
+                        <Spinner size="sm" />
+                      ) : (
+                        `Pay ${selectedBadge?.price.toLocaleString()} pts`
+                      )}
+                    </Button>
+                  </ButtonPulse>
+                </DialogFooter>
+              </>
             )}
           </DialogContent>
         </Dialog>

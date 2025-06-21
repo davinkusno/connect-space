@@ -920,8 +920,8 @@ export default function DiscoverPage() {
                 <span>Filters ({getActiveFiltersCount()})</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[380px] sm:w-[420px] bg-white/80 backdrop-blur-sm p-0">
-              <SheetHeader className="p-6 pb-4 border-b border-gray-200/80">
+            <SheetContent side="left" className="w-[380px] sm:w-[420px] bg-white dark:bg-gray-950 p-0">
+              <SheetHeader className="p-6 pb-4 border-b border-gray-200 dark:border-gray-800">
                 <SheetTitle className="text-2xl font-bold flex items-center gap-2">
                   <Filter className="h-6 w-6" />
                   <span>Filter Communities</span>
@@ -930,7 +930,7 @@ export default function DiscoverPage() {
               <div className="p-6 h-[calc(100vh-140px)] overflow-y-auto scrollbar-thin">
                 <FilterSidebar />
               </div>
-              <SheetFooter className="p-6 pt-4 border-t border-gray-200/80 bg-white/80 backdrop-blur-sm">
+              <SheetFooter className="p-6 pt-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
                 <Button onClick={clearFilters} variant="outline" className="w-full mr-2">
                   Clear Filters
                 </Button>

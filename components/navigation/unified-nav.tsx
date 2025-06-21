@@ -447,11 +447,15 @@ export function UnifiedNav() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 ${
+                  className={`group flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 ${
                     isActive ? `${activeClasses} font-semibold` : "text-gray-600 dark:text-gray-300"
                   } ${link.hoverClasses}`}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? "" : "text-gray-400 dark:text-gray-400"}`} />
+                  <Icon
+                    className={`h-4 w-4 transition-colors ${
+                      isActive ? "" : "text-gray-400 dark:text-gray-400 group-hover:text-inherit"
+                    }`}
+                  />
                   <span>{link.label}</span>
                 </Link>
               )
@@ -660,11 +664,15 @@ export function UnifiedNav() {
                             key={`mobile-${link.href}`}
                             href={link.href}
                             onClick={() => setIsMobileMenuOpen(false)}
-                            className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-base font-medium transition-colors ${
+                            className={`group flex items-center space-x-3 px-3 py-2.5 rounded-lg text-base font-medium transition-colors ${
                               isActive ? `${activeClasses} font-semibold` : "text-gray-600 dark:text-gray-300"
                             } ${link.hoverClasses}`}
                           >
-                            <Icon className={`h-5 w-5 ${isActive ? "" : "text-gray-400"}`} />
+                            <Icon
+                              className={`h-5 w-5 transition-colors ${
+                                isActive ? "" : "text-gray-400 dark:text-gray-400 group-hover:text-inherit"
+                              }`}
+                            />
                             <span>{link.label}</span>
                           </Link>
                         )

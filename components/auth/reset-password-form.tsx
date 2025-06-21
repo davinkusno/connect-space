@@ -41,11 +41,11 @@ export function ResetPasswordForm() {
   })
 
   useEffect(() => {
-  if (typeof window === "undefined") return
+    if (typeof window === "undefined") return
 
-  const url = new URL(window.location.href)
-  const token = url.searchParams.get("token")
-  const type = url.searchParams.get("type")
+    const url = new URL(window.location.href)
+    const token = url.searchParams.get("token")
+    const type = url.searchParams.get("type")
   const error = url.searchParams.get("error")
   const errorDescription = url.searchParams.get("error_description")
 
@@ -60,23 +60,23 @@ export function ResetPasswordForm() {
     return
   }
 
-  if (!token || type !== "recovery") return
+    if (!token || type !== "recovery") return
 
-  const runExchange = async () => {
-    const { error } = await supabase.auth.exchangeCodeForSession(token)
+    const runExchange = async () => {
+      const { error } = await supabase.auth.exchangeCodeForSession(token)
 
-    if (error) {
-      toast({
-        title: "Invalid or expired link",
-        description: error.message,
-        variant: "destructive",
-      })
-      router.push("/auth/forgot-password")
+      if (error) {
+        toast({
+          title: "Invalid or expired link",
+          description: error.message,
+          variant: "destructive",
+        })
+        router.push("/auth/forgot-password")
+      }
     }
-  }
 
-  runExchange()
-}, [router, supabase])
+    runExchange()
+  }, [router, supabase])
 
 
   async function onSubmit(data: ResetPasswordValues) {

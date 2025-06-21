@@ -276,11 +276,11 @@ export default function ProfilePage() {
                   <div className="relative inline-block mb-6">
                     <div className="relative">
                       <Avatar className="h-28 w-28 ring-4 ring-white shadow-xl">
-                        <AvatarImage src={user.user_metadata?.avatar_url || ""} alt={getUserDisplayName()} />
+                    <AvatarImage src={user.user_metadata?.avatar_url || ""} alt={getUserDisplayName()} />
                         <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white text-3xl font-bold">
-                          {getUserInitials()}
-                        </AvatarFallback>
-                      </Avatar>
+                      {getUserInitials()}
+                    </AvatarFallback>
+                  </Avatar>
                       <label htmlFor="profile-picture-upload" className="absolute -bottom-2 -right-2 cursor-pointer">
                         <AnimatedButton 
                           variant="glass" 
@@ -290,17 +290,17 @@ export default function ProfilePage() {
                         >
                           <div className="bg-white">
                             <Camera className="h-4 w-4 text-purple-600" />
-                          </div>
-                        </AnimatedButton>
-                        <input
-                          id="profile-picture-upload"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleProfilePictureUpload}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
+                      </div>
+                    </AnimatedButton>
+                    <input
+                      id="profile-picture-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleProfilePictureUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
                   </div>
 
                   {/* User Info */}

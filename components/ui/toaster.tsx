@@ -22,10 +22,10 @@ export function Toaster() {
             <div className="flex items-start space-x-3">
               <ToastIcon variant={variant} />
               <div className="flex-1 grid gap-1">
-                {title && <ToastTitle>{title}</ToastTitle>}
-                {description && (
-                  <ToastDescription>{description}</ToastDescription>
-                )}
+              {title && <ToastTitle>{title}</ToastTitle>}
+              {description && (
+                <ToastDescription>{description}</ToastDescription>
+              )}
               </div>
             </div>
             {action}
