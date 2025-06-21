@@ -476,50 +476,110 @@ export function UnifiedNav() {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="relative h-10 w-10 rounded-full hover:ring-2 hover:ring-purple-200 transition-all duration-200"
+                    className="relative h-10 w-10 rounded-full hover:ring-2 hover:ring-purple-200 hover:scale-105 transition-all duration-200 group"
                   >
-                    <Avatar className="h-10 w-10 ring-2 ring-purple-100">
+                    <Avatar className="h-10 w-10 ring-2 ring-purple-100 group-hover:ring-purple-300 transition-all duration-200">
                       <AvatarImage src={user.user_metadata?.avatar_url || ""} alt={getUserDisplayName()} />
                       <AvatarFallback className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold">
                         {getUserInitials()}
                       </AvatarFallback>
                     </Avatar>
+                    {/* Hover indicator */}
+                    <div className="absolute inset-0 rounded-full bg-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-white border border-gray-200 shadow-lg">
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{getUserDisplayName()}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                <DropdownMenuContent 
+                  align="end" 
+                  className="w-72 bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-xl p-2 animate-in slide-in-from-top-2 duration-200"
+                  sideOffset={8}
+                >
+                  {/* User Header */}
+                  <DropdownMenuLabel className="font-normal p-3 rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100/50">
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="h-12 w-12 ring-2 ring-purple-200">
+                        <AvatarImage src={user.user_metadata?.avatar_url || ""} alt={getUserDisplayName()} />
+                        <AvatarFallback className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold">
+                          {getUserInitials()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{getUserDisplayName()}</p>
+                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-xs text-green-600 font-medium">Online</span>
+                        </div>
+                      </div>
                     </div>
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleProfileNavigation} className="cursor-pointer hover:bg-gray-50">
-                    <UserCircle className="mr-2 h-4 w-4" />
-                    <span>View Profile</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => router.push("/dashboard")}
-                    className="cursor-pointer hover:bg-gray-50"
-                  >
-                    <Home className="mr-2 h-4 w-4" />
-                    <span>Dashboard</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => router.push("/settings")}
-                    className="cursor-pointer hover:bg-gray-50"
-                  >
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  
+                  <DropdownMenuSeparator className="my-2" />
+                  
+                  {/* Navigation Items */}
+                  <div className="space-y-1">
+                    <DropdownMenuItem 
+                      onClick={handleProfileNavigation} 
+                      className="cursor-pointer p-3 rounded-lg hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 hover:text-purple-700 transition-all duration-200 group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors duration-200">
+                          <UserCircle className="h-4 w-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <span className="font-medium">View Profile</span>
+                          <p className="text-xs text-gray-500">Manage your account</p>
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem
+                      onClick={() => router.push("/dashboard")}
+                      className="cursor-pointer p-3 rounded-lg hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:text-blue-700 transition-all duration-200 group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors duration-200">
+                          <Home className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <span className="font-medium">Dashboard</span>
+                          <p className="text-xs text-gray-500">Your activity overview</p>
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem
+                      onClick={() => router.push("/settings")}
+                      className="cursor-pointer p-3 rounded-lg hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-700 transition-all duration-200 group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-gray-200 transition-colors duration-200">
+                          <Settings className="h-4 w-4 text-gray-600" />
+                        </div>
+                        <div>
+                          <span className="font-medium">Settings</span>
+                          <p className="text-xs text-gray-500">Preferences & privacy</p>
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
+                  </div>
+                  
+                  <DropdownMenuSeparator className="my-2" />
+                  
+                  {/* Sign Out */}
                   <DropdownMenuItem
                     onClick={handleSignOut}
                     disabled={isSigningOut}
-                    className="cursor-pointer text-red-600 focus:text-red-600 hover:bg-red-50"
+                    className="cursor-pointer p-3 rounded-lg text-red-600 focus:text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-red-100 transition-all duration-200 group"
                   >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition-colors duration-200">
+                        <LogOut className="h-4 w-4 text-red-600" />
+                      </div>
+                      <div>
+                        <span className="font-medium">{isSigningOut ? "Signing out..." : "Sign Out"}</span>
+                        <p className="text-xs text-red-500">End your session</p>
+                      </div>
+                    </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
