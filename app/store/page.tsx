@@ -266,13 +266,13 @@ export default function StorePage() {
     setTimeout(() => {
       setIsPurchasing(false)
       setPurchaseSuccess(true)
-      // In a real app, this would update the user's points and badge collection
-      setTimeout(() => {
-        setShowPurchaseDialog(false)
-        setPurchaseSuccess(false)
-        setSelectedBadge(null)
-      }, 2000)
     }, 1500)
+  }
+
+  const handleCloseModal = () => {
+    setShowPurchaseDialog(false)
+    setPurchaseSuccess(false)
+    setSelectedBadge(null)
   }
 
   const canAfford = (price: number) => userData.points >= price
@@ -281,50 +281,32 @@ export default function StorePage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 relative overflow-hidden">
       <FloatingElements />
 
-      {/* Navigation */}
-      <nav className="glass-effect sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex justify-between items-center h-20">
-            <div className="flex items-center gap-4">
-              <Link href="/dashboard">
-                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-violet-700">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Button>
-              </Link>
-              <div className="text-2xl font-bold text-gradient flex items-center gap-2">
-                <ShoppingCart className="w-8 h-8 text-purple-600" />
-                Badge Store
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="glass-effect px-4 py-2 rounded-full">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Sparkles className="h-4 w-4 text-yellow-500" />
-                  <span className="text-gray-700">{userData.points.toLocaleString()} points</span>
-                </div>
-              </div>
-              <div className="glass-effect px-4 py-2 rounded-full">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Trophy className="h-4 w-4 text-purple-600" />
-                  <span className="text-gray-700">Level {userData.level}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
       <div className="max-w-7xl mx-auto px-6 py-12 relative z-10">
         {/* Header */}
         <div className="text-center mb-16">
           <h1 className="text-6xl font-bold text-gray-900 mb-4">
             Badge Store <span className="text-gradient">🏆</span>
           </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
             Spend your earned points on exclusive badges that showcase your achievements and contributions to the
             community.
           </p>
+          
+          {/* User Points and Level Info */}
+          <div className="flex justify-center gap-4 mb-8">
+            <div className="glass-effect px-6 py-3 rounded-full">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Sparkles className="h-5 w-5 text-yellow-500" />
+                <span className="text-gray-700 font-semibold">{userData.points.toLocaleString()} points</span>
+              </div>
+            </div>
+            <div className="glass-effect px-6 py-3 rounded-full">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Trophy className="h-5 w-5 text-purple-600" />
+                <span className="text-gray-700 font-semibold">Level {userData.level}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Filters and Search */}
@@ -574,17 +556,16 @@ export default function StorePage() {
 
         {/* Purchase Confirmation Dialog */}
         <Dialog open={showPurchaseDialog} onOpenChange={setShowPurchaseDialog}>
-          <DialogContent className="max-w-md glass-effect">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <DialogContent className="max-w-lg bg-white border-0 shadow-2xl rounded-2xl">
+            <DialogHeader className="text-center pb-4">
+              <DialogTitle className="text-2xl font-bold text-gray-900 text-center">
                 {purchaseSuccess ? (
-                  <>
-                    <Check className="h-6 w-6 text-green-500" />
-                    Purchase Successful!
-                  </>
+                  "Purchase Successful!"
                 ) : (
                   <>
-                    <ShoppingCart className="h-6 w-6 text-purple-600" />
+                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                      <ShoppingCart className="h-6 w-6 text-purple-600" />
+                    </div>
                     Confirm Purchase
                   </>
                 )}
@@ -594,101 +575,149 @@ export default function StorePage() {
             {selectedBadge && (
               <div className="py-6">
                 {purchaseSuccess ? (
-                  <div className="text-center">
-                    <div className="mb-4">
-                      <div className="w-20 h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center">
-                        <Check className="h-10 w-10 text-green-500" />
-                      </div>
+                  <div className="text-center space-y-6">
+                    <div className="w-24 h-24 mx-auto bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center shadow-lg">
+                      <Check className="h-12 w-12 text-green-600" />
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">Badge Purchased!</h3>
-                    <p className="text-gray-600 mb-4">
-                      The <strong>{selectedBadge.name}</strong> badge has been added to your collection.
-                    </p>
-                    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-green-700">Points Spent:</span>
-                        <span className="font-bold text-green-800">{selectedBadge.price.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm mt-1">
-                        <span className="text-green-700">Remaining Points:</span>
-                        <span className="font-bold text-green-800">
-                          {(userData.points - selectedBadge.price).toLocaleString()}
-                        </span>
-                      </div>
+                    
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-3">Badge Purchased!</h3>
+                      <p className="text-gray-600 text-lg">
+                        The <span className="font-semibold text-purple-600">{selectedBadge.name}</span> badge has been added to your collection.
+                      </p>
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="relative">
-                        <Image
-                          src={selectedBadge.image || "/placeholder.svg"}
-                          alt={selectedBadge.name}
-                          width={80}
-                          height={80}
-                          className="rounded-full"
-                        />
-                        <div className="absolute -top-1 -right-1">
-                          <div
-                            className={`w-6 h-6 ${getRarityColor(selectedBadge.rarity)} rounded-full flex items-center justify-center`}
-                          >
-                            <AnimatedIcon
-                              icon={selectedBadge.icon}
-                              animationType="pulse"
-                              className="text-white text-xs"
-                            />
+                    
+                    <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl p-6 border border-purple-200 shadow-sm">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-purple-700 font-medium">Points Spent:</span>
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-yellow-500" />
+                            <span className="font-bold text-purple-800 text-lg">{selectedBadge.price.toLocaleString()}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-purple-700 font-medium">Remaining Points:</span>
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-yellow-500" />
+                            <span className="font-bold text-purple-800 text-lg">
+                              {(userData.points - selectedBadge.price).toLocaleString()}
+                            </span>
                           </div>
                         </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-lg text-gray-900">{selectedBadge.name}</h3>
-                        <p className="text-gray-600 text-sm">{selectedBadge.description}</p>
-                        <BadgeComponent
-                          className={`${getRarityColor(selectedBadge.rarity)} text-white border-0 text-xs capitalize mt-2`}
-                        >
-                          {selectedBadge.rarity}
-                        </BadgeComponent>
+                    </div>
+                    
+                    <div className="pt-4">
+                      <Button 
+                        onClick={handleCloseModal}
+                        className="bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 text-white px-8 py-3 text-lg font-semibold rounded-xl"
+                      >
+                        Continue Shopping
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Badge Preview */}
+                    <div className="bg-gradient-to-br from-gray-50 to-purple-50 rounded-2xl p-6 border border-gray-200">
+                      <div className="flex items-center gap-6">
+                        <div className="relative">
+                          <div className="w-20 h-20 bg-white rounded-full p-2 shadow-lg">
+                            <Image
+                              src={selectedBadge.image || "/placeholder.svg"}
+                              alt={selectedBadge.name}
+                              width={64}
+                              height={64}
+                              className="rounded-full"
+                            />
+                          </div>
+                          <div className="absolute -top-2 -right-2">
+                            <div
+                              className={`w-8 h-8 ${getRarityColor(selectedBadge.rarity)} rounded-full flex items-center justify-center shadow-lg`}
+                            >
+                              <AnimatedIcon
+                                icon={selectedBadge.icon}
+                                animationType="pulse"
+                                className="text-white text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-xl text-gray-900 mb-2">{selectedBadge.name}</h3>
+                          <p className="text-gray-600 text-sm leading-relaxed mb-3">{selectedBadge.description}</p>
+                          <div className="flex items-center gap-2">
+                            <BadgeComponent
+                              className={`${getRarityColor(selectedBadge.rarity)} text-white border-0 text-xs capitalize font-semibold px-3 py-1`}
+                            >
+                              {selectedBadge.rarity}
+                            </BadgeComponent>
+                            {selectedBadge.isLimited && (
+                              <BadgeComponent className="bg-red-500 text-white border-0 text-xs font-semibold px-3 py-1">
+                                Limited Edition
+                              </BadgeComponent>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <Separator className="my-4" />
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Badge Price:</span>
-                        <div className="flex items-center gap-1">
-                          <Sparkles className="h-4 w-4 text-yellow-500" />
-                          <span className="font-bold text-gray-900">{selectedBadge.price.toLocaleString()}</span>
+                    {/* Purchase Details */}
+                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                      <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <ShoppingCart className="h-5 w-5 text-purple-600" />
+                        Purchase Summary
+                      </h4>
+                      
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between py-2">
+                          <span className="text-gray-600 font-medium">Badge Price:</span>
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-yellow-500" />
+                            <span className="font-bold text-gray-900 text-lg">{selectedBadge.price.toLocaleString()}</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Your Points:</span>
-                        <div className="flex items-center gap-1">
-                          <Sparkles className="h-4 w-4 text-yellow-500" />
-                          <span className="font-bold text-gray-900">{userData.points.toLocaleString()}</span>
+                        
+                        <div className="flex items-center justify-between py-2">
+                          <span className="text-gray-600 font-medium">Your Current Points:</span>
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-yellow-500" />
+                            <span className="font-bold text-gray-900 text-lg">{userData.points.toLocaleString()}</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                        <span className="text-gray-600">After Purchase:</span>
-                        <div className="flex items-center gap-1">
-                          <Sparkles className="h-4 w-4 text-yellow-500" />
-                          <span className="font-bold text-gray-900">
-                            {(userData.points - selectedBadge.price).toLocaleString()}
-                          </span>
+                        
+                        <Separator className="my-4" />
+                        
+                        <div className="flex items-center justify-between py-2 bg-purple-50 rounded-lg px-4">
+                          <span className="text-purple-700 font-semibold">After Purchase:</span>
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-yellow-500" />
+                            <span className="font-bold text-purple-800 text-lg">
+                              {(userData.points - selectedBadge.price).toLocaleString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
 
+                    {/* Limited Edition Warning */}
                     {selectedBadge.isLimited && (
-                      <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-                        <div className="flex items-center gap-2 text-red-700 text-sm">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="font-medium">Limited Edition</span>
+                      <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-xl p-4 border border-red-200">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <AlertCircle className="h-4 w-4 text-red-600" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-red-700 mb-1">Limited Edition Badge</div>
+                            <p className="text-red-600 text-sm">
+                              Only <span className="font-bold">{selectedBadge.limitedRemaining}</span> remaining! 
+                              {selectedBadge.expiresAt && (
+                                <> This offer expires on <span className="font-semibold">{new Date(selectedBadge.expiresAt).toLocaleDateString()}</span>.</>
+                              )}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-red-600 text-xs mt-1">
-                          Only {selectedBadge.limitedRemaining} remaining. This offer expires on{" "}
-                          {selectedBadge.expiresAt && new Date(selectedBadge.expiresAt).toLocaleDateString()}.
-                        </p>
                       </div>
                     )}
                   </div>
@@ -697,12 +726,12 @@ export default function StorePage() {
             )}
 
             {!purchaseSuccess && (
-              <DialogFooter>
+              <DialogFooter className="flex gap-3 pt-6">
                 <Button
                   variant="outline"
-                  onClick={() => setShowPurchaseDialog(false)}
+                  onClick={handleCloseModal}
                   disabled={isPurchasing}
-                  className="border-gray-200 hover:border-gray-300"
+                  className="border-gray-300 hover:border-gray-400 hover:bg-gray-50 px-6 py-2.5 font-medium"
                 >
                   Cancel
                 </Button>
@@ -714,7 +743,7 @@ export default function StorePage() {
                   <Button
                     onClick={confirmPurchase}
                     disabled={isPurchasing || !selectedBadge || !canAfford(selectedBadge.price)}
-                    className="bg-violet-700 hover:bg-violet-800 text-white"
+                    className="bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 text-white px-8 py-2.5 font-semibold shadow-lg"
                   >
                     {isPurchasing ? (
                       <>

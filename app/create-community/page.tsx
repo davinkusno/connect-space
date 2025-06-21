@@ -221,29 +221,6 @@ export default function CreateCommunityPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="border-b border-gray-100 bg-white sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="text-xl font-medium text-violet-700">
-              ConnectSpace
-            </Link>
-            <div className="flex items-center space-x-4">
-              <Link href="/dashboard">
-                <Button variant="ghost" className="text-gray-600 hover:text-violet-700">
-                  Dashboard
-                </Button>
-              </Link>
-              <Link href="/discover">
-                <Button variant="ghost" className="text-gray-600 hover:text-violet-700">
-                  Discover
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
-
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="mb-12">

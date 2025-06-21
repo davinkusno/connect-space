@@ -246,6 +246,8 @@ export function UnifiedNav() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length
 
+  const visibleLinks = user ? navigationLinks : navigationLinks.filter((link) => link.href !== "/messages")
+
   const handleMarkAsRead = (id: string) => {
     setNotifications((prev) =>
       prev.map((notification) => (notification.id === id ? { ...notification, isRead: true } : notification)),
@@ -436,7 +438,7 @@ export function UnifiedNav() {
 
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center space-x-1">
-            {navigationLinks.map((link) => {
+            {visibleLinks.map((link) => {
               const Icon = link.icon
               const isActive = isActivePage(link.href)
 
@@ -650,7 +652,7 @@ export function UnifiedNav() {
                     {/* Mobile Navigation Links */}
                     <div className="flex-1 py-4">
                       <div className="space-y-1">
-                        {navigationLinks.map((link) => {
+                        {visibleLinks.map((link) => {
                           const Icon = link.icon
                           const isActive = isActivePage(link.href)
 
