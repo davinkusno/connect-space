@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -65,6 +65,7 @@ import {
   SheetFooter,
   SheetClose
 } from "@/components/ui/sheet"
+import React from "react"
 
 interface Community {
   id: string
@@ -127,6 +128,227 @@ const defaultFilters: FilterState = {
   privacy: [],
 }
 
+interface FilterSidebarProps {
+  tempFilters: FilterState
+  handleTempFilterChange: (key: keyof FilterState, value: any) => void
+  allCategories: string[]
+  allActivityLevels: string[]
+  allLocations: string[]
+}
+
+const FilterSidebar = React.memo(({ tempFilters, handleTempFilterChange, allCategories, allActivityLevels, allLocations }: FilterSidebarProps) => (
+  <div className="space-y-8 pt-2">
+    <Accordion type="multiple" defaultValue={["category", "members", "rating", "activity", "location", "privacy", "special"]} className="w-full">
+      {/* Category Filter */}
+      <AccordionItem value="category">
+        <AccordionTrigger className="text-base font-semibold">Category</AccordionTrigger>
+        <AccordionContent>
+          <div className="space-y-3 pt-2">
+            {allCategories.map((category) => (
+              <div key={category} className="flex items-center space-x-3">
+                <Checkbox
+                  id={`cat-${category}`}
+                  checked={tempFilters.categories.includes(category)}
+                  onCheckedChange={(checked) => {
+                    const newCategories = checked
+                      ? [...tempFilters.categories, category]
+                      : tempFilters.categories.filter((c) => c !== category)
+                    handleTempFilterChange("categories", newCategories)
+                  }}
+                />
+                <Label htmlFor={`cat-${category}`} className="font-normal text-gray-700 hover:text-purple-600 cursor-pointer">
+                  {category}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+      
+      {/* Member Range Filter */}
+      <AccordionItem value="members">
+        <AccordionTrigger className="text-base font-semibold">Member Count</AccordionTrigger>
+        <AccordionContent>
+          <div className="pt-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="min-members" className="text-sm font-medium">Min:</Label>
+              <input
+                id="min-members"
+                type="number"
+                min="0"
+                max="10000"
+                value={tempFilters.memberRange[0]}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 0
+                  handleTempFilterChange("memberRange", [value, tempFilters.memberRange[1]])
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="max-members" className="text-sm font-medium">Max:</Label>
+              <input
+                id="max-members"
+                type="number"
+                min="0"
+                max="10000"
+                value={tempFilters.memberRange[1]}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 10000
+                  handleTempFilterChange("memberRange", [tempFilters.memberRange[0], value])
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+      
+      {/* Rating Range Filter */}
+      <AccordionItem value="rating">
+        <AccordionTrigger className="text-base font-semibold">Rating</AccordionTrigger>
+        <AccordionContent>
+          <div className="pt-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="min-rating" className="text-sm font-medium">Min:</Label>
+              <input
+                id="min-rating"
+                type="number"
+                min="0"
+                max="5"
+                step="0.1"
+                value={tempFilters.ratingRange[0]}
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value) || 0
+                  handleTempFilterChange("ratingRange", [value, tempFilters.ratingRange[1]])
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+              <span className="text-sm text-gray-500">★</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="max-rating" className="text-sm font-medium">Max:</Label>
+              <input
+                id="max-rating"
+                type="number"
+                min="0"
+                max="5"
+                step="0.1"
+                value={tempFilters.ratingRange[1]}
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value) || 5
+                  handleTempFilterChange("ratingRange", [tempFilters.ratingRange[0], value])
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+              <span className="text-sm text-gray-500">★</span>
+            </div>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+      
+      {/* Activity Level Filter */}
+      <AccordionItem value="activity">
+        <AccordionTrigger className="text-base font-semibold">Activity Level</AccordionTrigger>
+        <AccordionContent>
+          <div className="space-y-3 pt-2">
+            {allActivityLevels.map((level) => (
+              <div key={level} className="flex items-center space-x-3">
+                <Checkbox
+                  id={`level-${level}`}
+                  checked={tempFilters.activityLevels.includes(level)}
+                  onCheckedChange={(checked) => {
+                    const newLevels = checked
+                      ? [...tempFilters.activityLevels, level]
+                      : tempFilters.activityLevels.filter((l) => l !== level)
+                    handleTempFilterChange("activityLevels", newLevels)
+                  }}
+                />
+                <Label htmlFor={`level-${level}`} className="font-normal text-gray-700 hover:text-purple-600 cursor-pointer capitalize">
+                  {level}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+      
+      {/* Location Filter */}
+      <AccordionItem value="location">
+        <AccordionTrigger className="text-base font-semibold">Location</AccordionTrigger>
+        <AccordionContent>
+          <div className="space-y-3 pt-2">
+            {allLocations.map((location) => (
+              <div key={location} className="flex items-center space-x-3">
+                <Checkbox
+                  id={`loc-${location}`}
+                  checked={tempFilters.locations.includes(location)}
+                  onCheckedChange={(checked) => {
+                    const newLocations = checked
+                      ? [...tempFilters.locations, location]
+                      : tempFilters.locations.filter((l) => l !== location)
+                    handleTempFilterChange("locations", newLocations)
+                  }}
+                />
+                <Label htmlFor={`loc-${location}`} className="font-normal text-gray-700 hover:text-purple-600 cursor-pointer">
+                  {location}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+      
+      {/* Privacy Filter */}
+      <AccordionItem value="privacy">
+        <AccordionTrigger className="text-base font-semibold">Privacy</AccordionTrigger>
+        <AccordionContent>
+          <div className="space-y-3 pt-2">
+            {["public", "private", "invite-only"].map((privacy) => (
+              <div key={privacy} className="flex items-center space-x-3">
+                <Checkbox
+                  id={`priv-${privacy}`}
+                  checked={tempFilters.privacy.includes(privacy)}
+                  onCheckedChange={(checked) => {
+                    const newPrivacy = checked
+                      ? [...tempFilters.privacy, privacy]
+                      : tempFilters.privacy.filter((p) => p !== privacy)
+                    handleTempFilterChange("privacy", newPrivacy)
+                  }}
+                />
+                <Label htmlFor={`priv-${privacy}`} className="font-normal text-gray-700 hover:text-purple-600 cursor-pointer capitalize">
+                  {privacy}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+
+      {/* Special Filters */}
+      <AccordionItem value="special">
+        <AccordionTrigger className="text-base font-semibold">Special Filters</AccordionTrigger>
+        <AccordionContent>
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="trending-filter" className="font-normal text-gray-700">Trending</Label>
+              <Switch id="trending-filter" checked={tempFilters.showTrendingOnly} onCheckedChange={(checked) => handleTempFilterChange("showTrendingOnly", checked)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="recommended-filter" className="font-normal text-gray-700">Recommended</Label>
+              <Switch id="recommended-filter" checked={tempFilters.showRecommendedOnly} onCheckedChange={(checked) => handleTempFilterChange("showRecommendedOnly", checked)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="verified-filter" className="font-normal text-gray-700">Verified</Label>
+              <Switch id="verified-filter" checked={tempFilters.showVerifiedOnly} onCheckedChange={(checked) => handleTempFilterChange("showVerifiedOnly", checked)} />
+            </div>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  </div>
+))
+
 export default function DiscoverPage() {
   const [communities, setCommunities] = useState<Community[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -138,6 +360,8 @@ export default function DiscoverPage() {
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null)
   const [activeTab, setActiveTab] = useState("all")
   const [savedCommunities, setSavedCommunities] = useState<string[]>([])
+  const [tempFilters, setTempFilters] = useState<FilterState>(defaultFilters)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
 
   const {
     location: userLocation,
@@ -413,6 +637,9 @@ export default function DiscoverPage() {
   const filteredAndSortedCommunities = useMemo(() => {
     let result = communities
 
+    // Always use the confirmed filters state, not tempFilters
+    const activeFilters = filters
+
     // Apply active tab filtering
     switch (activeTab) {
       case "recommended":
@@ -438,36 +665,36 @@ export default function DiscoverPage() {
     }
 
     // Apply filters from sidebar
-    if (filters.categories.length > 0) {
-      result = result.filter((community) => filters.categories.includes(community.category))
+    if (activeFilters.categories.length > 0) {
+      result = result.filter((community) => activeFilters.categories.includes(community.category))
     }
-    if (filters.activityLevels.length > 0) {
-      result = result.filter((community) => filters.activityLevels.includes(community.activityLevel))
+    if (activeFilters.activityLevels.length > 0) {
+      result = result.filter((community) => activeFilters.activityLevels.includes(community.activityLevel))
     }
-    if (filters.locations.length > 0) {
-      result = result.filter((community) => filters.locations.includes(community.location.city))
+    if (activeFilters.locations.length > 0) {
+      result = result.filter((community) => activeFilters.locations.includes(community.location.city))
     }
-    if (filters.privacy.length > 0) {
-      result = result.filter((community) => filters.privacy.includes(community.privacy))
+    if (activeFilters.privacy.length > 0) {
+      result = result.filter((community) => activeFilters.privacy.includes(community.privacy))
     }
     result = result.filter(
       (community) =>
-        community.memberCount >= filters.memberRange[0] && community.memberCount <= filters.memberRange[1]
+        community.memberCount >= activeFilters.memberRange[0] && community.memberCount <= activeFilters.memberRange[1]
     )
     result = result.filter(
       (community) =>
-        community.averageRating >= filters.ratingRange[0] && community.averageRating <= filters.ratingRange[1]
+        community.averageRating >= activeFilters.ratingRange[0] && community.averageRating <= activeFilters.ratingRange[1]
     )
-    if (filters.showTrendingOnly) {
+    if (activeFilters.showTrendingOnly) {
       result = result.filter((community) => community.trending)
     }
-    if (filters.showRecommendedOnly) {
+    if (activeFilters.showRecommendedOnly) {
       result = result.filter((community) => community.isRecommended)
     }
-    if (filters.showVerifiedOnly) {
+    if (activeFilters.showVerifiedOnly) {
       result = result.filter((community) => community.isVerified)
     }
-    if (userLocation && filters.maxDistance < 50) {
+    if (userLocation && activeFilters.maxDistance < 50) {
       result = result.filter((community) => {
         if (community.location.city === "Global") return true
         const distance = calculateDistance(
@@ -476,7 +703,7 @@ export default function DiscoverPage() {
           community.location.lat,
           community.location.lng
         )
-        return distance <= filters.maxDistance
+        return distance <= activeFilters.maxDistance
       })
     }
 
@@ -518,19 +745,28 @@ export default function DiscoverPage() {
 
   const handleSearch = (query: string, searchFilters?: any) => {
     setSearchQuery(query)
-    if (searchFilters) {
-      setFilters((prev) => ({ ...prev, ...searchFilters }))
-    }
+    // Don't immediately apply search filters - they should be handled separately
+    // or only applied when user confirms through the filter panel
   }
 
   const handleFilterChange = (key: keyof FilterState, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
   }
 
-  const clearFilters = () => {
+  const handleTempFilterChange = useCallback((key: keyof FilterState, value: any) => {
+    setTempFilters((prev) => ({ ...prev, [key]: value }))
+  }, [])
+
+  const applyFilters = useCallback(() => {
+    setFilters(tempFilters)
+    setIsFilterOpen(false)
+  }, [tempFilters])
+
+  const clearFilters = useCallback(() => {
     setFilters(defaultFilters)
+    setTempFilters(defaultFilters)
     setSearchQuery("")
-  }
+  }, [])
 
   const getActiveFiltersCount = () => {
     let count = 0
@@ -727,179 +963,6 @@ export default function DiscoverPage() {
     )
   }
 
-  const FilterSidebar = () => (
-    <div className="space-y-8 pt-2">
-      <Accordion type="multiple" defaultValue={["category", "members", "rating", "activity", "location", "privacy", "special"]} className="w-full">
-        {/* Category Filter */}
-        <AccordionItem value="category">
-          <AccordionTrigger className="text-base font-semibold">Category</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-3 pt-2">
-              {allCategories.map((category) => (
-                <div key={category} className="flex items-center space-x-3">
-                  <Checkbox
-                    id={`cat-${category}`}
-                    checked={filters.categories.includes(category)}
-                    onCheckedChange={(checked) => {
-                      const newCategories = checked
-                        ? [...filters.categories, category]
-                        : filters.categories.filter((c) => c !== category)
-                      handleFilterChange("categories", newCategories)
-                    }}
-                  />
-                  <Label htmlFor={`cat-${category}`} className="font-normal text-gray-700 hover:text-purple-600 cursor-pointer">
-                    {category}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-        
-        {/* Member Range Filter */}
-        <AccordionItem value="members">
-          <AccordionTrigger className="text-base font-semibold">Member Count</AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-4">
-              <Slider
-                min={0}
-                max={10000}
-                step={100}
-                value={filters.memberRange}
-                onValueChange={(value) => handleFilterChange("memberRange", value)}
-                className="w-full"
-              />
-              <div className="flex justify-between text-sm text-gray-500 mt-2">
-                <span>{filters.memberRange[0]}</span>
-                <span>{filters.memberRange[1]}</span>
-              </div>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-        
-        {/* Rating Range Filter */}
-        <AccordionItem value="rating">
-          <AccordionTrigger className="text-base font-semibold">Rating</AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-4">
-              <Slider
-                min={0}
-                max={5}
-                step={0.5}
-                value={filters.ratingRange}
-                onValueChange={(value) => handleFilterChange("ratingRange", value)}
-                className="w-full"
-              />
-              <div className="flex justify-between text-sm text-gray-500 mt-2">
-                <span>{filters.ratingRange[0]} ★</span>
-                <span>{filters.ratingRange[1]} ★</span>
-              </div>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-        
-        {/* Activity Level Filter */}
-        <AccordionItem value="activity">
-          <AccordionTrigger className="text-base font-semibold">Activity Level</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-3 pt-2">
-              {allActivityLevels.map((level) => (
-                <div key={level} className="flex items-center space-x-3">
-                  <Checkbox
-                    id={`level-${level}`}
-                    checked={filters.activityLevels.includes(level)}
-                    onCheckedChange={(checked) => {
-                      const newLevels = checked
-                        ? [...filters.activityLevels, level]
-                        : filters.activityLevels.filter((l) => l !== level)
-                      handleFilterChange("activityLevels", newLevels)
-                    }}
-                  />
-                  <Label htmlFor={`level-${level}`} className="font-normal text-gray-700 hover:text-purple-600 cursor-pointer capitalize">
-                    {level}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-        
-        {/* Location Filter */}
-        <AccordionItem value="location">
-          <AccordionTrigger className="text-base font-semibold">Location</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-3 pt-2">
-              {allLocations.map((location) => (
-                <div key={location} className="flex items-center space-x-3">
-                  <Checkbox
-                    id={`loc-${location}`}
-                    checked={filters.locations.includes(location)}
-                    onCheckedChange={(checked) => {
-                      const newLocations = checked
-                        ? [...filters.locations, location]
-                        : filters.locations.filter((l) => l !== location)
-                      handleFilterChange("locations", newLocations)
-                    }}
-                  />
-                  <Label htmlFor={`loc-${location}`} className="font-normal text-gray-700 hover:text-purple-600 cursor-pointer">
-                    {location}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-        
-        {/* Privacy Filter */}
-        <AccordionItem value="privacy">
-          <AccordionTrigger className="text-base font-semibold">Privacy</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-3 pt-2">
-              {["public", "private", "invite-only"].map((privacy) => (
-                <div key={privacy} className="flex items-center space-x-3">
-                  <Checkbox
-                    id={`priv-${privacy}`}
-                    checked={filters.privacy.includes(privacy)}
-                    onCheckedChange={(checked) => {
-                      const newPrivacy = checked
-                        ? [...filters.privacy, privacy]
-                        : filters.privacy.filter((p) => p !== privacy)
-                      handleFilterChange("privacy", newPrivacy)
-                    }}
-                  />
-                  <Label htmlFor={`priv-${privacy}`} className="font-normal text-gray-700 hover:text-purple-600 cursor-pointer capitalize">
-                    {privacy}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Special Filters */}
-        <AccordionItem value="special">
-          <AccordionTrigger className="text-base font-semibold">Special Filters</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="trending-filter" className="font-normal text-gray-700">Trending</Label>
-                <Switch id="trending-filter" checked={filters.showTrendingOnly} onCheckedChange={(checked) => handleFilterChange("showTrendingOnly", checked)} />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="recommended-filter" className="font-normal text-gray-700">Recommended</Label>
-                <Switch id="recommended-filter" checked={filters.showRecommendedOnly} onCheckedChange={(checked) => handleFilterChange("showRecommendedOnly", checked)} />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="verified-filter" className="font-normal text-gray-700">Verified</Label>
-                <Switch id="verified-filter" checked={filters.showVerifiedOnly} onCheckedChange={(checked) => handleFilterChange("showVerifiedOnly", checked)} />
-              </div>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </div>
-  )
-
   const MainContent = () => (
     <main className="flex-1 p-8">
       {/* Header */}
@@ -913,9 +976,12 @@ export default function DiscoverPage() {
       {/* Search and View Options */}
       <div className="flex justify-between items-center mb-8 sticky top-24 bg-white/50 backdrop-blur-lg p-4 rounded-xl shadow-sm z-10">
         <div className="flex items-center gap-4">
-          <Sheet>
+          <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button variant="outline" className="flex items-center gap-2" onClick={() => {
+                setTempFilters(filters)
+                setIsFilterOpen(true)
+              }}>
                 <SlidersHorizontal className="h-5 w-5" />
                 <span>Filters ({getActiveFiltersCount()})</span>
               </Button>
@@ -928,14 +994,16 @@ export default function DiscoverPage() {
                 </SheetTitle>
               </SheetHeader>
               <div className="p-6 h-[calc(100vh-140px)] overflow-y-auto scrollbar-thin">
-                <FilterSidebar />
+                <FilterSidebar tempFilters={tempFilters} handleTempFilterChange={handleTempFilterChange} allCategories={allCategories} allActivityLevels={allActivityLevels} allLocations={allLocations} />
               </div>
               <SheetFooter className="p-6 pt-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
                 <Button onClick={clearFilters} variant="outline" className="w-full mr-2">
                   Clear Filters
                 </Button>
                 <SheetClose asChild>
-                  <Button className="w-full">Done</Button>
+                  <Button className="w-full" onClick={applyFilters}>
+                    Done
+                  </Button>
                 </SheetClose>
               </SheetFooter>
             </SheetContent>

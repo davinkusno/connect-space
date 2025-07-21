@@ -1,5 +1,6 @@
 import { openai } from "@ai-sdk/openai"
 import { generateText } from "ai"
+import { aiClient } from "../ai-client"
 
 export interface UserActivityData {
   userId: string
@@ -207,9 +208,7 @@ export class DailySummaryService {
   private async generateAIInsights(activityData: UserActivityData, preferences: SummaryPreferences, trends: any[]) {
     const prompt = this.buildInsightPrompt(activityData, preferences, trends)
 
-    const { text } = await generateText({
-      model: openai("gpt-4o"),
-      prompt,
+    const text = await aiClient.generateText(prompt, {
       temperature: 0.7,
       maxTokens: 1000,
     })
@@ -221,8 +220,8 @@ export class DailySummaryService {
       overview: sections[1]?.replace("Overview: ", "") || "Here's what happened today.",
       highlights: sections
         .slice(2)
-        .filter((section) => section.startsWith("•"))
-        .map((h) => h.replace("• ", "")),
+        .filter((section: string) => section.startsWith("•"))
+        .map((h: string) => h.replace("• ", "")),
     }
   }
 
