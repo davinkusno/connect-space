@@ -1,47 +1,69 @@
-"use client"
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { MapPin, Navigation, ZoomIn, ZoomOut, Layers, RotateCcw, Locate, Search, Calendar } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { toast } from "sonner"
+"use client";
+
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  MapPin,
+  Navigation,
+  ZoomIn,
+  ZoomOut,
+  Layers,
+  RotateCcw,
+  Locate,
+  Search,
+  Calendar,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Event {
-  id: number
-  title: string
-  description: string
-  date: string
-  time: string
-  endTime: string
+  id: number;
+  title: string;
+  description: string;
+  date: string;
+  time: string;
+  endTime: string;
   location: {
-    latitude: number
-    longitude: number
-    address: string
-    venue: string
-    city: string
-  }
-  category: string
-  attendees: number
-  maxAttendees: number
-  price: number
-  organizer: string
-  image: string
-  tags: string[]
-  featured: boolean
-  isOnline?: boolean
+    latitude: number;
+    longitude: number;
+    address: string;
+    venue: string;
+    city: string;
+    isOnline?: boolean;
+  };
+  category: string;
+  attendees: number;
+  maxAttendees: number;
+  price: number;
+  originalPrice?: number;
+  organizer: string;
+  image: string;
+  tags: string[];
+  featured: boolean;
+  trending?: boolean;
+  isNew?: boolean;
+  rating: number;
+  reviewCount: number;
+  difficulty?: "Beginner" | "Intermediate" | "Advanced";
+  duration?: string;
+  language?: string;
+  certificates?: boolean;
+  gallery?: string[];
+  isOnline?: boolean;
 }
 
 interface LeafletEventsMapProps {
-  events: Event[]
-  selectedEvent?: Event | null
-  onEventSelect?: (event: Event | null) => void
-  userLocation?: { lat: number; lng: number } | null
-  searchRadius?: number
-  className?: string
-  height?: string
-  showControls?: boolean
-  showUserLocation?: boolean
+  events: Event[];
+  selectedEvent?: Event | null;
+  onEventSelect?: (event: Event | null) => void;
+  userLocation?: { lat: number; lng: number } | null;
+  searchRadius?: number;
+  className?: string;
+  height?: string;
+  showControls?: boolean;
+  showUserLocation?: boolean;
 }
 
 // Category colors for event markers
@@ -53,7 +75,7 @@ const categoryColors: Record<string, string> = {
   Health: "#EF4444", // Red
   Food: "#F59E0B", // Amber
   default: "#6B7280", // Gray
-}
+};
 
 export function LeafletEventsMap({
   events,
@@ -66,17 +88,17 @@ export function LeafletEventsMap({
   showControls = true,
   showUserLocation = true,
 }: LeafletEventsMapProps) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const markersRef = useRef<any[]>([])
-  const userMarkerRef = useRef<any>(null)
-  const radiusCircleRef = useRef<any>(null)
-  const tileLayerRef = useRef<any>(null)
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const userMarkerRef = useRef<any>(null);
+  const radiusCircleRef = useRef<any>(null);
+  const tileLayerRef = useRef<any>(null);
 
-  const [isLoading, setIsLoading] = useState(true)
-  const [leafletLoaded, setLeafletLoaded] = useState(false)
-  const [currentZoom, setCurrentZoom] = useState(12)
-  const [mapType, setMapType] = useState<"street" | "satellite">("street")
+  const [isLoading, setIsLoading] = useState(true);
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [currentZoom, setCurrentZoom] = useState(12);
+  const [mapType, setMapType] = useState<"street" | "satellite">("street");
 
   // Memoize physical events to prevent unnecessary re-renders
   const physicalEvents = useMemo(
@@ -87,19 +109,25 @@ export function LeafletEventsMap({
           event.location?.latitude != null &&
           event.location?.longitude != null &&
           !isNaN(event.location.latitude) &&
-          !isNaN(event.location.longitude),
+          !isNaN(event.location.longitude)
       ),
-    [events],
-  )
+    [events]
+  );
 
   // Memoize map center to prevent constant updates
   const mapCenter = useMemo(
     () => ({
-      lat: userLocation?.lat && !isNaN(userLocation.lat) ? userLocation.lat : 40.7128,
-      lng: userLocation?.lng && !isNaN(userLocation.lng) ? userLocation.lng : -74.006,
+      lat:
+        userLocation?.lat && !isNaN(userLocation.lat)
+          ? userLocation.lat
+          : 40.7128,
+      lng:
+        userLocation?.lng && !isNaN(userLocation.lng)
+          ? userLocation.lng
+          : -74.006,
     }),
-    [userLocation?.lat, userLocation?.lng],
-  )
+    [userLocation?.lat, userLocation?.lng]
+  );
 
   // Load Leaflet CSS and JS
   useEffect(() => {
@@ -107,60 +135,62 @@ export function LeafletEventsMap({
       try {
         // Check if Leaflet is already loaded
         if (typeof window !== "undefined" && (window as any).L) {
-          setLeafletLoaded(true)
-          setIsLoading(false)
-          return
+          setLeafletLoaded(true);
+          setIsLoading(false);
+          return;
         }
 
         // Load Leaflet CSS
-        const cssLink = document.createElement("link")
-        cssLink.rel = "stylesheet"
-        cssLink.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        cssLink.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        cssLink.crossOrigin = ""
-        document.head.appendChild(cssLink)
+        const cssLink = document.createElement("link");
+        cssLink.rel = "stylesheet";
+        cssLink.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+        cssLink.integrity =
+          "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
+        cssLink.crossOrigin = "";
+        document.head.appendChild(cssLink);
 
         // Load Leaflet JS
-        const script = document.createElement("script")
-        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        script.crossOrigin = ""
+        const script = document.createElement("script");
+        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+        script.integrity =
+          "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
+        script.crossOrigin = "";
 
         script.onload = () => {
-          setLeafletLoaded(true)
-          setIsLoading(false)
-        }
+          setLeafletLoaded(true);
+          setIsLoading(false);
+        };
 
         script.onerror = () => {
-          console.error("Failed to load Leaflet")
-          setIsLoading(false)
-          toast.error("Failed to load map. Please refresh the page.")
-        }
+          console.error("Failed to load Leaflet");
+          setIsLoading(false);
+          toast.error("Failed to load map. Please refresh the page.");
+        };
 
-        document.head.appendChild(script)
+        document.head.appendChild(script);
       } catch (error) {
-        console.error("Error loading Leaflet:", error)
-        setIsLoading(false)
+        console.error("Error loading Leaflet:", error);
+        setIsLoading(false);
       }
-    }
+    };
 
-    loadLeaflet()
-  }, [])
+    loadLeaflet();
+  }, []);
 
   // Format date for display
   const formatDate = useCallback((dateString: string) => {
-    const date = new Date(dateString)
+    const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
-    })
-  }, [])
+    });
+  }, []);
 
   // Create event marker
   const createEventMarker = useCallback(
     (event: Event) => {
-      if (!leafletLoaded || typeof window === "undefined") return null
+      if (!leafletLoaded || typeof window === "undefined") return null;
 
       // Validate coordinates
       if (
@@ -169,12 +199,15 @@ export function LeafletEventsMap({
         isNaN(event.location.latitude) ||
         isNaN(event.location.longitude)
       ) {
-        console.warn(`Invalid coordinates for event ${event.id}:`, event.location)
-        return null
+        console.warn(
+          `Invalid coordinates for event ${event.id}:`,
+          event.location
+        );
+        return null;
       }
 
-      const L = (window as any).L
-      const color = categoryColors[event.category] || categoryColors.default
+      const L = (window as any).L;
+      const color = categoryColors[event.category] || categoryColors.default;
 
       const markerIcon = L.divIcon({
         html: `
@@ -209,32 +242,43 @@ export function LeafletEventsMap({
         iconSize: [40, 40],
         iconAnchor: [20, 40],
         popupAnchor: [0, -40],
-      })
+      });
 
-      const marker = L.marker([event.location.latitude, event.location.longitude], {
-        icon: markerIcon,
-      })
+      const marker = L.marker(
+        [event.location.latitude, event.location.longitude],
+        {
+          icon: markerIcon,
+        }
+      );
 
       // Store event data on marker
-      marker.eventData = event
+      marker.eventData = event;
 
       // Create popup content
       const popupContent = `
       <div class="p-4 min-w-[300px] max-w-[350px]">
         <div class="flex items-start gap-3 mb-3">
-          <img src="${event.image}" alt="${event.title}" class="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+          <img src="${event.image}" alt="${
+        event.title
+      }" class="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
           <div class="flex-1 min-w-0">
             <h3 class="font-bold text-lg mb-1 line-clamp-2">${event.title}</h3>
             <div class="flex items-center gap-2 mb-2">
               <span class="inline-block px-2 py-1 text-xs font-medium rounded-full text-white" style="background-color: ${color}">
                 ${event.category}
               </span>
-              ${event.featured ? '<span class="inline-block px-2 py-1 text-xs font-medium rounded-full bg-orange-500 text-white">Featured</span>' : ""}
+              ${
+                event.featured
+                  ? '<span class="inline-block px-2 py-1 text-xs font-medium rounded-full bg-orange-500 text-white">Featured</span>'
+                  : ""
+              }
             </div>
           </div>
         </div>
         
-        <p class="text-gray-600 text-sm mb-3 line-clamp-2">${event.description}</p>
+        <p class="text-gray-600 text-sm mb-3 line-clamp-2">${
+          event.description
+        }</p>
         
         <div class="space-y-2 mb-3">
           <div class="flex items-center gap-2 text-sm text-gray-600">
@@ -264,7 +308,7 @@ export function LeafletEventsMap({
             .map(
               (tag) => `
             <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">${tag}</span>
-          `,
+          `
             )
             .join("")}
         </div>
@@ -278,34 +322,36 @@ export function LeafletEventsMap({
           </div>
           <button class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors duration-200" 
                   style="background-color: ${color}" 
-                  onclick="window.selectEvent && window.selectEvent(${event.id})">
+                  onclick="window.selectEvent && window.selectEvent(${
+                    event.id
+                  })">
             View Details
           </button>
         </div>
       </div>
-    `
+    `;
 
       marker.bindPopup(popupContent, {
         maxWidth: 350,
         className: "event-popup",
-      })
+      });
 
       // Handle marker click
       marker.on("click", () => {
-        onEventSelect?.(event)
-      })
+        onEventSelect?.(event);
+      });
 
-      return marker
+      return marker;
     },
-    [leafletLoaded, onEventSelect, formatDate],
-  )
+    [leafletLoaded, onEventSelect, formatDate]
+  );
 
   // Create user location marker
   const createUserMarker = useCallback(
     (location: { lat: number; lng: number }) => {
-      if (!leafletLoaded || typeof window === "undefined") return null
+      if (!leafletLoaded || typeof window === "undefined") return null;
 
-      const L = (window as any).L
+      const L = (window as any).L;
 
       const userIcon = L.divIcon({
         html: `
@@ -317,9 +363,10 @@ export function LeafletEventsMap({
         className: "user-marker",
         iconSize: [16, 16],
         iconAnchor: [8, 8],
-      })
+      });
 
-      return L.marker([location.lat, location.lng], { icon: userIcon }).bindPopup(`
+      return L.marker([location.lat, location.lng], { icon: userIcon })
+        .bindPopup(`
         <div class="p-2 text-center">
           <div class="flex items-center gap-2 text-blue-600 font-medium">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -328,17 +375,17 @@ export function LeafletEventsMap({
             Your Location
           </div>
         </div>
-      `)
+      `);
     },
-    [leafletLoaded],
-  )
+    [leafletLoaded]
+  );
 
   // Initialize map when Leaflet is loaded
   useEffect(() => {
-    if (!leafletLoaded || !mapRef.current || mapInstanceRef.current) return
+    if (!leafletLoaded || !mapRef.current || mapInstanceRef.current) return;
 
     try {
-      const L = (window as any).L
+      const L = (window as any).L;
 
       // Initialize map
       const map = L.map(mapRef.current, {
@@ -346,80 +393,84 @@ export function LeafletEventsMap({
         zoom: currentZoom,
         zoomControl: false,
         attributionControl: true,
-      })
+      });
 
       // Add tile layer
-      const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      })
+      const tileLayer = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19,
+        }
+      );
 
-      tileLayer.addTo(map)
-      tileLayerRef.current = tileLayer
+      tileLayer.addTo(map);
+      tileLayerRef.current = tileLayer;
 
       // Map event listeners
       map.on("zoomend", () => {
-        setCurrentZoom(map.getZoom())
-      })
+        setCurrentZoom(map.getZoom());
+      });
 
       // Store map reference
-      mapInstanceRef.current = map
+      mapInstanceRef.current = map;
     } catch (error) {
-      console.error("Error initializing map:", error)
-      toast.error("Failed to initialize map")
+      console.error("Error initializing map:", error);
+      toast.error("Failed to initialize map");
     }
-  }, [leafletLoaded, mapCenter.lat, mapCenter.lng, currentZoom])
+  }, [leafletLoaded, mapCenter.lat, mapCenter.lng, currentZoom]);
 
   // Update markers when events change
   useEffect(() => {
-    if (!mapInstanceRef.current || !leafletLoaded) return
+    if (!mapInstanceRef.current || !leafletLoaded) return;
 
-    const L = (window as any).L
+    const L = (window as any).L;
 
     // Clear existing markers
     markersRef.current.forEach((marker) => {
-      mapInstanceRef.current.removeLayer(marker)
-    })
-    markersRef.current = []
+      mapInstanceRef.current.removeLayer(marker);
+    });
+    markersRef.current = [];
 
     // Add event markers (only physical events)
     physicalEvents.forEach((event) => {
-      const marker = createEventMarker(event)
+      const marker = createEventMarker(event);
       if (marker) {
-        marker.addTo(mapInstanceRef.current)
-        markersRef.current.push(marker)
+        marker.addTo(mapInstanceRef.current);
+        markersRef.current.push(marker);
       }
-    })
+    });
 
     // Fit map to show all markers if we have any
     if (markersRef.current.length > 0) {
-      const group = new L.featureGroup(markersRef.current)
-      mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1))
+      const group = new L.featureGroup(markersRef.current);
+      mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1));
     }
-  }, [physicalEvents, createEventMarker, leafletLoaded])
+  }, [physicalEvents, createEventMarker, leafletLoaded]);
 
   // Update user location and radius
   useEffect(() => {
-    if (!mapInstanceRef.current || !leafletLoaded) return
+    if (!mapInstanceRef.current || !leafletLoaded) return;
 
-    const L = (window as any).L
+    const L = (window as any).L;
 
     // Remove existing user marker and radius circle
     if (userMarkerRef.current) {
-      mapInstanceRef.current.removeLayer(userMarkerRef.current)
-      userMarkerRef.current = null
+      mapInstanceRef.current.removeLayer(userMarkerRef.current);
+      userMarkerRef.current = null;
     }
     if (radiusCircleRef.current) {
-      mapInstanceRef.current.removeLayer(radiusCircleRef.current)
-      radiusCircleRef.current = null
+      mapInstanceRef.current.removeLayer(radiusCircleRef.current);
+      radiusCircleRef.current = null;
     }
 
     // Add user location marker and radius circle if location is available
     if (userLocation && showUserLocation) {
-      const userMarker = createUserMarker(userLocation)
+      const userMarker = createUserMarker(userLocation);
       if (userMarker) {
-        userMarker.addTo(mapInstanceRef.current)
-        userMarkerRef.current = userMarker
+        userMarker.addTo(mapInstanceRef.current);
+        userMarkerRef.current = userMarker;
       }
 
       // Add search radius circle
@@ -430,16 +481,22 @@ export function LeafletEventsMap({
         color: "#3B82F6",
         weight: 2,
         opacity: 0.5,
-      })
+      });
 
-      radiusCircle.addTo(mapInstanceRef.current)
-      radiusCircleRef.current = radiusCircle
+      radiusCircle.addTo(mapInstanceRef.current);
+      radiusCircleRef.current = radiusCircle;
     }
-  }, [userLocation, searchRadius, showUserLocation, createUserMarker, leafletLoaded])
+  }, [
+    userLocation,
+    searchRadius,
+    showUserLocation,
+    createUserMarker,
+    leafletLoaded,
+  ]);
 
   // Highlight selected event
   useEffect(() => {
-    if (!mapInstanceRef.current || !leafletLoaded || !selectedEvent) return
+    if (!mapInstanceRef.current || !leafletLoaded || !selectedEvent) return;
 
     // Validate selected event coordinates
     if (
@@ -448,113 +505,125 @@ export function LeafletEventsMap({
       isNaN(selectedEvent.location.latitude) ||
       isNaN(selectedEvent.location.longitude)
     ) {
-      console.warn("Selected event has invalid coordinates:", selectedEvent.location)
-      return
+      console.warn(
+        "Selected event has invalid coordinates:",
+        selectedEvent.location
+      );
+      return;
     }
 
     markersRef.current.forEach((marker) => {
       if (marker.eventData && marker.eventData.id === selectedEvent.id) {
-        marker.openPopup()
+        marker.openPopup();
         mapInstanceRef.current.setView(
           [selectedEvent.location.latitude, selectedEvent.location.longitude],
-          Math.max(currentZoom, 14),
-        )
+          Math.max(currentZoom, 14)
+        );
       }
-    })
-  }, [selectedEvent, leafletLoaded, currentZoom])
+    });
+  }, [selectedEvent, leafletLoaded, currentZoom]);
 
   // Global function for popup buttons
   useEffect(() => {
     if (typeof window !== "undefined") {
-      ;(window as any).selectEvent = (eventId: number) => {
-        const event = events.find((e) => e.id === eventId)
+      (window as any).selectEvent = (eventId: number) => {
+        const event = events.find((e) => e.id === eventId);
         if (event && onEventSelect) {
-          onEventSelect(event)
+          onEventSelect(event);
         }
-      }
+      };
     }
 
     return () => {
       if (typeof window !== "undefined") {
-        delete (window as any).selectEvent
+        delete (window as any).selectEvent;
       }
-    }
-  }, [events, onEventSelect])
+    };
+  }, [events, onEventSelect]);
 
   // Control handlers
   const handleZoomIn = useCallback(() => {
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.zoomIn()
+      mapInstanceRef.current.zoomIn();
     }
-  }, [])
+  }, []);
 
   const handleZoomOut = useCallback(() => {
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.zoomOut()
+      mapInstanceRef.current.zoomOut();
     }
-  }, [])
+  }, []);
 
   const handleResetView = useCallback(() => {
     if (mapInstanceRef.current && userLocation) {
-      mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], 12)
+      mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], 12);
     }
-  }, [userLocation])
+  }, [userLocation]);
 
   const handleMapTypeChange = useCallback(() => {
-    const newType = mapType === "street" ? "satellite" : "street"
-    setMapType(newType)
+    const newType = mapType === "street" ? "satellite" : "street";
+    setMapType(newType);
 
     if (mapInstanceRef.current && leafletLoaded) {
-      const L = (window as any).L
+      const L = (window as any).L;
 
       // Remove current tile layer
       if (tileLayerRef.current) {
-        mapInstanceRef.current.removeLayer(tileLayerRef.current)
+        mapInstanceRef.current.removeLayer(tileLayerRef.current);
       }
 
       // Add new tile layer
-      let newTileLayer
+      let newTileLayer;
       if (newType === "satellite") {
         newTileLayer = L.tileLayer(
           "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
           {
             attribution: '&copy; <a href="https://www.esri.com/">Esri</a>',
             maxZoom: 18,
-          },
-        )
+          }
+        );
       } else {
-        newTileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 19,
-        })
+        newTileLayer = L.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          {
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+          }
+        );
       }
 
-      newTileLayer.addTo(mapInstanceRef.current)
-      tileLayerRef.current = newTileLayer
+      newTileLayer.addTo(mapInstanceRef.current);
+      tileLayerRef.current = newTileLayer;
     }
-  }, [mapType, leafletLoaded])
+  }, [mapType, leafletLoaded]);
 
   const handleLocateUser = useCallback(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const { latitude, longitude } = position.coords
+          const { latitude, longitude } = position.coords;
           if (mapInstanceRef.current) {
-            mapInstanceRef.current.setView([latitude, longitude], 14)
-            toast.success("Location updated!")
+            mapInstanceRef.current.setView([latitude, longitude], 14);
+            toast.success("Location updated!");
           }
         },
         (error) => {
-          toast.error("Unable to get your location")
-        },
-      )
+          toast.error("Unable to get your location");
+        }
+      );
     } else {
-      toast.error("Geolocation is not supported by this browser")
+      toast.error("Geolocation is not supported by this browser");
     }
-  }, [])
+  }, []);
 
   return (
-    <div className={cn("relative overflow-hidden rounded-xl border shadow-lg bg-gray-100", className)}>
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-xl border shadow-lg bg-gray-100",
+        className
+      )}
+    >
       <div
         ref={mapRef}
         className="relative w-full transition-opacity duration-300"
@@ -606,9 +675,11 @@ export function LeafletEventsMap({
             onClick={handleMapTypeChange}
             className={cn(
               "bg-white shadow-lg hover:bg-gray-50 h-10 w-10 p-0",
-              mapType === "satellite" ? "text-blue-600" : "text-gray-600",
+              mapType === "satellite" ? "text-blue-600" : "text-gray-600"
             )}
-            title={`Switch to ${mapType === "street" ? "satellite" : "street"} view`}
+            title={`Switch to ${
+              mapType === "street" ? "satellite" : "street"
+            } view`}
           >
             <Layers className="h-4 w-4" />
           </Button>
@@ -702,14 +773,22 @@ export function LeafletEventsMap({
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
           <div className="text-center p-6">
             <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="font-semibold text-gray-700 mb-2">Map Unavailable</h3>
-            <p className="text-gray-600 text-sm mb-4">Unable to load the interactive map.</p>
-            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            <h3 className="font-semibold text-gray-700 mb-2">
+              Map Unavailable
+            </h3>
+            <p className="text-gray-600 text-sm mb-4">
+              Unable to load the interactive map.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.reload()}
+            >
               Retry
             </Button>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
