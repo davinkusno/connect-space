@@ -1,20 +1,36 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge as BadgeComponent } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Separator } from "@/components/ui/separator"
-import { InViewTransition } from "@/components/ui/content-transitions"
-import { HoverScale, ButtonPulse, AnimatedIcon } from "@/components/ui/micro-interactions"
-import { Spinner } from "@/components/ui/loading-indicators"
-import { FloatingElements } from "@/components/ui/floating-elements"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge as BadgeComponent } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { InViewTransition } from "@/components/ui/content-transitions";
+import {
+  HoverScale,
+  ButtonPulse,
+  AnimatedIcon,
+} from "@/components/ui/micro-interactions";
+import { Spinner } from "@/components/ui/loading-indicators";
+import { FloatingElements } from "@/components/ui/floating-elements";
 import {
   Trophy,
   Star,
@@ -35,48 +51,49 @@ import {
   Clock,
   Zap,
   Heart,
-} from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
+} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
 
 interface StoreBadge {
-  id: string
-  name: string
-  description: string
-  icon: React.ReactNode
-  category: "achievement" | "participation" | "special" | "limited"
-  rarity: "common" | "rare" | "epic" | "legendary"
-  price: number
-  image: string
-  isOwned?: boolean
-  isLimited?: boolean
-  limitedQuantity?: number
-  limitedRemaining?: number
-  expiresAt?: string
+  id: string;
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  category: "achievement" | "participation" | "special" | "limited";
+  rarity: "common" | "rare" | "epic" | "legendary";
+  price: number;
+  image: string;
+  isOwned?: boolean;
+  isLimited?: boolean;
+  limitedQuantity?: number;
+  limitedRemaining?: number;
+  expiresAt?: string;
 }
 
 export default function StorePage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState<string>("all")
-  const [selectedRarity, setSelectedRarity] = useState<string>("all")
-  const [sortBy, setSortBy] = useState<string>("popular")
-  const [selectedBadge, setSelectedBadge] = useState<StoreBadge | null>(null)
-  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
-  const [isPurchasing, setIsPurchasing] = useState(false)
-  const [purchaseSuccess, setPurchaseSuccess] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedRarity, setSelectedRarity] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("popular");
+  const [selectedBadge, setSelectedBadge] = useState<StoreBadge | null>(null);
+  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [purchaseSuccess, setPurchaseSuccess] = useState(false);
 
   // Mock user data
   const userData = {
     points: 2450,
     level: 8,
-  }
+  };
 
   // Mock badges data
   const badges: StoreBadge[] = [
     {
       id: "1",
       name: "Tech Guru",
-      description: "Awarded to members who consistently provide valuable technical insights and help others.",
+      description:
+        "Awarded to members who consistently provide valuable technical insights and help others.",
       icon: <Trophy className="h-5 w-5" />,
       category: "achievement",
       rarity: "epic",
@@ -96,7 +113,8 @@ export default function StorePage() {
     {
       id: "3",
       name: "Community Champion",
-      description: "Reserved for members who have made exceptional contributions to the community.",
+      description:
+        "Reserved for members who have made exceptional contributions to the community.",
       icon: <Award className="h-5 w-5" />,
       category: "achievement",
       rarity: "legendary",
@@ -106,7 +124,8 @@ export default function StorePage() {
     {
       id: "4",
       name: "Networking Pro",
-      description: "For members who excel at connecting people and fostering collaborations.",
+      description:
+        "For members who excel at connecting people and fostering collaborations.",
       icon: <Target className="h-5 w-5" />,
       category: "achievement",
       rarity: "rare",
@@ -116,7 +135,8 @@ export default function StorePage() {
     {
       id: "5",
       name: "Founding Member",
-      description: "Exclusive badge for the first 100 members who joined the platform.",
+      description:
+        "Exclusive badge for the first 100 members who joined the platform.",
       icon: <Crown className="h-5 w-5" />,
       category: "special",
       rarity: "legendary",
@@ -127,7 +147,8 @@ export default function StorePage() {
     {
       id: "6",
       name: "Holiday Special 2023",
-      description: "Limited edition badge available only during the holiday season.",
+      description:
+        "Limited edition badge available only during the holiday season.",
       icon: <Gift className="h-5 w-5" />,
       category: "limited",
       rarity: "epic",
@@ -141,7 +162,8 @@ export default function StorePage() {
     {
       id: "7",
       name: "Rising Star",
-      description: "For new members who quickly become active and engaged in the community.",
+      description:
+        "For new members who quickly become active and engaged in the community.",
       icon: <TrendingUp className="h-5 w-5" />,
       category: "achievement",
       rarity: "common",
@@ -181,7 +203,8 @@ export default function StorePage() {
     {
       id: "11",
       name: "Innovation Leader",
-      description: "For members who propose and lead innovative community initiatives.",
+      description:
+        "For members who propose and lead innovative community initiatives.",
       icon: <Medal className="h-5 w-5" />,
       category: "achievement",
       rarity: "legendary",
@@ -191,14 +214,15 @@ export default function StorePage() {
     {
       id: "12",
       name: "Social Butterfly",
-      description: "For members who actively engage in community discussions and networking.",
+      description:
+        "For members who actively engage in community discussions and networking.",
       icon: <Sparkles className="h-5 w-5" />,
       category: "participation",
       rarity: "rare",
       price: 600,
       image: "/placeholder.svg?height=200&width=200",
     },
-  ]
+  ];
 
   // Filter and sort badges
   const filteredBadges = badges
@@ -206,76 +230,78 @@ export default function StorePage() {
       const matchesSearch =
         searchQuery === "" ||
         badge.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        badge.description.toLowerCase().includes(searchQuery.toLowerCase())
+        badge.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesCategory = selectedCategory === "all" || badge.category === selectedCategory
-      const matchesRarity = selectedRarity === "all" || badge.rarity === selectedRarity
+      const matchesCategory =
+        selectedCategory === "all" || badge.category === selectedCategory;
+      const matchesRarity =
+        selectedRarity === "all" || badge.rarity === selectedRarity;
 
-      return matchesSearch && matchesCategory && matchesRarity
+      return matchesSearch && matchesCategory && matchesRarity;
     })
     .sort((a, b) => {
-      if (sortBy === "price-low") return a.price - b.price
-      if (sortBy === "price-high") return b.price - a.price
+      if (sortBy === "price-low") return a.price - b.price;
+      if (sortBy === "price-high") return b.price - a.price;
       if (sortBy === "rarity") {
-        const rarityOrder = { common: 1, rare: 2, epic: 3, legendary: 4 }
-        return rarityOrder[b.rarity] - rarityOrder[a.rarity]
+        const rarityOrder = { common: 1, rare: 2, epic: 3, legendary: 4 };
+        return rarityOrder[b.rarity] - rarityOrder[a.rarity];
       }
-      return 0 // popular (default order)
-    })
+      return 0; // popular (default order)
+    });
 
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
       case "common":
-        return "bg-gray-500"
+        return "bg-gray-500";
       case "rare":
-        return "bg-blue-500"
+        return "bg-blue-500";
       case "epic":
-        return "bg-purple-500"
+        return "bg-purple-500";
       case "legendary":
-        return "bg-yellow-500"
+        return "bg-yellow-500";
       default:
-        return "bg-gray-500"
+        return "bg-gray-500";
     }
-  }
+  };
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case "achievement":
-        return <Trophy className="h-4 w-4" />
+        return <Trophy className="h-4 w-4" />;
       case "participation":
-        return <Star className="h-4 w-4" />
+        return <Star className="h-4 w-4" />;
       case "special":
-        return <Crown className="h-4 w-4" />
+        return <Crown className="h-4 w-4" />;
       case "limited":
-        return <Gift className="h-4 w-4" />
+        return <Gift className="h-4 w-4" />;
       default:
-        return <Award className="h-4 w-4" />
+        return <Award className="h-4 w-4" />;
     }
-  }
+  };
 
   const handlePurchase = (badge: StoreBadge) => {
-    setSelectedBadge(badge)
-    setShowPurchaseDialog(true)
-  }
+    setSelectedBadge(badge);
+    setShowPurchaseDialog(true);
+  };
 
   const confirmPurchase = () => {
-    if (!selectedBadge) return
+    if (!selectedBadge) return;
 
-    setIsPurchasing(true)
+    setIsPurchasing(true);
     // Simulate purchase process
     setTimeout(() => {
-      setIsPurchasing(false)
-      setPurchaseSuccess(true)
-    }, 1500)
-  }
+      setIsPurchasing(false);
+      setPurchaseSuccess(true);
+    }, 1500);
+  };
 
   const handleCloseModal = () => {
-    setShowPurchaseDialog(false)
-    setPurchaseSuccess(false)
-    setSelectedBadge(null)
-  }
+    setShowPurchaseDialog(false);
+    setPurchaseSuccess(false);
+    setSelectedBadge(null);
+  };
 
-  const canAfford = (price: number) => userData.points >= price
+  const canAfford = (price: number) => userData.points >= price;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 relative overflow-hidden">
@@ -288,22 +314,26 @@ export default function StorePage() {
             Badge Store <span className="text-gradient">🏆</span>
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-            Spend your earned points on exclusive badges that showcase your achievements and contributions to the
-            community.
+            Spend your earned points on exclusive badges that showcase your
+            achievements and contributions to the community.
           </p>
-          
+
           {/* User Points and Level Info */}
           <div className="flex justify-center gap-4 mb-8">
             <div className="glass-effect px-6 py-3 rounded-full">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Sparkles className="h-5 w-5 text-yellow-500" />
-                <span className="text-gray-700 font-semibold">{userData.points.toLocaleString()} points</span>
+                <span className="text-gray-700 font-semibold">
+                  {userData.points.toLocaleString()} points
+                </span>
               </div>
             </div>
             <div className="glass-effect px-6 py-3 rounded-full">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Trophy className="h-5 w-5 text-purple-600" />
-                <span className="text-gray-700 font-semibold">Level {userData.level}</span>
+                <span className="text-gray-700 font-semibold">
+                  Level {userData.level}
+                </span>
               </div>
             </div>
           </div>
@@ -322,7 +352,10 @@ export default function StorePage() {
               />
             </div>
             <div className="flex gap-2">
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select
+                value={selectedCategory}
+                onValueChange={setSelectedCategory}
+              >
                 <SelectTrigger className="w-[160px] glass-effect border-gray-200 focus:border-violet-300">
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-gray-500" />
@@ -371,45 +404,83 @@ export default function StorePage() {
             </div>
           </div>
 
-          {/* Category Tabs */}
-          <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 glass-effect border-0 p-2 rounded-2xl">
-              <TabsTrigger
-                value="all"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300"
+          {/* Category Tabs - Modern Pill Design */}
+          <div className="flex flex-wrap justify-center gap-2 mb-8">
+            {[
+              {
+                value: "all",
+                label: "All Badges",
+                icon: null,
+                color: "from-gray-500 to-gray-600",
+              },
+              {
+                value: "achievement",
+                label: "Achievement",
+                icon: <Trophy className="h-4 w-4" />,
+                color: "from-yellow-500 to-orange-500",
+              },
+              {
+                value: "participation",
+                label: "Participation",
+                icon: <Star className="h-4 w-4" />,
+                color: "from-blue-500 to-cyan-500",
+              },
+              {
+                value: "special",
+                label: "Special",
+                icon: <Crown className="h-4 w-4" />,
+                color: "from-purple-500 to-pink-500",
+              },
+              {
+                value: "limited",
+                label: "Limited",
+                icon: <Gift className="h-4 w-4" />,
+                color: "from-red-500 to-rose-500",
+              },
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setSelectedCategory(tab.value)}
+                className={`group relative px-6 py-3 rounded-full font-medium text-sm transition-all duration-300 ${
+                  selectedCategory === tab.value
+                    ? `bg-gradient-to-r ${
+                        tab.color
+                      } text-white shadow-lg shadow-${
+                        tab.color.split("-")[1]
+                      }-500/25 transform scale-105`
+                    : "bg-white/80 text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-md border border-gray-200/50"
+                }`}
               >
-                All Badges
-              </TabsTrigger>
-              <TabsTrigger
-                value="achievement"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300"
-              >
-                <Trophy className="h-4 w-4 mr-2" />
-                Achievement
-              </TabsTrigger>
-              <TabsTrigger
-                value="participation"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300"
-              >
-                <Star className="h-4 w-4 mr-2" />
-                Participation
-              </TabsTrigger>
-              <TabsTrigger
-                value="special"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300"
-              >
-                <Crown className="h-4 w-4 mr-2" />
-                Special
-              </TabsTrigger>
-              <TabsTrigger
-                value="limited"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300"
-              >
-                <Gift className="h-4 w-4 mr-2" />
-                Limited
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+                <div className="flex items-center gap-2">
+                  {tab.icon ? (
+                    <div
+                      className={`transition-transform duration-300 ${
+                        selectedCategory === tab.value
+                          ? "scale-110"
+                          : "group-hover:scale-105"
+                      }`}
+                    >
+                      {tab.icon}
+                    </div>
+                  ) : (
+                    <div
+                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                        selectedCategory === tab.value
+                          ? "bg-white"
+                          : "bg-gradient-to-r from-gray-400 to-gray-600 group-hover:scale-110"
+                      }`}
+                    />
+                  )}
+                  <span className="whitespace-nowrap">{tab.label}</span>
+                </div>
+
+                {/* Active indicator */}
+                {selectedCategory === tab.value && (
+                  <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full animate-pulse" />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Badges Grid */}
@@ -418,9 +489,13 @@ export default function StorePage() {
             <div className="mb-4 text-gray-400">
               <Search className="h-12 w-12 mx-auto" />
             </div>
-            <h3 className="text-xl font-medium text-gray-900 mb-2">No badges found</h3>
+            <h3 className="text-xl font-medium text-gray-900 mb-2">
+              No badges found
+            </h3>
             <p className="text-gray-500">
-              {searchQuery ? `No results for "${searchQuery}"` : "No badges match your current filters."}
+              {searchQuery
+                ? `No results for "${searchQuery}"`
+                : "No badges match your current filters."}
             </p>
           </div>
         ) : (
@@ -441,9 +516,15 @@ export default function StorePage() {
                           />
                           <div className="absolute -top-2 -right-2">
                             <div
-                              className={`w-6 h-6 ${getRarityColor(badge.rarity)} rounded-full flex items-center justify-center`}
+                              className={`w-6 h-6 ${getRarityColor(
+                                badge.rarity
+                              )} rounded-full flex items-center justify-center`}
                             >
-                              <AnimatedIcon icon={badge.icon} animationType="pulse" className="text-white text-xs" />
+                              <AnimatedIcon
+                                icon={badge.icon}
+                                animationType="pulse"
+                                className="text-white text-xs"
+                              />
                             </div>
                           </div>
                         </div>
@@ -469,16 +550,23 @@ export default function StorePage() {
 
                       {/* Category Badge */}
                       <div className="absolute bottom-2 left-2">
-                        <BadgeComponent variant="outline" className="bg-white/90 border-gray-200 text-gray-700 text-xs">
+                        <BadgeComponent
+                          variant="outline"
+                          className="bg-white/90 border-gray-200 text-gray-700 text-xs"
+                        >
                           {getCategoryIcon(badge.category)}
-                          <span className="ml-1 capitalize">{badge.category}</span>
+                          <span className="ml-1 capitalize">
+                            {badge.category}
+                          </span>
                         </BadgeComponent>
                       </div>
 
                       {/* Rarity Badge */}
                       <div className="absolute bottom-2 right-2">
                         <BadgeComponent
-                          className={`${getRarityColor(badge.rarity)} text-white border-0 text-xs capitalize`}
+                          className={`${getRarityColor(
+                            badge.rarity
+                          )} text-white border-0 text-xs capitalize`}
                         >
                           {badge.rarity}
                         </BadgeComponent>
@@ -489,61 +577,69 @@ export default function StorePage() {
                       <h3 className="font-bold text-lg mb-2 text-gray-900 group-hover:text-purple-600 transition-colors duration-300">
                         {badge.name}
                       </h3>
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">{badge.description}</p>
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                        {badge.description}
+                      </p>
 
                       {/* Limited Edition Info */}
                       {badge.isLimited && (
                         <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-red-700 font-medium">
-                              {badge.limitedRemaining}/{badge.limitedQuantity} remaining
+                              {badge.limitedRemaining}/{badge.limitedQuantity}{" "}
+                              remaining
                             </span>
                             <span className="text-red-600 text-xs">
-                              Expires: {badge.expiresAt && new Date(badge.expiresAt).toLocaleDateString()}
+                              Expires:{" "}
+                              {badge.expiresAt &&
+                                new Date(badge.expiresAt).toLocaleDateString()}
                             </span>
                           </div>
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="h-4 w-4 text-yellow-500" />
-                          <span className="font-bold text-lg text-gray-900">{badge.price.toLocaleString()}</span>
-                          <span className="text-gray-500 text-sm">points</span>
-                        </div>
+                      {/* Price Information */}
+                      <div className="flex items-center justify-center gap-1.5 mb-3 px-3 py-1 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-md border border-yellow-200">
+                        <Sparkles className="h-4 w-4 text-yellow-500" />
+                        <span className="font-bold text-lg text-gray-900">
+                          {badge.price.toLocaleString()}
+                        </span>
+                        <span className="text-gray-600 text-sm font-medium">
+                          points
+                        </span>
+                      </div>
 
+                      {/* Purchase Button */}
+                      <div className="w-full">
                         {badge.isOwned ? (
-                          <BadgeComponent className="bg-green-500 text-white border-0">
-                            <Check className="h-3 w-3 mr-1" />
-                            Owned
-                          </BadgeComponent>
+                          <div className="w-full">
+                            <BadgeComponent className="w-full justify-center bg-green-500 text-white border-0 py-2 text-sm font-medium">
+                              <Check className="h-4 w-4 mr-2" />
+                              Already Owned
+                            </BadgeComponent>
+                          </div>
                         ) : (
-                          <ButtonPulse
+                          <Button
                             disabled={!canAfford(badge.price)}
                             onClick={() => handlePurchase(badge)}
-                            pulseColor="rgba(124, 58, 237, 0.3)"
+                            className={`w-full py-2 h-auto font-medium transition-all duration-300 ${
+                              canAfford(badge.price)
+                                ? "bg-violet-700 hover:bg-violet-800 text-white hover:shadow-lg hover:shadow-violet-500/25 hover:scale-105"
+                                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                            }`}
                           >
-                            <Button
-                              disabled={!canAfford(badge.price)}
-                              className={
-                                canAfford(badge.price)
-                                  ? "bg-violet-700 hover:bg-violet-800 text-white"
-                                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                              }
-                            >
-                              {canAfford(badge.price) ? (
-                                <>
-                                  <ShoppingCart className="h-4 w-4 mr-2" />
-                                  Purchase
-                                </>
-                              ) : (
-                                <>
-                                  <AlertCircle className="h-4 w-4 mr-2" />
-                                  Insufficient
-                                </>
-                              )}
-                            </Button>
-                          </ButtonPulse>
+                            {canAfford(badge.price) ? (
+                              <>
+                                <ShoppingCart className="h-4 w-4 mr-2" />
+                                Purchase Badge
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="h-4 w-4 mr-2" />
+                                Insufficient Points
+                              </>
+                            )}
+                          </Button>
                         )}
                       </div>
                     </CardContent>
@@ -567,20 +663,28 @@ export default function StorePage() {
                 </DialogTitle>
                 <p className="text-gray-600 dark:text-gray-300 mb-6">
                   You've successfully acquired the{" "}
-                  <span className="font-semibold text-violet-600 dark:text-violet-400">{selectedBadge?.name}</span>{" "}
+                  <span className="font-semibold text-violet-600 dark:text-violet-400">
+                    {selectedBadge?.name}
+                  </span>{" "}
                   badge.
                 </p>
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 my-6 text-left text-sm space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Points Spent:</span>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Points Spent:
+                    </span>
                     <span className="font-semibold text-gray-800 dark:text-gray-100">
                       {selectedBadge?.price.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Remaining Points:</span>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Remaining Points:
+                    </span>
                     <span className="font-semibold text-gray-800 dark:text-gray-100">
-                      {(userData.points - (selectedBadge?.price || 0)).toLocaleString()}
+                      {(
+                        userData.points - (selectedBadge?.price || 0)
+                      ).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -615,7 +719,9 @@ export default function StorePage() {
                         className="rounded-full"
                       />
                       <div>
-                        <h4 className="font-semibold text-gray-900 dark:text-white">{selectedBadge.name}</h4>
+                        <h4 className="font-semibold text-gray-900 dark:text-white">
+                          {selectedBadge.name}
+                        </h4>
                         <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
                           {selectedBadge.description}
                         </p>
@@ -624,19 +730,30 @@ export default function StorePage() {
 
                     <div className="space-y-2 text-sm pt-2">
                       <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Price</span>
+                        <span className="text-gray-500 dark:text-gray-400">
+                          Price
+                        </span>
                         <span className="font-semibold text-gray-800 dark:text-gray-100">
                           {selectedBadge.price.toLocaleString()} points
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Your points</span>
-                        <span className="text-gray-800 dark:text-gray-100">{userData.points.toLocaleString()} points</span>
+                        <span className="text-gray-500 dark:text-gray-400">
+                          Your points
+                        </span>
+                        <span className="text-gray-800 dark:text-gray-100">
+                          {userData.points.toLocaleString()} points
+                        </span>
                       </div>
                       <Separator className="my-2 bg-gray-200 dark:bg-gray-700" />
                       <div className="flex justify-between font-bold text-gray-800 dark:text-white">
                         <span>Remaining points</span>
-                        <span>{(userData.points - selectedBadge.price).toLocaleString()} points</span>
+                        <span>
+                          {(
+                            userData.points - selectedBadge.price
+                          ).toLocaleString()}{" "}
+                          points
+                        </span>
                       </div>
                     </div>
 
@@ -652,25 +769,28 @@ export default function StorePage() {
                 )}
 
                 <DialogFooter className="p-6 bg-gray-50 dark:bg-gray-800/50 mt-6 rounded-b-2xl">
-                  <Button variant="ghost" onClick={handleCloseModal} disabled={isPurchasing}>
+                  <Button
+                    variant="ghost"
+                    onClick={handleCloseModal}
+                    disabled={isPurchasing}
+                  >
                     Cancel
                   </Button>
-                  <ButtonPulse
-                    disabled={isPurchasing || !selectedBadge || !canAfford(selectedBadge.price)}
+                  <Button
+                    className="w-40 bg-violet-700 hover:bg-violet-800 text-white transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/25 hover:scale-105"
+                    disabled={
+                      isPurchasing ||
+                      !selectedBadge ||
+                      !canAfford(selectedBadge.price)
+                    }
                     onClick={confirmPurchase}
-                    pulseColor="rgba(124, 58, 237, 0.3)"
                   >
-                    <Button
-                      className="w-40 bg-violet-700 hover:bg-violet-800 text-white"
-                      disabled={isPurchasing || !selectedBadge || !canAfford(selectedBadge.price)}
-                    >
-                      {isPurchasing ? (
-                        <Spinner size="sm" />
-                      ) : (
-                        `Pay ${selectedBadge?.price.toLocaleString()} pts`
-                      )}
-                    </Button>
-                  </ButtonPulse>
+                    {isPurchasing ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      `Pay ${selectedBadge?.price.toLocaleString()} pts`
+                    )}
+                  </Button>
                 </DialogFooter>
               </>
             )}
@@ -678,5 +798,5 @@ export default function StorePage() {
         </Dialog>
       </div>
     </div>
-  )
+  );
 }
