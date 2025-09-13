@@ -53,12 +53,11 @@ import { StaggerContainer } from "@/components/ui/stagger-container";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { LeafletEventsMap } from "@/components/maps/leaflet-events-map";
-import EventRecommendations from "@/components/events/event-recommendations";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
 
 interface Event {
-  id: string;
+  id: number;
   title: string;
   description: string;
   category: string;
@@ -67,19 +66,14 @@ interface Event {
   time: string;
   endTime: string;
   location: {
-    name: string;
+    latitude: number;
+    longitude: number;
     address: string;
+    venue: string;
     city: string;
-    lat: number;
-    lng: number;
     isOnline?: boolean;
   };
-  organizer: {
-    name: string;
-    avatar: string;
-    verified: boolean;
-    followers: number;
-  };
+  organizer: string;
   attendees: number;
   maxAttendees: number;
   price: number;
@@ -89,7 +83,7 @@ interface Event {
   image: string;
   gallery?: string[];
   trending?: boolean;
-  featured?: boolean;
+  featured: boolean;
   isNew?: boolean;
   difficulty?: "Beginner" | "Intermediate" | "Advanced";
   duration?: string;
@@ -108,14 +102,14 @@ export default function EventsPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [savedEvents, setSavedEvents] = useState<string[]>([]);
+  const [savedEvents, setSavedEvents] = useState<number[]>([]);
   const [isRefreshingAI, setIsRefreshingAI] = useState(false);
   const [aiRefreshCount, setAiRefreshCount] = useState(0);
 
   // Enhanced mock events data
   const mockEvents: Event[] = [
     {
-      id: "1",
+      id: 1,
       title: "AI & Machine Learning Summit 2024",
       description:
         "Join industry leaders for cutting-edge discussions on artificial intelligence, machine learning, and the future of technology. Network with experts and discover breakthrough innovations.",
@@ -132,18 +126,13 @@ export default function EventsPage() {
       time: "09:00",
       endTime: "18:00",
       location: {
-        name: "Moscone Convention Center",
+        latitude: 37.7749,
+        longitude: -122.4194,
         address: "747 Howard Street",
+        venue: "Moscone Convention Center",
         city: "San Francisco",
-        lat: 37.7749,
-        lng: -122.4194,
       },
-      organizer: {
-        name: "TechEvents Global",
-        avatar: "/placeholder.svg?height=40&width=40",
-        verified: true,
-        followers: 15420,
-      },
+      organizer: "TechEvents Global",
       attendees: 847,
       maxAttendees: 1000,
       price: 299,
@@ -164,7 +153,7 @@ export default function EventsPage() {
       certificates: true,
     },
     {
-      id: "2",
+      id: 2,
       title: "Digital Marketing Masterclass",
       description:
         "Master the latest digital marketing strategies, SEO techniques, and social media marketing. Learn from industry experts and transform your marketing approach.",
@@ -181,18 +170,13 @@ export default function EventsPage() {
       time: "14:00",
       endTime: "17:00",
       location: {
-        name: "Marketing Hub NYC",
+        latitude: 40.7128,
+        longitude: -74.006,
         address: "456 Marketing Avenue",
+        venue: "Marketing Hub NYC",
         city: "New York",
-        lat: 40.7128,
-        lng: -74.006,
       },
-      organizer: {
-        name: "Digital Marketing Pros",
-        avatar: "/placeholder.svg?height=40&width=40",
-        verified: false,
-        followers: 8750,
-      },
+      organizer: "Digital Marketing Pros",
       attendees: 234,
       maxAttendees: 300,
       price: 149,
@@ -208,7 +192,7 @@ export default function EventsPage() {
       certificates: false,
     },
     {
-      id: "3",
+      id: 3,
       title: "Startup Pitch Competition",
       description:
         "Watch innovative startups pitch their groundbreaking ideas to top-tier investors. Network with entrepreneurs and discover the next big thing in tech.",
@@ -225,18 +209,13 @@ export default function EventsPage() {
       time: "18:00",
       endTime: "21:00",
       location: {
-        name: "Innovation Center Austin",
+        latitude: 30.2672,
+        longitude: -97.7431,
         address: "789 Startup Boulevard",
+        venue: "Innovation Center Austin",
         city: "Austin",
-        lat: 30.2672,
-        lng: -97.7431,
       },
-      organizer: {
-        name: "Startup Austin Community",
-        avatar: "/placeholder.svg?height=40&width=40",
-        verified: true,
-        followers: 12300,
-      },
+      organizer: "Startup Austin Community",
       attendees: 156,
       maxAttendees: 200,
       price: 0,
@@ -252,7 +231,7 @@ export default function EventsPage() {
       certificates: false,
     },
     {
-      id: "4",
+      id: 4,
       title: "Virtual UX/UI Design Workshop",
       description:
         "Learn modern design principles, user research methodologies, and prototyping tools from industry experts. Perfect for designers at any level.",
@@ -262,19 +241,14 @@ export default function EventsPage() {
       time: "10:00",
       endTime: "16:00",
       location: {
-        name: "Online Event",
+        latitude: 0,
+        longitude: 0,
         address: "Virtual Platform",
+        venue: "Online Event",
         city: "Online",
-        lat: 0,
-        lng: 0,
         isOnline: true,
       },
-      organizer: {
-        name: "Design Academy",
-        avatar: "/placeholder.svg?height=40&width=40",
-        verified: true,
-        followers: 9850,
-      },
+      organizer: "Design Academy",
       attendees: 445,
       maxAttendees: 500,
       price: 99,
@@ -291,7 +265,7 @@ export default function EventsPage() {
       certificates: true,
     },
     {
-      id: "5",
+      id: 5,
       title: "Blockchain & Web3 Conference",
       description:
         "Explore the future of decentralized technology, cryptocurrency, NFTs, and DeFi. Connect with blockchain pioneers and learn about emerging opportunities.",
@@ -301,18 +275,13 @@ export default function EventsPage() {
       time: "09:30",
       endTime: "17:30",
       location: {
-        name: "Miami Convention Center",
+        latitude: 25.7617,
+        longitude: -80.1918,
         address: "1901 Convention Center Drive",
+        venue: "Miami Convention Center",
         city: "Miami",
-        lat: 25.7617,
-        lng: -80.1918,
       },
-      organizer: {
-        name: "Blockchain Society",
-        avatar: "/placeholder.svg?height=40&width=40",
-        verified: true,
-        followers: 18900,
-      },
+      organizer: "Blockchain Society",
       attendees: 567,
       maxAttendees: 800,
       price: 399,
@@ -351,7 +320,7 @@ export default function EventsPage() {
           event.tags.some((tag) =>
             tag.toLowerCase().includes(searchQuery.toLowerCase())
           ) ||
-          event.organizer.name.toLowerCase().includes(searchQuery.toLowerCase())
+          event.organizer.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -462,7 +431,7 @@ export default function EventsPage() {
     sortBy,
   ]);
 
-  const toggleSaveEvent = (eventId: string) => {
+  const toggleSaveEvent = (eventId: number) => {
     setSavedEvents((prev) =>
       prev.includes(eventId)
         ? prev.filter((id) => id !== eventId)
@@ -672,7 +641,7 @@ export default function EventsPage() {
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-green-500" />
                 <span className="truncate">
-                  {event.location.name}, {event.location.city}
+                  {event.location.venue}, {event.location.city}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -727,29 +696,16 @@ export default function EventsPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <Avatar className="h-8 w-8 ring-2 ring-purple-100">
-                <AvatarImage
-                  src={event.organizer.avatar || "/placeholder.svg"}
-                />
+                <AvatarImage src="/placeholder.svg" />
                 <AvatarFallback className="text-xs bg-gradient-to-r from-purple-400 to-blue-400 text-white">
-                  {event.organizer.name[0]}
+                  {event.organizer[0]}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900">
-                    {event.organizer.name}
+                    {event.organizer}
                   </span>
-                  {event.organizer.verified && (
-                    <Badge
-                      variant="secondary"
-                      className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600"
-                    >
-                      ✓ Verified
-                    </Badge>
-                  )}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {event.organizer.followers.toLocaleString()} followers
                 </div>
               </div>
             </div>
@@ -949,88 +905,70 @@ export default function EventsPage() {
               </div>
 
               {/* View Controls Section */}
-              <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center justify-between pt-4 border-t border-gray-200/50">
-                {/* View Mode Dropdown */}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg shadow-md">
-                      <Grid className="h-4 w-4 text-white" />
-                    </div>
-                    <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-                      View Mode
-                    </span>
-                  </div>
-
-                  <Select
-                    value={viewMode}
-                    onValueChange={(value) => setViewMode(value as any)}
-                  >
-                    <SelectTrigger className="w-56 border border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
-                      <div className="flex items-center gap-2">
-                        {viewMode === "grid" && (
-                          <Grid className="h-4 w-4 text-purple-600" />
-                        )}
-                        {viewMode === "list" && (
-                          <List className="h-4 w-4 text-blue-600" />
-                        )}
-                        {viewMode === "map" && (
-                          <Map className="h-4 w-4 text-green-600" />
-                        )}
-                        <span className="font-medium capitalize">
-                          {viewMode}
-                        </span>
+              <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 items-start lg:items-center justify-between pt-4 border-t border-gray-200/50">
+                {/* View Mode and Sort Controls - Side by Side */}
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center">
+                  {/* Sort by */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg shadow-md">
+                        <SortDesc className="h-4 w-4 text-white" />
                       </div>
-                    </SelectTrigger>
-                    <SelectContent className="border border-gray-200 rounded-xl shadow-lg w-56">
-                      <SelectItem value="grid">
-                        <div className="flex items-center gap-2">
-                          <Grid className="h-4 w-4 text-purple-600" />
-                          Grid View
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="list">
-                        <div className="flex items-center gap-2">
-                          <List className="h-4 w-4 text-blue-600" />
-                          List View
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="map">
-                        <div className="flex items-center gap-2">
-                          <Map className="h-4 w-4 text-green-600" />
-                          Map View
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Sort by */}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg shadow-md">
-                      <SortDesc className="h-4 w-4 text-white" />
+                      {/* <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+                        Sort by
+                      </span> */}
                     </div>
-                    <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-                      Sort by
-                    </span>
+
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-48 border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
+                        <SelectItem value="date">📅 Date</SelectItem>
+                        <SelectItem value="popularity">
+                          🔥 Popularity
+                        </SelectItem>
+                        <SelectItem value="rating">⭐ Rating</SelectItem>
+                        <SelectItem value="price-low">
+                          💰 Price: Low to High
+                        </SelectItem>
+                        <SelectItem value="price-high">
+                          💎 Price: High to Low
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-48 border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
-                      <SelectItem value="date">📅 Date</SelectItem>
-                      <SelectItem value="popularity">🔥 Popularity</SelectItem>
-                      <SelectItem value="rating">⭐ Rating</SelectItem>
-                      <SelectItem value="price-low">
-                        💰 Price: Low to High
-                      </SelectItem>
-                      <SelectItem value="price-high">
-                        💎 Price: High to Low
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {/* View Mode */}
+                  <div className="flex items-center bg-gray-100 rounded-lg overflow-hidden">
+                    <Button
+                      variant={viewMode === "grid" ? "default" : "ghost"}
+                      size="icon"
+                      onClick={() => setViewMode("grid")}
+                      className="h-8 w-8 rounded-none hover:bg-purple-100 border-r border-gray-200"
+                      title="Grid View"
+                    >
+                      <Grid className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={viewMode === "list" ? "default" : "ghost"}
+                      size="icon"
+                      onClick={() => setViewMode("list")}
+                      className="h-8 w-8 rounded-none hover:bg-blue-100 border-r border-gray-200"
+                      title="List View"
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={viewMode === "map" ? "default" : "ghost"}
+                      size="icon"
+                      onClick={() => setViewMode("map")}
+                      className="h-8 w-8 rounded-none hover:bg-green-100"
+                      title="Map View"
+                    >
+                      <Map className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Create Event Button */}
@@ -1256,7 +1194,7 @@ export default function EventsPage() {
                     <LeafletEventsMap
                       events={filteredEvents}
                       selectedEvent={selectedEvent}
-                      onEventSelect={setSelectedEvent}
+                      onEventSelect={(event) => setSelectedEvent(event)}
                       height="700px"
                       className="rounded-2xl shadow-lg border"
                     />
@@ -1624,28 +1562,16 @@ export default function EventsPage() {
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                               <Avatar className="h-6 w-6 ring-2 ring-purple-100">
-                                <AvatarImage
-                                  src={
-                                    event.organizer.avatar || "/placeholder.svg"
-                                  }
-                                />
+                                <AvatarImage src="/placeholder.svg" />
                                 <AvatarFallback className="text-xs bg-gradient-to-r from-purple-400 to-blue-400 text-white">
-                                  {event.organizer.name[0]}
+                                  {event.organizer[0]}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-medium text-gray-900">
-                                    {event.organizer.name}
+                                    {event.organizer}
                                   </span>
-                                  {event.organizer.verified && (
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600"
-                                    >
-                                      ✓ Verified
-                                    </Badge>
-                                  )}
                                 </div>
                               </div>
                             </div>
