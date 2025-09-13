@@ -1,14 +1,20 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Progress } from "@/components/ui/progress"
+import { useState, useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import {
   Calendar,
   MapPin,
@@ -33,72 +39,78 @@ import {
   Globe,
   ChevronDown,
   X,
-} from "lucide-react"
-import Image from "next/image"
-import Link from "next/link"
-import { cn } from "@/lib/utils"
-import { AnimatedCard } from "@/components/ui/animated-card"
-import { SmoothReveal } from "@/components/ui/smooth-reveal"
-import { StaggerContainer } from "@/components/ui/stagger-container"
-import { AnimatedCounter } from "@/components/ui/animated-counter"
-import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget"
-import { LeafletEventsMap } from "@/components/maps/leaflet-events-map"
-import EventRecommendations from "@/components/events/event-recommendations"
-import { FloatingElements } from "@/components/ui/floating-elements"
-import { PageTransition } from "@/components/ui/page-transition"
+  RefreshCw,
+  Users,
+  SortDesc,
+  Check,
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { AnimatedCard } from "@/components/ui/animated-card";
+import { SmoothReveal } from "@/components/ui/smooth-reveal";
+import { StaggerContainer } from "@/components/ui/stagger-container";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
+import { LeafletEventsMap } from "@/components/maps/leaflet-events-map";
+import EventRecommendations from "@/components/events/event-recommendations";
+import { FloatingElements } from "@/components/ui/floating-elements";
+import { PageTransition } from "@/components/ui/page-transition";
 
 interface Event {
-  id: string
-  title: string
-  description: string
-  category: string
-  tags: string[]
-  date: string
-  time: string
-  endTime: string
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  tags: string[];
+  date: string;
+  time: string;
+  endTime: string;
   location: {
-    name: string
-    address: string
-    city: string
-    lat: number
-    lng: number
-    isOnline?: boolean
-  }
+    name: string;
+    address: string;
+    city: string;
+    lat: number;
+    lng: number;
+    isOnline?: boolean;
+  };
   organizer: {
-    name: string
-    avatar: string
-    verified: boolean
-    followers: number
-  }
-  attendees: number
-  maxAttendees: number
-  price: number
-  originalPrice?: number
-  rating: number
-  reviewCount: number
-  image: string
-  gallery?: string[]
-  trending?: boolean
-  featured?: boolean
-  isNew?: boolean
-  difficulty?: "Beginner" | "Intermediate" | "Advanced"
-  duration?: string
-  language?: string
-  certificates?: boolean
+    name: string;
+    avatar: string;
+    verified: boolean;
+    followers: number;
+  };
+  attendees: number;
+  maxAttendees: number;
+  price: number;
+  originalPrice?: number;
+  rating: number;
+  reviewCount: number;
+  image: string;
+  gallery?: string[];
+  trending?: boolean;
+  featured?: boolean;
+  isNew?: boolean;
+  difficulty?: "Beginner" | "Intermediate" | "Advanced";
+  duration?: string;
+  language?: string;
+  certificates?: boolean;
 }
 
 export default function EventsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [selectedLocation, setSelectedLocation] = useState("all")
-  const [priceRange, setPriceRange] = useState("all")
-  const [dateRange, setDateRange] = useState("all")
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid")
-  const [sortBy, setSortBy] = useState("date")
-  const [activeTab, setActiveTab] = useState("all")
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
-  const [showFilters, setShowFilters] = useState(false)
-  const [savedEvents, setSavedEvents] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedLocation, setSelectedLocation] = useState("all");
+  const [priceRange, setPriceRange] = useState("all");
+  const [dateRange, setDateRange] = useState("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
+  const [sortBy, setSortBy] = useState("date");
+  const [activeTab, setActiveTab] = useState("all");
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [savedEvents, setSavedEvents] = useState<string[]>([]);
+  const [isRefreshingAI, setIsRefreshingAI] = useState(false);
+  const [aiRefreshCount, setAiRefreshCount] = useState(0);
 
   // Enhanced mock events data
   const mockEvents: Event[] = [
@@ -108,7 +120,14 @@ export default function EventsPage() {
       description:
         "Join industry leaders for cutting-edge discussions on artificial intelligence, machine learning, and the future of technology. Network with experts and discover breakthrough innovations.",
       category: "Technology",
-      tags: ["AI", "Machine Learning", "Tech", "Innovation", "Networking", "Future Tech"],
+      tags: [
+        "AI",
+        "Machine Learning",
+        "Tech",
+        "Innovation",
+        "Networking",
+        "Future Tech",
+      ],
       date: "2024-02-15",
       time: "09:00",
       endTime: "18:00",
@@ -132,7 +151,10 @@ export default function EventsPage() {
       rating: 4.8,
       reviewCount: 156,
       image: "/placeholder.svg?height=300&width=500",
-      gallery: ["/placeholder.svg?height=200&width=300", "/placeholder.svg?height=200&width=300"],
+      gallery: [
+        "/placeholder.svg?height=200&width=300",
+        "/placeholder.svg?height=200&width=300",
+      ],
       trending: true,
       featured: true,
       isNew: false,
@@ -147,7 +169,14 @@ export default function EventsPage() {
       description:
         "Master the latest digital marketing strategies, SEO techniques, and social media marketing. Learn from industry experts and transform your marketing approach.",
       category: "Marketing",
-      tags: ["Marketing", "Digital", "SEO", "Social Media", "Strategy", "Growth"],
+      tags: [
+        "Marketing",
+        "Digital",
+        "SEO",
+        "Social Media",
+        "Strategy",
+        "Growth",
+      ],
       date: "2024-02-20",
       time: "14:00",
       endTime: "17:00",
@@ -184,7 +213,14 @@ export default function EventsPage() {
       description:
         "Watch innovative startups pitch their groundbreaking ideas to top-tier investors. Network with entrepreneurs and discover the next big thing in tech.",
       category: "Business",
-      tags: ["Startups", "Pitch", "Investment", "Entrepreneurship", "Innovation", "Funding"],
+      tags: [
+        "Startups",
+        "Pitch",
+        "Investment",
+        "Entrepreneurship",
+        "Innovation",
+        "Funding",
+      ],
       date: "2024-02-25",
       time: "18:00",
       endTime: "21:00",
@@ -291,7 +327,7 @@ export default function EventsPage() {
       language: "English",
       certificates: true,
     },
-  ]
+  ];
 
   const categories = [
     { value: "all", label: "All Categories", icon: "🎯" },
@@ -301,10 +337,10 @@ export default function EventsPage() {
     { value: "design", label: "Design", icon: "🎨" },
     { value: "health", label: "Health", icon: "🏥" },
     { value: "education", label: "Education", icon: "📚" },
-  ]
+  ];
 
   const filteredEvents = useMemo(() => {
-    let filtered = mockEvents
+    let filtered = mockEvents;
 
     // Search filter
     if (searchQuery) {
@@ -312,22 +348,30 @@ export default function EventsPage() {
         (event) =>
           event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          event.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          event.organizer.name.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
+          event.tags.some((tag) =>
+            tag.toLowerCase().includes(searchQuery.toLowerCase())
+          ) ||
+          event.organizer.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     }
 
     // Category filter
     if (selectedCategory !== "all") {
-      filtered = filtered.filter((event) => event.category.toLowerCase() === selectedCategory.toLowerCase())
+      filtered = filtered.filter(
+        (event) =>
+          event.category.toLowerCase() === selectedCategory.toLowerCase()
+      );
     }
 
     // Location filter
     if (selectedLocation !== "all") {
       if (selectedLocation === "online") {
-        filtered = filtered.filter((event) => event.location.isOnline)
+        filtered = filtered.filter((event) => event.location.isOnline);
       } else {
-        filtered = filtered.filter((event) => event.location.city.toLowerCase() === selectedLocation.toLowerCase())
+        filtered = filtered.filter(
+          (event) =>
+            event.location.city.toLowerCase() === selectedLocation.toLowerCase()
+        );
       }
     }
 
@@ -335,106 +379,148 @@ export default function EventsPage() {
     if (priceRange !== "all") {
       switch (priceRange) {
         case "free":
-          filtered = filtered.filter((event) => event.price === 0)
-          break
+          filtered = filtered.filter((event) => event.price === 0);
+          break;
         case "paid":
-          filtered = filtered.filter((event) => event.price > 0)
-          break
+          filtered = filtered.filter((event) => event.price > 0);
+          break;
         case "under-100":
-          filtered = filtered.filter((event) => event.price > 0 && event.price < 100)
-          break
+          filtered = filtered.filter(
+            (event) => event.price > 0 && event.price < 100
+          );
+          break;
         case "100-300":
-          filtered = filtered.filter((event) => event.price >= 100 && event.price <= 300)
-          break
+          filtered = filtered.filter(
+            (event) => event.price >= 100 && event.price <= 300
+          );
+          break;
         case "over-300":
-          filtered = filtered.filter((event) => event.price > 300)
-          break
+          filtered = filtered.filter((event) => event.price > 300);
+          break;
       }
     }
 
     // Date filter
     if (dateRange !== "all") {
-      const now = new Date()
+      const now = new Date();
       switch (dateRange) {
         case "today":
           filtered = filtered.filter((event) => {
-            const eventDate = new Date(event.date)
-            return eventDate.toDateString() === now.toDateString()
-          })
-          break
+            const eventDate = new Date(event.date);
+            return eventDate.toDateString() === now.toDateString();
+          });
+          break;
         case "week":
           filtered = filtered.filter((event) => {
-            const eventDate = new Date(event.date)
-            const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-            return eventDate >= now && eventDate <= weekFromNow
-          })
-          break
+            const eventDate = new Date(event.date);
+            const weekFromNow = new Date(
+              now.getTime() + 7 * 24 * 60 * 60 * 1000
+            );
+            return eventDate >= now && eventDate <= weekFromNow;
+          });
+          break;
         case "month":
           filtered = filtered.filter((event) => {
-            const eventDate = new Date(event.date)
-            const monthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-            return eventDate >= now && eventDate <= monthFromNow
-          })
-          break
+            const eventDate = new Date(event.date);
+            const monthFromNow = new Date(
+              now.getTime() + 30 * 24 * 60 * 60 * 1000
+            );
+            return eventDate >= now && eventDate <= monthFromNow;
+          });
+          break;
       }
     }
 
     // Sort events
     switch (sortBy) {
       case "date":
-        filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        break
+        filtered.sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        break;
       case "popularity":
-        filtered.sort((a, b) => b.attendees - a.attendees)
-        break
+        filtered.sort((a, b) => b.attendees - a.attendees);
+        break;
       case "rating":
-        filtered.sort((a, b) => b.rating - a.rating)
-        break
+        filtered.sort((a, b) => b.rating - a.rating);
+        break;
       case "price-low":
-        filtered.sort((a, b) => a.price - b.price)
-        break
+        filtered.sort((a, b) => a.price - b.price);
+        break;
       case "price-high":
-        filtered.sort((a, b) => b.price - a.price)
-        break
+        filtered.sort((a, b) => b.price - a.price);
+        break;
     }
 
-    return filtered
-  }, [searchQuery, selectedCategory, selectedLocation, priceRange, dateRange, sortBy])
+    return filtered;
+  }, [
+    searchQuery,
+    selectedCategory,
+    selectedLocation,
+    priceRange,
+    dateRange,
+    sortBy,
+  ]);
 
   const toggleSaveEvent = (eventId: string) => {
-    setSavedEvents((prev) => (prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId]))
-  }
+    setSavedEvents((prev) =>
+      prev.includes(eventId)
+        ? prev.filter((id) => id !== eventId)
+        : [...prev, eventId]
+    );
+  };
 
   const getActiveFiltersCount = () => {
-    let count = 0
-    if (selectedCategory !== "all") count++
-    if (selectedLocation !== "all") count++
-    if (priceRange !== "all") count++
-    if (dateRange !== "all") count++
-    return count
-  }
+    let count = 0;
+    if (selectedCategory !== "all") count++;
+    if (selectedLocation !== "all") count++;
+    if (priceRange !== "all") count++;
+    if (dateRange !== "all") count++;
+    return count;
+  };
 
   const clearFilters = () => {
-    setSelectedCategory("all")
-    setSelectedLocation("all")
-    setPriceRange("all")
-    setDateRange("all")
-    setSearchQuery("")
-  }
+    setSelectedCategory("all");
+    setSelectedLocation("all");
+    setPriceRange("all");
+    setDateRange("all");
+    setSearchQuery("");
+  };
 
-  const EnhancedEventCard = ({ event, isListView = false }: { event: Event; isListView?: boolean }) => {
-    const attendancePercentage = (event.attendees / event.maxAttendees) * 100
-    const isSaved = savedEvents.includes(event.id)
+  const handleRefreshAI = async () => {
+    setIsRefreshingAI(true);
+    setAiRefreshCount((prev) => prev + 1);
+
+    // Simulate AI processing time
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    setIsRefreshingAI(false);
+  };
+
+  const EnhancedEventCard = ({
+    event,
+    isListView = false,
+  }: {
+    event: Event;
+    isListView?: boolean;
+  }) => {
+    const attendancePercentage = (event.attendees / event.maxAttendees) * 100;
+    const isSaved = savedEvents.includes(event.id);
 
     return (
       <AnimatedCard
         variant="3d"
         className={cn(
           "group cursor-pointer overflow-hidden transition-all duration-500 hover:shadow-2xl border-0",
-          isListView ? "flex flex-row h-64" : "h-full",
+          isListView ? "flex flex-row h-64" : "h-full"
         )}
       >
-        <div className={cn("relative overflow-hidden", isListView ? "w-80 flex-shrink-0" : "h-64")}>
+        <div
+          className={cn(
+            "relative overflow-hidden",
+            isListView ? "w-80 flex-shrink-0" : "h-64"
+          )}
+        >
           <Image
             src={event.image || "/placeholder.svg"}
             alt={event.title}
@@ -481,11 +567,16 @@ export default function EventsPage() {
               variant="ghost"
               className="h-8 w-8 p-0 bg-black/20 backdrop-blur-sm text-white hover:bg-black/40 rounded-full"
               onClick={(e) => {
-                e.stopPropagation()
-                toggleSaveEvent(event.id)
+                e.stopPropagation();
+                toggleSaveEvent(event.id);
               }}
             >
-              <Heart className={cn("h-4 w-4", isSaved && "fill-red-500 text-red-500")} />
+              <Heart
+                className={cn(
+                  "h-4 w-4",
+                  isSaved && "fill-red-500 text-red-500"
+                )}
+              />
             </Button>
             <Button
               size="sm"
@@ -503,7 +594,9 @@ export default function EventsPage() {
                 <div className="text-2xl font-bold">
                   {event.price === 0 ? "Free" : `$${event.price}`}
                   {event.originalPrice && (
-                    <span className="text-sm line-through text-gray-300 ml-2">${event.originalPrice}</span>
+                    <span className="text-sm line-through text-gray-300 ml-2">
+                      ${event.originalPrice}
+                    </span>
                   )}
                 </div>
                 <div className="text-sm opacity-90">
@@ -518,7 +611,9 @@ export default function EventsPage() {
                 <div className="flex items-center gap-1 mb-1">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                   <span className="font-semibold">{event.rating}</span>
-                  <span className="text-sm opacity-75">({event.reviewCount})</span>
+                  <span className="text-sm opacity-75">
+                    ({event.reviewCount})
+                  </span>
                 </div>
                 <div className="text-sm opacity-90">{event.difficulty}</div>
               </div>
@@ -526,7 +621,12 @@ export default function EventsPage() {
           </div>
         </div>
 
-        <CardContent className={cn("p-6 flex-1", isListView ? "flex flex-col justify-between" : "")}>
+        <CardContent
+          className={cn(
+            "p-6 flex-1",
+            isListView ? "flex flex-col justify-between" : ""
+          )}
+        >
           {/* Header */}
           <div className="mb-4">
             <div className="flex items-start justify-between mb-2">
@@ -534,7 +634,10 @@ export default function EventsPage() {
                 {event.category}
               </Badge>
               {event.certificates && (
-                <Badge variant="outline" className="text-xs border-green-500 text-green-600">
+                <Badge
+                  variant="outline"
+                  className="text-xs border-green-500 text-green-600"
+                >
                   <Award className="w-3 h-3 mr-1" />
                   Certificate
                 </Badge>
@@ -545,7 +648,9 @@ export default function EventsPage() {
               {event.title}
             </h3>
 
-            <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 mb-4">{event.description}</p>
+            <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 mb-4">
+              {event.description}
+            </p>
           </div>
 
           {/* Event Details */}
@@ -584,7 +689,10 @@ export default function EventsPage() {
                   {event.attendees}/{event.maxAttendees} people
                 </span>
               </div>
-              <Progress value={attendancePercentage} className="h-2 bg-gray-100">
+              <Progress
+                value={attendancePercentage}
+                className="h-2 bg-gray-100"
+              >
                 <div
                   className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-500"
                   style={{ width: `${attendancePercentage}%` }}
@@ -619,28 +727,41 @@ export default function EventsPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <Avatar className="h-8 w-8 ring-2 ring-purple-100">
-                <AvatarImage src={event.organizer.avatar || "/placeholder.svg"} />
+                <AvatarImage
+                  src={event.organizer.avatar || "/placeholder.svg"}
+                />
                 <AvatarFallback className="text-xs bg-gradient-to-r from-purple-400 to-blue-400 text-white">
                   {event.organizer.name[0]}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">{event.organizer.name}</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {event.organizer.name}
+                  </span>
                   {event.organizer.verified && (
-                    <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600"
+                    >
                       ✓ Verified
                     </Badge>
                   )}
                 </div>
-                <div className="text-xs text-gray-500">{event.organizer.followers.toLocaleString()} followers</div>
+                <div className="text-xs text-gray-500">
+                  {event.organizer.followers.toLocaleString()} followers
+                </div>
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="flex gap-3">
-            <Button variant="outline" size="sm" className="flex-1 border-purple-200 text-purple-600 hover:bg-purple-50">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 border-purple-200 text-purple-600 hover:bg-purple-50"
+            >
               <Bookmark className="h-4 w-4 mr-2" />
               Save for Later
             </Button>
@@ -656,8 +777,8 @@ export default function EventsPage() {
           </div>
         </CardContent>
       </AnimatedCard>
-    )
-  }
+    );
+  };
 
   return (
     <PageTransition>
@@ -676,7 +797,8 @@ export default function EventsPage() {
                   Discover Amazing Events
                 </h1>
                 <p className="text-xl text-purple-100 max-w-3xl mx-auto leading-relaxed">
-                  Join thousands of professionals, creators, and innovators at events that inspire, educate, and connect
+                  Join thousands of professionals, creators, and innovators at
+                  events that inspire, educate, and connect
                 </p>
               </div>
             </SmoothReveal>
@@ -688,23 +810,33 @@ export default function EventsPage() {
                   <div className="text-3xl font-bold mb-1">
                     <AnimatedCounter end={filteredEvents.length} />
                   </div>
-                  <div className="text-purple-200 text-sm">Events Available</div>
+                  <div className="text-purple-200 text-sm">
+                    Events Available
+                  </div>
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold mb-1">
-                    <AnimatedCounter end={filteredEvents.filter((e) => e.trending).length} />
+                    <AnimatedCounter
+                      end={filteredEvents.filter((e) => e.trending).length}
+                    />
                   </div>
                   <div className="text-purple-200 text-sm">Trending Now</div>
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold mb-1">
-                    <AnimatedCounter end={filteredEvents.filter((e) => e.price === 0).length} />
+                    <AnimatedCounter
+                      end={filteredEvents.filter((e) => e.price === 0).length}
+                    />
                   </div>
                   <div className="text-purple-200 text-sm">Free Events</div>
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold mb-1">
-                    <AnimatedCounter end={filteredEvents.filter((e) => e.location.isOnline).length} />
+                    <AnimatedCounter
+                      end={
+                        filteredEvents.filter((e) => e.location.isOnline).length
+                      }
+                    />
                   </div>
                   <div className="text-purple-200 text-sm">Online Events</div>
                 </div>
@@ -738,105 +870,216 @@ export default function EventsPage() {
           </div>
         </div>
 
-        {/* Filters Bar */}
-        <div className="bg-white/80 backdrop-blur-sm border-b sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-6 py-4">
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-              {/* Quick Filters */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  {categories.slice(0, 6).map((category) => (
+        {/* Enhanced Filters Bar */}
+        <div className="bg-white/90 backdrop-blur-md border-b border-gray-200/50 sticky top-0 z-40 shadow-lg shadow-gray-200/20">
+          <div className="max-w-7xl mx-auto px-6 py-6">
+            {/* Main Filters Container */}
+            <div className="space-y-6">
+              {/* Category Filters and Advanced Filters Row */}
+              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+                {/* Category Filters */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-1.5 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg">
+                      <Filter className="h-4 w-4 text-white" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-gray-700">
+                      Quick Filters
+                    </h3>
+                    <div className="h-px bg-gradient-to-r from-purple-200 to-blue-200 flex-1"></div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {categories.slice(0, 6).map((category) => (
+                      <Button
+                        key={category.value}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedCategory(category.value)}
+                        className={cn(
+                          "text-sm font-medium transition-all duration-300 border-2 rounded-full px-4 py-2",
+                          selectedCategory === category.value
+                            ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white border-transparent shadow-lg shadow-purple-500/25 transform scale-105"
+                            : "hover:bg-purple-50 hover:border-purple-300 hover:shadow-md border-gray-200"
+                        )}
+                      >
+                        <span className="mr-2 text-base">{category.icon}</span>
+                        {category.label}
+                      </Button>
+                    ))}
+                  </div>
+
+                  {/* Advanced Filters Toggle */}
+                  <div className="mt-4">
                     <Button
-                      key={category.value}
-                      variant={selectedCategory === category.value ? "default" : "outline"}
+                      variant="outline"
                       size="sm"
-                      onClick={() => setSelectedCategory(category.value)}
+                      onClick={() => setShowFilters(!showFilters)}
                       className={cn(
-                        "text-sm font-medium transition-all duration-200",
-                        selectedCategory === category.value
-                          ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg"
-                          : "hover:bg-purple-50 hover:border-purple-200",
+                        "flex items-center gap-2 border-2 rounded-full px-4 py-2 transition-all duration-300",
+                        showFilters
+                          ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white border-transparent shadow-lg shadow-purple-500/25"
+                          : "hover:bg-purple-50 hover:border-purple-300 hover:shadow-md border-gray-200"
                       )}
                     >
-                      <span className="mr-1">{category.icon}</span>
-                      {category.label}
+                      <SlidersHorizontal className="h-4 w-4" />
+                      <span className="font-medium">Advanced Filters</span>
+                      {getActiveFiltersCount() > 0 && (
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            "ml-2 text-xs",
+                            showFilters
+                              ? "bg-white/20 text-white border-white/30"
+                              : "bg-purple-100 text-purple-600 border-purple-200"
+                          )}
+                        >
+                          {getActiveFiltersCount()}
+                        </Badge>
+                      )}
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 transition-transform duration-300",
+                          showFilters && "rotate-180"
+                        )}
+                      />
                     </Button>
-                  ))}
+                  </div>
                 </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center gap-2 hover:bg-purple-50 hover:border-purple-200"
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  More Filters
-                  {getActiveFiltersCount() > 0 && (
-                    <Badge variant="secondary" className="ml-1 bg-purple-100 text-purple-600">
-                      {getActiveFiltersCount()}
-                    </Badge>
-                  )}
-                  <ChevronDown className={cn("h-4 w-4 transition-transform", showFilters && "rotate-180")} />
-                </Button>
               </div>
 
-              {/* View Controls */}
-              <div className="flex items-center gap-4">
-                <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as any)}>
-                  <TabsList className="grid w-full grid-cols-3 bg-gray-100">
-                    <TabsTrigger value="grid" className="flex items-center gap-2">
-                      <Grid className="h-4 w-4" />
-                      Grid
-                    </TabsTrigger>
-                    <TabsTrigger value="list" className="flex items-center gap-2">
-                      <List className="h-4 w-4" />
-                      List
-                    </TabsTrigger>
-                    <TabsTrigger value="map" className="flex items-center gap-2">
-                      <Map className="h-4 w-4" />
-                      Map
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+              {/* View Controls Section */}
+              <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center justify-between pt-4 border-t border-gray-200/50">
+                {/* View Mode Dropdown */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg shadow-md">
+                      <Grid className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+                      View Mode
+                    </span>
+                  </div>
 
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="date">📅 Date</SelectItem>
-                    <SelectItem value="popularity">🔥 Popularity</SelectItem>
-                    <SelectItem value="rating">⭐ Rating</SelectItem>
-                    <SelectItem value="price-low">💰 Price: Low to High</SelectItem>
-                    <SelectItem value="price-high">💎 Price: High to Low</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <Select
+                    value={viewMode}
+                    onValueChange={(value) => setViewMode(value as any)}
+                  >
+                    <SelectTrigger className="w-56 border border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
+                      <div className="flex items-center gap-2">
+                        {viewMode === "grid" && (
+                          <Grid className="h-4 w-4 text-purple-600" />
+                        )}
+                        {viewMode === "list" && (
+                          <List className="h-4 w-4 text-blue-600" />
+                        )}
+                        {viewMode === "map" && (
+                          <Map className="h-4 w-4 text-green-600" />
+                        )}
+                        <span className="font-medium capitalize">
+                          {viewMode}
+                        </span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="border border-gray-200 rounded-xl shadow-lg w-56">
+                      <SelectItem value="grid">
+                        <div className="flex items-center gap-2">
+                          <Grid className="h-4 w-4 text-purple-600" />
+                          Grid View
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="list">
+                        <div className="flex items-center gap-2">
+                          <List className="h-4 w-4 text-blue-600" />
+                          List View
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="map">
+                        <div className="flex items-center gap-2">
+                          <Map className="h-4 w-4 text-green-600" />
+                          Map View
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                <Link href="/events/create">
-                  <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Event
-                  </Button>
-                </Link>
+                {/* Sort by */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg shadow-md">
+                      <SortDesc className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+                      Sort by
+                    </span>
+                  </div>
+
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-48 border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
+                      <SelectItem value="date">📅 Date</SelectItem>
+                      <SelectItem value="popularity">🔥 Popularity</SelectItem>
+                      <SelectItem value="rating">⭐ Rating</SelectItem>
+                      <SelectItem value="price-low">
+                        💰 Price: Low to High
+                      </SelectItem>
+                      <SelectItem value="price-high">
+                        💎 Price: High to Low
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Create Event Button */}
+                <div className="flex items-end">
+                  <Link href="/events/create">
+                    <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 transform hover:scale-105 rounded-xl px-6 py-2">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Event
+                    </Button>
+                  </Link>
+                </div>
               </div>
             </div>
 
-            {/* Advanced Filters Panel */}
+            {/* Enhanced Advanced Filters Panel */}
             {showFilters && (
               <SmoothReveal>
-                <div className="mt-6 p-6 bg-gray-50 rounded-2xl border">
+                <div className="mt-6 p-8 bg-gradient-to-br from-purple-50/50 to-blue-50/50 rounded-3xl border-2 border-purple-200/50 shadow-lg shadow-purple-200/20">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl">
+                      <SlidersHorizontal className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-800">
+                      Advanced Filters
+                    </h3>
+                    <div className="h-px bg-gradient-to-r from-purple-200 to-blue-200 flex-1"></div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                      <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                        <SelectTrigger>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-purple-600" />
+                        <label className="text-sm font-semibold text-gray-700">
+                          Location
+                        </label>
+                      </div>
+                      <Select
+                        value={selectedLocation}
+                        onValueChange={setSelectedLocation}
+                      >
+                        <SelectTrigger className="border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
                           <SelectValue placeholder="All Locations" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
                           <SelectItem value="all">🌍 All Locations</SelectItem>
                           <SelectItem value="online">💻 Online</SelectItem>
-                          <SelectItem value="san francisco">🌉 San Francisco</SelectItem>
+                          <SelectItem value="san francisco">
+                            🌉 San Francisco
+                          </SelectItem>
                           <SelectItem value="new york">🗽 New York</SelectItem>
                           <SelectItem value="austin">🤠 Austin</SelectItem>
                           <SelectItem value="miami">🏖️ Miami</SelectItem>
@@ -844,29 +1087,43 @@ export default function EventsPage() {
                       </Select>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Price Range</label>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        <label className="text-sm font-semibold text-gray-700">
+                          Price Range
+                        </label>
+                      </div>
                       <Select value={priceRange} onValueChange={setPriceRange}>
-                        <SelectTrigger>
+                        <SelectTrigger className="border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
                           <SelectValue placeholder="All Prices" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
                           <SelectItem value="all">💸 All Prices</SelectItem>
                           <SelectItem value="free">🆓 Free</SelectItem>
-                          <SelectItem value="under-100">💵 Under $100</SelectItem>
-                          <SelectItem value="100-300">💰 $100 - $300</SelectItem>
+                          <SelectItem value="under-100">
+                            💵 Under $100
+                          </SelectItem>
+                          <SelectItem value="100-300">
+                            💰 $100 - $300
+                          </SelectItem>
                           <SelectItem value="over-300">💎 Over $300</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-blue-600" />
+                        <label className="text-sm font-semibold text-gray-700">
+                          Date Range
+                        </label>
+                      </div>
                       <Select value={dateRange} onValueChange={setDateRange}>
-                        <SelectTrigger>
+                        <SelectTrigger className="border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
                           <SelectValue placeholder="All Dates" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
                           <SelectItem value="all">📅 All Dates</SelectItem>
                           <SelectItem value="today">📍 Today</SelectItem>
                           <SelectItem value="week">📆 This Week</SelectItem>
@@ -879,13 +1136,67 @@ export default function EventsPage() {
                       <Button
                         variant="outline"
                         onClick={clearFilters}
-                        className="w-full hover:bg-red-50 hover:border-red-200 hover:text-red-600"
+                        className="w-full border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 hover:shadow-md transition-all duration-300 rounded-xl py-2"
                       >
-                        <Filter className="h-4 w-4 mr-2" />
+                        <X className="h-4 w-4 mr-2" />
                         Clear All Filters
                       </Button>
                     </div>
                   </div>
+
+                  {/* Active Filters Summary */}
+                  {getActiveFiltersCount() > 0 && (
+                    <div className="mt-6 pt-6 border-t border-purple-200/50">
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
+                          <Check className="h-4 w-4 text-white" />
+                        </div>
+                        <span className="text-sm font-semibold text-gray-700">
+                          {getActiveFiltersCount()} filter
+                          {getActiveFiltersCount() > 1 ? "s" : ""} applied
+                        </span>
+                        <div className="flex flex-wrap gap-2 ml-4">
+                          {selectedCategory !== "all" && (
+                            <Badge
+                              variant="secondary"
+                              className="bg-purple-100 text-purple-700 border-purple-200"
+                            >
+                              Category:{" "}
+                              {
+                                categories.find(
+                                  (c) => c.value === selectedCategory
+                                )?.label
+                              }
+                            </Badge>
+                          )}
+                          {selectedLocation !== "all" && (
+                            <Badge
+                              variant="secondary"
+                              className="bg-blue-100 text-blue-700 border-blue-200"
+                            >
+                              Location: {selectedLocation}
+                            </Badge>
+                          )}
+                          {priceRange !== "all" && (
+                            <Badge
+                              variant="secondary"
+                              className="bg-yellow-100 text-yellow-700 border-yellow-200"
+                            >
+                              Price: {priceRange}
+                            </Badge>
+                          )}
+                          {dateRange !== "all" && (
+                            <Badge
+                              variant="secondary"
+                              className="bg-green-100 text-green-700 border-green-200"
+                            >
+                              Date: {dateRange}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </SmoothReveal>
             )}
@@ -894,20 +1205,33 @@ export default function EventsPage() {
 
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-6 py-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="space-y-8"
+          >
             <TabsList className="grid w-full grid-cols-4 lg:w-96 bg-white shadow-sm">
               <TabsTrigger value="all" className="font-medium">
                 All Events
               </TabsTrigger>
-              <TabsTrigger value="recommendations" className="flex items-center gap-2 font-medium">
+              <TabsTrigger
+                value="recommendations"
+                className="flex items-center gap-2 font-medium"
+              >
                 <Brain className="h-4 w-4" />
                 For You
               </TabsTrigger>
-              <TabsTrigger value="trending" className="flex items-center gap-2 font-medium">
+              <TabsTrigger
+                value="trending"
+                className="flex items-center gap-2 font-medium"
+              >
                 <TrendingUp className="h-4 w-4" />
                 Trending
               </TabsTrigger>
-              <TabsTrigger value="saved" className="flex items-center gap-2 font-medium">
+              <TabsTrigger
+                value="saved"
+                className="flex items-center gap-2 font-medium"
+              >
                 <Heart className="h-4 w-4" />
                 Saved
               </TabsTrigger>
@@ -917,8 +1241,12 @@ export default function EventsPage() {
             <TabsContent value="all" className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900">Discover Events ({filteredEvents.length})</h2>
-                  <p className="text-gray-600 mt-1">Find your next amazing experience</p>
+                  <h2 className="text-3xl font-bold text-gray-900">
+                    Discover Events ({filteredEvents.length})
+                  </h2>
+                  <p className="text-gray-600 mt-1">
+                    Find your next amazing experience
+                  </p>
                 </div>
               </div>
 
@@ -944,7 +1272,7 @@ export default function EventsPage() {
                           "cursor-pointer transition-all duration-200 border-2 hover:shadow-md",
                           selectedEvent?.id === event.id
                             ? "border-purple-400 bg-purple-50 shadow-md"
-                            : "border-gray-200 hover:border-purple-200",
+                            : "border-gray-200 hover:border-purple-200"
                         )}
                         onClick={() => setSelectedEvent(event)}
                       >
@@ -958,8 +1286,12 @@ export default function EventsPage() {
                               className="rounded-lg object-cover flex-shrink-0"
                             />
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-sm text-gray-900 truncate">{event.title}</h4>
-                              <p className="text-xs text-gray-600 mb-2 line-clamp-2">{event.description}</p>
+                              <h4 className="font-semibold text-sm text-gray-900 truncate">
+                                {event.title}
+                              </h4>
+                              <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                                {event.description}
+                              </p>
                               <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
                                 <span className="flex items-center gap-1">
                                   <Calendar className="h-3 w-3" />
@@ -975,7 +1307,9 @@ export default function EventsPage() {
                                   {event.category}
                                 </Badge>
                                 <span className="text-sm font-bold text-purple-600">
-                                  {event.price === 0 ? "Free" : `$${event.price}`}
+                                  {event.price === 0
+                                    ? "Free"
+                                    : `$${event.price}`}
                                 </span>
                               </div>
                             </div>
@@ -987,11 +1321,18 @@ export default function EventsPage() {
                 </div>
               ) : (
                 <StaggerContainer
-                  className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8" : "space-y-8"}
+                  className={
+                    viewMode === "grid"
+                      ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
+                      : "space-y-8"
+                  }
                 >
                   {filteredEvents.map((event, index) => (
                     <div key={event.id} className="stagger-item">
-                      <EnhancedEventCard event={event} isListView={viewMode === "list"} />
+                      <EnhancedEventCard
+                        event={event}
+                        isListView={viewMode === "list"}
+                      />
                     </div>
                   ))}
                 </StaggerContainer>
@@ -1002,11 +1343,17 @@ export default function EventsPage() {
                   <Card className="text-center py-16 border-dashed border-2 border-gray-200">
                     <CardContent>
                       <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">No events found</h3>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        No events found
+                      </h3>
                       <p className="text-gray-600 mb-6">
-                        Try adjusting your search criteria or filters to find more events
+                        Try adjusting your search criteria or filters to find
+                        more events
                       </p>
-                      <Button onClick={clearFilters} className="bg-gradient-to-r from-purple-500 to-blue-500">
+                      <Button
+                        onClick={clearFilters}
+                        className="bg-gradient-to-r from-purple-500 to-blue-500"
+                      >
                         <Filter className="h-4 w-4 mr-2" />
                         Clear All Filters
                       </Button>
@@ -1017,8 +1364,351 @@ export default function EventsPage() {
             </TabsContent>
 
             {/* Recommendations Tab */}
-            <TabsContent value="recommendations">
-              <EventRecommendations />
+            <TabsContent value="recommendations" className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg">
+                      <Brain className="h-6 w-6 text-white" />
+                    </div>
+                    Personalized Recommendations
+                  </h2>
+                  <p className="text-gray-600">
+                    AI-powered suggestions based on your interests and
+                    preferences
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="secondary"
+                    className="bg-purple-100 text-purple-600"
+                  >
+                    <Brain className="h-3 w-3 mr-1" />
+                    AI Powered
+                  </Badge>
+                  {aiRefreshCount > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="bg-blue-100 text-blue-600 border-blue-300"
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Refreshed {aiRefreshCount}x
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* AI Recommendation Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <Card className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600 mb-1">
+                      {filteredEvents.filter((e) => e.trending).length}
+                    </div>
+                    <div className="text-sm text-purple-600 font-medium">
+                      Trending for You
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 mb-1">
+                      {
+                        filteredEvents.filter(
+                          (e) => e.category === "Technology"
+                        ).length
+                      }
+                    </div>
+                    <div className="text-sm text-blue-600 font-medium">
+                      Tech Events
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600 mb-1">
+                      {filteredEvents.filter((e) => e.price === 0).length}
+                    </div>
+                    <div className="text-sm text-green-600 font-medium">
+                      Free Events
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4 bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600 mb-1">
+                      {filteredEvents.filter((e) => e.featured).length}
+                    </div>
+                    <div className="text-sm text-orange-600 font-medium">
+                      Featured
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* AI Recommendation Filters */}
+              <Card className="p-6 bg-gradient-to-r from-purple-50/50 to-blue-50/50 border-purple-200/50">
+                <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-4 w-4 text-purple-600" />
+                      <span className="text-sm font-medium text-gray-700">
+                        AI Algorithm:
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="bg-purple-100 text-purple-700 border-purple-300"
+                      >
+                        Hybrid Recommendation
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4 text-yellow-500" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Confidence:
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="bg-green-100 text-green-700 border-green-300"
+                      >
+                        {isRefreshingAI
+                          ? "Processing..."
+                          : `${Math.floor(Math.random() * 10) + 90}% Match`}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-orange-500" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Based on:
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="bg-blue-100 text-blue-700 border-blue-300"
+                      >
+                        Your Interests
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="border-purple-200 text-purple-600 hover:bg-purple-50"
+                    onClick={handleRefreshAI}
+                    disabled={isRefreshingAI}
+                  >
+                    <RefreshCw
+                      className={cn(
+                        "h-4 w-4 mr-2",
+                        isRefreshingAI && "animate-spin"
+                      )}
+                    />
+                    {isRefreshingAI ? "Refreshing..." : "Refresh AI"}
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Recommended Events Grid */}
+              {filteredEvents.length > 0 ? (
+                <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {filteredEvents.map((event, index) => (
+                    <div key={event.id} className="stagger-item">
+                      <AnimatedCard
+                        variant="3d"
+                        className="group cursor-pointer h-full border-2 border-purple-100 hover:border-purple-300 transition-all duration-300"
+                      >
+                        <div className="relative overflow-hidden h-64">
+                          <Image
+                            src={event.image || "/placeholder.svg"}
+                            alt={event.title}
+                            width={500}
+                            height={300}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                          {/* AI Recommendation Badge */}
+                          <div className="absolute top-4 left-4">
+                            <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-0 flex items-center gap-1">
+                              <Brain className="h-3 w-3" />
+                              AI Recommended
+                            </Badge>
+                          </div>
+
+                          {/* Match Score */}
+                          <div className="absolute top-4 right-4">
+                            <Badge className="bg-green-500 text-white border-0 font-bold">
+                              {Math.floor(Math.random() * 20) + 80}% match
+                            </Badge>
+                          </div>
+
+                          {/* Featured/Trending Badges */}
+                          <div className="absolute bottom-4 left-4 flex gap-2">
+                            {event.featured && (
+                              <Badge className="bg-purple-500 text-white border-0">
+                                <Award className="w-3 h-3 mr-1" />
+                                Featured
+                              </Badge>
+                            )}
+                            {event.trending && (
+                              <Badge className="bg-orange-500 text-white border-0 flex items-center gap-1">
+                                <TrendingUp className="h-3 w-3" />
+                                Trending
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <CardContent className="p-6">
+                          <div className="mb-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <Badge
+                                variant="secondary"
+                                className="mb-2 font-medium"
+                              >
+                                {event.category}
+                              </Badge>
+                              <div className="flex items-center gap-1">
+                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                <span className="font-semibold text-sm">
+                                  {event.rating}
+                                </span>
+                              </div>
+                            </div>
+
+                            <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors duration-300 line-clamp-2 mb-2">
+                              {event.title}
+                            </h3>
+
+                            <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-4">
+                              {event.description}
+                            </p>
+                          </div>
+
+                          {/* AI Explanation */}
+                          <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-3 mb-4">
+                            <div className="flex items-start gap-2">
+                              <Brain className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                              <p className="text-xs text-purple-700">
+                                Recommended based on your interest in{" "}
+                                {event.category.toLowerCase()} events and
+                                similar user preferences
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 mb-4">
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <Calendar className="h-4 w-4" />
+                              {new Date(event.date).toLocaleDateString(
+                                "en-US",
+                                {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                }
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <MapPin className="h-4 w-4" />
+                              {event.location.isOnline
+                                ? "Online Event"
+                                : `${event.location.city}`}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <Users className="h-4 w-4" />
+                              {event.attendees}/{event.maxAttendees} attending
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6 ring-2 ring-purple-100">
+                                <AvatarImage
+                                  src={
+                                    event.organizer.avatar || "/placeholder.svg"
+                                  }
+                                />
+                                <AvatarFallback className="text-xs bg-gradient-to-r from-purple-400 to-blue-400 text-white">
+                                  {event.organizer.name[0]}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {event.organizer.name}
+                                  </span>
+                                  {event.organizer.verified && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600"
+                                    >
+                                      ✓ Verified
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-purple-600">
+                                {event.price === 0 ? "Free" : `$${event.price}`}
+                                {event.originalPrice && (
+                                  <span className="text-sm line-through text-gray-400 ml-2">
+                                    ${event.originalPrice}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 border-purple-200 text-purple-600 hover:bg-purple-50"
+                            >
+                              <Heart className="h-4 w-4 mr-2" />
+                              Save
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                            >
+                              View Event
+                              <ArrowRight className="h-4 w-4 ml-1" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </AnimatedCard>
+                    </div>
+                  ))}
+                </StaggerContainer>
+              ) : (
+                <SmoothReveal>
+                  <Card className="text-center py-16 border-dashed border-2 border-gray-200">
+                    <CardContent>
+                      <Brain className="h-16 w-16 text-purple-300 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        No AI recommendations yet
+                      </h3>
+                      <p className="text-gray-600 mb-6">
+                        Attend some events and save your favorites to get
+                        personalized recommendations
+                      </p>
+                      <Button
+                        onClick={() => setActiveTab("all")}
+                        className="bg-gradient-to-r from-purple-500 to-blue-500"
+                      >
+                        <Search className="h-4 w-4 mr-2" />
+                        Explore Events
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </SmoothReveal>
+              )}
             </TabsContent>
 
             {/* Trending Tab */}
@@ -1071,8 +1761,12 @@ export default function EventsPage() {
                   <Card className="text-center py-16 border-dashed border-2 border-gray-200">
                     <CardContent>
                       <Heart className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">No saved events yet</h3>
-                      <p className="text-gray-600 mb-6">Save events you're interested in to view them here later</p>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        No saved events yet
+                      </h3>
+                      <p className="text-gray-600 mb-6">
+                        Save events you're interested in to view them here later
+                      </p>
                       <Button
                         onClick={() => setActiveTab("all")}
                         className="bg-gradient-to-r from-purple-500 to-blue-500"
@@ -1091,5 +1785,5 @@ export default function EventsPage() {
         <EnhancedChatbotWidget context="events" size="normal" />
       </div>
     </PageTransition>
-  )
+  );
 }
