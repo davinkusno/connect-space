@@ -22,26 +22,21 @@ import {
   Heart,
   Share2,
   Search,
-  Grid,
-  List,
   Map,
   Plus,
   TrendingUp,
   Brain,
   Clock,
   Filter,
-  SlidersHorizontal,
   Bookmark,
   ArrowRight,
   Sparkles,
   Award,
   Zap,
   Globe,
-  ChevronDown,
   X,
   RefreshCw,
   Users,
-  SortDesc,
   Check,
 } from "lucide-react";
 import Image from "next/image";
@@ -104,12 +99,9 @@ export default function EventsPage() {
   const [selectedLocation, setSelectedLocation] = useState("all");
   const [priceRange, setPriceRange] = useState("all");
   const [dateRange, setDateRange] = useState("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
   const [searchFilter, setSearchFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("date");
   const [activeTab, setActiveTab] = useState("all");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
   const [savedEvents, setSavedEvents] = useState<number[]>([]);
   const [isRefreshingAI, setIsRefreshingAI] = useState(false);
   const [aiRefreshCount, setAiRefreshCount] = useState(0);
@@ -433,27 +425,6 @@ export default function EventsPage() {
       }
     }
 
-    // Sort events
-    switch (sortBy) {
-      case "date":
-        filtered.sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-        );
-        break;
-      case "popularity":
-        filtered.sort((a, b) => b.attendees - a.attendees);
-        break;
-      case "rating":
-        filtered.sort((a, b) => b.rating - a.rating);
-        break;
-      case "price-low":
-        filtered.sort((a, b) => a.price - b.price);
-        break;
-      case "price-high":
-        filtered.sort((a, b) => b.price - a.price);
-        break;
-    }
-
     return filtered;
   }, [
     searchQuery,
@@ -462,7 +433,6 @@ export default function EventsPage() {
     selectedLocation,
     priceRange,
     dateRange,
-    sortBy,
   ]);
 
   const toggleSaveEvent = (eventId: number) => {
@@ -1016,22 +986,20 @@ export default function EventsPage() {
           <div className="max-w-7xl mx-auto px-6 py-6">
             {/* Main Filters Container */}
             <div className="space-y-6">
-              {/* Category Filters and Advanced Filters Row */}
-              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-                {/* Category Filters */}
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
+              {/* Categories and Advanced Filters - Always Visible */}
+              <div className="p-8 bg-gradient-to-br from-purple-50/50 to-blue-50/50 rounded-3xl border-2 border-purple-200/50 shadow-lg shadow-purple-200/20">
+                {/* Categories Section */}
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-4">
                     <div className="p-1.5 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg">
                       <Filter className="h-4 w-4 text-white" />
                     </div>
-                    <h3 className="text-sm font-semibold text-gray-700">
-                      Quick Filters
-                    </h3>
-                    <div className="h-px bg-gradient-to-r from-purple-200 to-blue-200 flex-1"></div>
+                    <h4 className="text-sm font-semibold text-gray-700">
+                      Categories
+                    </h4>
                   </div>
-
                   <div className="flex flex-wrap items-center gap-2">
-                    {categories.slice(0, 6).map((category) => (
+                    {categories.map((category) => (
                       <Button
                         key={category.value}
                         variant="outline"
@@ -1049,280 +1017,145 @@ export default function EventsPage() {
                       </Button>
                     ))}
                   </div>
-
-                  {/* Advanced Filters Toggle */}
-                  <div className="mt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowFilters(!showFilters)}
-                      className={cn(
-                        "flex items-center gap-2 border-2 rounded-full px-4 py-2 transition-all duration-300",
-                        showFilters
-                          ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white border-transparent shadow-lg shadow-purple-500/25"
-                          : "hover:bg-purple-50 hover:border-purple-300 hover:shadow-md border-gray-200"
-                      )}
-                    >
-                      <SlidersHorizontal className="h-4 w-4" />
-                      <span className="font-medium">Advanced Filters</span>
-                      {getActiveFiltersCount() > 0 && (
-                        <Badge
-                          variant="secondary"
-                          className={cn(
-                            "ml-2 text-xs",
-                            showFilters
-                              ? "bg-white/20 text-white border-white/30"
-                              : "bg-purple-100 text-purple-600 border-purple-200"
-                          )}
-                        >
-                          {getActiveFiltersCount()}
-                        </Badge>
-                      )}
-                      <ChevronDown
-                        className={cn(
-                          "h-4 w-4 transition-transform duration-300",
-                          showFilters && "rotate-180"
-                        )}
-                      />
-                    </Button>
-                  </div>
                 </div>
-              </div>
 
-              {/* View Controls Section */}
-              <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 items-start lg:items-center justify-between pt-4 border-t border-gray-200/50">
-                {/* View Mode and Sort Controls - Side by Side */}
-                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center">
-                  {/* Sort by */}
-                  <div className="flex items-center gap-3">
+                {/* Advanced Filters Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg shadow-md">
-                        <SortDesc className="h-4 w-4 text-white" />
-                      </div>
-                      {/* <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-                        Sort by
-                      </span> */}
+                      <MapPin className="h-4 w-4 text-purple-600" />
+                      <label className="text-sm font-semibold text-gray-700">
+                        Location
+                      </label>
                     </div>
-
-                    <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="w-48 border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
-                        <SelectValue placeholder="Sort by" />
+                    <Select
+                      value={selectedLocation}
+                      onValueChange={setSelectedLocation}
+                    >
+                      <SelectTrigger className="border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
+                        <SelectValue placeholder="All Locations" />
                       </SelectTrigger>
                       <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
-                        <SelectItem value="date">📅 Date</SelectItem>
-                        <SelectItem value="popularity">
-                          🔥 Popularity
+                        <SelectItem value="all">🌍 All Locations</SelectItem>
+                        <SelectItem value="online">💻 Online</SelectItem>
+                        <SelectItem value="san francisco">
+                          🌉 San Francisco
                         </SelectItem>
-                        <SelectItem value="rating">⭐ Rating</SelectItem>
-                        <SelectItem value="price-low">
-                          💰 Price: Low to High
-                        </SelectItem>
-                        <SelectItem value="price-high">
-                          💎 Price: High to Low
-                        </SelectItem>
+                        <SelectItem value="new york">🗽 New York</SelectItem>
+                        <SelectItem value="austin">🤠 Austin</SelectItem>
+                        <SelectItem value="miami">🏖️ Miami</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {/* View Mode */}
-                  <div className="flex items-center bg-gray-100 rounded-lg overflow-hidden">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4 text-yellow-500" />
+                      <label className="text-sm font-semibold text-gray-700">
+                        Price Range
+                      </label>
+                    </div>
+                    <Select value={priceRange} onValueChange={setPriceRange}>
+                      <SelectTrigger className="border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
+                        <SelectValue placeholder="All Prices" />
+                      </SelectTrigger>
+                      <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
+                        <SelectItem value="all">💸 All Prices</SelectItem>
+                        <SelectItem value="free">🆓 Free</SelectItem>
+                        <SelectItem value="under-100">💵 Under $100</SelectItem>
+                        <SelectItem value="100-300">💰 $100 - $300</SelectItem>
+                        <SelectItem value="over-300">💎 Over $300</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-blue-600" />
+                      <label className="text-sm font-semibold text-gray-700">
+                        Date Range
+                      </label>
+                    </div>
+                    <Select value={dateRange} onValueChange={setDateRange}>
+                      <SelectTrigger className="border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
+                        <SelectValue placeholder="All Dates" />
+                      </SelectTrigger>
+                      <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
+                        <SelectItem value="all">📅 All Dates</SelectItem>
+                        <SelectItem value="today">📍 Today</SelectItem>
+                        <SelectItem value="week">📆 This Week</SelectItem>
+                        <SelectItem value="month">🗓️ This Month</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-end">
                     <Button
-                      variant={viewMode === "grid" ? "default" : "ghost"}
-                      size="icon"
-                      onClick={() => setViewMode("grid")}
-                      className="h-8 w-8 rounded-none hover:bg-purple-100 border-r border-gray-200"
-                      title="Grid View"
+                      variant="outline"
+                      onClick={clearFilters}
+                      className="w-full border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 hover:shadow-md transition-all duration-300 rounded-xl py-2"
                     >
-                      <Grid className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={viewMode === "list" ? "default" : "ghost"}
-                      size="icon"
-                      onClick={() => setViewMode("list")}
-                      className="h-8 w-8 rounded-none hover:bg-blue-100 border-r border-gray-200"
-                      title="List View"
-                    >
-                      <List className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={viewMode === "map" ? "default" : "ghost"}
-                      size="icon"
-                      onClick={() => setViewMode("map")}
-                      className="h-8 w-8 rounded-none hover:bg-green-100"
-                      title="Map View"
-                    >
-                      <Map className="h-4 w-4" />
+                      <X className="h-4 w-4 mr-2" />
+                      Clear All Filters
                     </Button>
                   </div>
                 </div>
 
-                {/* Create Event Button */}
-                <div className="flex items-end">
-                  <Link href="/events/create">
-                    <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 transform hover:scale-105 rounded-xl px-6 py-2">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Event
-                    </Button>
-                  </Link>
-                </div>
+                {/* Active Filters Summary */}
+                {getActiveFiltersCount() > 0 && (
+                  <div className="mt-6 pt-6 border-t border-purple-200/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-1.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
+                        <Check className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="text-sm font-semibold text-gray-700">
+                        {getActiveFiltersCount()} filter
+                        {getActiveFiltersCount() > 1 ? "s" : ""} applied
+                      </span>
+                      <div className="flex flex-wrap gap-2 ml-4">
+                        {selectedCategory !== "all" && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-purple-100 text-purple-700 border-purple-200"
+                          >
+                            Category:{" "}
+                            {
+                              categories.find(
+                                (c) => c.value === selectedCategory
+                              )?.label
+                            }
+                          </Badge>
+                        )}
+                        {selectedLocation !== "all" && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-blue-100 text-blue-700 border-blue-200"
+                          >
+                            Location: {selectedLocation}
+                          </Badge>
+                        )}
+                        {priceRange !== "all" && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-yellow-100 text-yellow-700 border-yellow-200"
+                          >
+                            Price: {priceRange}
+                          </Badge>
+                        )}
+                        {dateRange !== "all" && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-green-100 text-green-700 border-green-200"
+                          >
+                            Date: {dateRange}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Enhanced Advanced Filters Panel */}
-            {showFilters && (
-              <SmoothReveal>
-                <div className="mt-6 p-8 bg-gradient-to-br from-purple-50/50 to-blue-50/50 rounded-3xl border-2 border-purple-200/50 shadow-lg shadow-purple-200/20">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl">
-                      <SlidersHorizontal className="h-5 w-5 text-white" />
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800">
-                      Advanced Filters
-                    </h3>
-                    <div className="h-px bg-gradient-to-r from-purple-200 to-blue-200 flex-1"></div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-purple-600" />
-                        <label className="text-sm font-semibold text-gray-700">
-                          Location
-                        </label>
-                      </div>
-                      <Select
-                        value={selectedLocation}
-                        onValueChange={setSelectedLocation}
-                      >
-                        <SelectTrigger className="border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
-                          <SelectValue placeholder="All Locations" />
-                        </SelectTrigger>
-                        <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
-                          <SelectItem value="all">🌍 All Locations</SelectItem>
-                          <SelectItem value="online">💻 Online</SelectItem>
-                          <SelectItem value="san francisco">
-                            🌉 San Francisco
-                          </SelectItem>
-                          <SelectItem value="new york">🗽 New York</SelectItem>
-                          <SelectItem value="austin">🤠 Austin</SelectItem>
-                          <SelectItem value="miami">🏖️ Miami</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Star className="h-4 w-4 text-yellow-500" />
-                        <label className="text-sm font-semibold text-gray-700">
-                          Price Range
-                        </label>
-                      </div>
-                      <Select value={priceRange} onValueChange={setPriceRange}>
-                        <SelectTrigger className="border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
-                          <SelectValue placeholder="All Prices" />
-                        </SelectTrigger>
-                        <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
-                          <SelectItem value="all">💸 All Prices</SelectItem>
-                          <SelectItem value="free">🆓 Free</SelectItem>
-                          <SelectItem value="under-100">
-                            💵 Under $100
-                          </SelectItem>
-                          <SelectItem value="100-300">
-                            💰 $100 - $300
-                          </SelectItem>
-                          <SelectItem value="over-300">💎 Over $300</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-blue-600" />
-                        <label className="text-sm font-semibold text-gray-700">
-                          Date Range
-                        </label>
-                      </div>
-                      <Select value={dateRange} onValueChange={setDateRange}>
-                        <SelectTrigger className="border-2 border-gray-200 rounded-xl shadow-sm hover:border-purple-300 focus:border-purple-500 transition-colors duration-300">
-                          <SelectValue placeholder="All Dates" />
-                        </SelectTrigger>
-                        <SelectContent className="border-2 border-gray-200 rounded-xl shadow-lg">
-                          <SelectItem value="all">📅 All Dates</SelectItem>
-                          <SelectItem value="today">📍 Today</SelectItem>
-                          <SelectItem value="week">📆 This Week</SelectItem>
-                          <SelectItem value="month">🗓️ This Month</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex items-end">
-                      <Button
-                        variant="outline"
-                        onClick={clearFilters}
-                        className="w-full border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 hover:shadow-md transition-all duration-300 rounded-xl py-2"
-                      >
-                        <X className="h-4 w-4 mr-2" />
-                        Clear All Filters
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Active Filters Summary */}
-                  {getActiveFiltersCount() > 0 && (
-                    <div className="mt-6 pt-6 border-t border-purple-200/50">
-                      <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
-                          <Check className="h-4 w-4 text-white" />
-                        </div>
-                        <span className="text-sm font-semibold text-gray-700">
-                          {getActiveFiltersCount()} filter
-                          {getActiveFiltersCount() > 1 ? "s" : ""} applied
-                        </span>
-                        <div className="flex flex-wrap gap-2 ml-4">
-                          {selectedCategory !== "all" && (
-                            <Badge
-                              variant="secondary"
-                              className="bg-purple-100 text-purple-700 border-purple-200"
-                            >
-                              Category:{" "}
-                              {
-                                categories.find(
-                                  (c) => c.value === selectedCategory
-                                )?.label
-                              }
-                            </Badge>
-                          )}
-                          {selectedLocation !== "all" && (
-                            <Badge
-                              variant="secondary"
-                              className="bg-blue-100 text-blue-700 border-blue-200"
-                            >
-                              Location: {selectedLocation}
-                            </Badge>
-                          )}
-                          {priceRange !== "all" && (
-                            <Badge
-                              variant="secondary"
-                              className="bg-yellow-100 text-yellow-700 border-yellow-200"
-                            >
-                              Price: {priceRange}
-                            </Badge>
-                          )}
-                          {dateRange !== "all" && (
-                            <Badge
-                              variant="secondary"
-                              className="bg-green-100 text-green-700 border-green-200"
-                            >
-                              Date: {dateRange}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </SmoothReveal>
-            )}
           </div>
         </div>
 
@@ -1333,32 +1166,56 @@ export default function EventsPage() {
             onValueChange={setActiveTab}
             className="space-y-8"
           >
-            <TabsList className="grid w-full grid-cols-4 lg:w-96 bg-white shadow-sm">
-              <TabsTrigger value="all" className="font-medium">
-                All Events
-              </TabsTrigger>
-              <TabsTrigger
-                value="recommendations"
-                className="flex items-center gap-2 font-medium"
-              >
-                <Brain className="h-4 w-4" />
-                For You
-              </TabsTrigger>
-              <TabsTrigger
-                value="trending"
-                className="flex items-center gap-2 font-medium"
-              >
-                <TrendingUp className="h-4 w-4" />
-                Trending
-              </TabsTrigger>
-              <TabsTrigger
-                value="saved"
-                className="flex items-center gap-2 font-medium"
-              >
-                <Heart className="h-4 w-4" />
-                Saved
-              </TabsTrigger>
-            </TabsList>
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 items-start lg:items-center justify-between">
+              <TabsList className="glass-effect border-0 p-2 rounded-2xl">
+                {/* grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 bg-gradient-to-r from-purple-50 to-blue-50 p-2 rounded-xl shadow-lg border border-purple-200/50 */}
+                <TabsTrigger
+                  value="all"
+                  className="flex items-center gap-2 font-medium text-sm px-3 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-purple-100 hover:text-purple-700 transition-all duration-300 rounded-lg"
+                >
+                  <Calendar className="h-4 w-4" />
+                  <span className="hidden sm:inline">All Events</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="recommendations"
+                  className="flex items-center gap-2 font-medium text-sm px-3 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-rose-500 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-pink-100 hover:text-pink-700 transition-all duration-300 rounded-lg"
+                >
+                  <Brain className="h-4 w-4" />
+                  <span className="hidden sm:inline">For You</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="trending"
+                  className="flex items-center gap-2 font-medium text-sm px-3 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-orange-100 hover:text-orange-700 transition-all duration-300 rounded-lg"
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="hidden sm:inline">Trending</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="map"
+                  className="flex items-center gap-2 font-medium text-sm px-3 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-green-100 hover:text-green-700 transition-all duration-300 rounded-lg"
+                >
+                  <Map className="h-4 w-4" />
+                  <span className="hidden sm:inline">Map</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="saved"
+                  className="flex items-center gap-2 font-medium text-sm px-3 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-red-100 hover:text-red-700 transition-all duration-300 rounded-lg"
+                >
+                  <Heart className="h-4 w-4" />
+                  <span className="hidden sm:inline">Saved</span>
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Create Event Button */}
+              <div className="flex items-center">
+                <Link href="/events/create">
+                  <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 transform hover:scale-105 rounded-xl px-6 py-2">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Event
+                  </Button>
+                </Link>
+              </div>
+            </div>
 
             {/* All Events Tab */}
             <TabsContent value="all" className="space-y-6">
@@ -1373,93 +1230,13 @@ export default function EventsPage() {
                 </div>
               </div>
 
-              {viewMode === "map" ? (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-2">
-                    <LeafletEventsMap
-                      events={filteredEvents}
-                      selectedEvent={selectedEvent}
-                      onEventSelect={(event) => setSelectedEvent(event)}
-                      height="700px"
-                      className="rounded-2xl shadow-lg border"
-                    />
+              <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                {filteredEvents.map((event, index) => (
+                  <div key={event.id} className="stagger-item">
+                    <EnhancedEventCard event={event} />
                   </div>
-                  <div className="space-y-4 max-h-[700px] overflow-y-auto">
-                    <h3 className="text-xl font-bold text-gray-900 sticky top-0 bg-white py-2">
-                      Events on Map ({filteredEvents.length})
-                    </h3>
-                    {filteredEvents.map((event) => (
-                      <Card
-                        key={event.id}
-                        className={cn(
-                          "cursor-pointer transition-all duration-200 border-2 hover:shadow-md",
-                          selectedEvent?.id === event.id
-                            ? "border-purple-400 bg-purple-50 shadow-md"
-                            : "border-gray-200 hover:border-purple-200"
-                        )}
-                        onClick={() => setSelectedEvent(event)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <Image
-                              src={event.image || "/placeholder.svg"}
-                              alt={event.title}
-                              width={60}
-                              height={60}
-                              className="rounded-lg object-cover flex-shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-sm text-gray-900 truncate">
-                                {event.title}
-                              </h4>
-                              <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                                {event.description}
-                              </p>
-                              <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {new Date(event.date).toLocaleDateString()}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="h-3 w-3" />
-                                  {event.location.city}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <Badge variant="secondary" className="text-xs">
-                                  {event.category}
-                                </Badge>
-                                <span className="text-sm font-bold text-purple-600">
-                                  {event.price === 0
-                                    ? "Free"
-                                    : `$${event.price}`}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <StaggerContainer
-                  className={
-                    viewMode === "grid"
-                      ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
-                      : "space-y-8"
-                  }
-                >
-                  {filteredEvents.map((event, index) => (
-                    <div key={event.id} className="stagger-item">
-                      <EnhancedEventCard
-                        event={event}
-                        isListView={viewMode === "list"}
-                      />
-                    </div>
-                  ))}
-                </StaggerContainer>
-              )}
+                ))}
+              </StaggerContainer>
 
               {filteredEvents.length === 0 && (
                 <SmoothReveal>
@@ -1889,6 +1666,86 @@ export default function EventsPage() {
                   </Card>
                 </SmoothReveal>
               )}
+            </TabsContent>
+
+            {/* Events on Map Tab */}
+            <TabsContent value="map" className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg">
+                    <Map className="h-6 w-6 text-white" />
+                  </div>
+                  Events on Map ({filteredEvents.length})
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                  <LeafletEventsMap
+                    events={filteredEvents}
+                    selectedEvent={selectedEvent}
+                    onEventSelect={(event) => setSelectedEvent(event)}
+                    userLocation={userLocation}
+                    height="700px"
+                    className="rounded-2xl shadow-lg border"
+                  />
+                </div>
+                <div className="space-y-4 max-h-[700px] overflow-y-auto">
+                  <h3 className="text-xl font-bold text-gray-900 sticky top-0 bg-white py-2">
+                    Events on Map ({filteredEvents.length})
+                  </h3>
+                  {filteredEvents.map((event) => (
+                    <Card
+                      key={event.id}
+                      className={cn(
+                        "cursor-pointer transition-all duration-200 border-2 hover:shadow-md",
+                        selectedEvent?.id === event.id
+                          ? "border-purple-400 bg-purple-50 shadow-md"
+                          : "border-gray-200 hover:border-purple-200"
+                      )}
+                      onClick={() => setSelectedEvent(event)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Image
+                            src={event.image || "/placeholder.svg"}
+                            alt={event.title}
+                            width={60}
+                            height={60}
+                            className="rounded-lg object-cover flex-shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm text-gray-900 truncate">
+                              {event.title}
+                            </h4>
+                            <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                              {event.description}
+                            </p>
+                            <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {new Date(event.date).toLocaleDateString()}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {event.location.city}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Badge variant="secondary" className="text-xs">
+                                {event.category}
+                              </Badge>
+                              <span className="text-sm font-bold text-purple-600">
+                                {event.price === 0 ? "Free" : `$${event.price}`}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
