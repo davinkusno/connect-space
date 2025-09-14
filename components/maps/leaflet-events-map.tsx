@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
@@ -81,7 +80,7 @@ export function LeafletEventsMap({
   events,
   selectedEvent,
   onEventSelect,
-  userLocation,
+  userLocation: propUserLocation,
   searchRadius = 25,
   className,
   height = "600px",
@@ -99,6 +98,17 @@ export function LeafletEventsMap({
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [currentZoom, setCurrentZoom] = useState(12);
   const [mapType, setMapType] = useState<"street" | "satellite">("street");
+  const [userLocation, setUserLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(propUserLocation || null);
+
+  // Sync prop userLocation with internal state
+  useEffect(() => {
+    if (propUserLocation) {
+      setUserLocation(propUserLocation);
+    }
+  }, [propUserLocation]);
 
   // Memoize physical events to prevent unnecessary re-renders
   const physicalEvents = useMemo(
@@ -114,19 +124,13 @@ export function LeafletEventsMap({
     [events]
   );
 
-  // Memoize map center to prevent constant updates
-  const mapCenter = useMemo(
+  // Default map center (Jakarta, Indonesia) - only used for initial map creation
+  const defaultMapCenter = useMemo(
     () => ({
-      lat:
-        userLocation?.lat && !isNaN(userLocation.lat)
-          ? userLocation.lat
-          : 40.7128,
-      lng:
-        userLocation?.lng && !isNaN(userLocation.lng)
-          ? userLocation.lng
-          : -74.006,
+      lat: -6.2088,
+      lng: 106.8456,
     }),
-    [userLocation?.lat, userLocation?.lng]
+    []
   );
 
   // Load Leaflet CSS and JS
@@ -356,23 +360,28 @@ export function LeafletEventsMap({
       const userIcon = L.divIcon({
         html: `
         <div class="relative">
-          <div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
-          <div class="absolute inset-0 w-4 h-4 bg-blue-400 rounded-full animate-ping opacity-75"></div>
+          <div class="w-6 h-6 bg-blue-500 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+            <div class="w-2 h-2 bg-white rounded-full"></div>
+          </div>
+          <div class="absolute inset-0 w-6 h-6 bg-blue-400 rounded-full animate-ping opacity-75"></div>
         </div>
       `,
         className: "user-marker",
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
       });
 
       return L.marker([location.lat, location.lng], { icon: userIcon })
         .bindPopup(`
-        <div class="p-2 text-center">
+        <div class="p-3 text-center">
           <div class="flex items-center gap-2 text-blue-600 font-medium">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
             </svg>
             Your Location
+          </div>
+          <div class="text-xs text-gray-500 mt-1">
+            ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}
           </div>
         </div>
       `);
@@ -389,7 +398,7 @@ export function LeafletEventsMap({
 
       // Initialize map
       const map = L.map(mapRef.current, {
-        center: [mapCenter.lat, mapCenter.lng],
+        center: [defaultMapCenter.lat, defaultMapCenter.lng],
         zoom: currentZoom,
         zoomControl: false,
         attributionControl: true,
@@ -419,7 +428,22 @@ export function LeafletEventsMap({
       console.error("Error initializing map:", error);
       toast.error("Failed to initialize map");
     }
-  }, [leafletLoaded, mapCenter.lat, mapCenter.lng, currentZoom]);
+  }, [leafletLoaded, defaultMapCenter.lat, defaultMapCenter.lng, currentZoom]);
+
+  // Set initial view to user location (only once when map is ready and user location is available)
+  useEffect(() => {
+    if (
+      mapInstanceRef.current &&
+      userLocation &&
+      !mapInstanceRef.current._initialUserLocationSet
+    ) {
+      mapInstanceRef.current.setView(
+        [userLocation.lat, userLocation.lng],
+        currentZoom
+      );
+      mapInstanceRef.current._initialUserLocationSet = true;
+    }
+  }, [mapInstanceRef.current, userLocation, currentZoom]);
 
   // Update markers when events change
   useEffect(() => {
@@ -517,7 +541,7 @@ export function LeafletEventsMap({
         marker.openPopup();
         mapInstanceRef.current.setView(
           [selectedEvent.location.latitude, selectedEvent.location.longitude],
-          Math.max(currentZoom, 14)
+          Math.max(currentZoom, 16)
         );
       }
     });
@@ -556,7 +580,7 @@ export function LeafletEventsMap({
 
   const handleResetView = useCallback(() => {
     if (mapInstanceRef.current && userLocation) {
-      mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], 12);
+      mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], 16);
     }
   }, [userLocation]);
 
@@ -603,12 +627,19 @@ export function LeafletEventsMap({
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
+          const newLocation = { lat: latitude, lng: longitude };
+
+          // Update user location state
+          setUserLocation(newLocation);
+
+          // Update map view with better zoom level
           if (mapInstanceRef.current) {
-            mapInstanceRef.current.setView([latitude, longitude], 14);
+            mapInstanceRef.current.setView([latitude, longitude], 16);
             toast.success("Location updated!");
           }
         },
         (error) => {
+          console.error("Geolocation error:", error);
           toast.error("Unable to get your location");
         }
       );
