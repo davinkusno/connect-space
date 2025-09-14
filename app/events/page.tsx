@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -93,11 +93,19 @@ interface Event {
 
 export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [userLocation, setUserLocation] = useState<{
+    lat: number;
+    lng: number;
+    city: string;
+  } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState("all");
   const [priceRange, setPriceRange] = useState("all");
   const [dateRange, setDateRange] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
+  const [searchFilter, setSearchFilter] = useState("all");
   const [sortBy, setSortBy] = useState("date");
   const [activeTab, setActiveTab] = useState("all");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -311,7 +319,32 @@ export default function EventsPage() {
   const filteredEvents = useMemo(() => {
     let filtered = mockEvents;
 
-    // Search filter
+    // Location filter
+    if (locationQuery) {
+      if (locationQuery.toLowerCase() === "online") {
+        filtered = filtered.filter(
+          (event) =>
+            event.location?.isOnline === true ||
+            event.title.toLowerCase().includes("online") ||
+            event.description.toLowerCase().includes("online")
+        );
+      } else {
+        filtered = filtered.filter(
+          (event) =>
+            event.location?.city
+              ?.toLowerCase()
+              .includes(locationQuery.toLowerCase()) ||
+            event.location?.venue
+              ?.toLowerCase()
+              .includes(locationQuery.toLowerCase()) ||
+            event.location?.address
+              ?.toLowerCase()
+              .includes(locationQuery.toLowerCase())
+        );
+      }
+    }
+
+    // General search filter (for events search)
     if (searchQuery) {
       filtered = filtered.filter(
         (event) =>
@@ -424,6 +457,7 @@ export default function EventsPage() {
     return filtered;
   }, [
     searchQuery,
+    locationQuery,
     selectedCategory,
     selectedLocation,
     priceRange,
@@ -439,6 +473,40 @@ export default function EventsPage() {
     );
   };
 
+  // Get user's current location
+  const getUserLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+
+          // Reverse geocoding to get city name (simplified)
+          try {
+            const response = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            );
+            const data = await response.json();
+
+            setUserLocation({
+              lat: latitude,
+              lng: longitude,
+              city: data.city || data.locality || "Current Location",
+            });
+          } catch (error) {
+            setUserLocation({
+              lat: latitude,
+              lng: longitude,
+              city: "Current Location",
+            });
+          }
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+        }
+      );
+    }
+  };
+
   const getActiveFiltersCount = () => {
     let count = 0;
     if (selectedCategory !== "all") count++;
@@ -447,6 +515,16 @@ export default function EventsPage() {
     if (dateRange !== "all") count++;
     return count;
   };
+
+  // Get user location on component mount
+  useEffect(() => {
+    getUserLocation();
+  }, []);
+
+  // Debug log for showLocationDropdown state changes
+  useEffect(() => {
+    console.log("showLocationDropdown changed to:", showLocationDropdown);
+  }, [showLocationDropdown]);
 
   const clearFilters = () => {
     setSelectedCategory("all");
@@ -799,27 +877,134 @@ export default function EventsPage() {
               </div>
             </SmoothReveal>
 
-            {/* Enhanced Search Bar */}
+            {/* Enhanced Search Bar - Eventbrite Style */}
             <SmoothReveal delay={300}>
-              <div className="max-w-4xl mx-auto">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <Input
-                    placeholder="Search events, topics, or organizers..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-12 pr-4 py-4 text-lg bg-white/95 backdrop-blur-sm border-0 rounded-2xl shadow-lg focus:shadow-xl transition-all duration-300"
-                  />
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
-                      onClick={() => setSearchQuery("")}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
+              <div className="max-w-4xl mx-auto relative z-[100]">
+                <div className="relative flex bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg focus-within:shadow-xl transition-all duration-300">
+                  {/* Search Events Input */}
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                    <Input
+                      placeholder="Search events"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-12 pr-4 py-4 text-lg border-0 rounded-none focus:ring-0 focus:outline-none text-gray-900 placeholder:text-gray-500 h-full"
+                    />
+                    {searchQuery && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
+                        onClick={() => setSearchQuery("")}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Divider */}
+                  <div className="w-px bg-gray-300 my-2"></div>
+
+                  {/* Location Input with Dropdown */}
+                  <div className="relative w-64">
+                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                    <Input
+                      placeholder="Choose a location"
+                      value={locationQuery}
+                      onChange={(e) => setLocationQuery(e.target.value)}
+                      onClick={() => {
+                        console.log("Location input clicked, showing dropdown");
+                        setShowLocationDropdown(true);
+                        console.log("showLocationDropdown set to true");
+                      }}
+                      onFocus={() => {
+                        console.log("Location input focused, showing dropdown");
+                        setShowLocationDropdown(true);
+                        console.log(
+                          "showLocationDropdown state:",
+                          showLocationDropdown
+                        );
+                      }}
+                      onBlur={() => {
+                        console.log(
+                          "Location input blurred, hiding dropdown in 500ms"
+                        );
+                        // Delay closing to allow clicking on dropdown items
+                        setTimeout(() => {
+                          console.log("Hiding dropdown now");
+                          setShowLocationDropdown(false);
+                        }, 0);
+                      }}
+                      className="pl-12 pr-4 py-4 text-lg border-0 rounded-none focus:ring-0 focus:outline-none text-gray-900 placeholder:text-gray-500 h-full"
+                    />
+                    {locationQuery && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
+                        onClick={() => setLocationQuery("")}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+
+                    {/* Location Dropdown - Simple Version */}
+                    {showLocationDropdown && (
+                      <div
+                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-[99999] overflow-hidden"
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          right: 0,
+                          marginTop: "8px",
+                          zIndex: 99999,
+                        }}
+                      >
+                        <button
+                          onClick={() => {
+                            console.log("Use current location clicked");
+                            getUserLocation();
+                            if (userLocation) {
+                              setLocationQuery(userLocation.city);
+                            }
+                            setShowLocationDropdown(false);
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors duration-200"
+                          onMouseDown={(e) => e.preventDefault()}
+                        >
+                          <svg
+                            className="w-5 h-5 text-gray-600"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M11 18.93A7.005 7.005 0 015.07 13H3v-2h2.07A7.005 7.005 0 0111 5.07V3h2v2.07A7.005 7.005 0 0118.93 11H21v2h-2.07A7.005 7.005 0 0113 18.93V21h-2v-2.07zM12 17a5 5 0 100-10 5 5 0 000 10zm0-3a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">
+                              Use my current location
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Search Button */}
+                  <Button
+                    className="bg-purple-600 hover:bg-purple-700 text-white rounded-none px-6 py-5 shadow-lg h-full"
+                    onClick={() => {
+                      // Trigger search logic here
+                      console.log("Search triggered:", {
+                        searchQuery,
+                        locationQuery,
+                      });
+                    }}
+                  >
+                    <Search className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
             </SmoothReveal>
