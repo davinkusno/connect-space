@@ -155,7 +155,7 @@ export function TopPerformers({ topUsers }: TopPerformersProps) {
                 {/* Points */}
                 <div className="mb-4">
                   <div className="text-3xl font-bold text-gradient mb-1">
-                    <AnimatedCounter value={user.points} />
+                    <AnimatedCounter end={user.points} />
                   </div>
                   <p className="text-sm text-muted-foreground">Total Points</p>
                 </div>
