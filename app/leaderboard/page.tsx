@@ -134,7 +134,7 @@ export default function LeaderboardPage() {
                   <Trophy className="h-8 w-8 text-white" />
                 </div>
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                  Community Leaderboard
+                  Community Leaderboards
                 </h1>
               </div>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
