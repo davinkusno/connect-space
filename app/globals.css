@@ -361,7 +361,13 @@
 }
 
 .animate-shimmer {
-  background: linear-gradient(to right, #8b5cf6 20%, #6366f1 30%, #8b5cf6 70%, #6366f1 80%);
+  background: linear-gradient(
+    to right,
+    #8b5cf6 20%,
+    #6366f1 30%,
+    #8b5cf6 70%,
+    #6366f1 80%
+  );
   background-size: 200% auto;
   background-clip: text;
   text-fill-color: transparent;
@@ -489,7 +495,8 @@
     box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
   }
   to {
-    box-shadow: 0 0 40px rgba(102, 126, 234, 0.8), 0 0 60px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 0 40px rgba(102, 126, 234, 0.8),
+      0 0 60px rgba(102, 126, 234, 0.4);
   }
 }
 
@@ -499,7 +506,8 @@
 
 .smooth-hover:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 /* Navigation */
@@ -539,7 +547,8 @@
 
 .leaflet-popup-content-wrapper {
   border-radius: 12px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 .leaflet-popup-tip {
@@ -561,7 +570,13 @@
 
 /* Custom slider styles */
 .slider {
-  background: linear-gradient(to right, #8b5cf6 0%, #8b5cf6 var(--value, 50%), #e5e7eb var(--value, 50%), #e5e7eb 100%);
+  background: linear-gradient(
+    to right,
+    #8b5cf6 0%,
+    #8b5cf6 var(--value, 50%),
+    #e5e7eb var(--value, 50%),
+    #e5e7eb 100%
+  );
 }
 
 .slider::-webkit-slider-thumb {
@@ -620,6 +635,32 @@
   .animate-aurora {
     animation-duration: 12s;
   }
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #9333ea, #7c3aed);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #7c3aed, #6d28d9);
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #9333ea #f1f1f1;
 }
 
 /* Reduced motion preferences */
