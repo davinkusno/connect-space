@@ -118,19 +118,6 @@ export function TopPerformers({ topUsers }: TopPerformersProps) {
                       {user.username.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-
-                  {/* Level Badge */}
-                  <Badge
-                    className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 text-white border-0 px-3 py-1 font-semibold ${
-                      user.rank === 1
-                        ? "bg-yellow-500"
-                        : user.rank === 2
-                        ? "bg-slate-500"
-                        : "bg-orange-500"
-                    }`}
-                  >
-                    Level {user.level}
-                  </Badge>
                 </div>
 
                 {/* User Info */}
