@@ -10,12 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trophy, Calendar, Filter, User } from "lucide-react";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard-table";
 import { TopPerformers } from "@/components/leaderboard/top-performers";
-import { LeaderboardStats } from "@/components/leaderboard/leaderboard-stats";
-import { AchievementBadges } from "@/components/leaderboard/achievement-badges";
 import { PageTransition } from "@/components/ui/page-transition";
 import { StaggerContainer } from "@/components/ui/stagger-container";
 
@@ -134,17 +131,17 @@ export default function LeaderboardPage() {
                   <Trophy className="h-8 w-8 text-white" />
                 </div>
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                  Community Leaderboardss
+                  Monthly Leaderboard
                 </h1>
               </div>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Celebrating our most active and engaged community members.
-                Compete, collaborate, and climb the ranks!
+                Celebrating our most active members. Compete, collaborate, and
+                climb the ranks!
               </p>
             </div>
 
             {/* Controls */}
-            <div className="mt-8 mb-8">
+            {/* <div className="mt-8 mb-8">
               <Card className="glass-effect border-0 shadow-lg">
                 <CardContent className="p-6">
                   <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
@@ -214,68 +211,21 @@ export default function LeaderboardPage() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
-
-            {/* Stats */}
-            <LeaderboardStats />
+            </div> */}
 
             {/* Main Content */}
-            <div className="mt-8">
-              <Tabs defaultValue="leaderboard" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-3 lg:w-[400px] mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
-                  <TabsTrigger
-                    value="leaderboard"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                  >
-                    Leaderboard
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="achievements"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                  >
-                    Achievements
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="analytics"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"
-                  >
-                    Analytics
-                  </TabsTrigger>
-                </TabsList>
+            <div className="mt-16 space-y-12">
+              {/* Top Performers */}
+              {!isLoading && topUsers.length > 0 && (
+                <TopPerformers topUsers={topUsers} />
+              )}
 
-                <TabsContent value="leaderboard" className="space-y-8">
-                  {/* Top Performers */}
-                  {!isLoading && topUsers.length > 0 && (
-                    <TopPerformers topUsers={topUsers} />
-                  )}
-
-                  {/* Leaderboard Table */}
-                  <LeaderboardTable
-                    data={users}
-                    isLoading={isLoading}
-                    sortBy={sortBy}
-                  />
-                </TabsContent>
-
-                <TabsContent value="achievements">
-                  <AchievementBadges />
-                </TabsContent>
-
-                <TabsContent value="analytics">
-                  <Card className="glass-effect border-0 shadow-lg">
-                    <CardContent className="p-8 text-center">
-                      <Trophy className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                      <h3 className="text-xl font-semibold mb-2">
-                        Analytics Coming Soon
-                      </h3>
-                      <p className="text-muted-foreground">
-                        Detailed analytics and insights about leaderboard
-                        performance will be available here.
-                      </p>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
+              {/* Leaderboard Table */}
+              <LeaderboardTable
+                data={users}
+                isLoading={isLoading}
+                sortBy={sortBy}
+              />
             </div>
           </StaggerContainer>
         </div>
