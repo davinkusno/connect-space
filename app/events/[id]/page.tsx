@@ -16,9 +16,10 @@ import { CalendarIntegration } from "@/components/ui/calendar-integration";
 import { EventDiscussion } from "@/components/events/event-discussion";
 import { UpdateRsvpDialog } from "@/components/events/update-rsvp-dialog";
 import { AttendeesDialog } from "@/components/events/attendees-dialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
 import {
   MapPin,
   Calendar,
@@ -29,7 +30,6 @@ import {
   User2,
   ChevronRight,
   ChevronLeft,
-  Star,
   Ticket,
   BookOpen,
   Award,
@@ -78,11 +78,6 @@ interface Event {
   images: string[];
   tags: string[];
   website?: string;
-  socialProof: {
-    rating: number;
-    reviewCount: number;
-    attendeeCount: number;
-  };
   relatedEvents: Array<{
     id: string;
     title: string;
@@ -146,11 +141,6 @@ const DUMMY_EVENT: Event = {
   ],
   tags: ["AI", "Healthcare", "Technology", "Innovation", "Networking"],
   website: "https://healthtechinnovations.com",
-  socialProof: {
-    rating: 4.8,
-    reviewCount: 127,
-    attendeeCount: 1250,
-  },
   relatedEvents: [
     {
       id: "2",
@@ -229,14 +219,115 @@ const DUMMY_EVENT: Event = {
   ],
 };
 
-export default function EventDetailsPage() {
-  const event = DUMMY_EVENT;
+export default function EventDetailsPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  // Create a copy of DUMMY_EVENT with the correct ID from params
+  // TODO: Fetch actual event data from Supabase based on params.id
+  const baseEvent = { ...DUMMY_EVENT, id: params.id };
+
+  // Customize event data based on ID for demo purposes
+  const eventTitles: Record<string, string> = {
+    "1": "AI & Machine Learning Summit 2024",
+    "2": "Digital Marketing Masterclass",
+    "3": "Startup Funding Workshop",
+    "4": "Web Development Bootcamp",
+    "5": "Blockchain & Cryptocurrency Forum",
+    "6": "AI in Healthcare Summit 2024",
+  };
+
+  const eventLocations: Record<string, typeof baseEvent.location> = {
+    "1": {
+      venue: "Moscone Convention Center",
+      address: "747 Howard Street",
+      city: "San Francisco",
+      lat: 37.7749,
+      lng: -122.4194,
+      isOnline: false,
+    },
+    "2": {
+      venue: "WeWork Pacific Design Center",
+      address: "8687 Melrose Ave",
+      city: "West Hollywood",
+      lat: 34.0839,
+      lng: -118.3847,
+      isOnline: false,
+    },
+    "3": {
+      venue: "TechHub Boston",
+      address: "1 Broadway",
+      city: "Cambridge",
+      lat: 42.3626,
+      lng: -71.0843,
+      isOnline: false,
+    },
+    "4": {
+      venue: "General Assembly",
+      address: "315 W 36th St",
+      city: "New York",
+      lat: 40.7549,
+      lng: -73.9925,
+      isOnline: false,
+    },
+    "5": {
+      venue: "Convention Center",
+      address: "800 W Katella Ave",
+      city: "Anaheim",
+      lat: 33.8031,
+      lng: -117.9239,
+      isOnline: false,
+    },
+    "6": {
+      venue: "Virtual Event",
+      address: "Online Platform",
+      city: "Online",
+      lat: 0,
+      lng: 0,
+      isOnline: true,
+      meetingLink: "https://zoom.us/j/123456789?pwd=abc123xyz",
+    },
+  };
+
+  const event = {
+    ...baseEvent,
+    title: eventTitles[params.id] || baseEvent.title,
+    location: eventLocations[params.id] || baseEvent.location,
+  };
+
   const router = useRouter();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isRegistered, setIsRegistered] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [isUpdateRsvpOpen, setIsUpdateRsvpOpen] = useState(false);
   const [isAttendeesOpen, setIsAttendeesOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Check authentication status on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = getSupabaseBrowser();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setIsLoggedIn(!!session);
+      setIsCheckingAuth(false);
+    };
+
+    checkAuth();
+
+    // Subscribe to auth changes
+    const supabase = getSupabaseBrowser();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -263,6 +354,13 @@ export default function EventDetailsPage() {
   };
 
   const handleAttendClick = () => {
+    // Check if user is logged in
+    if (!isLoggedIn) {
+      // Redirect to login/register page with return URL
+      router.push("/auth/login?redirect=/events/" + event.id);
+      return;
+    }
+
     // Directly set as registered (works for both online and onsite)
     setIsRegistered(true);
     // Optionally scroll to location tab for online events
@@ -278,6 +376,19 @@ export default function EventDetailsPage() {
     setIsRegistered(isGoing);
     // If user selects "Not going", we can optionally do something
     // For now, just update the state
+  };
+
+  const handleSaveEvent = () => {
+    // Check if user is logged in
+    if (!isLoggedIn) {
+      // Redirect to login/register page with return URL
+      router.push("/auth/login?redirect=/events/" + event.id);
+      return;
+    }
+
+    // Toggle save state
+    // TODO: Implement actual save/bookmark functionality with Supabase
+    console.log("Event saved/bookmarked");
   };
 
   // Filter related events based on matching tags
@@ -309,6 +420,10 @@ export default function EventDetailsPage() {
 
   const availableSpots = event.capacity - event.registered;
   const registrationPercentage = (event.registered / event.capacity) * 100;
+
+  // Mock user role - replace with actual auth check
+  const isAdmin = false; // Set to true if user is community admin
+  const [showBanner, setShowBanner] = useState(true);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -345,15 +460,6 @@ export default function EventDetailsPage() {
               >
                 {event.category}
               </Badge>
-              <div className="flex items-center gap-2 text-white/90">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-medium">
-                  {event.socialProof.rating}
-                </span>
-                <span className="text-sm">
-                  ({event.socialProof.reviewCount} reviews)
-                </span>
-              </div>
             </div>
 
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
@@ -393,6 +499,8 @@ export default function EventDetailsPage() {
             variant="secondary"
             size="sm"
             className="bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30"
+            onClick={handleSaveEvent}
+            disabled={isCheckingAuth}
           >
             <Heart className="h-4 w-4" />
           </Button>
@@ -469,17 +577,22 @@ export default function EventDetailsPage() {
                         variant="ghost"
                         size="icon"
                         className="h-10 w-10 rounded-full hover:bg-gray-100"
+                        onClick={handleSaveEvent}
+                        disabled={isCheckingAuth}
                       >
                         <Bookmark className="h-5 w-5 text-gray-700" />
                       </Button>
 
                       {/* Attend Button */}
                       <Button
-                        className="bg-violet-600 hover:bg-violet-700 text-white px-6 py-5 rounded-full flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max shadow-md hover:shadow-lg transition-all"
+                        className="bg-violet-600 hover:bg-violet-700 text-white px-6 py-5 rounded-full flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={handleAttendClick}
+                        disabled={isCheckingAuth}
                       >
                         <span className="truncate">
-                          {event.location.isOnline
+                          {isCheckingAuth
+                            ? "Loading..."
+                            : event.location.isOnline
                             ? "Attend online"
                             : "Attend onsite"}
                         </span>
@@ -492,6 +605,101 @@ export default function EventDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Organizer Banner - Only for non-admin users */}
+      {!isAdmin && showBanner && (
+        <div className="max-w-6xl mx-auto px-4 py-6">
+          <div className="relative flex w-full overflow-visible flex-col md:flex-row md:items-center md:justify-between bg-gradient-to-r from-violet-600 to-purple-600 rounded-3xl shadow-lg">
+            {/* Content Section */}
+            <div className="w-full shrink-0 md:min-h-px md:min-w-px md:grow md:basis-0">
+              <div className="relative">
+                <div className="flex w-full flex-col items-start justify-start gap-2 p-5 md:py-4 md:pl-6 pb-4 md:pr-3">
+                  <div className="flex w-full flex-col items-start justify-center gap-2">
+                    <div className="flex w-full items-center gap-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <h4 className="pr-2 text-white text-base font-semibold">
+                          Become a community admin: create an event and
+                          community today!
+                        </h4>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* Close button for mobile */}
+                <div className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-white shadow-md md:hidden">
+                  <button
+                    className="flex size-full items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-gray-300"
+                    aria-label="Dismiss banner"
+                    onClick={() => setShowBanner(false)}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-gray-600"
+                      aria-hidden="true"
+                    >
+                      <path d="M18 6 6 18"></path>
+                      <path d="m6 6 12 12"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA Section */}
+            <div className="w-full shrink-0 md:flex md:w-auto md:items-center md:self-stretch">
+              <div className="flex flex-col items-start gap-5 px-5 pb-3 pt-4 md:shrink-0 md:flex-row md:items-center md:pl-3 md:py-4 md:pr-6">
+                <div className="flex w-full flex-col-reverse items-start gap-1.5 md:w-auto md:flex-row md:items-center md:gap-0">
+                  <div className="flex w-full flex-col items-start md:w-auto md:pl-1.5">
+                    <Link href="/events/create">
+                      <Button className="inline-flex items-center justify-center rounded-full max-w-full min-w-0 relative bg-white text-violet-600 hover:bg-gray-50 border-0 shadow-md hover:shadow-lg active:shadow-sm transition-all duration-150 gap-2 text-sm font-medium px-5 py-2.5 w-full md:w-auto">
+                        <span className="relative z-10 flex min-w-0 max-w-full items-center justify-center overflow-hidden">
+                          <span className="flex min-w-0 max-w-full items-center justify-center overflow-hidden">
+                            <span className="flex min-w-0 max-w-full flex-col items-center justify-center overflow-hidden">
+                              <span className="block min-w-0 max-w-full truncate">
+                                Register now
+                              </span>
+                            </span>
+                          </span>
+                        </span>
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+                {/* Close button for desktop */}
+                <button
+                  className="ml-1.5 hidden items-center justify-center rounded-lg p-2 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30 md:flex"
+                  onClick={() => setShowBanner(false)}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-white"
+                    aria-hidden="true"
+                  >
+                    <path d="M18 6 6 18"></path>
+                    <path d="m6 6 12 12"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 py-8">
