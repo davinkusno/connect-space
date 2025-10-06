@@ -65,8 +65,8 @@ interface UserType {
 const navigationLinks = [
   // { href: "/", label: "Home", icon: Home },
   {
-    href: "/discover",
-    label: "Discover",
+    href: "/communities",
+    label: "Communities",
     icon: Search,
     hoverClasses: "hover:bg-blue-50 hover:text-blue-600",
   },
@@ -76,12 +76,7 @@ const navigationLinks = [
     icon: Calendar,
     hoverClasses: "hover:bg-green-50 hover:text-green-600",
   },
-  {
-    href: "/communities",
-    label: "Communities",
-    icon: Users,
-    hoverClasses: "hover:bg-orange-50 hover:text-orange-600",
-  },
+
   {
     href: "/messages",
     label: "Messages",

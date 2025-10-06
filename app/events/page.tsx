@@ -971,15 +971,6 @@ export default function EventsPage() {
                   </div>
                 </div>
 
-                {/* Create Event Button */}
-                <div className="flex items-end">
-                  <Link href="/events/create">
-                    <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 transform hover:scale-105 rounded-xl px-6 py-2">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Event
-                    </Button>
-                  </Link>
-                </div>
               </div>
             </div>
 

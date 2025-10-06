@@ -12,11 +12,12 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Wand2, Sparkles, RefreshCw, Copy, Lightbulb, CheckCircle, Plus, X } from "lucide-react"
+import { CalendarIcon, Wand2, Sparkles, RefreshCw, Copy, Lightbulb, CheckCircle, Plus, X, ArrowLeft } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { EnhanceContentButton } from "@/components/ai/enhance-content-button"
+import { CommunityAdminNav } from "@/components/navigation/community-admin-nav"
 
 export default function CreateEventPage() {
   const [eventData, setEventData] = useState({
@@ -170,12 +171,22 @@ export default function CreateEventPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <CommunityAdminNav />
 
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="mb-12">
-          <h1 className="text-4xl font-light text-gray-900 mb-3">Create Your Event</h1>
-          <p className="text-gray-600">Organize memorable experiences with AI-powered assistance</p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-4xl font-light text-gray-900 mb-3">Create Your Event</h1>
+              <p className="text-gray-600">Organize memorable experiences with AI-powered assistance</p>
+            </div>
+            <Link href="/community-admin/events">
+              <Button variant="outline" size="icon" className="border-gray-200 hover:border-purple-300 hover:bg-purple-50">
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">

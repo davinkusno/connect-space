@@ -233,13 +233,12 @@ const mockCommunityPerformance: CommunityPerformance[] = [
 ]
 
 const mockGeographicData: GeographicData[] = [
-  { country: "United States", users: 1250, communities: 35, percentage: 33.3 },
-  { country: "United Kingdom", users: 680, communities: 18, percentage: 18.1 },
-  { country: "Canada", users: 520, communities: 15, percentage: 13.9 },
-  { country: "Australia", users: 380, communities: 12, percentage: 10.1 },
-  { country: "Germany", users: 290, communities: 8, percentage: 7.7 },
-  { country: "France", users: 240, communities: 7, percentage: 6.4 },
-  { country: "Others", users: 390, communities: 17, percentage: 10.5 },
+  { country: "Jakarta", users: 1250, communities: 35, percentage: 33.3 },
+  { country: "Surabaya", users: 680, communities: 18, percentage: 18.1 },
+  { country: "Bali", users: 520, communities: 15, percentage: 13.9 },
+  { country: "Medan", users: 380, communities: 12, percentage: 10.1 },
+  { country: "IKN", users: 290, communities: 8, percentage: 7.7 },
+  { country: "Others", users: 1130, communities: 32, percentage: 16.9 },
 ]
 
 const mockContentMetrics: ContentMetrics[] = [
@@ -1510,7 +1509,7 @@ export default function SuperadminPage() {
               </div>
 
               {/* Key Performance Indicators */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <AnimatedCard variant="glass" className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1605,50 +1604,28 @@ export default function SuperadminPage() {
                   </div>
                 </AnimatedCard>
 
-                <AnimatedCard variant="glass" className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Avg Engagement</p>
-                      <p className="text-3xl font-bold text-gray-900">{avgEngagement}%</p>
-                      <div className="flex items-center mt-2">
-                        <TrendingUp className="h-4 w-4 text-green-500" />
-                        <span className="text-sm font-medium text-green-600">+2.3%</span>
-                        <span className="text-sm text-gray-500 ml-1">vs last month</span>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-indigo-100 rounded-lg">
-                      <Activity className="h-6 w-6 text-indigo-600" />
-                    </div>
-                  </div>
-                </AnimatedCard>
               </div>
 
               {/* Charts Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Growth Trends Chart */}
-                <AnimatedCard variant="glass" className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h4 className="text-lg font-semibold text-gray-900">Growth Trends</h4>
-                    <select
-                      value={analyticsMetric}
-                      onChange={(e) => setAnalyticsMetric(e.target.value)}
-                      className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
+              <div className="flex justify-center">
+                <div className="w-full max-w-4xl">
+                  {/* User Growth Chart */}
+                  <AnimatedCard variant="glass" className="p-6">
+                    <div className="flex justify-between items-center mb-6">
+                      <h4 className="text-lg font-semibold text-gray-900">User Growth</h4>
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        +12.5% this month
+                      </Badge>
+                    </div>
+                    <ChartContainer
+                      config={{
+                        users: {
+                          label: "Users",
+                          color: chartColors.primary,
+                        },
+                      }}
+                      className="h-[400px]"
                     >
-                      <option value="communities">Communities</option>
-                      <option value="users">Users</option>
-                      <option value="posts">Posts</option>
-                      <option value="events">Events</option>
-                    </select>
-                  </div>
-                  <ChartContainer
-                    config={{
-                      [analyticsMetric]: {
-                        label: analyticsMetric.charAt(0).toUpperCase() + analyticsMetric.slice(1),
-                        color: chartColors.primary,
-                      },
-                    }}
-                    className="h-[300px]"
-                  >
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={mockAnalyticsData}>
                         <defs>
@@ -1663,52 +1640,17 @@ export default function SuperadminPage() {
                         <ChartTooltip content={<ChartTooltipContent />} />
                         <Area
                           type="monotone"
-                          dataKey={analyticsMetric}
+                          dataKey="users"
                           stroke={chartColors.primary}
                           fillOpacity={1}
                           fill="url(#colorGradient)"
-                          strokeWidth={2}
+                          strokeWidth={3}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
                   </ChartContainer>
                 </AnimatedCard>
-
-                {/* Engagement Rate Chart */}
-                <AnimatedCard variant="glass" className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h4 className="text-lg font-semibold text-gray-900">Engagement Rate</h4>
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      +5.2% this month
-                    </Badge>
-                  </div>
-                  <ChartContainer
-                    config={{
-                      engagement: {
-                        label: "Engagement Rate",
-                        color: chartColors.secondary,
-                      },
-                    }}
-                    className="h-[300px]"
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={mockAnalyticsData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis dataKey="date" stroke="#666" fontSize={12} />
-                        <YAxis stroke="#666" fontSize={12} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Line
-                          type="monotone"
-                          dataKey="engagement"
-                          stroke={chartColors.secondary}
-                          strokeWidth={3}
-                          dot={{ fill: chartColors.secondary, strokeWidth: 2, r: 4 }}
-                          activeDot={{ r: 6, stroke: chartColors.secondary, strokeWidth: 2 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </AnimatedCard>
+                </div>
               </div>
 
               {/* Community Performance and Geographic Distribution */}
@@ -1748,18 +1690,6 @@ export default function SuperadminPage() {
                           </div>
                           <div className="flex items-center gap-4 text-right">
                             <div>
-                              <div className="text-sm text-gray-600">Growth</div>
-                              <div
-                                className={`font-semibold ${community.growth >= 0 ? "text-green-600" : "text-red-600"}`}
-                              >
-                                {formatPercentage(community.growth)}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-sm text-gray-600">Engagement</div>
-                              <div className="font-semibold text-blue-600">{community.engagement}%</div>
-                            </div>
-                            <div>
                               <div className="text-sm text-gray-600">Rating</div>
                               <div className="flex items-center gap-1">
                                 <Star className="h-4 w-4 text-yellow-500 fill-current" />
@@ -1776,7 +1706,7 @@ export default function SuperadminPage() {
                 {/* Geographic Distribution */}
                 <AnimatedCard variant="glass" className="p-6">
                   <div className="flex justify-between items-center mb-6">
-                    <h4 className="text-lg font-semibold text-gray-900">Geographic Distribution</h4>
+                    <h4 className="text-lg font-semibold text-gray-900">Top 5 Cities</h4>
                     <Globe className="h-5 w-5 text-gray-400" />
                   </div>
                   <ChartContainer
@@ -1804,14 +1734,16 @@ export default function SuperadminPage() {
                               key={`cell-${index}`}
                               fill={
                                 index === 0
-                                  ? chartColors.primary
+                                  ? "#8B5CF6" // Jakarta - Purple
                                   : index === 1
-                                    ? chartColors.secondary
+                                    ? "#06B6D4" // Surabaya - Cyan
                                     : index === 2
-                                      ? chartColors.tertiary
+                                      ? "#10B981" // Bali - Green
                                       : index === 3
-                                        ? chartColors.quaternary
-                                        : chartColors.danger
+                                        ? "#F59E0B" // Medan - Orange
+                                        : index === 4
+                                          ? "#EF4444" // IKN - Red
+                                          : "#6B7280" // Others - Gray
                               }
                             />
                           ))}
@@ -1821,7 +1753,7 @@ export default function SuperadminPage() {
                     </ResponsiveContainer>
                   </ChartContainer>
                   <div className="space-y-2">
-                    {mockGeographicData.slice(0, 5).map((country, index) => (
+                    {mockGeographicData.map((country, index) => (
                       <div key={country.country} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
                           <div
@@ -1829,14 +1761,16 @@ export default function SuperadminPage() {
                             style={{
                               backgroundColor:
                                 index === 0
-                                  ? chartColors.primary
+                                  ? "#8B5CF6" // Jakarta - Purple
                                   : index === 1
-                                    ? chartColors.secondary
+                                    ? "#06B6D4" // Surabaya - Cyan
                                     : index === 2
-                                      ? chartColors.tertiary
+                                      ? "#10B981" // Bali - Green
                                       : index === 3
-                                        ? chartColors.quaternary
-                                        : chartColors.danger,
+                                        ? "#F59E0B" // Medan - Orange
+                                        : index === 4
+                                          ? "#EF4444" // IKN - Red
+                                          : "#6B7280", // Others - Gray
                             }}
                           ></div>
                           <span className="text-gray-700">{country.country}</span>
@@ -2215,7 +2149,7 @@ export default function SuperadminPage() {
               </div>
 
               {/* Badge Statistics Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <AnimatedCard variant="glass" className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -2250,20 +2184,6 @@ export default function SuperadminPage() {
                     </div>
                     <div className="p-2 bg-blue-100 rounded-lg">
                       <TrendingUp className="h-5 w-5 text-blue-600" />
-                    </div>
-                  </div>
-                </AnimatedCard>
-
-                <AnimatedCard variant="glass" className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                      <p className="text-2xl font-bold text-yellow-600">
-                        {formatCurrency(badges.reduce((sum, b) => sum + (b.revenue || 0), 0))}
-                      </p>
-                    </div>
-                    <div className="p-2 bg-yellow-100 rounded-lg">
-                      <Target className="h-5 w-5 text-yellow-600" />
                     </div>
                   </div>
                 </AnimatedCard>
