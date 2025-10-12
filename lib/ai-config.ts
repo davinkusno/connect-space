@@ -3,7 +3,7 @@ export const AI_CONFIG = {
   // OpenAI Configuration
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
-    model: "gpt-4",
+    model: "gpt-3.5-turbo",
     maxTokens: 1000,
     temperature: 0.7,
   },
@@ -38,7 +38,7 @@ export const AI_CONFIG = {
     recommendations: 50, // per hour
     search: 100, // per hour
   },
-}
+};
 
-export type AIProvider = "openai" | "anthropic" | "local"
-export type AIFeature = keyof typeof AI_CONFIG.features
+export type AIProvider = "openai" | "anthropic" | "local";
+export type AIFeature = keyof typeof AI_CONFIG.features;

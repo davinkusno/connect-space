@@ -658,7 +658,7 @@ export default function EventDetailsPage({
               <div className="flex flex-col items-start gap-5 px-5 pb-3 pt-4 md:shrink-0 md:flex-row md:items-center md:pl-3 md:py-4 md:pr-6">
                 <div className="flex w-full flex-col-reverse items-start gap-1.5 md:w-auto md:flex-row md:items-center md:gap-0">
                   <div className="flex w-full flex-col items-start md:w-auto md:pl-1.5">
-                    <Link href="/events/create">
+                    <Link href="/community-admin-registration">
                       <Button className="inline-flex items-center justify-center rounded-full max-w-full min-w-0 relative bg-white text-violet-600 hover:bg-gray-50 border-0 shadow-md hover:shadow-lg active:shadow-sm transition-all duration-150 gap-2 text-sm font-medium px-5 py-2.5 w-full md:w-auto">
                         <span className="relative z-10 flex min-w-0 max-w-full items-center justify-center overflow-hidden">
                           <span className="flex min-w-0 max-w-full items-center justify-center overflow-hidden">
