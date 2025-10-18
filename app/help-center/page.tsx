@@ -179,6 +179,37 @@ const faqData = [
   },
 ];
 
+const quickActions = [
+  {
+    title: "Contact Support",
+    description: "Get help from our support team",
+    icon: <MessageCircle className="h-6 w-6" />,
+    href: "#contact",
+    color: "bg-blue-500",
+  },
+  {
+    title: "Video Tutorials",
+    description: "Watch step-by-step guides",
+    icon: <Video className="h-6 w-6" />,
+    href: "#tutorials",
+    color: "bg-green-500",
+  },
+  {
+    title: "Community Guidelines",
+    description: "Learn about our community rules",
+    icon: <Shield className="h-6 w-6" />,
+    href: "#guidelines",
+    color: "bg-purple-500",
+  },
+  {
+    title: "Feature Requests",
+    description: "Suggest new features",
+    icon: <Lightbulb className="h-6 w-6" />,
+    href: "#feedback",
+    color: "bg-yellow-500",
+  },
+];
+
 const contactMethods = [
   {
     title: "Live Chat",
@@ -253,13 +284,35 @@ export default function HelpCenterPage() {
             </div>
           </div>
 
+          {/* Quick Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            {quickActions.map((action, index) => (
+              <Card
+                key={index}
+                className="group hover:shadow-lg transition-all duration-300 cursor-pointer"
+              >
+                <CardContent className="p-6 text-center">
+                  <div
+                    className={`${action.color} w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform`}
+                  >
+                    <div className="text-white">{action.icon}</div>
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-2">
+                    {action.title}
+                  </h3>
+                  <p className="text-sm text-gray-600">{action.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
           {/* Main Content */}
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
             className="space-y-8"
           >
-            <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-3">
               <TabsTrigger value="faq" className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />
                 FAQ
@@ -267,6 +320,13 @@ export default function HelpCenterPage() {
               <TabsTrigger value="contact" className="flex items-center gap-2">
                 <MessageCircle className="h-4 w-4" />
                 Contact Us
+              </TabsTrigger>
+              <TabsTrigger
+                value="resources"
+                className="flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Resources
               </TabsTrigger>
             </TabsList>
 
@@ -410,6 +470,119 @@ export default function HelpCenterPage() {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Resources Tab */}
+            <TabsContent value="resources" className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <Video className="h-6 w-6 text-green-600" />
+                      </div>
+                      <h3 className="font-semibold">Video Tutorials</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Step-by-step video guides to help you get started
+                    </p>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Watch Now
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <FileText className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <h3 className="font-semibold">User Guide</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Comprehensive guide covering all features
+                    </p>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Read Guide
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <Shield className="h-6 w-6 text-purple-600" />
+                      </div>
+                      <h3 className="font-semibold">Community Guidelines</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Learn about our community rules and best practices
+                    </p>
+                    <Button variant="outline" size="sm" className="w-full">
+                      View Guidelines
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-yellow-100 rounded-lg">
+                        <Lightbulb className="h-6 w-6 text-yellow-600" />
+                      </div>
+                      <h3 className="font-semibold">Feature Requests</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Suggest new features or improvements
+                    </p>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Submit Idea
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-red-100 rounded-lg">
+                        <AlertCircle className="h-6 w-6 text-red-600" />
+                      </div>
+                      <h3 className="font-semibold">Report a Bug</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Help us improve by reporting issues
+                    </p>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Report Bug
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-indigo-100 rounded-lg">
+                        <Heart className="h-6 w-6 text-indigo-600" />
+                      </div>
+                      <h3 className="font-semibold">Success Stories</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Read how others are using ConnectSpace
+                    </p>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Read Stories
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
