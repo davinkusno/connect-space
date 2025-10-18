@@ -60,26 +60,20 @@ interface StoreBadge {
   name: string;
   description: string;
   icon: React.ReactNode;
-  category: "achievement" | "participation" | "special" | "limited";
-  rarity: "common" | "rare" | "epic" | "legendary";
   price: number;
   image: string;
   isOwned?: boolean;
-  isLimited?: boolean;
-  limitedQuantity?: number;
-  limitedRemaining?: number;
-  expiresAt?: string;
 }
 
 export default function StorePage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [selectedRarity, setSelectedRarity] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("popular");
+  const [sortBy, setSortBy] = useState<string>("price-low");
   const [selectedBadge, setSelectedBadge] = useState<StoreBadge | null>(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   // Mock user data
   const userData = {
@@ -95,8 +89,6 @@ export default function StorePage() {
       description:
         "Awarded to members who consistently provide valuable technical insights and help others.",
       icon: <Trophy className="h-5 w-5" />,
-      category: "achievement",
-      rarity: "epic",
       price: 1000,
       image: "/placeholder.svg?height=200&width=200",
     },
@@ -232,51 +224,29 @@ export default function StorePage() {
         badge.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         badge.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesCategory =
-        selectedCategory === "all" || badge.category === selectedCategory;
-      const matchesRarity =
-        selectedRarity === "all" || badge.rarity === selectedRarity;
-
-      return matchesSearch && matchesCategory && matchesRarity;
+      return matchesSearch;
     })
     .sort((a, b) => {
       if (sortBy === "price-low") return a.price - b.price;
       if (sortBy === "price-high") return b.price - a.price;
-      if (sortBy === "rarity") {
-        const rarityOrder = { common: 1, rare: 2, epic: 3, legendary: 4 };
-        return rarityOrder[b.rarity] - rarityOrder[a.rarity];
-      }
-      return 0; // popular (default order)
+      return 0;
     });
 
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case "common":
-        return "bg-gray-500";
-      case "rare":
-        return "bg-blue-500";
-      case "epic":
-        return "bg-purple-500";
-      case "legendary":
-        return "bg-yellow-500";
-      default:
-        return "bg-gray-500";
-    }
+  // Pagination logic
+  const totalPages = Math.ceil(filteredBadges.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedBadges = filteredBadges.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search or sort changes
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
   };
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "achievement":
-        return <Trophy className="h-4 w-4" />;
-      case "participation":
-        return <Star className="h-4 w-4" />;
-      case "special":
-        return <Crown className="h-4 w-4" />;
-      case "limited":
-        return <Gift className="h-4 w-4" />;
-      default:
-        return <Award className="h-4 w-4" />;
-    }
+  const handleSortChange = (value: string) => {
+    setSortBy(value);
+    setCurrentPage(1);
   };
 
   const handlePurchase = (badge: StoreBadge) => {
@@ -339,147 +309,30 @@ export default function StorePage() {
           </div>
         </div>
 
-        {/* Filters and Search */}
+        {/* Search and Sort */}
         <div className="mb-12">
-          <div className="flex flex-col lg:flex-row gap-4 mb-6">
+          <div className="flex flex-col lg:flex-row gap-4 max-w-2xl mx-auto">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
                 placeholder="Search badges..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-10 border-gray-200 focus:border-violet-300 focus:ring-violet-200 glass-effect"
               />
             </div>
-            <div className="flex gap-2">
-              <Select
-                value={selectedCategory}
-                onValueChange={setSelectedCategory}
-              >
-                <SelectTrigger className="w-[160px] glass-effect border-gray-200 focus:border-violet-300">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-gray-500" />
-                    <SelectValue placeholder="Category" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="achievement">Achievement</SelectItem>
-                  <SelectItem value="participation">Participation</SelectItem>
-                  <SelectItem value="special">Special</SelectItem>
-                  <SelectItem value="limited">Limited Edition</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedRarity} onValueChange={setSelectedRarity}>
-                <SelectTrigger className="w-[140px] glass-effect border-gray-200 focus:border-violet-300">
-                  <div className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-gray-500" />
-                    <SelectValue placeholder="Rarity" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Rarities</SelectItem>
-                  <SelectItem value="common">Common</SelectItem>
-                  <SelectItem value="rare">Rare</SelectItem>
-                  <SelectItem value="epic">Epic</SelectItem>
-                  <SelectItem value="legendary">Legendary</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[140px] glass-effect border-gray-200 focus:border-violet-300">
-                  <div className="flex items-center gap-2">
-                    <SortDesc className="h-4 w-4 text-gray-500" />
-                    <SelectValue placeholder="Sort By" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="popular">Popular</SelectItem>
-                  <SelectItem value="price-low">Price: Low to High</SelectItem>
-                  <SelectItem value="price-high">Price: High to Low</SelectItem>
-                  <SelectItem value="rarity">Rarity</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Category Tabs - Modern Pill Design */}
-          <div className="flex flex-wrap justify-center gap-2 mb-8">
-            {[
-              {
-                value: "all",
-                label: "All Badges",
-                icon: null,
-                color: "from-gray-500 to-gray-600",
-              },
-              {
-                value: "achievement",
-                label: "Achievement",
-                icon: <Trophy className="h-4 w-4" />,
-                color: "from-yellow-500 to-orange-500",
-              },
-              {
-                value: "participation",
-                label: "Participation",
-                icon: <Star className="h-4 w-4" />,
-                color: "from-blue-500 to-cyan-500",
-              },
-              {
-                value: "special",
-                label: "Special",
-                icon: <Crown className="h-4 w-4" />,
-                color: "from-purple-500 to-pink-500",
-              },
-              {
-                value: "limited",
-                label: "Limited",
-                icon: <Gift className="h-4 w-4" />,
-                color: "from-red-500 to-rose-500",
-              },
-            ].map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setSelectedCategory(tab.value)}
-                className={`group relative px-6 py-3 rounded-full font-medium text-sm transition-all duration-300 ${
-                  selectedCategory === tab.value
-                    ? `bg-gradient-to-r ${
-                        tab.color
-                      } text-white shadow-lg shadow-${
-                        tab.color.split("-")[1]
-                      }-500/25 transform scale-105`
-                    : "bg-white/80 text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-md border border-gray-200/50"
-                }`}
-              >
+            <Select value={sortBy} onValueChange={handleSortChange}>
+              <SelectTrigger className="w-full lg:w-[200px] glass-effect border-gray-200 focus:border-violet-300">
                 <div className="flex items-center gap-2">
-                  {tab.icon ? (
-                    <div
-                      className={`transition-transform duration-300 ${
-                        selectedCategory === tab.value
-                          ? "scale-110"
-                          : "group-hover:scale-105"
-                      }`}
-                    >
-                      {tab.icon}
-                    </div>
-                  ) : (
-                    <div
-                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                        selectedCategory === tab.value
-                          ? "bg-white"
-                          : "bg-gradient-to-r from-gray-400 to-gray-600 group-hover:scale-110"
-                      }`}
-                    />
-                  )}
-                  <span className="whitespace-nowrap">{tab.label}</span>
+                  <SortDesc className="h-4 w-4 text-gray-500" />
+                  <SelectValue placeholder="Sort by Points" />
                 </div>
-
-                {/* Active indicator */}
-                {selectedCategory === tab.value && (
-                  <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full animate-pulse" />
-                )}
-              </button>
-            ))}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="price-low">Points: Low to High</SelectItem>
+                <SelectItem value="price-high">Points: High to Low</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -499,14 +352,18 @@ export default function StorePage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {filteredBadges.map((badge, index) => (
-              <InViewTransition key={badge.id} effect="fade" delay={index * 50}>
-                <HoverScale scale={1.02}>
-                  <Card className="glass-effect border-gray-100 hover:border-violet-200 hover:shadow-lg transition-all duration-300 overflow-hidden group">
-                    <div className="relative">
-                      <div className="aspect-square p-8 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                        <div className="relative">
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-12">
+              {paginatedBadges.map((badge, index) => (
+                <InViewTransition
+                  key={badge.id}
+                  effect="fade"
+                  delay={index * 50}
+                >
+                  <HoverScale scale={1.02}>
+                    <Card className="glass-effect border-gray-100 hover:border-violet-200 hover:shadow-lg transition-all duration-300 overflow-hidden group">
+                      <div className="relative">
+                        <div className="aspect-square p-8 bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center">
                           <Image
                             src={badge.image || "/placeholder.svg"}
                             alt={badge.name}
@@ -514,140 +371,123 @@ export default function StorePage() {
                             height={120}
                             className="rounded-full group-hover:scale-110 transition-transform duration-300"
                           />
-                          <div className="absolute -top-2 -right-2">
-                            <div
-                              className={`w-6 h-6 ${getRarityColor(
-                                badge.rarity
-                              )} rounded-full flex items-center justify-center`}
-                            >
-                              <AnimatedIcon
-                                icon={badge.icon}
-                                animationType="pulse"
-                                className="text-white text-xs"
-                              />
+                        </div>
+
+                        {/* Owned Badge */}
+                        {badge.isOwned && (
+                          <div className="absolute top-2 right-2">
+                            <div className="bg-green-500 text-white rounded-full p-1.5 shadow-lg">
+                              <Check className="h-4 w-4" />
                             </div>
                           </div>
-                        </div>
-                      </div>
-
-                      {/* Limited Edition Banner */}
-                      {badge.isLimited && (
-                        <div className="absolute top-2 left-2 right-2">
-                          <BadgeComponent className="bg-red-500 text-white border-0 text-xs w-full justify-center pulse-glow">
-                            Limited Edition
-                          </BadgeComponent>
-                        </div>
-                      )}
-
-                      {/* Owned Badge */}
-                      {badge.isOwned && (
-                        <div className="absolute top-2 right-2">
-                          <div className="bg-green-500 text-white rounded-full p-1">
-                            <Check className="h-4 w-4" />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Category Badge */}
-                      <div className="absolute bottom-2 left-2">
-                        <BadgeComponent
-                          variant="outline"
-                          className="bg-white/90 border-gray-200 text-gray-700 text-xs"
-                        >
-                          {getCategoryIcon(badge.category)}
-                          <span className="ml-1 capitalize">
-                            {badge.category}
-                          </span>
-                        </BadgeComponent>
-                      </div>
-
-                      {/* Rarity Badge */}
-                      <div className="absolute bottom-2 right-2">
-                        <BadgeComponent
-                          className={`${getRarityColor(
-                            badge.rarity
-                          )} text-white border-0 text-xs capitalize`}
-                        >
-                          {badge.rarity}
-                        </BadgeComponent>
-                      </div>
-                    </div>
-
-                    <CardContent className="p-6">
-                      <h3 className="font-bold text-lg mb-2 text-gray-900 group-hover:text-purple-600 transition-colors duration-300">
-                        {badge.name}
-                      </h3>
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                        {badge.description}
-                      </p>
-
-                      {/* Limited Edition Info */}
-                      {badge.isLimited && (
-                        <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-red-700 font-medium">
-                              {badge.limitedRemaining}/{badge.limitedQuantity}{" "}
-                              remaining
-                            </span>
-                            <span className="text-red-600 text-xs">
-                              Expires:{" "}
-                              {badge.expiresAt &&
-                                new Date(badge.expiresAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Price Information */}
-                      <div className="flex items-center justify-center gap-1.5 mb-3 px-3 py-1 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-md border border-yellow-200">
-                        <Sparkles className="h-4 w-4 text-yellow-500" />
-                        <span className="font-bold text-lg text-gray-900">
-                          {badge.price.toLocaleString()}
-                        </span>
-                        <span className="text-gray-600 text-sm font-medium">
-                          points
-                        </span>
-                      </div>
-
-                      {/* Purchase Button */}
-                      <div className="w-full">
-                        {badge.isOwned ? (
-                          <div className="w-full">
-                            <BadgeComponent className="w-full justify-center bg-green-500 text-white border-0 py-2 text-sm font-medium">
-                              <Check className="h-4 w-4 mr-2" />
-                              Already Owned
-                            </BadgeComponent>
-                          </div>
-                        ) : (
-                          <Button
-                            disabled={!canAfford(badge.price)}
-                            onClick={() => handlePurchase(badge)}
-                            className={`w-full py-2 h-auto font-medium transition-all duration-300 ${
-                              canAfford(badge.price)
-                                ? "bg-violet-700 hover:bg-violet-800 text-white hover:shadow-lg hover:shadow-violet-500/25 hover:scale-105"
-                                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            }`}
-                          >
-                            {canAfford(badge.price) ? (
-                              <>
-                                <ShoppingCart className="h-4 w-4 mr-2" />
-                                Purchase Badge
-                              </>
-                            ) : (
-                              <>
-                                <AlertCircle className="h-4 w-4 mr-2" />
-                                Insufficient Points
-                              </>
-                            )}
-                          </Button>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
-                </HoverScale>
-              </InViewTransition>
-            ))}
-          </div>
+
+                      <CardContent className="p-6">
+                        <h3 className="font-bold text-lg mb-2 text-gray-900 group-hover:text-purple-600 transition-colors duration-300">
+                          {badge.name}
+                        </h3>
+                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                          {badge.description}
+                        </p>
+
+                        {/* Price Information */}
+                        <div className="flex items-center justify-center gap-1.5 mb-4 px-3 py-2 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+                          <Sparkles className="h-4 w-4 text-yellow-500" />
+                          <span className="font-bold text-base text-gray-900">
+                            {badge.price.toLocaleString()}
+                          </span>
+                          <span className="text-gray-600 text-xs font-medium">
+                            points
+                          </span>
+                        </div>
+
+                        {/* Purchase Button */}
+                        <div className="w-full">
+                          {badge.isOwned ? (
+                            <div className="w-full">
+                              <BadgeComponent className="w-full justify-center bg-green-500 text-white border-0 py-2 text-sm font-medium">
+                                <Check className="h-4 w-4 mr-2" />
+                                Already Owned
+                              </BadgeComponent>
+                            </div>
+                          ) : (
+                            <Button
+                              disabled={!canAfford(badge.price)}
+                              onClick={() => handlePurchase(badge)}
+                              className={`w-full py-2 h-auto font-medium transition-all duration-300 ${
+                                canAfford(badge.price)
+                                  ? "bg-violet-700 hover:bg-violet-800 text-white hover:shadow-lg hover:shadow-violet-500/25 hover:scale-105"
+                                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                              }`}
+                            >
+                              {canAfford(badge.price) ? (
+                                <>
+                                  <ShoppingCart className="h-4 w-4 mr-2" />
+                                  Purchase Badge
+                                </>
+                              ) : (
+                                <>
+                                  <AlertCircle className="h-4 w-4 mr-2" />
+                                  Insufficient Points
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </HoverScale>
+                </InViewTransition>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
+                  disabled={currentPage === 1}
+                  className="glass-effect"
+                >
+                  Previous
+                </Button>
+
+                <div className="flex gap-2">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? "default" : "outline"}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-10 h-10 p-0 ${
+                          currentPage === page
+                            ? "bg-violet-600 hover:bg-violet-700 text-white"
+                            : "glass-effect"
+                        }`}
+                      >
+                        {page}
+                      </Button>
+                    )
+                  )}
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="glass-effect"
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </>
         )}
 
         {/* Purchase Dialog */}
