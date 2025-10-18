@@ -82,25 +82,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform the data to match the frontend interface
-    const transformedEvents = events?.map(event => ({
+    const transformedEvents = (events as any[])?.map(event => ({
       id: event.id,
       title: event.title,
       description: event.description,
-      category: event.category,
-      tags: event.tags || [],
+      category: event.category || "General",
+      tags: [], // TODO: Add tags field to events table
       date: event.start_time.split('T')[0],
       time: event.start_time.split('T')[1]?.substring(0, 5) || "00:00",
       endTime: event.end_time.split('T')[1]?.substring(0, 5) || "00:00",
       location: {
-        latitude: event.location_lat || 0,
-        longitude: event.location_lng || 0,
+        latitude: 0, // TODO: Add location_lat field to events table
+        longitude: 0, // TODO: Add location_lng field to events table
         address: event.location || "",
         venue: event.location || "",
-        city: event.location_city || "",
+        city: "", // TODO: Add location_city field to events table
         isOnline: event.is_online || false,
       },
       organizer: event.users?.full_name || event.users?.username || "Unknown",
-      attendees: event.attendee_count || 0,
+      attendees: 0, // TODO: Add attendee_count field to events table
       maxAttendees: event.max_attendees || 0,
       price: 0, // TODO: Add price field to events table
       originalPrice: undefined,
@@ -173,30 +173,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Check if user is a member of the community
-    const { data: membership, error: membershipError } = await supabase
-      .from("community_members")
-      .select("role")
-      .eq("community_id", community_id)
-      .eq("user_id", user.id)
+    // Check if user is the creator of the community (they can only have one community)
+    const { data: community, error: communityError } = await supabase
+      .from("communities")
+      .select("creator_id")
+      .eq("id", community_id)
       .single();
 
-    if (membershipError || !membership) {
-      return NextResponse.json({ error: "You must be a member of this community to create events" }, { status: 403 });
+    if (communityError || !community) {
+      return NextResponse.json({ error: "Community not found" }, { status: 404 });
+    }
+
+    // Check if user is the creator of the community
+    if ((community as any).creator_id !== user.id) {
+      return NextResponse.json({ error: "Only the community creator can create events" }, { status: 403 });
     }
 
     // Create the event
-    const { data: event, error: eventError } = await supabase
-      .from("events")
+    const { data: event, error: eventError } = await (supabase
+      .from("events") as any)
       .insert({
         title,
         description,
         start_time,
         end_time,
         location,
-        location_lat,
-        location_lng,
-        location_city,
         is_online: is_online || false,
         max_attendees,
         category,

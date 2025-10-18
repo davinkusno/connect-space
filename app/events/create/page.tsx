@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -12,32 +12,52 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Wand2, Sparkles, RefreshCw, Copy, Lightbulb, CheckCircle, Plus, X } from "lucide-react"
+import { CalendarIcon, Wand2, Sparkles, RefreshCw, Copy, Lightbulb, CheckCircle, Plus, X, Users, MapPin, AlertCircle } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { EnhanceContentButton } from "@/components/ai/enhance-content-button"
+import { useToast } from "@/hooks/use-toast"
+
+interface Community {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  role: string; // 'admin' or 'moderator'
+}
 
 export default function CreateEventPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  
   const [eventData, setEventData] = useState({
     title: "",
     description: "",
     category: "",
     date: undefined as Date | undefined,
     time: "",
-    duration: "",
+    endTime: "",
     location: "",
+    locationCity: "",
+    isOnline: false,
     capacity: "",
     price: "",
     tags: [] as string[],
     agenda: [""],
     requirements: "",
+    communityId: "",
   })
 
   const [newTag, setNewTag] = useState("")
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false)
   const [isGeneratingAgenda, setIsGeneratingAgenda] = useState(false)
   const [aiSuggestions, setAiSuggestions] = useState<any>(null)
+  const [communities, setCommunities] = useState<Community[]>([])
+  const [loadingCommunities, setLoadingCommunities] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const categories = [
     "Workshop",
@@ -56,7 +76,77 @@ export default function CreateEventPage() {
 
   const handleInputChange = (field: string, value: any) => {
     setEventData((prev) => ({ ...prev, [field]: value }))
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }))
+    }
   }
+
+  // Fetch user's community (they can only have one)
+  const fetchUserCommunity = async () => {
+    try {
+      setLoadingCommunities(true);
+      const response = await fetch('/api/communities/my-community');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.community) {
+          setCommunities([data.community]);
+          // Auto-select the user's community
+          setEventData(prev => ({ ...prev, communityId: data.community.id }));
+        } else {
+          setCommunities([]);
+        }
+      } else {
+        throw new Error('Failed to fetch your community');
+      }
+    } catch (error) {
+      console.error('Error fetching user community:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load your community. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingCommunities(false);
+    }
+  }
+
+  // Load user's community on component mount
+  useEffect(() => {
+    fetchUserCommunity();
+  }, []);
+
+  // Calculate end time based on duration
+  const calculateEndTime = (startTime: string, duration: string) => {
+    if (!startTime || !duration) return "";
+    
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startDate = new Date();
+    startDate.setHours(hours, minutes, 0, 0);
+    
+    let durationHours = 0;
+    switch (duration) {
+      case "1 hour": durationHours = 1; break;
+      case "2 hours": durationHours = 2; break;
+      case "3 hours": durationHours = 3; break;
+      case "Half day": durationHours = 4; break;
+      case "Full day": durationHours = 8; break;
+      case "2 days": durationHours = 16; break;
+      case "3 days": durationHours = 24; break;
+      default: durationHours = 2;
+    }
+    
+    const endDate = new Date(startDate.getTime() + durationHours * 60 * 60 * 1000);
+    return endDate.toTimeString().slice(0, 5);
+  }
+
+  // Update end time when start time or duration changes
+  useEffect(() => {
+    if (eventData.time && eventData.duration) {
+      const endTime = calculateEndTime(eventData.time, eventData.duration);
+      setEventData((prev) => ({ ...prev, endTime }));
+    }
+  }, [eventData.time, eventData.duration]);
 
   const generateDescription = async () => {
     if (!eventData.title || !eventData.category) {
@@ -163,9 +253,82 @@ export default function CreateEventPage() {
     }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("Creating event:", eventData)
+  // Form validation
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!eventData.title.trim()) newErrors.title = "Event title is required";
+    if (!eventData.description.trim()) newErrors.description = "Event description is required";
+    if (!eventData.category) newErrors.category = "Please select a category";
+    if (!eventData.date) newErrors.date = "Please select a date";
+    if (!eventData.time) newErrors.time = "Please select a start time";
+    if (!eventData.location.trim()) newErrors.location = "Location is required";
+    if (!eventData.communityId) newErrors.communityId = "Please select a community";
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      // Prepare the event data for API
+      const eventPayload = {
+        title: eventData.title.trim(),
+        description: eventData.description.trim(),
+        category: eventData.category,
+        start_time: `${eventData.date?.toISOString().split('T')[0]}T${eventData.time}:00`,
+        end_time: `${eventData.date?.toISOString().split('T')[0]}T${eventData.endTime}:00`,
+        location: eventData.location.trim(),
+        is_online: eventData.isOnline,
+        max_attendees: eventData.capacity ? parseInt(eventData.capacity) : null,
+        community_id: eventData.communityId,
+        image_url: null, // We'll add image upload later
+      };
+
+      const response = await fetch('/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventPayload),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast({
+          title: "Success!",
+          description: "Your event has been created successfully.",
+        });
+        
+        // Redirect to the event page
+        router.push(`/events/${result.event.id}`);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create event');
+      }
+    } catch (error) {
+      console.error('Error creating event:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create event. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -174,8 +337,13 @@ export default function CreateEventPage() {
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="mb-12">
-          <h1 className="text-4xl font-light text-gray-900 mb-3">Create Your Event</h1>
-          <p className="text-gray-600">Organize memorable experiences with AI-powered assistance</p>
+          <div className="flex items-center gap-3 mb-3">
+            <h1 className="text-4xl font-light text-gray-900">Create Your Event</h1>
+            <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200">
+              Admin Only
+            </Badge>
+          </div>
+          <p className="text-gray-600">Organize memorable experiences for your community with AI-powered assistance</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -209,15 +377,27 @@ export default function CreateEventPage() {
                     placeholder="e.g., AI Workshop for Beginners"
                     value={eventData.title}
                     onChange={(e) => handleInputChange("title", e.target.value)}
-                    className="border-gray-200 focus:border-violet-300 focus:ring-violet-200"
+                    className={cn(
+                      "border-gray-200 focus:border-violet-300 focus:ring-violet-200",
+                      errors.title && "border-red-300 focus:border-red-500 focus:ring-red-200"
+                    )}
                     required
                   />
+                  {errors.title && (
+                    <p className="text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.title}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3">
                   <Label htmlFor="category">Category *</Label>
                   <Select value={eventData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                    <SelectTrigger className="border-gray-200 focus:border-violet-300 focus:ring-violet-200">
+                    <SelectTrigger className={cn(
+                      "border-gray-200 focus:border-violet-300 focus:ring-violet-200",
+                      errors.category && "border-red-300 focus:border-red-500 focus:ring-red-200"
+                    )}>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -228,7 +408,66 @@ export default function CreateEventPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.category && (
+                    <p className="text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.category}
+                    </p>
+                  )}
                 </div>
+              </div>
+
+              {/* Community Display (Auto-selected) */}
+              <div className="space-y-3">
+                <Label>Your Community</Label>
+                {loadingCommunities ? (
+                  <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                        <div className="h-3 bg-gray-200 rounded animate-pulse w-1/2"></div>
+                      </div>
+                    </div>
+                  </div>
+                ) : communities.length > 0 ? (
+                  <div className="p-4 border border-violet-200 rounded-lg bg-violet-50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-violet-500 rounded-full flex items-center justify-center">
+                        <Users className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-violet-900">{communities[0].name}</div>
+                        <div className="text-sm text-violet-600 flex items-center gap-2">
+                          <span>{communities[0].category}</span>
+                          <span>•</span>
+                          <span className="font-medium">Admin</span>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="bg-violet-100 text-violet-700">
+                        Your Community
+                      </Badge>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 border border-amber-200 rounded-lg bg-amber-50">
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="h-8 w-8 text-amber-600" />
+                      <div className="flex-1">
+                        <div className="font-medium text-amber-800">No Community Found</div>
+                        <div className="text-sm text-amber-700">You need to create a community first to organize events</div>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <Link href="/create-community">
+                        <Button className="bg-amber-600 hover:bg-amber-700 text-white">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create Your Community
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -273,9 +512,18 @@ export default function CreateEventPage() {
                   placeholder="Describe what your event is about, what attendees will learn or experience..."
                   value={eventData.description}
                   onChange={(e) => handleInputChange("description", e.target.value)}
-                  className="min-h-[120px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none"
+                  className={cn(
+                    "min-h-[120px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none",
+                    errors.description && "border-red-300 focus:border-red-500 focus:ring-red-200"
+                  )}
                   required
                 />
+                {errors.description && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {errors.description}
+                  </p>
+                )}
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-gray-500">{eventData.description.length}/1000 characters</p>
                   {aiSuggestions && (
@@ -346,6 +594,7 @@ export default function CreateEventPage() {
                         className={cn(
                           "w-full justify-start text-left font-normal border-gray-200",
                           !eventData.date && "text-muted-foreground",
+                          errors.date && "border-red-300"
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -358,9 +607,16 @@ export default function CreateEventPage() {
                         selected={eventData.date}
                         onSelect={(date) => handleInputChange("date", date)}
                         initialFocus
+                        disabled={(date) => date < new Date()}
                       />
                     </PopoverContent>
                   </Popover>
+                  {errors.date && (
+                    <p className="text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.date}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -370,9 +626,18 @@ export default function CreateEventPage() {
                     type="time"
                     value={eventData.time}
                     onChange={(e) => handleInputChange("time", e.target.value)}
-                    className="border-gray-200 focus:border-violet-300 focus:ring-violet-200"
+                    className={cn(
+                      "border-gray-200 focus:border-violet-300 focus:ring-violet-200",
+                      errors.time && "border-red-300 focus:border-red-500 focus:ring-red-200"
+                    )}
                     required
                   />
+                  {errors.time && (
+                    <p className="text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.time}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -392,17 +657,42 @@ export default function CreateEventPage() {
                 </div>
               </div>
 
+              {/* Online Event Toggle */}
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isOnline"
+                    checked={eventData.isOnline}
+                    onChange={(e) => handleInputChange("isOnline", e.target.checked)}
+                    className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  <Label htmlFor="isOnline" className="text-sm font-medium">
+                    This is an online event
+                  </Label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <Label htmlFor="location">Location *</Label>
                   <Input
                     id="location"
-                    placeholder="e.g., 123 Main St, New York, NY or Online"
+                    placeholder={eventData.isOnline ? "e.g., Zoom, Google Meet, or platform name" : "e.g., 123 Main St, New York, NY"}
                     value={eventData.location}
                     onChange={(e) => handleInputChange("location", e.target.value)}
-                    className="border-gray-200 focus:border-violet-300 focus:ring-violet-200"
+                    className={cn(
+                      "border-gray-200 focus:border-violet-300 focus:ring-violet-200",
+                      errors.location && "border-red-300 focus:border-red-500 focus:ring-red-200"
+                    )}
                     required
                   />
+                  {errors.location && (
+                    <p className="text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.location}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -414,9 +704,23 @@ export default function CreateEventPage() {
                     value={eventData.capacity}
                     onChange={(e) => handleInputChange("capacity", e.target.value)}
                     className="border-gray-200 focus:border-violet-300 focus:ring-violet-200"
+                    min="1"
                   />
                 </div>
               </div>
+
+              {!eventData.isOnline && (
+                <div className="space-y-3">
+                  <Label htmlFor="locationCity">City</Label>
+                  <Input
+                    id="locationCity"
+                    placeholder="e.g., New York, NY"
+                    value={eventData.locationCity}
+                    onChange={(e) => handleInputChange("locationCity", e.target.value)}
+                    className="border-gray-200 focus:border-violet-300 focus:ring-violet-200"
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -596,10 +900,41 @@ export default function CreateEventPage() {
 
           {/* Submit Button */}
           <div className="flex justify-end">
-            <Button type="submit" className="bg-violet-700 hover:bg-violet-800 text-white px-8">
-              Create Event
+            <Button 
+              type="submit" 
+              className="bg-violet-700 hover:bg-violet-800 text-white px-8"
+              disabled={isSubmitting || communities.length === 0 || loadingCommunities}
+            >
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Creating Event...
+                </>
+              ) : (
+                "Create Event"
+              )}
             </Button>
           </div>
+          
+          {communities.length === 0 && !loadingCommunities && (
+            <div className="text-center py-8">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+                <Users className="h-12 w-12 text-amber-600 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-amber-800 mb-2">
+                  Create Your Community First
+                </h3>
+                <p className="text-amber-700 mb-4">
+                  You need to create your own community before you can organize events. Each user can create and manage one community.
+                </p>
+                <Link href="/create-community">
+                  <Button className="bg-amber-600 hover:bg-amber-700 text-white">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your Community
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
         </form>
       </div>
     </div>

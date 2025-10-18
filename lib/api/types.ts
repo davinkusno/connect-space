@@ -23,6 +23,8 @@ export const communityQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).optional().default(10),
   search: z.string().optional(),
   category: z.string().optional(),
+  onlyJoined: z.coerce.boolean().optional().default(false),
+  onlyAdmin: z.coerce.boolean().optional().default(false),
   sortBy: z.enum(["created_at", "name", "member_count"]).optional().default("created_at"),
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
 })

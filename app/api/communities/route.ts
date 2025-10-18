@@ -23,13 +23,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return formatError(error!.code, error!.message, error!.details)
     }
 
-    const { page = 1, pageSize = 10, search, category, sortBy = "created_at", sortOrder = "desc" } = query!
+    const { page = 1, pageSize = 10, search, category, onlyJoined = false, onlyAdmin = false, sortBy = "created_at", sortOrder = "desc" } = query!
 
     const supabase = createServerClient()
 
     // Calculate pagination values
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
+
+    // Get current user session for filtering
+    const { data: { session } } = await supabase.auth.getSession()
 
     // Build the query
     let queryBuilder = supabase
@@ -38,11 +41,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         `
         *,
         creator:creator_id(id, username, avatar_url),
-        members:community_members(count)
+        members:community_members(count),
+        user_membership:community_members!inner(role)
       `,
         { count: "exact" },
       )
-      .eq("is_private", false)
+
+    // Apply privacy and role filters
+    if (onlyAdmin && session?.user.id) {
+      // For onlyAdmin, filter by communities where user is admin or moderator
+      queryBuilder = queryBuilder
+        .eq("user_membership.user_id", session.user.id)
+        .in("user_membership.role", ["admin", "moderator"])
+    } else if (onlyJoined && session?.user.id) {
+      // For onlyJoined, filter by communities the user has joined
+      queryBuilder = queryBuilder
+        .eq("user_membership.user_id", session.user.id)
+    } else {
+      // For public access, only show non-private communities
+      queryBuilder = queryBuilder.eq("is_private", false)
+    }
 
     // Apply filters
     if (search) {
