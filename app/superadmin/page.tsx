@@ -370,7 +370,6 @@ const mockCommunityRequests = [
       avatar: "/placeholder.svg?height=40&width=40",
     },
     status: "pending",
-    priority: "high",
     createdAt: "2025-06-08T14:30:00Z",
     updatedAt: "2025-06-08T14:30:00Z",
     daysWaiting: 3,
@@ -388,7 +387,6 @@ const mockCommunityRequests = [
       avatar: "/placeholder.svg?height=40&width=40",
     },
     status: "approved",
-    priority: "medium",
     createdAt: "2025-06-07T10:15:00Z",
     updatedAt: "2025-06-08T09:20:00Z",
     reviewedBy: {
@@ -412,7 +410,6 @@ const mockCommunityRequests = [
       avatar: "/placeholder.svg?height=40&width=40",
     },
     status: "rejected",
-    priority: "low",
     createdAt: "2025-06-06T16:45:00Z",
     updatedAt: "2025-06-07T11:30:00Z",
     reviewedBy: {
@@ -437,7 +434,6 @@ const mockCommunityRequests = [
       avatar: "/placeholder.svg?height=40&width=40",
     },
     status: "pending",
-    priority: "urgent",
     createdAt: "2025-06-05T09:00:00Z",
     updatedAt: "2025-06-05T09:00:00Z",
     daysWaiting: 6,
@@ -455,7 +451,6 @@ const mockCommunityRequests = [
       avatar: "/placeholder.svg?height=40&width=40",
     },
     status: "pending",
-    priority: "medium",
     createdAt: "2025-06-07T20:30:00Z",
     updatedAt: "2025-06-07T20:30:00Z",
     daysWaiting: 4,
@@ -473,7 +468,6 @@ const mockCommunityRequests = [
       avatar: "/placeholder.svg?height=40&width=40",
     },
     status: "approved",
-    priority: "medium",
     createdAt: "2025-06-06T12:15:00Z",
     updatedAt: "2025-06-07T14:45:00Z",
     reviewedBy: {
@@ -497,7 +491,6 @@ const mockCommunityRequests = [
       avatar: "/placeholder.svg?height=40&width=40",
     },
     status: "pending",
-    priority: "low",
     createdAt: "2025-06-08T11:20:00Z",
     updatedAt: "2025-06-08T11:20:00Z",
     daysWaiting: 3,
@@ -933,7 +926,7 @@ export default function SuperadminPage() {
 
   // Community requests state
   const [requestSearchQuery, setRequestSearchQuery] = useState("");
-  const [requestSortBy, setRequestSortBy] = useState("priority");
+  const [requestSortBy, setRequestSortBy] = useState("newest");
   const [requestFilterCategory, setRequestFilterCategory] = useState("all");
 
   // Community management state
@@ -1063,9 +1056,6 @@ export default function SuperadminPage() {
   const rejectedRequests = mockCommunityRequests.filter(
     (req) => req.status === "rejected"
   );
-  const urgentRequests = pendingRequests.filter(
-    (req) => req.priority === "urgent"
-  );
 
   // Filter and sort pending requests
   const filteredPendingRequests = pendingRequests
@@ -1088,9 +1078,6 @@ export default function SuperadminPage() {
     })
     .sort((a, b) => {
       switch (requestSortBy) {
-        case "priority":
-          const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
-          return priorityOrder[b.priority] - priorityOrder[a.priority];
         case "oldest":
           return (
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -1325,37 +1312,6 @@ export default function SuperadminPage() {
 
   const formatPercentage = (num: number) => {
     return `${num > 0 ? "+" : ""}${num.toFixed(1)}%`;
-  };
-
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case "urgent":
-        return (
-          <Badge className="bg-red-500 hover:bg-red-600 text-white border-0">
-            Urgent
-          </Badge>
-        );
-      case "high":
-        return (
-          <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-0">
-            High
-          </Badge>
-        );
-      case "medium":
-        return (
-          <Badge className="bg-blue-500 hover:bg-blue-600 text-white border-0">
-            Medium
-          </Badge>
-        );
-      case "low":
-        return (
-          <Badge className="bg-gray-500 hover:bg-gray-600 text-white border-0">
-            Low
-          </Badge>
-        );
-      default:
-        return <Badge>{priority}</Badge>;
-    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -2485,12 +2441,6 @@ export default function SuperadminPage() {
                       <Clock className="h-5 w-5 text-yellow-600" />
                     </div>
                   </div>
-                  {urgentRequests.length > 0 && (
-                    <div className="mt-2 flex items-center gap-1 text-xs text-red-600">
-                      <AlertTriangle className="h-3 w-3" />
-                      {urgentRequests.length} urgent
-                    </div>
-                  )}
                 </AnimatedCard>
 
                 <AnimatedCard variant="glass" className="p-4">
@@ -2542,11 +2492,11 @@ export default function SuperadminPage() {
                 </AnimatedCard>
               </div>
 
-              {/* Priority Section - Pending Requests */}
+              {/* Pending Requests Section */}
               <AnimatedCard variant="glass" className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-red-500" />
+                    <Zap className="h-5 w-5 text-yellow-500" />
                     Pending Requests - Requires Action
                     <Badge className="bg-red-500 text-white">
                       {pendingRequests.length}
@@ -2586,7 +2536,6 @@ export default function SuperadminPage() {
                       onChange={(e) => setRequestSortBy(e.target.value)}
                       className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
                     >
-                      <option value="priority">Priority</option>
                       <option value="oldest">Oldest First</option>
                       <option value="newest">Newest First</option>
                       <option value="name">Name</option>
@@ -2613,13 +2562,7 @@ export default function SuperadminPage() {
                     {filteredPendingRequests.map((request) => (
                       <div
                         key={request.id}
-                        className={`p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md ${
-                          request.priority === "urgent"
-                            ? "border-red-200 bg-red-50"
-                            : request.priority === "high"
-                            ? "border-orange-200 bg-orange-50"
-                            : "border-gray-200 bg-white"
-                        }`}
+                        className="p-4 rounded-lg border-2 border-gray-200 bg-white transition-all duration-200 hover:shadow-md"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -2627,7 +2570,6 @@ export default function SuperadminPage() {
                               <h5 className="text-lg font-semibold text-gray-900">
                                 {request.name}
                               </h5>
-                              {getPriorityBadge(request.priority)}
                               <Badge variant="outline" className="text-xs">
                                 {request.category}
                               </Badge>
