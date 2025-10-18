@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { 
   Calendar as CalendarIcon,
   Clock,
@@ -19,7 +20,10 @@ import {
   Plus,
   ChevronDown,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  Trash2,
+  Edit,
+  Upload
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -54,6 +58,12 @@ export default function CommunityAdminEventsPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
   const [events, setEvents] = useState<Event[]>([])
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const [uploadedImages, setUploadedImages] = useState<string[]>([])
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     loadEvents()
@@ -91,6 +101,22 @@ export default function CommunityAdminEventsPage() {
         status: "upcoming",
         category: "Business",
         price: 15,
+        organizer: "Tech Innovators NYC",
+        organizerAvatar: "/placeholder-user.jpg"
+      },
+      {
+        id: "5",
+        title: "Blockchain & Web3 Workshop",
+        description: "Learn about blockchain technology, smart contracts, and decentralized applications.",
+        date: "2024-02-05",
+        time: "10:00",
+        location: "Crypto Hub, 789 Blockchain Blvd",
+        attendeeCount: 62,
+        maxAttendees: 80,
+        image: "/placeholder.svg?height=200&width=300",
+        status: "upcoming",
+        category: "Technology",
+        price: 35,
         organizer: "Tech Innovators NYC",
         organizerAvatar: "/placeholder-user.jpg"
       },
@@ -210,6 +236,71 @@ export default function CommunityAdminEventsPage() {
 
   const handleYearChange = (year: string) => {
     setCurrentYear(parseInt(year))
+  }
+
+  const handleDeleteClick = (event: Event) => {
+    setEventToDelete(event)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = () => {
+    if (eventToDelete) {
+      // Remove event from the list
+      setEvents(prevEvents => prevEvents.filter(e => e.id !== eventToDelete.id))
+      setDeleteDialogOpen(false)
+      setEventToDelete(null)
+      // Here you would typically make an API call to delete the event
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false)
+    setEventToDelete(null)
+  }
+
+  const handleUploadClick = (event: Event) => {
+    setSelectedEvent(event)
+    setUploadedImages([])
+    setUploadDialogOpen(true)
+  }
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const newImages: string[] = []
+    
+    files.forEach(file => {
+      if (file.type.startsWith('image/')) {
+        const preview = URL.createObjectURL(file)
+        newImages.push(preview)
+      }
+    })
+    
+    setUploadedImages(prev => [...prev, ...newImages])
+  }
+
+  const handleUploadConfirm = async () => {
+    if (selectedEvent && uploadedImages.length > 0) {
+      setIsUploading(true)
+      
+      // Simulate upload process
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Update event with new images
+      setEvents(prev => prev.map(event => 
+        event.id === selectedEvent.id 
+          ? { ...event, image: uploadedImages[0] } // Update main image
+          : event
+      ))
+      
+      setIsUploading(false)
+      setUploadDialogOpen(false)
+      setSelectedEvent(null)
+      setUploadedImages([])
+    }
+  }
+
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index))
   }
 
   return (
@@ -415,12 +506,6 @@ export default function CommunityAdminEventsPage() {
                             <h3 className="text-xl font-bold text-gray-900 mb-1">{event.title}</h3>
                             <p className="text-gray-600 text-sm line-clamp-2">{event.description}</p>
                           </div>
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-purple-600">
-                              {event.price === 0 ? "Free" : `$${event.price}`}
-                            </div>
-                            <div className="text-sm text-gray-500">per person</div>
-                          </div>
                         </div>
 
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
@@ -452,10 +537,41 @@ export default function CommunityAdminEventsPage() {
                             </Avatar>
                             <span className="text-sm text-gray-600">{event.organizer}</span>
                           </div>
-                          <Button variant="outline" size="sm" className="text-purple-600 border-purple-200 hover:bg-purple-50">
-                            View Details
-                            <ChevronRight className="w-4 h-4 ml-1" />
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Link href={`/community-admin/events/${event.id}`}>
+                              <Button variant="outline" size="sm" className="text-purple-600 border-purple-200 hover:bg-purple-50">
+                                View Details
+                                <ChevronRight className="w-4 h-4 ml-1" />
+                              </Button>
+                            </Link>
+                            {activeTab === "upcoming" ? (
+                              <>
+                                <Link href={`/community-admin/events/${event.id}/edit`}>
+                                  <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                </Link>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="text-red-600 border-red-200 hover:bg-red-50"
+                                  onClick={() => handleDeleteClick(event)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-green-600 border-green-200 hover:bg-green-50"
+                                onClick={() => handleUploadClick(event)}
+                              >
+                                <Upload className="w-4 h-4 mr-1" />
+                                Upload Images
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -465,6 +581,127 @@ export default function CommunityAdminEventsPage() {
             )}
           </div>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-red-600">Delete Event</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete "{eventToDelete?.title}"? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2 sm:gap-0">
+              <Button 
+                variant="outline" 
+                onClick={handleDeleteCancel}
+                className="flex-1 sm:flex-none"
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteConfirm}
+                className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700"
+              >
+                Delete Event
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Upload Images Dialog */}
+        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Upload className="w-5 h-5 text-green-600" />
+                Upload Images for {selectedEvent?.title}
+              </DialogTitle>
+              <DialogDescription>
+                Upload multiple images to showcase your event. You can select multiple files at once.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              {/* File Input */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-green-400 transition-colors">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  id="image-upload"
+                />
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                      <Upload className="w-8 h-8 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-medium text-gray-900">Click to upload images</p>
+                      <p className="text-sm text-gray-500">or drag and drop multiple images here</p>
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {/* Preview Images */}
+              {uploadedImages.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">
+                    Selected Images ({uploadedImages.length})
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {uploadedImages.map((image, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={image}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                        <button
+                          onClick={() => removeImage(index)}
+                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setUploadDialogOpen(false)}
+                disabled={isUploading}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUploadConfirm}
+                disabled={uploadedImages.length === 0 || isUploading}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isUploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload {uploadedImages.length} Image{uploadedImages.length !== 1 ? 's' : ''}
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </PageTransition>
   )

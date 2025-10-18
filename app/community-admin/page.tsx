@@ -430,7 +430,7 @@ export default function CommunityAdminPage() {
                     ))}
                     
                     {/* See More Link */}
-                    <Link href="/community-admin/join-requests" className="block">
+                    <Link href="/community-admin/requests" className="block">
                       <Button variant="ghost" className="w-full text-purple-600 hover:text-purple-700 hover:bg-purple-50">
                         See All Requests
                         <ChevronRight className="w-4 h-4 ml-2" />
@@ -528,7 +528,8 @@ export default function CommunityAdminPage() {
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Events Card */}
-                    <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all">
+                    <Link href="/community-admin/events">
+                      <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
@@ -543,28 +544,32 @@ export default function CommunityAdminPage() {
                         <span>{Math.floor(community?.memberCount ? community.memberCount / 100 : 10)} total events</span>
                         <ChevronRight className="w-4 h-4 text-purple-600" />
                       </div>
-                    </div>
+                      </div>
+                    </Link>
 
                     {/* Members Card */}
-                    <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
-                            <span className="text-white text-sm">👥</span>
+                    <Link href="/community-admin/members">
+                      <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
+                              <span className="text-white text-sm">👥</span>
+                            </div>
+                            <h4 className="font-semibold text-gray-900">Members</h4>
                           </div>
-                          <h4 className="font-semibold text-gray-900">Members</h4>
+                          {/* removed status badge per request */}
                         </div>
-                        {/* removed status badge per request */}
+                        <p className="text-sm text-gray-600">View and manage community members</p>
+                        <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+                          <span>{community?.memberCount.toLocaleString()} members</span>
+                          <ChevronRight className="w-4 h-4 text-purple-600" />
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-600">View and manage community members</p>
-                      <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
-                        <span>{community?.memberCount.toLocaleString()} members</span>
-                        <ChevronRight className="w-4 h-4 text-purple-600" />
-                      </div>
-                    </div>
+                    </Link>
 
                     {/* Join Requests Card */}
-                    <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all">
+                    <Link href="/community-admin/requests">
+                      <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
@@ -581,7 +586,8 @@ export default function CommunityAdminPage() {
                         </span>
                         <ChevronRight className="w-4 h-4 text-purple-600" />
                       </div>
-                    </div>
+                      </div>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>

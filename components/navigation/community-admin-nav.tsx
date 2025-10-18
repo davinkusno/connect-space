@@ -39,7 +39,7 @@ export function CommunityAdminNav({
     if (pathname?.startsWith("/community-admin/events") || pathname === "/community-admin/create") {
       return "events"
     }
-    if (pathname?.startsWith("/community-admin/notification")) {
+    if (pathname?.startsWith("/community-admin/notifications")) {
       return "notification"
     }
     return "community-profile"
@@ -64,7 +64,7 @@ export function CommunityAdminNav({
       id: "notification",
       label: "Notification",
       icon: Bell,
-      href: "#", // placeholder
+      href: "/community-admin/notifications",
     },
   ]
 
@@ -100,12 +100,12 @@ export function CommunityAdminNav({
               return (
                 <Link key={item.id} href={item.href}>
                   <Button
-                    variant={isActive ? "default" : "ghost"}
+                    variant="ghost"
                     size="sm"
                     className={cn(
                       "flex items-center space-x-2 transition-all duration-200",
                       isActive 
-                        ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-md" 
+                        ? "text-purple-600 font-bold" 
                         : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
                     )}
                     onClick={() => {}}
