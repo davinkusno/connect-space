@@ -110,7 +110,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ActivityLogsTable } from "@/components/superadmin/activity-logs-table";
-import { RecentActivities } from "@/components/superadmin/recent-activities";
 import { BadgeForm } from "@/components/superadmin/badge-form";
 import { format, subMonths } from "date-fns";
 
@@ -120,19 +119,12 @@ export interface StoreBadge {
   name: string;
   description: string;
   icon: string;
-  category: "achievement" | "cosmetic" | "special" | "seasonal";
-  rarity: "common" | "rare" | "epic" | "legendary";
   price: number;
   image: string;
   isActive: boolean;
-  isLimited?: boolean;
-  limitedQuantity?: number;
-  limitedRemaining?: number;
-  expiresAt?: string;
   createdAt: string;
   updatedAt: string;
   purchaseCount?: number;
-  revenue?: number;
 }
 
 // Analytics data types
@@ -919,10 +911,7 @@ export default function SuperadminPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [badgeActiveTab, setBadgeActiveTab] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
-  const [filterRarity, setFilterRarity] = useState("all");
-  const [badgeViewMode, setBadgeViewMode] = useState<"grid" | "list">("grid");
 
   // Community requests state
   const [requestSearchQuery, setRequestSearchQuery] = useState("");
@@ -947,15 +936,12 @@ export default function SuperadminPage() {
       description:
         "Awarded to members who consistently provide valuable technical insights and help others solve complex problems.",
       icon: "Trophy",
-      category: "achievement",
-      rarity: "epic",
       price: 1000,
       image: "/placeholder.svg?height=200&width=200",
       isActive: true,
       createdAt: "2023-05-15T10:30:00Z",
       updatedAt: "2023-05-15T10:30:00Z",
       purchaseCount: 145,
-      revenue: 145000,
     },
     {
       id: "2",
@@ -963,15 +949,12 @@ export default function SuperadminPage() {
       description:
         "For those who have attended at least 20 community events and actively participate in discussions.",
       icon: "Star",
-      category: "achievement",
-      rarity: "rare",
       price: 500,
       image: "/placeholder.svg?height=200&width=200",
       isActive: true,
       createdAt: "2023-06-20T14:15:00Z",
       updatedAt: "2023-06-20T14:15:00Z",
       purchaseCount: 289,
-      revenue: 144500,
     },
     {
       id: "3",
@@ -979,15 +962,12 @@ export default function SuperadminPage() {
       description:
         "Reserved for members who have made exceptional contributions to the community and helped it grow.",
       icon: "Award",
-      category: "achievement",
-      rarity: "legendary",
       price: 2000,
       image: "/placeholder.svg?height=200&width=200",
       isActive: true,
       createdAt: "2023-04-10T09:45:00Z",
       updatedAt: "2023-07-05T11:20:00Z",
       purchaseCount: 67,
-      revenue: 134000,
     },
     {
       id: "4",
@@ -995,19 +975,12 @@ export default function SuperadminPage() {
       description:
         "Limited edition badge available only during the holiday season. Features exclusive winter-themed design.",
       icon: "Gift",
-      category: "seasonal",
-      rarity: "epic",
       price: 1200,
       image: "/placeholder.svg?height=200&width=200",
       isActive: true,
-      isLimited: true,
-      limitedQuantity: 50,
-      limitedRemaining: 12,
-      expiresAt: "2024-01-01T00:00:00Z",
       createdAt: "2023-11-25T08:30:00Z",
       updatedAt: "2023-11-25T08:30:00Z",
       purchaseCount: 38,
-      revenue: 45600,
     },
     {
       id: "5",
@@ -1015,18 +988,12 @@ export default function SuperadminPage() {
       description:
         "Exclusive badge for the first 100 members who joined the platform. A mark of true community pioneers.",
       icon: "Crown",
-      category: "special",
-      rarity: "legendary",
       price: 3000,
       image: "/placeholder.svg?height=200&width=200",
       isActive: false,
-      isLimited: true,
-      limitedQuantity: 100,
-      limitedRemaining: 0,
       createdAt: "2023-01-05T12:00:00Z",
       updatedAt: "2023-03-10T15:45:00Z",
       purchaseCount: 100,
-      revenue: 300000,
     },
     {
       id: "6",
@@ -1034,15 +1001,12 @@ export default function SuperadminPage() {
       description:
         "For members who consistently share creative content and inspire others with their artistic vision.",
       icon: "Sparkles",
-      category: "cosmetic",
-      rarity: "rare",
       price: 750,
       image: "/placeholder.svg?height=200&width=200",
       isActive: true,
       createdAt: "2023-08-12T16:20:00Z",
       updatedAt: "2023-08-12T16:20:00Z",
-      purchaseCount: 203,
-      revenue: 152250,
+      purchaseCount: 212,
     },
   ]);
 
@@ -1136,23 +1100,14 @@ export default function SuperadminPage() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedCommunities = filteredCommunities.slice(startIndex, endIndex);
 
-  // Filter badges based on search query, tab, and filters
+  // Filter badges based on search query
   const filteredBadges = badges.filter((badge) => {
     const matchesSearch =
       badgeSearchQuery === "" ||
       badge.name.toLowerCase().includes(badgeSearchQuery.toLowerCase()) ||
       badge.description.toLowerCase().includes(badgeSearchQuery.toLowerCase());
 
-    const matchesTab =
-      badgeActiveTab === "all" ||
-      (badgeActiveTab === "active" && badge.isActive) ||
-      (badgeActiveTab === "inactive" && !badge.isActive) ||
-      (badgeActiveTab === "limited" && badge.isLimited);
-
-    const matchesRarity =
-      filterRarity === "all" || badge.rarity === filterRarity;
-
-    return matchesSearch && matchesTab && matchesRarity;
+    return matchesSearch;
   });
 
   // Sort badges
@@ -1176,8 +1131,6 @@ export default function SuperadminPage() {
         return a.price - b.price;
       case "popularity":
         return (b.purchaseCount || 0) - (a.purchaseCount || 0);
-      case "revenue":
-        return (b.revenue || 0) - (a.revenue || 0);
       default:
         return 0;
     }
@@ -1225,7 +1178,6 @@ export default function SuperadminPage() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         purchaseCount: 0,
-        revenue: 0,
       };
       setBadges([...badges, newBadge]);
       setIsLoading(false);
@@ -1233,12 +1185,15 @@ export default function SuperadminPage() {
     }, 1000);
   };
 
-  const handleUpdateBadge = (badge: StoreBadge) => {
+  const handleUpdateBadge = (
+    badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">
+  ) => {
+    if (!selectedBadge) return;
     setIsLoading(true);
     setTimeout(() => {
       const updatedBadges = badges.map((b) =>
-        b.id === badge.id
-          ? { ...badge, updatedAt: new Date().toISOString() }
+        b.id === selectedBadge.id
+          ? { ...b, ...badge, updatedAt: new Date().toISOString() }
           : b
       );
       setBadges(updatedBadges);
@@ -1537,182 +1492,176 @@ export default function SuperadminPage() {
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
-                  <AnimatedCard variant="glass" className="p-6">
-                    <div className="mb-6">
-                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-4">
-                        <Users className="w-5 h-5 text-purple-600" />
-                        All Communities
-                        <Badge variant="outline" className="ml-2 bg-gray-100">
-                          {filteredCommunities.length}
-                        </Badge>
-                      </h3>
+              <div>
+                <AnimatedCard variant="glass" className="p-6">
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-4">
+                      <Users className="w-5 h-5 text-purple-600" />
+                      All Communities
+                      <Badge variant="outline" className="ml-2 bg-gray-100">
+                        {filteredCommunities.length}
+                      </Badge>
+                    </h3>
 
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                          <Input
-                            placeholder="Search communities..."
-                            value={communitySearchQuery}
-                            onChange={(e) =>
-                              setCommunitySearchQuery(e.target.value)
-                            }
-                            className="pl-10 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
-                          />
-                        </div>
-                        <select
-                          value={communityFilterStatus}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          placeholder="Search communities..."
+                          value={communitySearchQuery}
                           onChange={(e) =>
-                            setCommunityFilterStatus(e.target.value)
+                            setCommunitySearchQuery(e.target.value)
                           }
-                          className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
-                        >
-                          <option value="all">All Status</option>
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                          <option value="under review">Under Review</option>
-                        </select>
-                        <select
-                          value={communitySortBy}
-                          onChange={(e) => setCommunitySortBy(e.target.value)}
-                          className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
-                        >
-                          <option value="newest">Newest First</option>
-                          <option value="oldest">Oldest First</option>
-                          <option value="name">Name</option>
-                          <option value="member-count">Member Count</option>
-                        </select>
+                          className="pl-10 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                        />
                       </div>
+                      <select
+                        value={communityFilterStatus}
+                        onChange={(e) =>
+                          setCommunityFilterStatus(e.target.value)
+                        }
+                        className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="under review">Under Review</option>
+                      </select>
+                      <select
+                        value={communitySortBy}
+                        onChange={(e) => setCommunitySortBy(e.target.value)}
+                        className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
+                      >
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="name">Name</option>
+                        <option value="member-count">Member Count</option>
+                      </select>
                     </div>
+                  </div>
 
-                    {/* Community Listings */}
-                    <div className="space-y-4">
-                      {paginatedCommunities.map((community) => (
-                        <div
-                          key={community.id}
-                          className="p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md border-gray-200 bg-white"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h5 className="text-lg font-semibold text-gray-900">
-                                  {community.name}
-                                </h5>
-                                <Badge variant="outline" className="text-xs">
-                                  {community.category}
-                                </Badge>
-                                {getCommunityStatusBadge(community.status)}
+                  {/* Community Listings */}
+                  <div className="space-y-4">
+                    {paginatedCommunities.map((community) => (
+                      <div
+                        key={community.id}
+                        className="p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md border-gray-200 bg-white"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h5 className="text-lg font-semibold text-gray-900">
+                                {community.name}
+                              </h5>
+                              <Badge variant="outline" className="text-xs">
+                                {community.category}
+                              </Badge>
+                              {getCommunityStatusBadge(community.status)}
+                            </div>
+                            <p className="text-gray-600 mb-3 line-clamp-2">
+                              {community.description}
+                            </p>
+                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                              <div className="flex items-center gap-1">
+                                <Users className="h-4 w-4" />
+                                <span>{community.memberCount} members</span>
                               </div>
-                              <p className="text-gray-600 mb-3 line-clamp-2">
-                                {community.description}
-                              </p>
-                              <div className="flex items-center gap-4 text-sm text-gray-500">
-                                <div className="flex items-center gap-1">
-                                  <Users className="h-4 w-4" />
-                                  <span>{community.memberCount} members</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <CalendarDays className="h-4 w-4" />
-                                  <span>{community.totalEvents} events</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <CalendarDays className="h-4 w-4" />
-                                  <span>
-                                    Created at{" "}
-                                    {formatDateShort(community.createdAt)}
-                                  </span>
-                                </div>
+                              <div className="flex items-center gap-1">
+                                <CalendarDays className="h-4 w-4" />
+                                <span>{community.totalEvents} events</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <CalendarDays className="h-4 w-4" />
+                                <span>
+                                  Created at{" "}
+                                  {formatDateShort(community.createdAt)}
+                                </span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 ml-4">
+                          </div>
+                          <div className="flex items-center gap-1.5 ml-4">
+                            <AnimatedButton
+                              size="sm"
+                              onClick={() => handleViewCommunity(community)}
+                              className="h-8 px-2.5 text-xs !bg-white hover:!bg-gray-50 !text-gray-700 !border !border-gray-300 !shadow-sm !bg-gradient-to-r !from-white !to-white hover:!from-gray-50 hover:!to-gray-50"
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              View
+                            </AnimatedButton>
+                            {community.status !== "inactive" && (
                               <AnimatedButton
                                 size="sm"
-                                onClick={() => handleViewCommunity(community)}
-                                className="h-8 px-2.5 text-xs !bg-white hover:!bg-gray-50 !text-gray-700 !border !border-gray-300 !shadow-sm !bg-gradient-to-r !from-white !to-white hover:!from-gray-50 hover:!to-gray-50"
+                                className="!bg-rose-500 hover:!bg-rose-600 !text-white h-8 px-2.5 text-xs !bg-gradient-to-r !from-rose-500 !to-rose-500 hover:!from-rose-600 hover:!to-rose-600"
                               >
-                                <Eye className="h-3.5 w-3.5 mr-1" />
-                                View
+                                <Ban className="h-3.5 w-3.5 mr-1" />
+                                Suspend
                               </AnimatedButton>
-                              {community.status !== "inactive" && (
-                                <AnimatedButton
-                                  size="sm"
-                                  className="!bg-rose-500 hover:!bg-rose-600 !text-white h-8 px-2.5 text-xs !bg-gradient-to-r !from-rose-500 !to-rose-500 hover:!from-rose-600 hover:!to-rose-600"
-                                >
-                                  <Ban className="h-3.5 w-3.5 mr-1" />
-                                  Suspend
-                                </AnimatedButton>
-                              )}
-                            </div>
+                            )}
                           </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                      <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
-                        <div className="text-sm text-gray-500">
-                          Showing {startIndex + 1} to{" "}
-                          {Math.min(endIndex, filteredCommunities.length)} of{" "}
-                          {filteredCommunities.length} communities
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <AnimatedButton
-                            variant="glass"
-                            size="sm"
-                            onClick={() =>
-                              setCurrentPage(Math.max(1, currentPage - 1))
-                            }
-                            disabled={currentPage === 1}
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                            Previous
-                          </AnimatedButton>
-                          <div className="flex items-center gap-1">
-                            {Array.from(
-                              { length: totalPages },
-                              (_, i) => i + 1
-                            ).map((page) => (
-                              <AnimatedButton
-                                key={page}
-                                variant={
-                                  currentPage === page ? "default" : "glass"
-                                }
-                                size="sm"
-                                onClick={() => setCurrentPage(page)}
-                                className={
-                                  currentPage === page
-                                    ? "bg-purple-600 text-white"
-                                    : "text-gray-600 hover:text-purple-600"
-                                }
-                              >
-                                {page}
-                              </AnimatedButton>
-                            ))}
-                          </div>
-                          <AnimatedButton
-                            variant="glass"
-                            size="sm"
-                            onClick={() =>
-                              setCurrentPage(
-                                Math.min(totalPages, currentPage + 1)
-                              )
-                            }
-                            disabled={currentPage === totalPages}
-                          >
-                            Next
-                            <ChevronRight className="h-4 w-4" />
-                          </AnimatedButton>
                         </div>
                       </div>
-                    )}
-                  </AnimatedCard>
-                </div>
+                    ))}
+                  </div>
 
-                <div>
-                  <RecentActivities />
-                </div>
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                      <div className="text-sm text-gray-500">
+                        Showing {startIndex + 1} to{" "}
+                        {Math.min(endIndex, filteredCommunities.length)} of{" "}
+                        {filteredCommunities.length} communities
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <AnimatedButton
+                          variant="glass"
+                          size="sm"
+                          onClick={() =>
+                            setCurrentPage(Math.max(1, currentPage - 1))
+                          }
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Previous
+                        </AnimatedButton>
+                        <div className="flex items-center gap-1">
+                          {Array.from(
+                            { length: totalPages },
+                            (_, i) => i + 1
+                          ).map((page) => (
+                            <AnimatedButton
+                              key={page}
+                              variant={
+                                currentPage === page ? "default" : "glass"
+                              }
+                              size="sm"
+                              onClick={() => setCurrentPage(page)}
+                              className={
+                                currentPage === page
+                                  ? "bg-purple-600 text-white"
+                                  : "text-gray-600 hover:text-purple-600"
+                              }
+                            >
+                              {page}
+                            </AnimatedButton>
+                          ))}
+                        </div>
+                        <AnimatedButton
+                          variant="glass"
+                          size="sm"
+                          onClick={() =>
+                            setCurrentPage(
+                              Math.min(totalPages, currentPage + 1)
+                            )
+                          }
+                          disabled={currentPage === totalPages}
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </AnimatedButton>
+                      </div>
+                    </div>
+                  )}
+                </AnimatedCard>
               </div>
             </TabsContent>
 
@@ -2601,7 +2550,26 @@ export default function SuperadminPage() {
                           </div>
 
                           <div className="flex items-center gap-2 ml-4">
-                            <AnimatedButton variant="glass" size="sm">
+                            <AnimatedButton
+                              variant="glass"
+                              size="sm"
+                              onClick={() => {
+                                // Convert request to community format for viewing
+                                const communityData = {
+                                  id: request.id,
+                                  name: request.name,
+                                  description: request.description,
+                                  category: request.category,
+                                  status: request.status,
+                                  createdAt: request.createdAt,
+                                  memberCount: 0,
+                                  totalEvents: 0,
+                                  location: "TBD",
+                                  admin: request.requestedBy,
+                                };
+                                handleViewCommunity(communityData);
+                              }}
+                            >
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </AnimatedButton>
@@ -2670,72 +2638,19 @@ export default function SuperadminPage() {
               </div>
 
               {/* Badge Statistics Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <AnimatedCard variant="glass" className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">
-                        Total Badges
+              <div className="mb-6">
+                <AnimatedCard variant="glass" className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-purple-100 rounded-xl">
+                      <ShoppingBag className="h-8 w-8 text-purple-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-600 mb-1">
+                        Total Badges in Store
                       </p>
-                      <p className="text-2xl font-bold text-purple-600">
+                      <p className="text-3xl font-bold text-purple-600">
                         {badges.length}
                       </p>
-                    </div>
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <ShoppingBag className="h-5 w-5 text-purple-600" />
-                    </div>
-                  </div>
-                </AnimatedCard>
-
-                <AnimatedCard variant="glass" className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">
-                        Active Badges
-                      </p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {badges.filter((b) => b.isActive).length}
-                      </p>
-                    </div>
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    </div>
-                  </div>
-                </AnimatedCard>
-
-                <AnimatedCard variant="glass" className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">
-                        Total Sales
-                      </p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {badges.reduce(
-                          (sum, b) => sum + (b.purchaseCount || 0),
-                          0
-                        )}
-                      </p>
-                    </div>
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <TrendingUp className="h-5 w-5 text-blue-600" />
-                    </div>
-                  </div>
-                </AnimatedCard>
-
-                <AnimatedCard variant="glass" className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">
-                        Total Revenue
-                      </p>
-                      <p className="text-2xl font-bold text-yellow-600">
-                        {formatCurrency(
-                          badges.reduce((sum, b) => sum + (b.revenue || 0), 0)
-                        )}
-                      </p>
-                    </div>
-                    <div className="p-2 bg-yellow-100 rounded-lg">
-                      <Target className="h-5 w-5 text-yellow-600" />
                     </div>
                   </div>
                 </AnimatedCard>
@@ -2755,18 +2670,6 @@ export default function SuperadminPage() {
                   </div>
                   <div className="flex gap-2">
                     <select
-                      value={filterRarity}
-                      onChange={(e) => setFilterRarity(e.target.value)}
-                      className="w-[140px] glass-effect border-gray-200 focus:border-violet-300 rounded-md px-3 py-2 text-sm"
-                    >
-                      <option value="all">All Rarities</option>
-                      <option value="common">Common</option>
-                      <option value="rare">Rare</option>
-                      <option value="epic">Epic</option>
-                      <option value="legendary">Legendary</option>
-                    </select>
-
-                    <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value)}
                       className="w-[160px] glass-effect border-gray-200 focus:border-violet-300 rounded-md px-3 py-2 text-sm"
@@ -2778,76 +2681,9 @@ export default function SuperadminPage() {
                       <option value="price-high">Price (High-Low)</option>
                       <option value="price-low">Price (Low-High)</option>
                       <option value="popularity">Most Popular</option>
-                      <option value="revenue">Highest Revenue</option>
                     </select>
-
-                    <div className="flex border border-gray-200 rounded-md overflow-hidden">
-                      <button
-                        onClick={() => setBadgeViewMode("grid")}
-                        className={`px-3 py-2 text-sm ${
-                          badgeViewMode === "grid"
-                            ? "bg-purple-100 text-purple-700"
-                            : "bg-white text-gray-600"
-                        }`}
-                      >
-                        <div className="grid grid-cols-2 gap-0.5 w-4 h-4">
-                          <div className="bg-current rounded-sm"></div>
-                          <div className="bg-current rounded-sm"></div>
-                          <div className="bg-current rounded-sm"></div>
-                          <div className="bg-current rounded-sm"></div>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => setBadgeViewMode("list")}
-                        className={`px-3 py-2 text-sm ${
-                          badgeViewMode === "list"
-                            ? "bg-purple-100 text-purple-700"
-                            : "bg-white text-gray-600"
-                        }`}
-                      >
-                        <div className="space-y-1 w-4 h-4">
-                          <div className="bg-current h-0.5 rounded"></div>
-                          <div className="bg-current h-0.5 rounded"></div>
-                          <div className="bg-current h-0.5 rounded"></div>
-                        </div>
-                      </button>
-                    </div>
                   </div>
                 </div>
-
-                {/* Badge Sub-tabs */}
-                <Tabs
-                  value={badgeActiveTab}
-                  onValueChange={setBadgeActiveTab}
-                  className="w-full"
-                >
-                  <TabsList className="grid w-full grid-cols-4 glass-effect border-0 p-2 rounded-2xl mb-6 h-12">
-                    <TabsTrigger
-                      value="all"
-                      className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 h-8 px-3 text-sm font-medium"
-                    >
-                      All Badges ({badges.length})
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="active"
-                      className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 h-8 px-3 text-sm font-medium"
-                    >
-                      Active ({badges.filter((b) => b.isActive).length})
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="inactive"
-                      className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 h-8 px-3 text-sm font-medium"
-                    >
-                      Inactive ({badges.filter((b) => !b.isActive).length})
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="limited"
-                      className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 h-8 px-3 text-sm font-medium"
-                    >
-                      Limited ({badges.filter((b) => b.isLimited).length})
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
 
                 {/* Badge Display */}
                 {sortedBadges.length === 0 ? (
@@ -2861,8 +2697,6 @@ export default function SuperadminPage() {
                     <p className="text-gray-500 mb-6">
                       {badgeSearchQuery
                         ? `No results for "${badgeSearchQuery}"`
-                        : badgeActiveTab !== "all"
-                        ? `No ${badgeActiveTab} badges found.`
                         : "No badges have been created yet."}
                     </p>
                     <AnimatedButton
@@ -2873,7 +2707,7 @@ export default function SuperadminPage() {
                       Create First Badge
                     </AnimatedButton>
                   </div>
-                ) : badgeViewMode === "grid" ? (
+                ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {sortedBadges.map((badge, index) => (
                       <div
@@ -2884,14 +2718,10 @@ export default function SuperadminPage() {
                           animationFillMode: "both",
                         }}
                       >
-                        {/* Badge Header with Gradient */}
-                        <div
-                          className={`h-24 bg-gradient-to-br ${getRarityColor(
-                            badge.rarity
-                          )} relative`}
-                        >
+                        {/* Badge Header */}
+                        <div className="h-24 bg-gradient-to-br from-purple-500 to-indigo-600 relative">
                           <div className="absolute inset-0 bg-black/10"></div>
-                          <div className="absolute top-2 right-2 flex gap-1">
+                          <div className="absolute top-2 right-2">
                             {badge.isActive ? (
                               <Badge className="bg-green-500 text-white text-xs">
                                 Active
@@ -2901,20 +2731,6 @@ export default function SuperadminPage() {
                                 Inactive
                               </Badge>
                             )}
-                            {badge.isLimited && (
-                              <Badge className="bg-red-500 text-white text-xs">
-                                Limited
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="absolute bottom-2 left-2">
-                            <Badge
-                              className={`${getRarityBadgeColor(
-                                badge.rarity
-                              )} text-white text-xs capitalize`}
-                            >
-                              {badge.rarity}
-                            </Badge>
                           </div>
                         </div>
 
@@ -2934,64 +2750,17 @@ export default function SuperadminPage() {
 
                         {/* Badge Content */}
                         <div className="p-4 pt-2">
-                          <div className="text-center mb-3">
-                            <h4 className="font-bold text-gray-900 text-lg mb-1">
+                          <div className="text-center mb-4">
+                            <h4 className="font-bold text-gray-900 text-lg mb-2">
                               {badge.name}
                             </h4>
-                            <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                            <p className="text-sm text-gray-600 line-clamp-2 mb-3">
                               {badge.description}
                             </p>
-                            <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-                              <span className="font-medium">
-                                {badge.price} points
-                              </span>
-                              <span>•</span>
-                              <Badge
-                                variant="outline"
-                                className="text-xs capitalize"
-                              >
-                                {badge.category}
-                              </Badge>
+                            <div className="text-lg font-bold text-purple-600">
+                              {badge.price} points
                             </div>
                           </div>
-
-                          {/* Badge Stats */}
-                          <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
-                            <div className="bg-blue-50 rounded-lg p-2 text-center">
-                              <div className="font-semibold text-blue-700">
-                                {badge.purchaseCount || 0}
-                              </div>
-                              <div className="text-blue-600">Sales</div>
-                            </div>
-                            <div className="bg-green-50 rounded-lg p-2 text-center">
-                              <div className="font-semibold text-green-700">
-                                {formatCurrency(badge.revenue || 0)}
-                              </div>
-                              <div className="text-green-600">Revenue</div>
-                            </div>
-                          </div>
-
-                          {/* Limited Edition Info */}
-                          {badge.isLimited && (
-                            <div className="mb-4 p-2 bg-red-50 rounded-lg border border-red-200">
-                              <div className="text-xs text-red-700 font-medium mb-1">
-                                Limited Edition
-                              </div>
-                              <div className="flex justify-between text-xs text-red-600">
-                                <span>Remaining: {badge.limitedRemaining}</span>
-                                <span>Total: {badge.limitedQuantity}</span>
-                              </div>
-                              <Progress
-                                value={
-                                  ((badge.limitedQuantity -
-                                    badge.limitedRemaining) /
-                                    badge.limitedQuantity) *
-                                  100
-                                }
-                                className="h-1 mt-1"
-                              />
-                            </div>
-                          )}
 
                           {/* Action Buttons */}
                           <div className="flex gap-1">
@@ -3022,116 +2791,6 @@ export default function SuperadminPage() {
                               <Trash2 className="h-3 w-3" />
                             </AnimatedButton>
                           </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {sortedBadges.map((badge, index) => (
-                      <div
-                        key={badge.id}
-                        className="flex items-center gap-4 p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-purple-300 transition-all duration-200 hover:shadow-md"
-                        style={{
-                          animationDelay: `${index * 50}ms`,
-                          animationFillMode: "both",
-                        }}
-                      >
-                        {/* Badge Image and Icon */}
-                        <div className="relative">
-                          <img
-                            src={
-                              badge.image ||
-                              "/placeholder.svg?height=48&width=48"
-                            }
-                            alt={badge.name}
-                            className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
-                          />
-                          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white border-2 border-gray-200 flex items-center justify-center">
-                            <div
-                              className={`w-4 h-4 rounded-full ${getRarityBadgeColor(
-                                badge.rarity
-                              )}`}
-                            ></div>
-                          </div>
-                        </div>
-
-                        {/* Badge Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-semibold text-gray-900 truncate">
-                              {badge.name}
-                            </h4>
-                            <Badge
-                              className={`${getRarityBadgeColor(
-                                badge.rarity
-                              )} text-white text-xs capitalize`}
-                            >
-                              {badge.rarity}
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className="text-xs capitalize"
-                            >
-                              {badge.category}
-                            </Badge>
-                            {badge.isActive ? (
-                              <Badge className="bg-green-500 text-white text-xs">
-                                Active
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-gray-500 text-white text-xs">
-                                Inactive
-                              </Badge>
-                            )}
-                            {badge.isLimited && (
-                              <Badge className="bg-red-500 text-white text-xs">
-                                Limited
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600 line-clamp-1 mb-2">
-                            {badge.description}
-                          </p>
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span className="font-medium">
-                              {badge.price} points
-                            </span>
-                            <span>{badge.purchaseCount || 0} sales</span>
-                            <span>
-                              {formatCurrency(badge.revenue || 0)} revenue
-                            </span>
-                            <span>
-                              Created {formatDateShort(badge.createdAt)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center gap-2">
-                          <AnimatedButton
-                            variant="glass"
-                            size="sm"
-                            onClick={() => handleViewBadge(badge)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </AnimatedButton>
-                          <AnimatedButton
-                            variant="glass"
-                            size="sm"
-                            onClick={() => handleEditBadge(badge)}
-                            className="text-blue-600 hover:text-blue-700"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </AnimatedButton>
-                          <AnimatedButton
-                            variant="glass"
-                            size="sm"
-                            onClick={() => handleDeleteConfirmation(badge)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </AnimatedButton>
                         </div>
                       </div>
                     ))}
@@ -3347,11 +3006,7 @@ export default function SuperadminPage() {
               {/* Badge Header */}
               <div className="flex items-start gap-6">
                 <div className="relative">
-                  <div
-                    className={`w-24 h-24 rounded-xl bg-gradient-to-br ${getRarityColor(
-                      selectedBadge.rarity
-                    )} p-1`}
-                  >
+                  <div className="w-24 h-24 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 p-1">
                     <img
                       src={
                         selectedBadge.image ||
@@ -3361,13 +3016,6 @@ export default function SuperadminPage() {
                       className="w-full h-full rounded-lg object-cover"
                     />
                   </div>
-                  <Badge
-                    className={`absolute -bottom-2 -right-2 ${getRarityBadgeColor(
-                      selectedBadge.rarity
-                    )} text-white text-xs capitalize`}
-                  >
-                    {selectedBadge.rarity}
-                  </Badge>
                 </div>
 
                 <div className="flex-1">
@@ -3380,80 +3028,31 @@ export default function SuperadminPage() {
                     ) : (
                       <Badge className="bg-gray-500 text-white">Inactive</Badge>
                     )}
-                    {selectedBadge.isLimited && (
-                      <Badge className="bg-red-500 text-white">
-                        Limited Edition
-                      </Badge>
-                    )}
                   </div>
                   <p className="text-gray-600 mb-3">
                     {selectedBadge.description}
                   </p>
-                  <div className="flex items-center gap-4 text-sm">
-                    <Badge variant="outline" className="capitalize">
-                      {selectedBadge.category}
-                    </Badge>
-                    <span className="text-gray-500">•</span>
-                    <span className="font-medium text-purple-600">
-                      {selectedBadge.price} points
-                    </span>
+                  <div className="text-2xl font-bold text-purple-600">
+                    {selectedBadge.price} points
                   </div>
                 </div>
               </div>
 
-              {/* Badge Statistics */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <div className="text-2xl font-bold text-blue-700">
-                    {selectedBadge.purchaseCount || 0}
-                  </div>
-                  <div className="text-sm text-blue-600">Total Sales</div>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                  <div className="text-2xl font-bold text-green-700">
-                    {formatCurrency(selectedBadge.revenue || 0)}
-                  </div>
-                  <div className="text-sm text-green-600">Revenue</div>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                  <div className="text-2xl font-bold text-purple-700">
-                    {selectedBadge.price}
-                  </div>
-                  <div className="text-sm text-purple-600">Price (Points)</div>
-                </div>
-                <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-                  <div className="text-2xl font-bold text-yellow-700">
-                    {selectedBadge.rating || "N/A"}
-                  </div>
-                  <div className="text-sm text-yellow-600">Rating</div>
-                </div>
-              </div>
-
-              {/* Detailed Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                    Badge Details
-                  </h4>
-                  <div className="space-y-3">
+              {/* Badge Information */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                  Badge Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
                     <div>
-                      <div className="text-sm text-gray-600">Category</div>
-                      <div className="font-medium capitalize">
-                        {selectedBadge.category}
+                      <div className="text-sm text-gray-600 mb-1">Price</div>
+                      <div className="font-semibold text-purple-600 text-lg">
+                        {selectedBadge.price} points
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm text-gray-600">Rarity</div>
-                      <Badge
-                        className={`${getRarityBadgeColor(
-                          selectedBadge.rarity
-                        )} text-white capitalize`}
-                      >
-                        {selectedBadge.rarity}
-                      </Badge>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-600">Status</div>
+                      <div className="text-sm text-gray-600 mb-1">Status</div>
                       {selectedBadge.isActive ? (
                         <Badge className="bg-green-500 text-white">
                           Active
@@ -3464,45 +3063,37 @@ export default function SuperadminPage() {
                         </Badge>
                       )}
                     </div>
-                    {selectedBadge.isLimited && (
-                      <div>
-                        <div className="text-sm text-gray-600">Stock</div>
-                        <div className="font-medium">
-                          {selectedBadge.limitedRemaining} /{" "}
-                          {selectedBadge.limitedQuantity}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                    Timeline
-                  </h4>
-                  <div className="space-y-3">
                     <div>
-                      <div className="text-sm text-gray-600">Created</div>
+                      <div className="text-sm text-gray-600 mb-1">
+                        Total Purchases
+                      </div>
+                      <div className="font-semibold text-blue-600 text-lg">
+                        {selectedBadge.purchaseCount || 0}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-sm text-gray-600 mb-1">Created</div>
                       <div className="font-medium">
                         {formatDate(selectedBadge.createdAt)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm text-gray-600">Last Updated</div>
+                      <div className="text-sm text-gray-600 mb-1">
+                        Last Updated
+                      </div>
                       <div className="font-medium">
                         {formatDate(selectedBadge.updatedAt)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm text-gray-600">Total Sales</div>
-                      <div className="font-medium">
-                        {selectedBadge.purchaseCount || 0} purchases
+                      <div className="text-sm text-gray-600 mb-1">
+                        Total Purchases
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-600">Total Revenue</div>
-                      <div className="font-medium text-green-600">
-                        {formatCurrency(selectedBadge.revenue || 0)}
+                      <div className="font-semibold text-blue-600 text-lg">
+                        {selectedBadge.purchaseCount || 0}
                       </div>
                     </div>
                   </div>
@@ -3521,8 +3112,10 @@ export default function SuperadminPage() {
             </AnimatedButton>
             <AnimatedButton
               onClick={() => {
-                setIsViewDialogOpen(false);
-                handleEditBadge(selectedBadge);
+                if (selectedBadge) {
+                  setIsViewDialogOpen(false);
+                  handleEditBadge(selectedBadge);
+                }
               }}
               className="!bg-gradient-to-r !from-purple-600 !to-blue-600 hover:!from-purple-700 hover:!to-blue-700 !text-white border-0"
             >
