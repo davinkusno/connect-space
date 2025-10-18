@@ -1,17 +1,21 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PageTransition } from "@/components/ui/page-transition"
-import { FloatingElements } from "@/components/ui/floating-elements"
-import { AnimatedCard } from "@/components/ui/animated-card"
-import { AnimatedButton } from "@/components/ui/animated-button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Progress } from "@/components/ui/progress"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageTransition } from "@/components/ui/page-transition";
+import { FloatingElements } from "@/components/ui/floating-elements";
+import { AnimatedCard } from "@/components/ui/animated-card";
+import { AnimatedButton } from "@/components/ui/animated-button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +23,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,9 +33,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Spinner } from "@/components/ui/loading-indicators"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+} from "@/components/ui/alert-dialog";
+import { Spinner } from "@/components/ui/loading-indicators";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import {
   LineChart,
   Line,
@@ -46,7 +54,7 @@ import {
   YAxis,
   CartesianGrid,
   ResponsiveContainer,
-} from "recharts"
+} from "recharts";
 import {
   Sparkles,
   Shield,
@@ -94,85 +102,169 @@ import {
   UserPlus,
   MessageCircle,
   CalendarDays,
-} from "lucide-react"
-import Link from "next/link"
-import { ActivityLogsTable } from "@/components/superadmin/activity-logs-table"
-import { RecentActivities } from "@/components/superadmin/recent-activities"
-import { BadgeForm } from "@/components/superadmin/badge-form"
-import { format, subMonths } from "date-fns"
+} from "lucide-react";
+import Link from "next/link";
+import { ActivityLogsTable } from "@/components/superadmin/activity-logs-table";
+import { RecentActivities } from "@/components/superadmin/recent-activities";
+import { BadgeForm } from "@/components/superadmin/badge-form";
+import { format, subMonths } from "date-fns";
 
 // Badge data types
 export interface StoreBadge {
-  id: string
-  name: string
-  description: string
-  icon: string
-  category: "achievement" | "cosmetic" | "special" | "seasonal"
-  rarity: "common" | "rare" | "epic" | "legendary"
-  price: number
-  image: string
-  isActive: boolean
-  isLimited?: boolean
-  limitedQuantity?: number
-  limitedRemaining?: number
-  expiresAt?: string
-  createdAt: string
-  updatedAt: string
-  purchaseCount?: number
-  revenue?: number
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: "achievement" | "cosmetic" | "special" | "seasonal";
+  rarity: "common" | "rare" | "epic" | "legendary";
+  price: number;
+  image: string;
+  isActive: boolean;
+  isLimited?: boolean;
+  limitedQuantity?: number;
+  limitedRemaining?: number;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  purchaseCount?: number;
+  revenue?: number;
 }
 
 // Analytics data types
 interface AnalyticsData {
-  date: string
-  communities: number
-  users: number
-  posts: number
-  events: number
-  engagement: number
+  date: string;
+  communities: number;
+  users: number;
+  posts: number;
+  events: number;
+  engagement: number;
 }
 
 interface CommunityPerformance {
-  id: string
-  name: string
-  members: number
-  growth: number
-  engagement: number
-  posts: number
-  events: number
-  rating: number
-  category: string
+  id: string;
+  name: string;
+  members: number;
+  growth: number;
+  engagement: number;
+  posts: number;
+  events: number;
+  rating: number;
+  category: string;
 }
 
 interface GeographicData {
-  country: string
-  users: number
-  communities: number
-  percentage: number
+  country: string;
+  users: number;
+  communities: number;
+  percentage: number;
 }
 
 interface ContentMetrics {
-  type: string
-  count: number
-  engagement: number
-  growth: number
+  type: string;
+  count: number;
+  engagement: number;
+  growth: number;
 }
 
 // Mock analytics data
 const mockAnalyticsData: AnalyticsData[] = [
-  { date: "2024-01", communities: 45, users: 1200, posts: 890, events: 23, engagement: 72 },
-  { date: "2024-02", communities: 52, users: 1450, posts: 1120, events: 31, engagement: 75 },
-  { date: "2024-03", communities: 61, users: 1680, posts: 1340, events: 28, engagement: 78 },
-  { date: "2024-04", communities: 58, users: 1590, posts: 1180, events: 25, engagement: 74 },
-  { date: "2024-05", communities: 67, users: 1820, posts: 1520, events: 35, engagement: 81 },
-  { date: "2024-06", communities: 73, users: 2100, posts: 1780, events: 42, engagement: 84 },
-  { date: "2024-07", communities: 79, users: 2350, posts: 1950, events: 38, engagement: 82 },
-  { date: "2024-08", communities: 85, users: 2580, posts: 2140, events: 45, engagement: 85 },
-  { date: "2024-09", communities: 91, users: 2820, posts: 2380, events: 52, engagement: 87 },
-  { date: "2024-10", communities: 98, users: 3100, posts: 2650, events: 48, engagement: 89 },
-  { date: "2024-11", communities: 105, users: 3420, posts: 2890, events: 55, engagement: 91 },
-  { date: "2024-12", communities: 112, users: 3750, posts: 3120, events: 62, engagement: 93 },
-]
+  {
+    date: "2024-01",
+    communities: 45,
+    users: 1200,
+    posts: 890,
+    events: 23,
+    engagement: 72,
+  },
+  {
+    date: "2024-02",
+    communities: 52,
+    users: 1450,
+    posts: 1120,
+    events: 31,
+    engagement: 75,
+  },
+  {
+    date: "2024-03",
+    communities: 61,
+    users: 1680,
+    posts: 1340,
+    events: 28,
+    engagement: 78,
+  },
+  {
+    date: "2024-04",
+    communities: 58,
+    users: 1590,
+    posts: 1180,
+    events: 25,
+    engagement: 74,
+  },
+  {
+    date: "2024-05",
+    communities: 67,
+    users: 1820,
+    posts: 1520,
+    events: 35,
+    engagement: 81,
+  },
+  {
+    date: "2024-06",
+    communities: 73,
+    users: 2100,
+    posts: 1780,
+    events: 42,
+    engagement: 84,
+  },
+  {
+    date: "2024-07",
+    communities: 79,
+    users: 2350,
+    posts: 1950,
+    events: 38,
+    engagement: 82,
+  },
+  {
+    date: "2024-08",
+    communities: 85,
+    users: 2580,
+    posts: 2140,
+    events: 45,
+    engagement: 85,
+  },
+  {
+    date: "2024-09",
+    communities: 91,
+    users: 2820,
+    posts: 2380,
+    events: 52,
+    engagement: 87,
+  },
+  {
+    date: "2024-10",
+    communities: 98,
+    users: 3100,
+    posts: 2650,
+    events: 48,
+    engagement: 89,
+  },
+  {
+    date: "2024-11",
+    communities: 105,
+    users: 3420,
+    posts: 2890,
+    events: 55,
+    engagement: 91,
+  },
+  {
+    date: "2024-12",
+    communities: 112,
+    users: 3750,
+    posts: 3120,
+    events: 62,
+    engagement: 93,
+  },
+];
 
 const mockCommunityPerformance: CommunityPerformance[] = [
   {
@@ -230,7 +322,7 @@ const mockCommunityPerformance: CommunityPerformance[] = [
     rating: 4.2,
     category: "Environment",
   },
-]
+];
 
 const mockGeographicData: GeographicData[] = [
   { country: "Jakarta", users: 1250, communities: 35, percentage: 33.3 },
@@ -239,14 +331,14 @@ const mockGeographicData: GeographicData[] = [
   { country: "Medan", users: 380, communities: 12, percentage: 10.1 },
   { country: "IKN", users: 290, communities: 8, percentage: 7.7 },
   { country: "Others", users: 1130, communities: 32, percentage: 16.9 },
-]
+];
 
 const mockContentMetrics: ContentMetrics[] = [
   { type: "Discussion Posts", count: 2840, engagement: 78, growth: 12.5 },
   { type: "Events", count: 156, engagement: 85, growth: 18.2 },
   { type: "Resources", count: 420, engagement: 65, growth: 8.7 },
   { type: "Announcements", count: 89, engagement: 92, growth: 15.3 },
-]
+];
 
 const chartColors = {
   primary: "#8b5cf6",
@@ -255,14 +347,15 @@ const chartColors = {
   quaternary: "#f59e0b",
   danger: "#ef4444",
   success: "#22c55e",
-}
+};
 
 // Mock data for community requests with more detailed information
 const mockCommunityRequests = [
   {
     id: "req-001",
     name: "Tech Enthusiasts Network",
-    description: "A community for tech lovers to discuss the latest trends and innovations in technology.",
+    description:
+      "A community for tech lovers to discuss the latest trends and innovations in technology.",
     category: "Technology",
     requestedBy: {
       id: "user-001",
@@ -279,7 +372,8 @@ const mockCommunityRequests = [
   {
     id: "req-002",
     name: "Fitness Fanatics",
-    description: "A community dedicated to fitness enthusiasts who want to share workout tips and nutrition advice.",
+    description:
+      "A community dedicated to fitness enthusiasts who want to share workout tips and nutrition advice.",
     category: "Health & Fitness",
     requestedBy: {
       id: "user-002",
@@ -302,7 +396,8 @@ const mockCommunityRequests = [
   {
     id: "req-003",
     name: "Book Club Online",
-    description: "A virtual book club for literature enthusiasts to discuss books and share recommendations.",
+    description:
+      "A virtual book club for literature enthusiasts to discuss books and share recommendations.",
     category: "Books & Literature",
     requestedBy: {
       id: "user-003",
@@ -319,7 +414,8 @@ const mockCommunityRequests = [
       name: "Admin User",
     },
     reviewedAt: "2025-06-07T11:30:00Z",
-    comments: "Similar community already exists. Please consider joining 'Literary Circle' instead.",
+    comments:
+      "Similar community already exists. Please consider joining 'Literary Circle' instead.",
     daysWaiting: 1,
   },
   {
@@ -343,7 +439,8 @@ const mockCommunityRequests = [
   {
     id: "req-005",
     name: "Digital Nomads",
-    description: "A community for remote workers and digital nomads to share travel experiences and work tips.",
+    description:
+      "A community for remote workers and digital nomads to share travel experiences and work tips.",
     category: "Travel & Work",
     requestedBy: {
       id: "user-005",
@@ -360,7 +457,8 @@ const mockCommunityRequests = [
   {
     id: "req-006",
     name: "Culinary Explorers",
-    description: "A community for food enthusiasts to share recipes, cooking techniques, and culinary adventures.",
+    description:
+      "A community for food enthusiasts to share recipes, cooking techniques, and culinary adventures.",
     category: "Food & Cooking",
     requestedBy: {
       id: "user-006",
@@ -398,14 +496,15 @@ const mockCommunityRequests = [
     updatedAt: "2025-06-08T11:20:00Z",
     daysWaiting: 3,
   },
-]
+];
 
 // Mock community data with more detailed information
 const mockCommunities = [
   {
     id: "comm-001",
     name: "Tech Innovators Hub",
-    description: "A vibrant community for tech enthusiasts and innovators to connect, collaborate, and share ideas.",
+    description:
+      "A vibrant community for tech enthusiasts and innovators to connect, collaborate, and share ideas.",
     category: "Technology",
     status: "active",
     memberCount: 450,
@@ -451,16 +550,29 @@ const mockCommunities = [
       "Stay on topic - focus on technology discussions",
       "Help others and share knowledge",
     ],
-    guidelines: "This community is dedicated to fostering innovation and collaboration in the tech industry.",
+    guidelines:
+      "This community is dedicated to fostering innovation and collaboration in the tech industry.",
     recentActivity: [
       { type: "post", count: 45, period: "this week" },
       { type: "member", count: 12, period: "this week" },
       { type: "event", count: 3, period: "this month" },
     ],
     topContributors: [
-      { name: "Sarah Tech", posts: 23, avatar: "/placeholder.svg?height=32&width=32" },
-      { name: "Mike Code", posts: 18, avatar: "/placeholder.svg?height=32&width=32" },
-      { name: "Lisa Dev", posts: 15, avatar: "/placeholder.svg?height=32&width=32" },
+      {
+        name: "Sarah Tech",
+        posts: 23,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
+      {
+        name: "Mike Code",
+        posts: 18,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
+      {
+        name: "Lisa Dev",
+        posts: 15,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
     ],
   },
   {
@@ -506,22 +618,36 @@ const mockCommunities = [
       "No plagiarism or copyright infringement",
       "Support fellow writers",
     ],
-    guidelines: "A safe space for writers to grow and develop their craft through community support.",
+    guidelines:
+      "A safe space for writers to grow and develop their craft through community support.",
     recentActivity: [
       { type: "post", count: 28, period: "this week" },
       { type: "member", count: 8, period: "this week" },
       { type: "event", count: 2, period: "this month" },
     ],
     topContributors: [
-      { name: "Anna Writer", posts: 34, avatar: "/placeholder.svg?height=32&width=32" },
-      { name: "Tom Story", posts: 29, avatar: "/placeholder.svg?height=32&width=32" },
-      { name: "Kate Novel", posts: 25, avatar: "/placeholder.svg?height=32&width=32" },
+      {
+        name: "Anna Writer",
+        posts: 34,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
+      {
+        name: "Tom Story",
+        posts: 29,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
+      {
+        name: "Kate Novel",
+        posts: 25,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
     ],
   },
   {
     id: "comm-003",
     name: "Sustainable Living Collective",
-    description: "A community dedicated to promoting sustainable living practices and environmental awareness.",
+    description:
+      "A community dedicated to promoting sustainable living practices and environmental awareness.",
     category: "Environment",
     status: "inactive",
     memberCount: 120,
@@ -552,7 +678,8 @@ const mockCommunities = [
       "Focus on actionable sustainability tips",
       "No greenwashing or false claims",
     ],
-    guidelines: "Promoting genuine sustainable practices and environmental consciousness.",
+    guidelines:
+      "Promoting genuine sustainable practices and environmental consciousness.",
     inactiveReason: "Low engagement and admin unavailability",
     recentActivity: [
       { type: "post", count: 2, period: "this week" },
@@ -560,8 +687,16 @@ const mockCommunities = [
       { type: "event", count: 0, period: "this month" },
     ],
     topContributors: [
-      { name: "Green Guru", posts: 12, avatar: "/placeholder.svg?height=32&width=32" },
-      { name: "Eco Expert", posts: 8, avatar: "/placeholder.svg?height=32&width=32" },
+      {
+        name: "Green Guru",
+        posts: 12,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
+      {
+        name: "Eco Expert",
+        posts: 8,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
     ],
   },
   {
@@ -614,16 +749,29 @@ const mockCommunities = [
       "Share personal experiences respectfully",
       "No body shaming or negative comments",
     ],
-    guidelines: "A positive space for health and wellness discussions and mutual support.",
+    guidelines:
+      "A positive space for health and wellness discussions and mutual support.",
     recentActivity: [
       { type: "post", count: 67, period: "this week" },
       { type: "member", count: 18, period: "this week" },
       { type: "event", count: 4, period: "this month" },
     ],
     topContributors: [
-      { name: "Fit Coach", posts: 45, avatar: "/placeholder.svg?height=32&width=32" },
-      { name: "Wellness Pro", posts: 38, avatar: "/placeholder.svg?height=32&width=32" },
-      { name: "Health Hero", posts: 32, avatar: "/placeholder.svg?height=32&width=32" },
+      {
+        name: "Fit Coach",
+        posts: 45,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
+      {
+        name: "Wellness Pro",
+        posts: 38,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
+      {
+        name: "Health Hero",
+        posts: 32,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
     ],
   },
   {
@@ -661,7 +809,8 @@ const mockCommunities = [
       "Constructive criticism welcome",
       "No commercial promotion without permission",
     ],
-    guidelines: "Celebrating creativity and artistic expression in all its forms.",
+    guidelines:
+      "Celebrating creativity and artistic expression in all its forms.",
     inactiveReason: "Admin left platform, seeking new leadership",
     recentActivity: [
       { type: "post", count: 1, period: "this week" },
@@ -669,14 +818,23 @@ const mockCommunities = [
       { type: "event", count: 0, period: "this month" },
     ],
     topContributors: [
-      { name: "Art Master", posts: 15, avatar: "/placeholder.svg?height=32&width=32" },
-      { name: "Design Pro", posts: 12, avatar: "/placeholder.svg?height=32&width=32" },
+      {
+        name: "Art Master",
+        posts: 15,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
+      {
+        name: "Design Pro",
+        posts: 12,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
     ],
   },
   {
     id: "comm-006",
     name: "Travel and Adventure Club",
-    description: "A community for travel enthusiasts to share their travel experiences, tips, and recommendations.",
+    description:
+      "A community for travel enthusiasts to share their travel experiences, tips, and recommendations.",
     category: "Travel",
     status: "active",
     memberCount: 180,
@@ -715,59 +873,72 @@ const mockCommunities = [
       "No spam or affiliate links without disclosure",
       "Help fellow travelers with advice",
     ],
-    guidelines: "Inspiring wanderlust and responsible travel through shared experiences.",
+    guidelines:
+      "Inspiring wanderlust and responsible travel through shared experiences.",
     recentActivity: [
       { type: "post", count: 32, period: "this week" },
       { type: "member", count: 6, period: "this week" },
       { type: "event", count: 2, period: "this month" },
     ],
     topContributors: [
-      { name: "Travel Guru", posts: 28, avatar: "/placeholder.svg?height=32&width=32" },
-      { name: "Adventure Seeker", posts: 22, avatar: "/placeholder.svg?height=32&width=32" },
-      { name: "Culture Explorer", posts: 19, avatar: "/placeholder.svg?height=32&width=32" },
+      {
+        name: "Travel Guru",
+        posts: 28,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
+      {
+        name: "Adventure Seeker",
+        posts: 22,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
+      {
+        name: "Culture Explorer",
+        posts: 19,
+        avatar: "/placeholder.svg?height=32&width=32",
+      },
     ],
   },
-]
+];
 
 export default function SuperadminPage() {
-  const [activeTab, setActiveTab] = useState("overview")
+  const [activeTab, setActiveTab] = useState("overview");
 
   // Analytics state
   const [analyticsDateRange, setAnalyticsDateRange] = useState({
     from: subMonths(new Date(), 6),
     to: new Date(),
-  })
-  const [analyticsFilter, setAnalyticsFilter] = useState("all")
-  const [analyticsMetric, setAnalyticsMetric] = useState("communities")
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
+  });
+  const [analyticsFilter, setAnalyticsFilter] = useState("all");
+  const [analyticsMetric, setAnalyticsMetric] = useState("communities");
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   // Badge management state
-  const [badgeSearchQuery, setBadgeSearchQuery] = useState("")
-  const [selectedBadge, setSelectedBadge] = useState<StoreBadge | null>(null)
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [badgeActiveTab, setBadgeActiveTab] = useState("all")
-  const [sortBy, setSortBy] = useState("newest")
-  const [filterRarity, setFilterRarity] = useState("all")
-  const [badgeViewMode, setBadgeViewMode] = useState<"grid" | "list">("grid")
+  const [badgeSearchQuery, setBadgeSearchQuery] = useState("");
+  const [selectedBadge, setSelectedBadge] = useState<StoreBadge | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [badgeActiveTab, setBadgeActiveTab] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
+  const [filterRarity, setFilterRarity] = useState("all");
+  const [badgeViewMode, setBadgeViewMode] = useState<"grid" | "list">("grid");
 
   // Community requests state
-  const [requestSearchQuery, setRequestSearchQuery] = useState("")
-  const [requestSortBy, setRequestSortBy] = useState("priority")
-  const [requestFilterCategory, setRequestFilterCategory] = useState("all")
+  const [requestSearchQuery, setRequestSearchQuery] = useState("");
+  const [requestSortBy, setRequestSortBy] = useState("priority");
+  const [requestFilterCategory, setRequestFilterCategory] = useState("all");
 
   // Community management state
-  const [communitySearchQuery, setCommunitySearchQuery] = useState("")
-  const [communityFilterStatus, setCommunityFilterStatus] = useState("all")
-  const [communitySortBy, setCommunitySortBy] = useState("newest")
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(5)
-  const [selectedCommunity, setSelectedCommunity] = useState<any>(null)
-  const [isCommunityDetailOpen, setIsCommunityDetailOpen] = useState(false)
-  const [communityDetailTab, setCommunityDetailTab] = useState("overview")
+  const [communitySearchQuery, setCommunitySearchQuery] = useState("");
+  const [communityFilterStatus, setCommunityFilterStatus] = useState("all");
+  const [communitySortBy, setCommunitySortBy] = useState("newest");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
+  const [selectedCommunity, setSelectedCommunity] = useState<any>(null);
+  const [isCommunityDetailOpen, setIsCommunityDetailOpen] = useState(false);
+  const [communityDetailTab, setCommunityDetailTab] = useState("overview");
 
   // Mock badges data with enhanced information
   const [badges, setBadges] = useState<StoreBadge[]>([
@@ -790,7 +961,8 @@ export default function SuperadminPage() {
     {
       id: "2",
       name: "Event Master",
-      description: "For those who have attended at least 20 community events and actively participate in discussions.",
+      description:
+        "For those who have attended at least 20 community events and actively participate in discussions.",
       icon: "Star",
       category: "achievement",
       rarity: "rare",
@@ -805,7 +977,8 @@ export default function SuperadminPage() {
     {
       id: "3",
       name: "Community Champion",
-      description: "Reserved for members who have made exceptional contributions to the community and helped it grow.",
+      description:
+        "Reserved for members who have made exceptional contributions to the community and helped it grow.",
       icon: "Award",
       category: "achievement",
       rarity: "legendary",
@@ -859,7 +1032,8 @@ export default function SuperadminPage() {
     {
       id: "6",
       name: "Creative Spark",
-      description: "For members who consistently share creative content and inspire others with their artistic vision.",
+      description:
+        "For members who consistently share creative content and inspire others with their artistic vision.",
       icon: "Sparkles",
       category: "cosmetic",
       rarity: "rare",
@@ -871,13 +1045,21 @@ export default function SuperadminPage() {
       purchaseCount: 203,
       revenue: 152250,
     },
-  ])
+  ]);
 
   // Calculate request statistics
-  const pendingRequests = mockCommunityRequests.filter((req) => req.status === "pending")
-  const approvedRequests = mockCommunityRequests.filter((req) => req.status === "approved")
-  const rejectedRequests = mockCommunityRequests.filter((req) => req.status === "rejected")
-  const urgentRequests = pendingRequests.filter((req) => req.priority === "urgent")
+  const pendingRequests = mockCommunityRequests.filter(
+    (req) => req.status === "pending"
+  );
+  const approvedRequests = mockCommunityRequests.filter(
+    (req) => req.status === "approved"
+  );
+  const rejectedRequests = mockCommunityRequests.filter(
+    (req) => req.status === "rejected"
+  );
+  const urgentRequests = pendingRequests.filter(
+    (req) => req.priority === "urgent"
+  );
 
   // Filter and sort pending requests
   const filteredPendingRequests = pendingRequests
@@ -885,119 +1067,161 @@ export default function SuperadminPage() {
       const matchesSearch =
         requestSearchQuery === "" ||
         req.name.toLowerCase().includes(requestSearchQuery.toLowerCase()) ||
-        req.description.toLowerCase().includes(requestSearchQuery.toLowerCase()) ||
-        req.requestedBy.name.toLowerCase().includes(requestSearchQuery.toLowerCase())
+        req.description
+          .toLowerCase()
+          .includes(requestSearchQuery.toLowerCase()) ||
+        req.requestedBy.name
+          .toLowerCase()
+          .includes(requestSearchQuery.toLowerCase());
 
-      const matchesCategory = requestFilterCategory === "all" || req.category === requestFilterCategory
+      const matchesCategory =
+        requestFilterCategory === "all" ||
+        req.category === requestFilterCategory;
 
-      return matchesSearch && matchesCategory
+      return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
       switch (requestSortBy) {
         case "priority":
-          const priorityOrder: Record<string, number> = { urgent: 4, high: 3, medium: 2, low: 1 }
-          return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0)
+          const priorityOrder: Record<string, number> = {
+            urgent: 4,
+            high: 3,
+            medium: 2,
+            low: 1,
+          };
+          return (
+            (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0)
+          );
         case "oldest":
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          return (
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
         case "newest":
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
         case "name":
-          return a.name.localeCompare(b.name)
+          return a.name.localeCompare(b.name);
         default:
-          return 0
+          return 0;
       }
-    })
+    });
 
   // Filter and sort communities
   const filteredCommunities = mockCommunities
     .filter((community) => {
       const matchesSearch =
         communitySearchQuery === "" ||
-        community.name.toLowerCase().includes(communitySearchQuery.toLowerCase()) ||
-        community.description.toLowerCase().includes(communitySearchQuery.toLowerCase())
+        community.name
+          .toLowerCase()
+          .includes(communitySearchQuery.toLowerCase()) ||
+        community.description
+          .toLowerCase()
+          .includes(communitySearchQuery.toLowerCase());
 
-      const matchesStatus = communityFilterStatus === "all" || community.status === communityFilterStatus
+      const matchesStatus =
+        communityFilterStatus === "all" ||
+        community.status === communityFilterStatus;
 
-      return matchesSearch && matchesStatus
+      return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
       switch (communitySortBy) {
         case "newest":
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
         case "oldest":
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          return (
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
         case "name":
-          return a.name.localeCompare(b.name)
+          return a.name.localeCompare(b.name);
         case "member-count":
-          return b.memberCount - a.memberCount
+          return b.memberCount - a.memberCount;
         default:
-          return 0
+          return 0;
       }
-    })
+    });
 
   // Pagination logic
-  const totalPages = Math.ceil(filteredCommunities.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedCommunities = filteredCommunities.slice(startIndex, endIndex)
+  const totalPages = Math.ceil(filteredCommunities.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCommunities = filteredCommunities.slice(startIndex, endIndex);
 
   // Filter badges based on search query, tab, and filters
   const filteredBadges = badges.filter((badge) => {
     const matchesSearch =
       badgeSearchQuery === "" ||
       badge.name.toLowerCase().includes(badgeSearchQuery.toLowerCase()) ||
-      badge.description.toLowerCase().includes(badgeSearchQuery.toLowerCase())
+      badge.description.toLowerCase().includes(badgeSearchQuery.toLowerCase());
 
     const matchesTab =
       badgeActiveTab === "all" ||
       (badgeActiveTab === "active" && badge.isActive) ||
       (badgeActiveTab === "inactive" && !badge.isActive) ||
-      (badgeActiveTab === "limited" && badge.isLimited)
+      (badgeActiveTab === "limited" && badge.isLimited);
 
-    const matchesRarity = filterRarity === "all" || badge.rarity === filterRarity
+    const matchesRarity =
+      filterRarity === "all" || badge.rarity === filterRarity;
 
-    return matchesSearch && matchesTab && matchesRarity
-  })
+    return matchesSearch && matchesTab && matchesRarity;
+  });
 
   // Sort badges
   const sortedBadges = [...filteredBadges].sort((a, b) => {
     switch (sortBy) {
       case "newest":
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
       case "oldest":
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        return (
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
       case "name-asc":
-        return a.name.localeCompare(b.name)
+        return a.name.localeCompare(b.name);
       case "name-desc":
-        return b.name.localeCompare(a.name)
+        return b.name.localeCompare(a.name);
       case "price-high":
-        return b.price - a.price
+        return b.price - a.price;
       case "price-low":
-        return a.price - b.price
+        return a.price - b.price;
       case "popularity":
-        return (b.purchaseCount || 0) - (a.purchaseCount || 0)
+        return (b.purchaseCount || 0) - (a.purchaseCount || 0);
       case "revenue":
-        return (b.revenue || 0) - (a.revenue || 0)
+        return (b.revenue || 0) - (a.revenue || 0);
       default:
-        return 0
+        return 0;
     }
-  })
+  });
 
   // Analytics calculations
-  const totalCommunities = mockAnalyticsData[mockAnalyticsData.length - 1]?.communities || 0
-  const totalUsers = mockAnalyticsData[mockAnalyticsData.length - 1]?.users || 0
-  const avgEngagement = mockAnalyticsData[mockAnalyticsData.length - 1]?.engagement || 0
+  const totalCommunities =
+    mockAnalyticsData[mockAnalyticsData.length - 1]?.communities || 0;
+  const totalUsers =
+    mockAnalyticsData[mockAnalyticsData.length - 1]?.users || 0;
+  const avgEngagement =
+    mockAnalyticsData[mockAnalyticsData.length - 1]?.engagement || 0;
 
   const previousMonth =
-    mockAnalyticsData[mockAnalyticsData.length - 2] || mockAnalyticsData[mockAnalyticsData.length - 1]
+    mockAnalyticsData[mockAnalyticsData.length - 2] ||
+    mockAnalyticsData[mockAnalyticsData.length - 1];
   const communityGrowth = previousMonth
-    ? ((totalCommunities - previousMonth.communities) / previousMonth.communities) * 100
-    : 0
-  const userGrowth = previousMonth ? ((totalUsers - previousMonth.users) / previousMonth.users) * 100 : 0
+    ? ((totalCommunities - previousMonth.communities) /
+        previousMonth.communities) *
+      100
+    : 0;
+  const userGrowth = previousMonth
+    ? ((totalUsers - previousMonth.users) / previousMonth.users) * 100
+    : 0;
 
   // CRUD operations for badges
-  const handleCreateBadge = (badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">) => {
-    setIsLoading(true)
+  const handleCreateBadge = (
+    badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">
+  ) => {
+    setIsLoading(true);
     setTimeout(() => {
       const newBadge: StoreBadge = {
         ...badge,
@@ -1006,58 +1230,67 @@ export default function SuperadminPage() {
         updatedAt: new Date().toISOString(),
         purchaseCount: 0,
         revenue: 0,
-      }
-      setBadges([...badges, newBadge])
-      setIsLoading(false)
-      setIsCreateDialogOpen(false)
-    }, 1000)
-  }
+      };
+      setBadges([...badges, newBadge]);
+      setIsLoading(false);
+      setIsCreateDialogOpen(false);
+    }, 1000);
+  };
 
-  const handleUpdateBadge = (badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">) => {
-    if (!selectedBadge) return
-    setIsLoading(true)
+  const handleUpdateBadge = (
+    badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">
+  ) => {
+    if (!selectedBadge) return;
+    setIsLoading(true);
     setTimeout(() => {
       const updatedBadges = badges.map((b) =>
-        b.id === selectedBadge.id ? { ...badge, id: selectedBadge.id, createdAt: selectedBadge.createdAt, updatedAt: new Date().toISOString() } : b,
-      )
-      setBadges(updatedBadges)
-      setIsLoading(false)
-      setIsEditDialogOpen(false)
-    }, 1000)
-  }
+        b.id === selectedBadge.id
+          ? {
+              ...badge,
+              id: selectedBadge.id,
+              createdAt: selectedBadge.createdAt,
+              updatedAt: new Date().toISOString(),
+            }
+          : b
+      );
+      setBadges(updatedBadges);
+      setIsLoading(false);
+      setIsEditDialogOpen(false);
+    }, 1000);
+  };
 
   const handleDeleteBadge = () => {
-    if (!selectedBadge) return
-    setIsLoading(true)
+    if (!selectedBadge) return;
+    setIsLoading(true);
     setTimeout(() => {
-      const updatedBadges = badges.filter((b) => b.id !== selectedBadge.id)
-      setBadges(updatedBadges)
-      setIsLoading(false)
-      setIsDeleteDialogOpen(false)
-      setSelectedBadge(null)
-    }, 1000)
-  }
+      const updatedBadges = badges.filter((b) => b.id !== selectedBadge.id);
+      setBadges(updatedBadges);
+      setIsLoading(false);
+      setIsDeleteDialogOpen(false);
+      setSelectedBadge(null);
+    }, 1000);
+  };
 
   const handleViewBadge = (badge: StoreBadge) => {
-    setSelectedBadge(badge)
-    setIsViewDialogOpen(true)
-  }
+    setSelectedBadge(badge);
+    setIsViewDialogOpen(true);
+  };
 
   const handleEditBadge = (badge: StoreBadge) => {
-    setSelectedBadge(badge)
-    setIsEditDialogOpen(true)
-  }
+    setSelectedBadge(badge);
+    setIsEditDialogOpen(true);
+  };
 
   const handleDeleteConfirmation = (badge: StoreBadge) => {
-    setSelectedBadge(badge)
-    setIsDeleteDialogOpen(true)
-  }
+    setSelectedBadge(badge);
+    setIsDeleteDialogOpen(true);
+  };
 
   const handleViewCommunity = (community: any) => {
-    setSelectedCommunity(community)
-    setIsCommunityDetailOpen(true)
-    setCommunityDetailTab("overview")
-  }
+    setSelectedCommunity(community);
+    setIsCommunityDetailOpen(true);
+    setCommunityDetailTab("overview");
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("en-US", {
@@ -1066,116 +1299,168 @@ export default function SuperadminPage() {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    })
-  }
+    });
+  };
 
   const formatDateShort = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
-    })
-  }
+    });
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
       minimumFractionDigits: 0,
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
   const formatNumber = (num: number) => {
-    return new Intl.NumberFormat("en-US").format(num)
-  }
+    return new Intl.NumberFormat("en-US").format(num);
+  };
 
   const formatPercentage = (num: number) => {
-    return `${num > 0 ? "+" : ""}${num.toFixed(1)}%`
-  }
+    return `${num > 0 ? "+" : ""}${num.toFixed(1)}%`;
+  };
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case "urgent":
-        return <Badge className="bg-red-500 hover:bg-red-600 text-white border-0">Urgent</Badge>
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600 text-white border-0">
+            Urgent
+          </Badge>
+        );
       case "high":
-        return <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-0">High</Badge>
+        return (
+          <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-0">
+            High
+          </Badge>
+        );
       case "medium":
-        return <Badge className="bg-blue-500 hover:bg-blue-600 text-white border-0">Medium</Badge>
+        return (
+          <Badge className="bg-blue-500 hover:bg-blue-600 text-white border-0">
+            Medium
+          </Badge>
+        );
       case "low":
-        return <Badge className="bg-gray-500 hover:bg-gray-600 text-white border-0">Low</Badge>
+        return (
+          <Badge className="bg-gray-500 hover:bg-gray-600 text-white border-0">
+            Low
+          </Badge>
+        );
       default:
-        return <Badge>{priority}</Badge>
+        return <Badge>{priority}</Badge>;
     }
-  }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white border-0">Pending</Badge>
+        return (
+          <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white border-0">
+            Pending
+          </Badge>
+        );
       case "approved":
-        return <Badge className="bg-green-500 hover:bg-green-600 text-white border-0">Approved</Badge>
+        return (
+          <Badge className="bg-green-500 hover:bg-green-600 text-white border-0">
+            Approved
+          </Badge>
+        );
       case "rejected":
-        return <Badge className="bg-red-500 hover:bg-red-600 text-white border-0">Rejected</Badge>
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600 text-white border-0">
+            Rejected
+          </Badge>
+        );
       default:
-        return <Badge>{status}</Badge>
+        return <Badge>{status}</Badge>;
     }
-  }
+  };
 
   const getCommunityStatusBadge = (status: string) => {
     switch (status) {
       case "active":
-        return <Badge className="bg-green-500 hover:bg-green-600 text-white border-0">Active</Badge>
+        return (
+          <Badge className="bg-green-500 hover:bg-green-600 text-white border-0">
+            Active
+          </Badge>
+        );
       case "inactive":
-        return <Badge className="bg-red-500 hover:bg-red-600 text-white border-0">Inactive</Badge>
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600 text-white border-0">
+            Inactive
+          </Badge>
+        );
       case "under review":
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white border-0">Under Review</Badge>
+        return (
+          <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white border-0">
+            Under Review
+          </Badge>
+        );
       default:
-        return <Badge>{status}</Badge>
+        return <Badge>{status}</Badge>;
     }
-  }
+  };
 
   const getActivityLevelBadge = (level: string) => {
     switch (level) {
       case "high":
-        return <Badge className="bg-green-100 text-green-800 border-green-200">High Activity</Badge>
+        return (
+          <Badge className="bg-green-100 text-green-800 border-green-200">
+            High Activity
+          </Badge>
+        );
       case "medium":
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Medium Activity</Badge>
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+            Medium Activity
+          </Badge>
+        );
       case "low":
-        return <Badge className="bg-red-100 text-red-800 border-red-200">Low Activity</Badge>
+        return (
+          <Badge className="bg-red-100 text-red-800 border-red-200">
+            Low Activity
+          </Badge>
+        );
       default:
-        return <Badge variant="outline">{level}</Badge>
+        return <Badge variant="outline">{level}</Badge>;
     }
-  }
+  };
 
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
       case "common":
-        return "from-gray-400 to-gray-600"
+        return "from-gray-400 to-gray-600";
       case "rare":
-        return "from-blue-400 to-blue-600"
+        return "from-blue-400 to-blue-600";
       case "epic":
-        return "from-purple-400 to-purple-600"
+        return "from-purple-400 to-purple-600";
       case "legendary":
-        return "from-yellow-400 to-yellow-600"
+        return "from-yellow-400 to-yellow-600";
       default:
-        return "from-gray-400 to-gray-600"
+        return "from-gray-400 to-gray-600";
     }
-  }
+  };
 
   const getRarityBadgeColor = (rarity: string) => {
     switch (rarity) {
       case "common":
-        return "bg-gray-500"
+        return "bg-gray-500";
       case "rare":
-        return "bg-blue-500"
+        return "bg-blue-500";
       case "epic":
-        return "bg-purple-500"
+        return "bg-purple-500";
       case "legendary":
-        return "bg-yellow-500"
+        return "bg-yellow-500";
       default:
-        return "bg-gray-500"
+        return "bg-gray-500";
     }
-  }
+  };
 
   const getIconComponent = (iconName: string) => {
     const iconMap: Record<string, any> = {
@@ -1189,10 +1474,10 @@ export default function SuperadminPage() {
       Heart: Heart,
       Target: Target,
       Flame: Flame,
-    }
-    const IconComponent = iconMap[iconName] || Trophy
-    return <IconComponent className="h-6 w-6" />
-  }
+    };
+    const IconComponent = iconMap[iconName] || Trophy;
+    return <IconComponent className="h-6 w-6" />;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 relative overflow-hidden">
@@ -1202,7 +1487,10 @@ export default function SuperadminPage() {
       <nav className="glass-effect sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between items-center h-20">
-            <Link href="/" className="text-2xl font-bold text-gradient flex items-center gap-2">
+            <Link
+              href="/"
+              className="text-2xl font-bold text-gradient flex items-center gap-2"
+            >
               <Sparkles className="w-8 h-8 text-purple-600" />
               ConnectSpace
             </Link>
@@ -1229,16 +1517,24 @@ export default function SuperadminPage() {
           {/* Header */}
           <div className="mb-12">
             <div className="flex items-center gap-3 mb-4">
-              <Badge className="bg-purple-600 text-white border-0 px-3 py-1">Superadmin</Badge>
+              <Badge className="bg-purple-600 text-white border-0 px-3 py-1">
+                Superadmin
+              </Badge>
               <h1 className="text-4xl font-bold text-gray-900">
                 System Administration <span className="text-gradient">✨</span>
               </h1>
             </div>
-            <p className="text-xl text-gray-600">Manage community requests and monitor system activities</p>
+            <p className="text-xl text-gray-600">
+              Manage community requests and monitor system activities
+            </p>
           </div>
 
           {/* Main Content */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-5 glass-effect border-0 p-2 rounded-2xl mb-8">
               <TabsTrigger
                 value="overview"
@@ -1261,7 +1557,9 @@ export default function SuperadminPage() {
                 <Users className="h-4 w-4" />
                 Requests
                 {pendingRequests.length > 0 && (
-                  <Badge className="bg-red-500 text-white text-xs px-1.5 py-0.5 ml-1">{pendingRequests.length}</Badge>
+                  <Badge className="bg-red-500 text-white text-xs px-1.5 py-0.5 ml-1">
+                    {pendingRequests.length}
+                  </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger
@@ -1299,13 +1597,17 @@ export default function SuperadminPage() {
                           <Input
                             placeholder="Search communities..."
                             value={communitySearchQuery}
-                            onChange={(e) => setCommunitySearchQuery(e.target.value)}
+                            onChange={(e) =>
+                              setCommunitySearchQuery(e.target.value)
+                            }
                             className="pl-10 w-64 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                           />
                         </div>
                         <select
                           value={communityFilterStatus}
-                          onChange={(e) => setCommunityFilterStatus(e.target.value)}
+                          onChange={(e) =>
+                            setCommunityFilterStatus(e.target.value)
+                          }
                           className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
                         >
                           <option value="all">All Statuses</option>
@@ -1336,14 +1638,18 @@ export default function SuperadminPage() {
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
-                                <h5 className="text-lg font-semibold text-gray-900">{community.name}</h5>
+                                <h5 className="text-lg font-semibold text-gray-900">
+                                  {community.name}
+                                </h5>
                                 <Badge variant="outline" className="text-xs">
                                   {community.category}
                                 </Badge>
                                 {getCommunityStatusBadge(community.status)}
                                 {getActivityLevelBadge(community.activityLevel)}
                               </div>
-                              <p className="text-gray-600 mb-3 line-clamp-2">{community.description}</p>
+                              <p className="text-gray-600 mb-3 line-clamp-2">
+                                {community.description}
+                              </p>
                               <div className="flex items-center gap-4 text-sm text-gray-500">
                                 <div className="flex items-center gap-1">
                                   <Users className="h-4 w-4" />
@@ -1358,11 +1664,18 @@ export default function SuperadminPage() {
                                   <span>{community.rating}</span>
                                 </div>
                                 <span>•</span>
-                                <span>Created: {formatDateShort(community.createdAt)}</span>
+                                <span>
+                                  Created:{" "}
+                                  {formatDateShort(community.createdAt)}
+                                </span>
                               </div>
                             </div>
                             <div className="flex items-center gap-2 ml-4">
-                              <AnimatedButton variant="glass" size="sm" onClick={() => handleViewCommunity(community)}>
+                              <AnimatedButton
+                                variant="glass"
+                                size="sm"
+                                onClick={() => handleViewCommunity(community)}
+                              >
                                 <Eye className="h-4 w-4 mr-1" />
                                 View
                               </AnimatedButton>
@@ -1399,24 +1712,32 @@ export default function SuperadminPage() {
                     {totalPages > 1 && (
                       <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
                         <div className="text-sm text-gray-500">
-                          Showing {startIndex + 1} to {Math.min(endIndex, filteredCommunities.length)} of{" "}
+                          Showing {startIndex + 1} to{" "}
+                          {Math.min(endIndex, filteredCommunities.length)} of{" "}
                           {filteredCommunities.length} communities
                         </div>
                         <div className="flex items-center gap-2">
                           <AnimatedButton
                             variant="glass"
                             size="sm"
-                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            onClick={() =>
+                              setCurrentPage(Math.max(1, currentPage - 1))
+                            }
                             disabled={currentPage === 1}
                           >
                             <ChevronLeft className="h-4 w-4" />
                             Previous
                           </AnimatedButton>
                           <div className="flex items-center gap-1">
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            {Array.from(
+                              { length: totalPages },
+                              (_, i) => i + 1
+                            ).map((page) => (
                               <AnimatedButton
                                 key={page}
-                                variant={currentPage === page ? "default" : "glass"}
+                                variant={
+                                  currentPage === page ? "default" : "glass"
+                                }
                                 size="sm"
                                 onClick={() => setCurrentPage(page)}
                                 className={
@@ -1432,7 +1753,11 @@ export default function SuperadminPage() {
                           <AnimatedButton
                             variant="glass"
                             size="sm"
-                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            onClick={() =>
+                              setCurrentPage(
+                                Math.min(totalPages, currentPage + 1)
+                              )
+                            }
                             disabled={currentPage === totalPages}
                           >
                             Next
@@ -1458,23 +1783,35 @@ export default function SuperadminPage() {
                   Community Analytics Dashboard
                 </h3>
                 <div className="flex gap-2">
-                  <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                  <Popover
+                    open={isDatePickerOpen}
+                    onOpenChange={setIsDatePickerOpen}
+                  >
                     <PopoverTrigger asChild>
                       <AnimatedButton variant="glass" size="sm">
                         <CalendarIcon className="h-4 w-4 mr-2" />
                         {analyticsDateRange.from && analyticsDateRange.to
-                          ? `${format(analyticsDateRange.from, "MMM dd")} - ${format(analyticsDateRange.to, "MMM dd")}`
+                          ? `${format(
+                              analyticsDateRange.from,
+                              "MMM dd"
+                            )} - ${format(analyticsDateRange.to, "MMM dd")}`
                           : "Select Date Range"}
                       </AnimatedButton>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-white border border-gray-200 shadow-lg" align="end">
+                    <PopoverContent
+                      className="w-auto p-0 bg-white border border-gray-200 shadow-lg"
+                      align="end"
+                    >
                       <Calendar
                         mode="range"
                         selected={analyticsDateRange}
                         onSelect={(range) => {
                           if (range?.from && range?.to) {
-                            setAnalyticsDateRange({ from: range.from, to: range.to })
-                            setIsDatePickerOpen(false)
+                            setAnalyticsDateRange({
+                              from: range.from,
+                              to: range.to,
+                            });
+                            setIsDatePickerOpen(false);
                           }
                         }}
                         numberOfMonths={2}
@@ -1510,8 +1847,12 @@ export default function SuperadminPage() {
                 <AnimatedCard variant="glass" className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Total Communities</p>
-                      <p className="text-3xl font-bold text-gray-900">{formatNumber(totalCommunities)}</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Total Communities
+                      </p>
+                      <p className="text-3xl font-bold text-gray-900">
+                        {formatNumber(totalCommunities)}
+                      </p>
                       <div className="flex items-center mt-2">
                         {communityGrowth >= 0 ? (
                           <ArrowUpRight className="h-4 w-4 text-green-500" />
@@ -1519,11 +1860,17 @@ export default function SuperadminPage() {
                           <ArrowDownRight className="h-4 w-4 text-red-500" />
                         )}
                         <span
-                          className={`text-sm font-medium ${communityGrowth >= 0 ? "text-green-600" : "text-red-600"}`}
+                          className={`text-sm font-medium ${
+                            communityGrowth >= 0
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
                         >
                           {formatPercentage(communityGrowth)}
                         </span>
-                        <span className="text-sm text-gray-500 ml-1">vs last month</span>
+                        <span className="text-sm text-gray-500 ml-1">
+                          vs last month
+                        </span>
                       </div>
                     </div>
                     <div className="p-3 bg-purple-100 rounded-lg">
@@ -1535,18 +1882,28 @@ export default function SuperadminPage() {
                 <AnimatedCard variant="glass" className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Total Users</p>
-                      <p className="text-3xl font-bold text-gray-900">{formatNumber(totalUsers)}</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Total Users
+                      </p>
+                      <p className="text-3xl font-bold text-gray-900">
+                        {formatNumber(totalUsers)}
+                      </p>
                       <div className="flex items-center mt-2">
                         {userGrowth >= 0 ? (
                           <ArrowUpRight className="h-4 w-4 text-green-500" />
                         ) : (
                           <ArrowDownRight className="h-4 w-4 text-red-500" />
                         )}
-                        <span className={`text-sm font-medium ${userGrowth >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        <span
+                          className={`text-sm font-medium ${
+                            userGrowth >= 0 ? "text-green-600" : "text-red-600"
+                          }`}
+                        >
                           {formatPercentage(userGrowth)}
                         </span>
-                        <span className="text-sm text-gray-500 ml-1">vs last month</span>
+                        <span className="text-sm text-gray-500 ml-1">
+                          vs last month
+                        </span>
                       </div>
                     </div>
                     <div className="p-3 bg-blue-100 rounded-lg">
@@ -1554,56 +1911,76 @@ export default function SuperadminPage() {
                     </div>
                   </div>
                 </AnimatedCard>
-
-
               </div>
 
               {/* Charts Section */}
               <div className="w-full">
-                  {/* User Growth Chart */}
-                  <AnimatedCard variant="glass" className="p-6">
-                    <div className="flex justify-between items-center mb-6">
-                      <h4 className="text-lg font-semibold text-gray-900">User Growth</h4>
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                        +12.5% this month
-                      </Badge>
-                    </div>
-                    <div className="flex justify-center">
-                      <div className="w-full max-w-4xl">
-                        <ChartContainer
-                          config={{
-                            users: {
-                              label: "Users",
-                              color: chartColors.primary,
-                            },
-                          }}
-                          className="h-[400px]"
-                        >
+                {/* User Growth Chart */}
+                <AnimatedCard variant="glass" className="p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h4 className="text-lg font-semibold text-gray-900">
+                      User Growth
+                    </h4>
+                    <Badge
+                      variant="outline"
+                      className="bg-green-50 text-green-700 border-green-200"
+                    >
+                      +12.5% this month
+                    </Badge>
+                  </div>
+                  <div className="flex justify-center">
+                    <div className="w-full max-w-4xl">
+                      <ChartContainer
+                        config={{
+                          users: {
+                            label: "Users",
+                            color: chartColors.primary,
+                          },
+                        }}
+                        className="h-[400px]"
+                      >
                         <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={mockAnalyticsData}>
-                        <defs>
-                          <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={chartColors.primary} stopOpacity={0.3} />
-                            <stop offset="95%" stopColor={chartColors.primary} stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis dataKey="date" stroke="#666" fontSize={12} />
-                        <YAxis stroke="#666" fontSize={12} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Area
-                          type="monotone"
-                          dataKey="users"
-                          stroke={chartColors.primary}
-                          fillOpacity={1}
-                          fill="url(#colorGradient)"
-                          strokeWidth={3}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                      </div>
+                          <AreaChart data={mockAnalyticsData}>
+                            <defs>
+                              <linearGradient
+                                id="colorGradient"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                              >
+                                <stop
+                                  offset="5%"
+                                  stopColor={chartColors.primary}
+                                  stopOpacity={0.3}
+                                />
+                                <stop
+                                  offset="95%"
+                                  stopColor={chartColors.primary}
+                                  stopOpacity={0}
+                                />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="#f0f0f0"
+                            />
+                            <XAxis dataKey="date" stroke="#666" fontSize={12} />
+                            <YAxis stroke="#666" fontSize={12} />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Area
+                              type="monotone"
+                              dataKey="users"
+                              stroke={chartColors.primary}
+                              fillOpacity={1}
+                              fill="url(#colorGradient)"
+                              strokeWidth={3}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </ChartContainer>
                     </div>
+                  </div>
                 </AnimatedCard>
               </div>
 
@@ -1613,7 +1990,9 @@ export default function SuperadminPage() {
                 <div className="lg:col-span-2">
                   <AnimatedCard variant="glass" className="p-6">
                     <div className="flex justify-between items-center mb-6">
-                      <h4 className="text-lg font-semibold text-gray-900">Top Performing Communities</h4>
+                      <h4 className="text-lg font-semibold text-gray-900">
+                        Top Performing Communities
+                      </h4>
                       <AnimatedButton variant="glass" size="sm">
                         <Eye className="h-4 w-4 mr-2" />
                         View All
@@ -1630,9 +2009,13 @@ export default function SuperadminPage() {
                               {index + 1}
                             </div>
                             <div>
-                              <h5 className="font-semibold text-gray-900">{community.name}</h5>
+                              <h5 className="font-semibold text-gray-900">
+                                {community.name}
+                              </h5>
                               <div className="flex items-center gap-3 text-sm text-gray-600">
-                                <span>{formatNumber(community.members)} members</span>
+                                <span>
+                                  {formatNumber(community.members)} members
+                                </span>
                                 <span>•</span>
                                 <span>{community.posts} posts</span>
                                 <span>•</span>
@@ -1644,10 +2027,14 @@ export default function SuperadminPage() {
                           </div>
                           <div className="flex items-center gap-4 text-right">
                             <div>
-                              <div className="text-sm text-gray-600">Rating</div>
+                              <div className="text-sm text-gray-600">
+                                Rating
+                              </div>
                               <div className="flex items-center gap-1">
                                 <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                                <span className="font-semibold">{community.rating}</span>
+                                <span className="font-semibold">
+                                  {community.rating}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -1660,7 +2047,9 @@ export default function SuperadminPage() {
                 {/* Geographic Distribution */}
                 <AnimatedCard variant="glass" className="p-6">
                   <div className="flex justify-between items-center mb-6">
-                    <h4 className="text-lg font-semibold text-gray-900">Top 5 Cities</h4>
+                    <h4 className="text-lg font-semibold text-gray-900">
+                      Top 5 Cities
+                    </h4>
                     <Globe className="h-5 w-5 text-gray-400" />
                   </div>
                   <ChartContainer
@@ -1690,14 +2079,14 @@ export default function SuperadminPage() {
                                 index === 0
                                   ? "#8B5CF6" // Jakarta - Purple
                                   : index === 1
-                                    ? "#06B6D4" // Surabaya - Cyan
-                                    : index === 2
-                                      ? "#10B981" // Bali - Green
-                                      : index === 3
-                                        ? "#F59E0B" // Medan - Orange
-                                        : index === 4
-                                          ? "#EF4444" // IKN - Red
-                                          : "#6B7280" // Others - Gray
+                                  ? "#06B6D4" // Surabaya - Cyan
+                                  : index === 2
+                                  ? "#10B981" // Bali - Green
+                                  : index === 3
+                                  ? "#F59E0B" // Medan - Orange
+                                  : index === 4
+                                  ? "#EF4444" // IKN - Red
+                                  : "#6B7280" // Others - Gray
                               }
                             />
                           ))}
@@ -1708,7 +2097,10 @@ export default function SuperadminPage() {
                   </ChartContainer>
                   <div className="space-y-2">
                     {mockGeographicData.map((country, index) => (
-                      <div key={country.country} className="flex items-center justify-between text-sm">
+                      <div
+                        key={country.country}
+                        className="flex items-center justify-between text-sm"
+                      >
                         <div className="flex items-center gap-2">
                           <div
                             className="w-3 h-3 rounded-full"
@@ -1717,21 +2109,27 @@ export default function SuperadminPage() {
                                 index === 0
                                   ? "#8B5CF6" // Jakarta - Purple
                                   : index === 1
-                                    ? "#06B6D4" // Surabaya - Cyan
-                                    : index === 2
-                                      ? "#10B981" // Bali - Green
-                                      : index === 3
-                                        ? "#F59E0B" // Medan - Orange
-                                        : index === 4
-                                          ? "#EF4444" // IKN - Red
-                                          : "#6B7280", // Others - Gray
+                                  ? "#06B6D4" // Surabaya - Cyan
+                                  : index === 2
+                                  ? "#10B981" // Bali - Green
+                                  : index === 3
+                                  ? "#F59E0B" // Medan - Orange
+                                  : index === 4
+                                  ? "#EF4444" // IKN - Red
+                                  : "#6B7280", // Others - Gray
                             }}
                           ></div>
-                          <span className="text-gray-700">{country.country}</span>
+                          <span className="text-gray-700">
+                            {country.country}
+                          </span>
                         </div>
                         <div className="text-right">
-                          <div className="font-medium text-gray-900">{formatNumber(country.users)}</div>
-                          <div className="text-xs text-gray-500">{country.percentage}%</div>
+                          <div className="font-medium text-gray-900">
+                            {formatNumber(country.users)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {country.percentage}%
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1744,8 +2142,13 @@ export default function SuperadminPage() {
                 {/* Content Types Performance */}
                 <AnimatedCard variant="glass" className="p-6">
                   <div className="flex justify-between items-center mb-6">
-                    <h4 className="text-lg font-semibold text-gray-900">Content Performance</h4>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    <h4 className="text-lg font-semibold text-gray-900">
+                      Content Performance
+                    </h4>
+                    <Badge
+                      variant="outline"
+                      className="bg-blue-50 text-blue-700 border-blue-200"
+                    >
                       Last 30 days
                     </Badge>
                   </div>
@@ -1762,9 +2165,19 @@ export default function SuperadminPage() {
                       <BarChart data={mockContentMetrics} layout="horizontal">
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                         <XAxis type="number" stroke="#666" fontSize={12} />
-                        <YAxis dataKey="type" type="category" stroke="#666" fontSize={12} width={100} />
+                        <YAxis
+                          dataKey="type"
+                          type="category"
+                          stroke="#666"
+                          fontSize={12}
+                          width={100}
+                        />
                         <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar dataKey="count" fill={chartColors.quaternary} radius={[0, 4, 4, 0]} />
+                        <Bar
+                          dataKey="count"
+                          fill={chartColors.quaternary}
+                          radius={[0, 4, 4, 0]}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   </ChartContainer>
@@ -1772,12 +2185,19 @@ export default function SuperadminPage() {
 
                 {/* Engagement Metrics */}
                 <AnimatedCard variant="glass" className="p-6">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-6">Engagement Metrics</h4>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-6">
+                    Engagement Metrics
+                  </h4>
                   <div className="space-y-4">
                     {mockContentMetrics.map((metric, index) => (
-                      <div key={metric.type} className="p-4 bg-white rounded-lg border border-gray-200">
+                      <div
+                        key={metric.type}
+                        className="p-4 bg-white rounded-lg border border-gray-200"
+                      >
                         <div className="flex justify-between items-center mb-2">
-                          <h5 className="font-medium text-gray-900">{metric.type}</h5>
+                          <h5 className="font-medium text-gray-900">
+                            {metric.type}
+                          </h5>
                           <div className="flex items-center gap-2">
                             {metric.growth >= 0 ? (
                               <TrendingUp className="h-4 w-4 text-green-500" />
@@ -1785,7 +2205,11 @@ export default function SuperadminPage() {
                               <TrendingDown className="h-4 w-4 text-red-500" />
                             )}
                             <span
-                              className={`text-sm font-medium ${metric.growth >= 0 ? "text-green-600" : "text-red-600"}`}
+                              className={`text-sm font-medium ${
+                                metric.growth >= 0
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
                             >
                               {formatPercentage(metric.growth)}
                             </span>
@@ -1793,12 +2217,20 @@ export default function SuperadminPage() {
                         </div>
                         <div className="flex justify-between items-center">
                           <div>
-                            <div className="text-2xl font-bold text-gray-900">{formatNumber(metric.count)}</div>
-                            <div className="text-sm text-gray-600">Total items</div>
+                            <div className="text-2xl font-bold text-gray-900">
+                              {formatNumber(metric.count)}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Total items
+                            </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-lg font-semibold text-blue-600">{metric.engagement}%</div>
-                            <div className="text-sm text-gray-600">Engagement</div>
+                            <div className="text-lg font-semibold text-blue-600">
+                              {metric.engagement}%
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Engagement
+                            </div>
                           </div>
                         </div>
                         <div className="mt-3">
@@ -1809,60 +2241,14 @@ export default function SuperadminPage() {
                   </div>
                 </AnimatedCard>
               </div>
-
-              {/* Actionable Insights */}
-              <AnimatedCard variant="glass" className="p-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-yellow-500" />
-                  Actionable Insights & Recommendations
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <TrendingUp className="h-5 w-5 text-green-600" />
-                      <h5 className="font-medium text-green-800">High Growth Opportunity</h5>
-                    </div>
-                    <p className="text-sm text-green-700 mb-3">
-                      Tech communities show 15.2% growth. Consider promoting similar categories.
-                    </p>
-                    <AnimatedButton size="sm" className="bg-green-600 hover:bg-green-700 text-white">
-                      View Details
-                    </AnimatedButton>
-                  </div>
-
-                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                      <h5 className="font-medium text-yellow-800">Attention Needed</h5>
-                    </div>
-                    <p className="text-sm text-yellow-700 mb-3">
-                      2 communities show declining engagement. Intervention may be required.
-                    </p>
-                    <AnimatedButton size="sm" className="bg-yellow-600 hover:bg-yellow-700 text-white">
-                      Take Action
-                    </AnimatedButton>
-                  </div>
-
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Target className="h-5 w-5 text-blue-600" />
-                      <h5 className="font-medium text-blue-800">Optimization Tip</h5>
-                    </div>
-                    <p className="text-sm text-blue-700 mb-3">
-                      Events drive 85% engagement. Encourage more community events.
-                    </p>
-                    <AnimatedButton size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                      Learn More
-                    </AnimatedButton>
-                  </div>
-                </div>
-              </AnimatedCard>
             </TabsContent>
 
             {/* Community Requests Tab - Simplified */}
             <TabsContent value="requests" className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold text-gray-900">Community Creation Requests</h3>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Community Creation Requests
+                </h3>
                 <div className="flex gap-2">
                   <AnimatedButton variant="glass" size="sm">
                     <Filter className="h-4 w-4 mr-2" />
@@ -1880,8 +2266,12 @@ export default function SuperadminPage() {
                 <AnimatedCard variant="glass" className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Pending Review</p>
-                      <p className="text-2xl font-bold text-yellow-600">{pendingRequests.length}</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Pending Review
+                      </p>
+                      <p className="text-2xl font-bold text-yellow-600">
+                        {pendingRequests.length}
+                      </p>
                     </div>
                     <div className="p-2 bg-yellow-100 rounded-lg">
                       <Clock className="h-5 w-5 text-yellow-600" />
@@ -1898,8 +2288,12 @@ export default function SuperadminPage() {
                 <AnimatedCard variant="glass" className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Approved</p>
-                      <p className="text-2xl font-bold text-green-600">{approvedRequests.length}</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Approved
+                      </p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {approvedRequests.length}
+                      </p>
                     </div>
                     <div className="p-2 bg-green-100 rounded-lg">
                       <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -1910,8 +2304,12 @@ export default function SuperadminPage() {
                 <AnimatedCard variant="glass" className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Rejected</p>
-                      <p className="text-2xl font-bold text-red-600">{rejectedRequests.length}</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Rejected
+                      </p>
+                      <p className="text-2xl font-bold text-red-600">
+                        {rejectedRequests.length}
+                      </p>
                     </div>
                     <div className="p-2 bg-red-100 rounded-lg">
                       <XCircle className="h-5 w-5 text-red-600" />
@@ -1922,8 +2320,12 @@ export default function SuperadminPage() {
                 <AnimatedCard variant="glass" className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Total Requests</p>
-                      <p className="text-2xl font-bold text-gray-900">{mockCommunityRequests.length}</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Total Requests
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {mockCommunityRequests.length}
+                      </p>
                     </div>
                     <div className="p-2 bg-gray-100 rounded-lg">
                       <TrendingUp className="h-5 w-5 text-gray-600" />
@@ -1938,7 +2340,9 @@ export default function SuperadminPage() {
                   <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                     <Zap className="h-5 w-5 text-red-500" />
                     Pending Requests - Requires Action
-                    <Badge className="bg-red-500 text-white">{pendingRequests.length}</Badge>
+                    <Badge className="bg-red-500 text-white">
+                      {pendingRequests.length}
+                    </Badge>
                   </h4>
 
                   <div className="flex gap-2">
@@ -1960,7 +2364,9 @@ export default function SuperadminPage() {
                       <option value="all">All Categories</option>
                       <option value="Technology">Technology</option>
                       <option value="Health & Fitness">Health & Fitness</option>
-                      <option value="Books & Literature">Books & Literature</option>
+                      <option value="Books & Literature">
+                        Books & Literature
+                      </option>
                       <option value="Environment">Environment</option>
                       <option value="Travel & Work">Travel & Work</option>
                       <option value="Food & Cooking">Food & Cooking</option>
@@ -1985,7 +2391,9 @@ export default function SuperadminPage() {
                     <div className="mb-4 text-gray-400">
                       <CheckCircle2 className="h-12 w-12 mx-auto" />
                     </div>
-                    <h5 className="text-xl font-medium text-gray-900 mb-2">All caught up!</h5>
+                    <h5 className="text-xl font-medium text-gray-900 mb-2">
+                      All caught up!
+                    </h5>
                     <p className="text-gray-500">
                       {requestSearchQuery
                         ? `No pending requests match "${requestSearchQuery}"`
@@ -2001,27 +2409,34 @@ export default function SuperadminPage() {
                           request.priority === "urgent"
                             ? "border-red-200 bg-red-50"
                             : request.priority === "high"
-                              ? "border-orange-200 bg-orange-50"
-                              : "border-gray-200 bg-white"
+                            ? "border-orange-200 bg-orange-50"
+                            : "border-gray-200 bg-white"
                         }`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
-                              <h5 className="text-lg font-semibold text-gray-900">{request.name}</h5>
+                              <h5 className="text-lg font-semibold text-gray-900">
+                                {request.name}
+                              </h5>
                               {getPriorityBadge(request.priority)}
                               <Badge variant="outline" className="text-xs">
                                 {request.category}
                               </Badge>
                             </div>
 
-                            <p className="text-gray-600 mb-3 line-clamp-2">{request.description}</p>
+                            <p className="text-gray-600 mb-3 line-clamp-2">
+                              {request.description}
+                            </p>
 
                             <div className="flex items-center gap-4 text-sm text-gray-500">
                               <div className="flex items-center gap-2">
                                 <Avatar className="h-6 w-6">
                                   <AvatarImage
-                                    src={request.requestedBy.avatar || "/placeholder.svg"}
+                                    src={
+                                      request.requestedBy.avatar ||
+                                      "/placeholder.svg"
+                                    }
                                     alt={request.requestedBy.name}
                                   />
                                   <AvatarFallback className="text-xs">
@@ -2068,7 +2483,9 @@ export default function SuperadminPage() {
             {/* Activity Logs Tab */}
             <TabsContent value="activity" className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold text-gray-900">System Activity Logs</h3>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  System Activity Logs
+                </h3>
                 <div className="flex gap-2">
                   <AnimatedButton variant="glass" size="sm">
                     <CalendarIcon className="h-4 w-4 mr-2" />
@@ -2107,8 +2524,12 @@ export default function SuperadminPage() {
                 <AnimatedCard variant="glass" className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Total Badges</p>
-                      <p className="text-2xl font-bold text-purple-600">{badges.length}</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Total Badges
+                      </p>
+                      <p className="text-2xl font-bold text-purple-600">
+                        {badges.length}
+                      </p>
                     </div>
                     <div className="p-2 bg-purple-100 rounded-lg">
                       <ShoppingBag className="h-5 w-5 text-purple-600" />
@@ -2119,8 +2540,12 @@ export default function SuperadminPage() {
                 <AnimatedCard variant="glass" className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Active Badges</p>
-                      <p className="text-2xl font-bold text-green-600">{badges.filter((b) => b.isActive).length}</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Active Badges
+                      </p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {badges.filter((b) => b.isActive).length}
+                      </p>
                     </div>
                     <div className="p-2 bg-green-100 rounded-lg">
                       <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -2131,9 +2556,14 @@ export default function SuperadminPage() {
                 <AnimatedCard variant="glass" className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Total Sales</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Total Sales
+                      </p>
                       <p className="text-2xl font-bold text-blue-600">
-                        {badges.reduce((sum, b) => sum + (b.purchaseCount || 0), 0)}
+                        {badges.reduce(
+                          (sum, b) => sum + (b.purchaseCount || 0),
+                          0
+                        )}
                       </p>
                     </div>
                     <div className="p-2 bg-blue-100 rounded-lg">
@@ -2186,7 +2616,11 @@ export default function SuperadminPage() {
                     <div className="flex border border-gray-200 rounded-md overflow-hidden">
                       <button
                         onClick={() => setBadgeViewMode("grid")}
-                        className={`px-3 py-2 text-sm ${badgeViewMode === "grid" ? "bg-purple-100 text-purple-700" : "bg-white text-gray-600"}`}
+                        className={`px-3 py-2 text-sm ${
+                          badgeViewMode === "grid"
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-white text-gray-600"
+                        }`}
                       >
                         <div className="grid grid-cols-2 gap-0.5 w-4 h-4">
                           <div className="bg-current rounded-sm"></div>
@@ -2197,7 +2631,11 @@ export default function SuperadminPage() {
                       </button>
                       <button
                         onClick={() => setBadgeViewMode("list")}
-                        className={`px-3 py-2 text-sm ${badgeViewMode === "list" ? "bg-purple-100 text-purple-700" : "bg-white text-gray-600"}`}
+                        className={`px-3 py-2 text-sm ${
+                          badgeViewMode === "list"
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-white text-gray-600"
+                        }`}
                       >
                         <div className="space-y-1 w-4 h-4">
                           <div className="bg-current h-0.5 rounded"></div>
@@ -2210,7 +2648,11 @@ export default function SuperadminPage() {
                 </div>
 
                 {/* Badge Sub-tabs */}
-                <Tabs value={badgeActiveTab} onValueChange={setBadgeActiveTab} className="w-full">
+                <Tabs
+                  value={badgeActiveTab}
+                  onValueChange={setBadgeActiveTab}
+                  className="w-full"
+                >
                   <TabsList className="grid w-full grid-cols-4 glass-effect border-0 p-2 rounded-2xl mb-6">
                     <TabsTrigger
                       value="all"
@@ -2245,13 +2687,15 @@ export default function SuperadminPage() {
                     <div className="mb-4 text-gray-400">
                       <Search className="h-12 w-12 mx-auto" />
                     </div>
-                    <h5 className="text-xl font-medium text-gray-900 mb-2">No badges found</h5>
+                    <h5 className="text-xl font-medium text-gray-900 mb-2">
+                      No badges found
+                    </h5>
                     <p className="text-gray-500 mb-6">
                       {badgeSearchQuery
                         ? `No results for "${badgeSearchQuery}"`
                         : badgeActiveTab !== "all"
-                          ? `No ${badgeActiveTab} badges found.`
-                          : "No badges have been created yet."}
+                        ? `No ${badgeActiveTab} badges found.`
+                        : "No badges have been created yet."}
                     </p>
                     <AnimatedButton
                       onClick={() => setIsCreateDialogOpen(true)}
@@ -2273,18 +2717,34 @@ export default function SuperadminPage() {
                         }}
                       >
                         {/* Badge Header with Gradient */}
-                        <div className={`h-24 bg-gradient-to-br ${getRarityColor(badge.rarity)} relative`}>
+                        <div
+                          className={`h-24 bg-gradient-to-br ${getRarityColor(
+                            badge.rarity
+                          )} relative`}
+                        >
                           <div className="absolute inset-0 bg-black/10"></div>
                           <div className="absolute top-2 right-2 flex gap-1">
                             {badge.isActive ? (
-                              <Badge className="bg-green-500 text-white text-xs">Active</Badge>
+                              <Badge className="bg-green-500 text-white text-xs">
+                                Active
+                              </Badge>
                             ) : (
-                              <Badge className="bg-gray-500 text-white text-xs">Inactive</Badge>
+                              <Badge className="bg-gray-500 text-white text-xs">
+                                Inactive
+                              </Badge>
                             )}
-                            {badge.isLimited && <Badge className="bg-red-500 text-white text-xs">Limited</Badge>}
+                            {badge.isLimited && (
+                              <Badge className="bg-red-500 text-white text-xs">
+                                Limited
+                              </Badge>
+                            )}
                           </div>
                           <div className="absolute bottom-2 left-2">
-                            <Badge className={`${getRarityBadgeColor(badge.rarity)} text-white text-xs capitalize`}>
+                            <Badge
+                              className={`${getRarityBadgeColor(
+                                badge.rarity
+                              )} text-white text-xs capitalize`}
+                            >
                               {badge.rarity}
                             </Badge>
                           </div>
@@ -2294,7 +2754,10 @@ export default function SuperadminPage() {
                         <div className="relative -mt-8 flex justify-center">
                           <div className="w-16 h-16 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center">
                             <img
-                              src={badge.image || "/placeholder.svg?height=48&width=48"}
+                              src={
+                                badge.image ||
+                                "/placeholder.svg?height=48&width=48"
+                              }
                               alt={badge.name}
                               className="w-12 h-12 rounded-full object-cover"
                             />
@@ -2304,12 +2767,21 @@ export default function SuperadminPage() {
                         {/* Badge Content */}
                         <div className="p-4 pt-2">
                           <div className="text-center mb-3">
-                            <h4 className="font-bold text-gray-900 text-lg mb-1">{badge.name}</h4>
-                            <p className="text-sm text-gray-600 line-clamp-2 mb-2">{badge.description}</p>
+                            <h4 className="font-bold text-gray-900 text-lg mb-1">
+                              {badge.name}
+                            </h4>
+                            <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                              {badge.description}
+                            </p>
                             <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-                              <span className="font-medium">{badge.price} points</span>
+                              <span className="font-medium">
+                                {badge.price} points
+                              </span>
                               <span>•</span>
-                              <Badge variant="outline" className="text-xs capitalize">
+                              <Badge
+                                variant="outline"
+                                className="text-xs capitalize"
+                              >
                                 {badge.category}
                               </Badge>
                             </div>
@@ -2318,11 +2790,15 @@ export default function SuperadminPage() {
                           {/* Badge Stats */}
                           <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
                             <div className="bg-blue-50 rounded-lg p-2 text-center">
-                              <div className="font-semibold text-blue-700">{badge.purchaseCount || 0}</div>
+                              <div className="font-semibold text-blue-700">
+                                {badge.purchaseCount || 0}
+                              </div>
                               <div className="text-blue-600">Sales</div>
                             </div>
                             <div className="bg-green-50 rounded-lg p-2 text-center">
-                              <div className="font-semibold text-green-700">{formatCurrency(badge.revenue || 0)}</div>
+                              <div className="font-semibold text-green-700">
+                                {formatCurrency(badge.revenue || 0)}
+                              </div>
                               <div className="text-green-600">Revenue</div>
                             </div>
                           </div>
@@ -2330,15 +2806,23 @@ export default function SuperadminPage() {
                           {/* Limited Edition Info */}
                           {badge.isLimited && (
                             <div className="mb-4 p-2 bg-red-50 rounded-lg border border-red-200">
-                              <div className="text-xs text-red-700 font-medium mb-1">Limited Edition</div>
+                              <div className="text-xs text-red-700 font-medium mb-1">
+                                Limited Edition
+                              </div>
                               <div className="flex justify-between text-xs text-red-600">
                                 <span>Remaining: {badge.limitedRemaining}</span>
                                 <span>Total: {badge.limitedQuantity}</span>
                               </div>
                               <Progress
-                                value={badge.limitedQuantity && badge.limitedRemaining !== undefined 
-                                  ? ((badge.limitedQuantity - badge.limitedRemaining) / badge.limitedQuantity) * 100 
-                                  : 0}
+                                value={
+                                  badge.limitedQuantity &&
+                                  badge.limitedRemaining !== undefined
+                                    ? ((badge.limitedQuantity -
+                                        badge.limitedRemaining) /
+                                        badge.limitedQuantity) *
+                                      100
+                                    : 0
+                                }
                                 className="h-1 mt-1"
                               />
                             </div>
@@ -2391,44 +2875,80 @@ export default function SuperadminPage() {
                         {/* Badge Image and Icon */}
                         <div className="relative">
                           <img
-                            src={badge.image || "/placeholder.svg?height=48&width=48"}
+                            src={
+                              badge.image ||
+                              "/placeholder.svg?height=48&width=48"
+                            }
                             alt={badge.name}
                             className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
                           />
                           <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white border-2 border-gray-200 flex items-center justify-center">
-                            <div className={`w-4 h-4 rounded-full ${getRarityBadgeColor(badge.rarity)}`}></div>
+                            <div
+                              className={`w-4 h-4 rounded-full ${getRarityBadgeColor(
+                                badge.rarity
+                              )}`}
+                            ></div>
                           </div>
                         </div>
 
                         {/* Badge Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-semibold text-gray-900 truncate">{badge.name}</h4>
-                            <Badge className={`${getRarityBadgeColor(badge.rarity)} text-white text-xs capitalize`}>
+                            <h4 className="font-semibold text-gray-900 truncate">
+                              {badge.name}
+                            </h4>
+                            <Badge
+                              className={`${getRarityBadgeColor(
+                                badge.rarity
+                              )} text-white text-xs capitalize`}
+                            >
                               {badge.rarity}
                             </Badge>
-                            <Badge variant="outline" className="text-xs capitalize">
+                            <Badge
+                              variant="outline"
+                              className="text-xs capitalize"
+                            >
                               {badge.category}
                             </Badge>
                             {badge.isActive ? (
-                              <Badge className="bg-green-500 text-white text-xs">Active</Badge>
+                              <Badge className="bg-green-500 text-white text-xs">
+                                Active
+                              </Badge>
                             ) : (
-                              <Badge className="bg-gray-500 text-white text-xs">Inactive</Badge>
+                              <Badge className="bg-gray-500 text-white text-xs">
+                                Inactive
+                              </Badge>
                             )}
-                            {badge.isLimited && <Badge className="bg-red-500 text-white text-xs">Limited</Badge>}
+                            {badge.isLimited && (
+                              <Badge className="bg-red-500 text-white text-xs">
+                                Limited
+                              </Badge>
+                            )}
                           </div>
-                          <p className="text-sm text-gray-600 line-clamp-1 mb-2">{badge.description}</p>
+                          <p className="text-sm text-gray-600 line-clamp-1 mb-2">
+                            {badge.description}
+                          </p>
                           <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span className="font-medium">{badge.price} points</span>
+                            <span className="font-medium">
+                              {badge.price} points
+                            </span>
                             <span>{badge.purchaseCount || 0} sales</span>
-                            <span>{formatCurrency(badge.revenue || 0)} revenue</span>
-                            <span>Created {formatDateShort(badge.createdAt)}</span>
+                            <span>
+                              {formatCurrency(badge.revenue || 0)} revenue
+                            </span>
+                            <span>
+                              Created {formatDateShort(badge.createdAt)}
+                            </span>
                           </div>
                         </div>
 
                         {/* Action Buttons */}
                         <div className="flex items-center gap-2">
-                          <AnimatedButton variant="glass" size="sm" onClick={() => handleViewBadge(badge)}>
+                          <AnimatedButton
+                            variant="glass"
+                            size="sm"
+                            onClick={() => handleViewBadge(badge)}
+                          >
                             <Eye className="h-4 w-4" />
                           </AnimatedButton>
                           <AnimatedButton
@@ -2459,7 +2979,10 @@ export default function SuperadminPage() {
       </PageTransition>
 
       {/* Enhanced Community Detail Dialog with Fixed Background */}
-      <Dialog open={isCommunityDetailOpen} onOpenChange={setIsCommunityDetailOpen}>
+      <Dialog
+        open={isCommunityDetailOpen}
+        onOpenChange={setIsCommunityDetailOpen}
+      >
         <DialogContent className="max-w-6xl bg-white border border-gray-200 shadow-xl max-h-[90vh] overflow-hidden">
           <DialogHeader className="pb-4 border-b border-gray-200">
             <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-3">
@@ -2468,7 +2991,9 @@ export default function SuperadminPage() {
               </div>
               <div>
                 <div>{selectedCommunity?.name}</div>
-                <div className="text-sm font-normal text-gray-600 mt-1">Community Management Dashboard</div>
+                <div className="text-sm font-normal text-gray-600 mt-1">
+                  Community Management Dashboard
+                </div>
               </div>
             </DialogTitle>
           </DialogHeader>
@@ -2480,9 +3005,13 @@ export default function SuperadminPage() {
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
                   <div className="flex items-center gap-2 mb-2">
                     <Users className="h-5 w-5 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-700">Members</span>
+                    <span className="text-sm font-medium text-blue-700">
+                      Members
+                    </span>
                   </div>
-                  <div className="text-2xl font-bold text-blue-800">{selectedCommunity.memberCount}</div>
+                  <div className="text-2xl font-bold text-blue-800">
+                    {selectedCommunity.memberCount}
+                  </div>
                   <div className="text-xs text-blue-600 flex items-center gap-1 mt-1">
                     <TrendingUp className="h-3 w-3" />
                     {selectedCommunity.growthRate > 0 ? "+" : ""}
@@ -2493,33 +3022,55 @@ export default function SuperadminPage() {
                 <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
                   <div className="flex items-center gap-2 mb-2">
                     <Activity className="h-5 w-5 text-green-600" />
-                    <span className="text-sm font-medium text-green-700">Engagement</span>
+                    <span className="text-sm font-medium text-green-700">
+                      Engagement
+                    </span>
                   </div>
-                  <div className="text-2xl font-bold text-green-800">{selectedCommunity.engagementRate}%</div>
-                  <div className="text-xs text-green-600">Weekly active: {selectedCommunity.weeklyActiveUsers}</div>
+                  <div className="text-2xl font-bold text-green-800">
+                    {selectedCommunity.engagementRate}%
+                  </div>
+                  <div className="text-xs text-green-600">
+                    Weekly active: {selectedCommunity.weeklyActiveUsers}
+                  </div>
                 </div>
 
                 <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
                   <div className="flex items-center gap-2 mb-2">
                     <MessageSquare className="h-5 w-5 text-purple-600" />
-                    <span className="text-sm font-medium text-purple-700">Content</span>
+                    <span className="text-sm font-medium text-purple-700">
+                      Content
+                    </span>
                   </div>
-                  <div className="text-2xl font-bold text-purple-800">{selectedCommunity.totalPosts}</div>
-                  <div className="text-xs text-purple-600">{selectedCommunity.totalEvents} events hosted</div>
+                  <div className="text-2xl font-bold text-purple-800">
+                    {selectedCommunity.totalPosts}
+                  </div>
+                  <div className="text-xs text-purple-600">
+                    {selectedCommunity.totalEvents} events hosted
+                  </div>
                 </div>
 
                 <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-4 border border-yellow-200">
                   <div className="flex items-center gap-2 mb-2">
                     <Star className="h-5 w-5 text-yellow-600" />
-                    <span className="text-sm font-medium text-yellow-700">Rating</span>
+                    <span className="text-sm font-medium text-yellow-700">
+                      Rating
+                    </span>
                   </div>
-                  <div className="text-2xl font-bold text-yellow-800">{selectedCommunity.rating}</div>
-                  <div className="text-xs text-yellow-600">Community satisfaction</div>
+                  <div className="text-2xl font-bold text-yellow-800">
+                    {selectedCommunity.rating}
+                  </div>
+                  <div className="text-xs text-yellow-600">
+                    Community satisfaction
+                  </div>
                 </div>
               </div>
 
               {/* Tabbed Content */}
-              <Tabs value={communityDetailTab} onValueChange={setCommunityDetailTab} className="flex-1 flex flex-col">
+              <Tabs
+                value={communityDetailTab}
+                onValueChange={setCommunityDetailTab}
+                className="flex-1 flex flex-col"
+              >
                 <TabsList className="grid w-full grid-cols-5 bg-gray-100 border-0 p-1 rounded-xl mb-4">
                   <TabsTrigger
                     value="overview"
@@ -2558,40 +3109,74 @@ export default function SuperadminPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {/* Community Information */}
                       <div className="bg-white rounded-lg border border-gray-200 p-6">
-                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Community Information</h4>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                          Community Information
+                        </h4>
                         <div className="space-y-3">
                           <div>
-                            <label className="text-sm font-medium text-gray-600">Description</label>
-                            <p className="text-gray-800 mt-1">{selectedCommunity.description}</p>
+                            <label className="text-sm font-medium text-gray-600">
+                              Description
+                            </label>
+                            <p className="text-gray-800 mt-1">
+                              {selectedCommunity.description}
+                            </p>
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="text-sm font-medium text-gray-600">Category</label>
-                              <p className="text-gray-800 mt-1">{selectedCommunity.category}</p>
+                              <label className="text-sm font-medium text-gray-600">
+                                Category
+                              </label>
+                              <p className="text-gray-800 mt-1">
+                                {selectedCommunity.category}
+                              </p>
                             </div>
                             <div>
-                              <label className="text-sm font-medium text-gray-600">Status</label>
-                              <div className="mt-1">{getCommunityStatusBadge(selectedCommunity.status)}</div>
+                              <label className="text-sm font-medium text-gray-600">
+                                Status
+                              </label>
+                              <div className="mt-1">
+                                {getCommunityStatusBadge(
+                                  selectedCommunity.status
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="text-sm font-medium text-gray-600">Created</label>
-                              <p className="text-gray-800 mt-1">{formatDateShort(selectedCommunity.createdAt)}</p>
+                              <label className="text-sm font-medium text-gray-600">
+                                Created
+                              </label>
+                              <p className="text-gray-800 mt-1">
+                                {formatDateShort(selectedCommunity.createdAt)}
+                              </p>
                             </div>
                             <div>
-                              <label className="text-sm font-medium text-gray-600">Last Activity</label>
-                              <p className="text-gray-800 mt-1">{formatDateShort(selectedCommunity.lastActivity)}</p>
+                              <label className="text-sm font-medium text-gray-600">
+                                Last Activity
+                              </label>
+                              <p className="text-gray-800 mt-1">
+                                {formatDateShort(
+                                  selectedCommunity.lastActivity
+                                )}
+                              </p>
                             </div>
                           </div>
                           <div>
-                            <label className="text-sm font-medium text-gray-600">Tags</label>
+                            <label className="text-sm font-medium text-gray-600">
+                              Tags
+                            </label>
                             <div className="flex flex-wrap gap-2 mt-1">
-                              {selectedCommunity.tags?.map((tag: string, index: number) => (
-                                <Badge key={index} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
+                              {selectedCommunity.tags?.map(
+                                (tag: string, index: number) => (
+                                  <Badge
+                                    key={index}
+                                    variant="outline"
+                                    className="text-xs"
+                                  >
+                                    {tag}
+                                  </Badge>
+                                )
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2599,45 +3184,73 @@ export default function SuperadminPage() {
 
                       {/* Admin and Moderators */}
                       <div className="bg-white rounded-lg border border-gray-200 p-6">
-                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Administration</h4>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                          Administration
+                        </h4>
                         <div className="space-y-4">
                           <div>
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">Community Admin</label>
+                            <label className="text-sm font-medium text-gray-600 mb-2 block">
+                              Community Admin
+                            </label>
                             <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                               <Avatar className="h-10 w-10">
-                                <AvatarImage src={selectedCommunity.admin?.avatar || "/placeholder.svg"} />
-                                <AvatarFallback>{selectedCommunity.admin?.name?.charAt(0)}</AvatarFallback>
+                                <AvatarImage
+                                  src={
+                                    selectedCommunity.admin?.avatar ||
+                                    "/placeholder.svg"
+                                  }
+                                />
+                                <AvatarFallback>
+                                  {selectedCommunity.admin?.name?.charAt(0)}
+                                </AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
-                                <div className="font-medium text-gray-900">{selectedCommunity.admin?.name}</div>
-                                <div className="text-sm text-gray-600">{selectedCommunity.admin?.email}</div>
+                                <div className="font-medium text-gray-900">
+                                  {selectedCommunity.admin?.name}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  {selectedCommunity.admin?.email}
+                                </div>
                               </div>
-                              <Badge className="bg-blue-600 text-white">Admin</Badge>
+                              <Badge className="bg-blue-600 text-white">
+                                Admin
+                              </Badge>
                             </div>
                           </div>
 
                           {selectedCommunity.moderators?.length > 0 && (
                             <div>
-                              <label className="text-sm font-medium text-gray-600 mb-2 block">Moderators</label>
+                              <label className="text-sm font-medium text-gray-600 mb-2 block">
+                                Moderators
+                              </label>
                               <div className="space-y-2">
-                                {selectedCommunity.moderators.map((mod: any) => (
-                                  <div
-                                    key={mod.id}
-                                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
-                                  >
-                                    <Avatar className="h-8 w-8">
-                                      <AvatarImage src={mod.avatar || "/placeholder.svg"} />
-                                      <AvatarFallback>{mod.name?.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex-1">
-                                      <div className="font-medium text-gray-900">{mod.name}</div>
-                                      <div className="text-xs text-gray-600">
-                                        {mod.actionsThisMonth} actions this month
+                                {selectedCommunity.moderators.map(
+                                  (mod: any) => (
+                                    <div
+                                      key={mod.id}
+                                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
+                                    >
+                                      <Avatar className="h-8 w-8">
+                                        <AvatarImage
+                                          src={mod.avatar || "/placeholder.svg"}
+                                        />
+                                        <AvatarFallback>
+                                          {mod.name?.charAt(0)}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="flex-1">
+                                        <div className="font-medium text-gray-900">
+                                          {mod.name}
+                                        </div>
+                                        <div className="text-xs text-gray-600">
+                                          {mod.actionsThisMonth} actions this
+                                          month
+                                        </div>
                                       </div>
+                                      <Badge variant="outline">Moderator</Badge>
                                     </div>
-                                    <Badge variant="outline">Moderator</Badge>
-                                  </div>
-                                ))}
+                                  )
+                                )}
                               </div>
                             </div>
                           )}
@@ -2648,67 +3261,114 @@ export default function SuperadminPage() {
                     {/* Recent Activity and Top Contributors */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div className="bg-white rounded-lg border border-gray-200 p-6">
-                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h4>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                          Recent Activity
+                        </h4>
                         <div className="space-y-3">
-                          {selectedCommunity.recentActivity?.map((activity: any, index: number) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                <span className="text-sm text-gray-700 capitalize">{activity.type}s</span>
+                          {selectedCommunity.recentActivity?.map(
+                            (activity: any, index: number) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                  <span className="text-sm text-gray-700 capitalize">
+                                    {activity.type}s
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-semibold text-gray-900">
+                                    {activity.count}
+                                  </div>
+                                  <div className="text-xs text-gray-600">
+                                    {activity.period}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <div className="font-semibold text-gray-900">{activity.count}</div>
-                                <div className="text-xs text-gray-600">{activity.period}</div>
-                              </div>
-                            </div>
-                          ))}
+                            )
+                          )}
                         </div>
                       </div>
 
                       <div className="bg-white rounded-lg border border-gray-200 p-6">
-                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Top Contributors</h4>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                          Top Contributors
+                        </h4>
                         <div className="space-y-3">
-                          {selectedCommunity.topContributors?.map((contributor: any, index: number) => (
-                            <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-xs font-bold">
-                                {index + 1}
+                          {selectedCommunity.topContributors?.map(
+                            (contributor: any, index: number) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                              >
+                                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-xs font-bold">
+                                  {index + 1}
+                                </div>
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage
+                                    src={
+                                      contributor.avatar || "/placeholder.svg"
+                                    }
+                                  />
+                                  <AvatarFallback>
+                                    {contributor.name?.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-900">
+                                    {contributor.name}
+                                  </div>
+                                  <div className="text-xs text-gray-600">
+                                    {contributor.posts} posts
+                                  </div>
+                                </div>
                               </div>
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={contributor.avatar || "/placeholder.svg"} />
-                                <AvatarFallback>{contributor.name?.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="font-medium text-gray-900">{contributor.name}</div>
-                                <div className="text-xs text-gray-600">{contributor.posts} posts</div>
-                              </div>
-                            </div>
-                          ))}
+                            )
+                          )}
                         </div>
                       </div>
                     </div>
 
                     {/* Community Rules and Guidelines */}
                     <div className="bg-white rounded-lg border border-gray-200 p-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Community Rules & Guidelines</h4>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                        Community Rules & Guidelines
+                      </h4>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div>
-                          <h5 className="font-medium text-gray-800 mb-3">Community Rules</h5>
+                          <h5 className="font-medium text-gray-800 mb-3">
+                            Community Rules
+                          </h5>
                           <ul className="space-y-2">
-                            {selectedCommunity.rules?.map((rule: string, index: number) => (
-                              <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
-                                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                                {rule}
-                              </li>
-                            ))}
+                            {selectedCommunity.rules?.map(
+                              (rule: string, index: number) => (
+                                <li
+                                  key={index}
+                                  className="flex items-start gap-2 text-sm text-gray-700"
+                                >
+                                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                                  {rule}
+                                </li>
+                              )
+                            )}
                           </ul>
                         </div>
                         <div>
-                          <h5 className="font-medium text-gray-800 mb-3">Guidelines</h5>
-                          <p className="text-sm text-gray-700">{selectedCommunity.guidelines}</p>
+                          <h5 className="font-medium text-gray-800 mb-3">
+                            Guidelines
+                          </h5>
+                          <p className="text-sm text-gray-700">
+                            {selectedCommunity.guidelines}
+                          </p>
                           {selectedCommunity.inactiveReason && (
                             <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-                              <div className="text-sm font-medium text-red-800 mb-1">Inactive Reason</div>
-                              <div className="text-sm text-red-700">{selectedCommunity.inactiveReason}</div>
+                              <div className="text-sm font-medium text-red-800 mb-1">
+                                Inactive Reason
+                              </div>
+                              <div className="text-sm text-red-700">
+                                {selectedCommunity.inactiveReason}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -2718,29 +3378,45 @@ export default function SuperadminPage() {
 
                   <TabsContent value="members" className="mt-0">
                     <div className="bg-white rounded-lg border border-gray-200 p-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Member Management</h4>
-                      <p className="text-gray-600">Member management interface would be implemented here.</p>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                        Member Management
+                      </h4>
+                      <p className="text-gray-600">
+                        Member management interface would be implemented here.
+                      </p>
                     </div>
                   </TabsContent>
 
                   <TabsContent value="content" className="mt-0">
                     <div className="bg-white rounded-lg border border-gray-200 p-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Content Management</h4>
-                      <p className="text-gray-600">Content management interface would be implemented here.</p>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                        Content Management
+                      </h4>
+                      <p className="text-gray-600">
+                        Content management interface would be implemented here.
+                      </p>
                     </div>
                   </TabsContent>
 
                   <TabsContent value="moderation" className="mt-0">
                     <div className="bg-white rounded-lg border border-gray-200 p-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Moderation Tools</h4>
-                      <p className="text-gray-600">Moderation tools interface would be implemented here.</p>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                        Moderation Tools
+                      </h4>
+                      <p className="text-gray-600">
+                        Moderation tools interface would be implemented here.
+                      </p>
                     </div>
                   </TabsContent>
 
                   <TabsContent value="settings" className="mt-0">
                     <div className="bg-white rounded-lg border border-gray-200 p-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Community Settings</h4>
-                      <p className="text-gray-600">Community settings interface would be implemented here.</p>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                        Community Settings
+                      </h4>
+                      <p className="text-gray-600">
+                        Community settings interface would be implemented here.
+                      </p>
                     </div>
                   </TabsContent>
                 </div>
@@ -2754,7 +3430,9 @@ export default function SuperadminPage() {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-2xl bg-white border border-gray-200 shadow-xl">
           <DialogHeader className="pb-4 border-b border-gray-200">
-            <DialogTitle className="text-2xl font-bold text-gray-900">Badge Details</DialogTitle>
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              Badge Details
+            </DialogTitle>
             <DialogDescription className="text-gray-600">
               View comprehensive information about this badge
             </DialogDescription>
@@ -2765,15 +3443,24 @@ export default function SuperadminPage() {
               {/* Badge Header */}
               <div className="flex items-start gap-6">
                 <div className="relative">
-                  <div className={`w-24 h-24 rounded-xl bg-gradient-to-br ${getRarityColor(selectedBadge.rarity)} p-1`}>
+                  <div
+                    className={`w-24 h-24 rounded-xl bg-gradient-to-br ${getRarityColor(
+                      selectedBadge.rarity
+                    )} p-1`}
+                  >
                     <img
-                      src={selectedBadge.image || "/placeholder.svg?height=88&width=88"}
+                      src={
+                        selectedBadge.image ||
+                        "/placeholder.svg?height=88&width=88"
+                      }
                       alt={selectedBadge.name}
                       className="w-full h-full rounded-lg object-cover"
                     />
                   </div>
                   <Badge
-                    className={`absolute -bottom-2 -right-2 ${getRarityBadgeColor(selectedBadge.rarity)} text-white text-xs capitalize`}
+                    className={`absolute -bottom-2 -right-2 ${getRarityBadgeColor(
+                      selectedBadge.rarity
+                    )} text-white text-xs capitalize`}
                   >
                     {selectedBadge.rarity}
                   </Badge>
@@ -2781,21 +3468,31 @@ export default function SuperadminPage() {
 
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-2xl font-bold text-gray-900">{selectedBadge.name}</h3>
+                    <h3 className="text-2xl font-bold text-gray-900">
+                      {selectedBadge.name}
+                    </h3>
                     {selectedBadge.isActive ? (
                       <Badge className="bg-green-500 text-white">Active</Badge>
                     ) : (
                       <Badge className="bg-gray-500 text-white">Inactive</Badge>
                     )}
-                    {selectedBadge.isLimited && <Badge className="bg-red-500 text-white">Limited Edition</Badge>}
+                    {selectedBadge.isLimited && (
+                      <Badge className="bg-red-500 text-white">
+                        Limited Edition
+                      </Badge>
+                    )}
                   </div>
-                  <p className="text-gray-600 mb-3">{selectedBadge.description}</p>
+                  <p className="text-gray-600 mb-3">
+                    {selectedBadge.description}
+                  </p>
                   <div className="flex items-center gap-4 text-sm">
                     <Badge variant="outline" className="capitalize">
                       {selectedBadge.category}
                     </Badge>
                     <span className="text-gray-500">•</span>
-                    <span className="font-medium text-purple-600">{selectedBadge.price} points</span>
+                    <span className="font-medium text-purple-600">
+                      {selectedBadge.price} points
+                    </span>
                   </div>
                 </div>
               </div>
@@ -2803,19 +3500,27 @@ export default function SuperadminPage() {
               {/* Badge Statistics */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <div className="text-2xl font-bold text-blue-700">{selectedBadge.purchaseCount || 0}</div>
+                  <div className="text-2xl font-bold text-blue-700">
+                    {selectedBadge.purchaseCount || 0}
+                  </div>
                   <div className="text-sm text-blue-600">Total Sales</div>
                 </div>
                 <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                  <div className="text-2xl font-bold text-green-700">{formatCurrency(selectedBadge.revenue || 0)}</div>
+                  <div className="text-2xl font-bold text-green-700">
+                    {formatCurrency(selectedBadge.revenue || 0)}
+                  </div>
                   <div className="text-sm text-green-600">Revenue</div>
                 </div>
                 <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                  <div className="text-2xl font-bold text-purple-700">{selectedBadge.price}</div>
+                  <div className="text-2xl font-bold text-purple-700">
+                    {selectedBadge.price}
+                  </div>
                   <div className="text-sm text-purple-600">Price (Points)</div>
                 </div>
                 <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-                  <div className="text-2xl font-bold text-yellow-700 capitalize">{selectedBadge.rarity}</div>
+                  <div className="text-2xl font-bold text-yellow-700 capitalize">
+                    {selectedBadge.rarity}
+                  </div>
                   <div className="text-sm text-yellow-600">Rarity</div>
                 </div>
               </div>
@@ -2823,65 +3528,87 @@ export default function SuperadminPage() {
               {/* Limited Edition Details */}
               {selectedBadge.isLimited && (
                 <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-                  <h4 className="font-semibold text-red-800 mb-3">Limited Edition Details</h4>
+                  <h4 className="font-semibold text-red-800 mb-3">
+                    Limited Edition Details
+                  </h4>
                   <div className="grid grid-cols-2 gap-4 mb-3">
                     <div>
                       <div className="text-sm text-red-600">Total Quantity</div>
-                      <div className="text-lg font-bold text-red-800">{selectedBadge.limitedQuantity}</div>
+                      <div className="text-lg font-bold text-red-800">
+                        {selectedBadge.limitedQuantity}
+                      </div>
                     </div>
                     <div>
                       <div className="text-sm text-red-600">Remaining</div>
-                      <div className="text-lg font-bold text-red-800">{selectedBadge.limitedRemaining}</div>
+                      <div className="text-lg font-bold text-red-800">
+                        {selectedBadge.limitedRemaining}
+                      </div>
                     </div>
                   </div>
                   <div className="mb-2">
                     <div className="flex justify-between text-sm text-red-600 mb-1">
                       <span>Sold</span>
                       <span>
-                        {selectedBadge.limitedQuantity && selectedBadge.limitedRemaining !== undefined
-                          ? ((selectedBadge.limitedQuantity - selectedBadge.limitedRemaining) /
+                        {selectedBadge.limitedQuantity &&
+                        selectedBadge.limitedRemaining !== undefined
+                          ? ((selectedBadge.limitedQuantity -
+                              selectedBadge.limitedRemaining) /
                               selectedBadge.limitedQuantity) *
-                              100
+                            100
                           : 0}
                         %
                       </span>
                     </div>
                     <Progress
                       value={
-                        selectedBadge.limitedQuantity && selectedBadge.limitedRemaining !== undefined
-                          ? ((selectedBadge.limitedQuantity - selectedBadge.limitedRemaining) /
+                        selectedBadge.limitedQuantity &&
+                        selectedBadge.limitedRemaining !== undefined
+                          ? ((selectedBadge.limitedQuantity -
+                              selectedBadge.limitedRemaining) /
                               selectedBadge.limitedQuantity) *
-                              100
+                            100
                           : 0
                       }
                       className="h-2"
                     />
                   </div>
                   {selectedBadge.expiresAt && (
-                    <div className="text-sm text-red-600">Expires: {formatDate(selectedBadge.expiresAt)}</div>
+                    <div className="text-sm text-red-600">
+                      Expires: {formatDate(selectedBadge.expiresAt)}
+                    </div>
                   )}
                 </div>
               )}
 
               {/* Badge Metadata */}
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h4 className="font-semibold text-gray-800 mb-3">Badge Information</h4>
+                <h4 className="font-semibold text-gray-800 mb-3">
+                  Badge Information
+                </h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <div className="text-gray-600">Created</div>
-                    <div className="font-medium text-gray-900">{formatDate(selectedBadge.createdAt)}</div>
+                    <div className="font-medium text-gray-900">
+                      {formatDate(selectedBadge.createdAt)}
+                    </div>
                   </div>
                   <div>
                     <div className="text-gray-600">Last Updated</div>
-                    <div className="font-medium text-gray-900">{formatDate(selectedBadge.updatedAt)}</div>
+                    <div className="font-medium text-gray-900">
+                      {formatDate(selectedBadge.updatedAt)}
+                    </div>
                   </div>
                   <div>
                     <div className="text-gray-600">Badge ID</div>
-                    <div className="font-medium text-gray-900 font-mono">{selectedBadge.id}</div>
+                    <div className="font-medium text-gray-900 font-mono">
+                      {selectedBadge.id}
+                    </div>
                   </div>
                   <div>
                     <div className="text-gray-600">Status</div>
-                    <div className="font-medium text-gray-900">{selectedBadge.isActive ? "Active" : "Inactive"}</div>
+                    <div className="font-medium text-gray-900">
+                      {selectedBadge.isActive ? "Active" : "Inactive"}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2889,14 +3616,17 @@ export default function SuperadminPage() {
           )}
 
           <DialogFooter className="pt-4 border-t border-gray-200">
-            <AnimatedButton variant="glass" onClick={() => setIsViewDialogOpen(false)}>
+            <AnimatedButton
+              variant="glass"
+              onClick={() => setIsViewDialogOpen(false)}
+            >
               Close
             </AnimatedButton>
             <AnimatedButton
               onClick={() => {
-                setIsViewDialogOpen(false)
+                setIsViewDialogOpen(false);
                 if (selectedBadge) {
-                  handleEditBadge(selectedBadge)
+                  handleEditBadge(selectedBadge);
                 }
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -2912,13 +3642,19 @@ export default function SuperadminPage() {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl bg-white border border-gray-200 shadow-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-4 border-b border-gray-200">
-            <DialogTitle className="text-2xl font-bold text-gray-900">Create New Badge</DialogTitle>
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              Create New Badge
+            </DialogTitle>
             <DialogDescription className="text-gray-600">
               Design and configure a new badge for the community store
             </DialogDescription>
           </DialogHeader>
 
-          <BadgeForm onSubmit={handleCreateBadge} onCancel={() => setIsCreateDialogOpen(false)} isLoading={isLoading} />
+          <BadgeForm
+            onSubmit={handleCreateBadge}
+            onCancel={() => setIsCreateDialogOpen(false)}
+            isLoading={isLoading}
+          />
         </DialogContent>
       </Dialog>
 
@@ -2926,8 +3662,12 @@ export default function SuperadminPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl bg-white border border-gray-200 shadow-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-4 border-b border-gray-200">
-            <DialogTitle className="text-2xl font-bold text-gray-900">Edit Badge</DialogTitle>
-            <DialogDescription className="text-gray-600">Update badge information and settings</DialogDescription>
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              Edit Badge
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Update badge information and settings
+            </DialogDescription>
           </DialogHeader>
 
           {selectedBadge && (
@@ -2942,7 +3682,10 @@ export default function SuperadminPage() {
       </Dialog>
 
       {/* Enhanced Delete Confirmation Dialog with Fixed Background */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
         <AlertDialogContent className="bg-white border border-gray-200 shadow-xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -2952,13 +3695,15 @@ export default function SuperadminPage() {
             <AlertDialogDescription className="text-gray-600">
               {selectedBadge && (
                 <>
-                  Are you sure you want to delete the badge <strong>"{selectedBadge.name}"</strong>? This action cannot
-                  be undone.
+                  Are you sure you want to delete the badge{" "}
+                  <strong>"{selectedBadge.name}"</strong>? This action cannot be
+                  undone.
                   {(selectedBadge.purchaseCount || 0) > 0 && (
                     <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                       <div className="text-sm text-yellow-800">
-                        <strong>Warning:</strong> This badge has been purchased {selectedBadge.purchaseCount} times.
-                        Deleting it may affect users who own this badge.
+                        <strong>Warning:</strong> This badge has been purchased{" "}
+                        {selectedBadge.purchaseCount} times. Deleting it may
+                        affect users who own this badge.
                       </div>
                     </div>
                   )}
@@ -2991,5 +3736,5 @@ export default function SuperadminPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }
