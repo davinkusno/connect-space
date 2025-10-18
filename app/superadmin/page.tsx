@@ -157,6 +157,7 @@ interface GeographicData {
   users: number;
   communities: number;
   percentage: number;
+  [key: string]: string | number;
 }
 
 interface ContentMetrics {
