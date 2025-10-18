@@ -14,13 +14,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trophy, Calendar, Filter, User } from "lucide-react";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard-table";
 import { TopPerformers } from "@/components/leaderboard/top-performers";
-import { LeaderboardStats } from "@/components/leaderboard/leaderboard-stats";
 import { AchievementBadges } from "@/components/leaderboard/achievement-badges";
 import { PageTransition } from "@/components/ui/page-transition";
 import { StaggerContainer } from "@/components/ui/stagger-container";
 
 // Mock data for demonstration
-const generateMockUsers = (count: number) => {
+const generateMockUsers = (count: number, currentUserEmail?: string) => {
   const usernames = [
     "TechGuru2024",
     "CreativeMinds",
@@ -134,7 +133,7 @@ export default function LeaderboardPage() {
                   <Trophy className="h-8 w-8 text-white" />
                 </div>
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                  Community Leaderboardss
+                  Community Leaderboard
                 </h1>
               </div>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -215,9 +214,6 @@ export default function LeaderboardPage() {
                 </CardContent>
               </Card>
             </div>
-
-            {/* Stats */}
-            <LeaderboardStats />
 
             {/* Main Content */}
             <div className="mt-8">
