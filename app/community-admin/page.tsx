@@ -547,6 +547,26 @@ export default function CommunityAdminPage() {
                       </div>
                     </Link>
 
+                    {/* Discussions Card */}
+                    <Link href="/community-admin/discussions">
+                      <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
+                            <span className="text-white text-sm">💬</span>
+                          </div>
+                          <h4 className="font-semibold text-gray-900">Discussions</h4>
+                        </div>
+                        {/* removed status badge per request */}
+                      </div>
+                      <p className="text-sm text-gray-600">Manage discussion topics and announcements</p>
+                      <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+                        <span>5 active topics</span>
+                        <ChevronRight className="w-4 h-4 text-purple-600" />
+                      </div>
+                      </div>
+                    </Link>
+
                     {/* Members Card */}
                     <Link href="/community-admin/members">
                       <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer">

@@ -895,8 +895,8 @@ export default function SuperadminPage() {
     .sort((a, b) => {
       switch (requestSortBy) {
         case "priority":
-          const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 }
-          return priorityOrder[b.priority] - priorityOrder[a.priority]
+          const priorityOrder: Record<string, number> = { urgent: 4, high: 3, medium: 2, low: 1 }
+          return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0)
         case "oldest":
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         case "newest":
@@ -986,8 +986,6 @@ export default function SuperadminPage() {
   // Analytics calculations
   const totalCommunities = mockAnalyticsData[mockAnalyticsData.length - 1]?.communities || 0
   const totalUsers = mockAnalyticsData[mockAnalyticsData.length - 1]?.users || 0
-  const totalPosts = mockAnalyticsData[mockAnalyticsData.length - 1]?.posts || 0
-  const totalEvents = mockAnalyticsData[mockAnalyticsData.length - 1]?.events || 0
   const avgEngagement = mockAnalyticsData[mockAnalyticsData.length - 1]?.engagement || 0
 
   const previousMonth =
@@ -996,8 +994,6 @@ export default function SuperadminPage() {
     ? ((totalCommunities - previousMonth.communities) / previousMonth.communities) * 100
     : 0
   const userGrowth = previousMonth ? ((totalUsers - previousMonth.users) / previousMonth.users) * 100 : 0
-  const postGrowth = previousMonth ? ((totalPosts - previousMonth.posts) / previousMonth.posts) * 100 : 0
-  const eventGrowth = previousMonth ? ((totalEvents - previousMonth.events) / previousMonth.events) * 100 : 0
 
   // CRUD operations for badges
   const handleCreateBadge = (badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">) => {
@@ -1017,11 +1013,12 @@ export default function SuperadminPage() {
     }, 1000)
   }
 
-  const handleUpdateBadge = (badge: StoreBadge) => {
+  const handleUpdateBadge = (badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">) => {
+    if (!selectedBadge) return
     setIsLoading(true)
     setTimeout(() => {
       const updatedBadges = badges.map((b) =>
-        b.id === badge.id ? { ...badge, updatedAt: new Date().toISOString() } : b,
+        b.id === selectedBadge.id ? { ...badge, id: selectedBadge.id, createdAt: selectedBadge.createdAt, updatedAt: new Date().toISOString() } : b,
       )
       setBadges(updatedBadges)
       setIsLoading(false)
@@ -1181,7 +1178,7 @@ export default function SuperadminPage() {
   }
 
   const getIconComponent = (iconName: string) => {
-    const iconMap = {
+    const iconMap: Record<string, any> = {
       Trophy: Trophy,
       Star: Star,
       Award: Award,
@@ -1509,7 +1506,7 @@ export default function SuperadminPage() {
               </div>
 
               {/* Key Performance Indicators */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <AnimatedCard variant="glass" className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1558,57 +1555,11 @@ export default function SuperadminPage() {
                   </div>
                 </AnimatedCard>
 
-                <AnimatedCard variant="glass" className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Posts</p>
-                      <p className="text-3xl font-bold text-gray-900">{formatNumber(totalPosts)}</p>
-                      <div className="flex items-center mt-2">
-                        {postGrowth >= 0 ? (
-                          <ArrowUpRight className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <ArrowDownRight className="h-4 w-4 text-red-500" />
-                        )}
-                        <span className={`text-sm font-medium ${postGrowth >= 0 ? "text-green-600" : "text-red-600"}`}>
-                          {formatPercentage(postGrowth)}
-                        </span>
-                        <span className="text-sm text-gray-500 ml-1">vs last month</span>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-green-100 rounded-lg">
-                      <MessageCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                </AnimatedCard>
-
-                <AnimatedCard variant="glass" className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Events</p>
-                      <p className="text-3xl font-bold text-gray-900">{formatNumber(totalEvents)}</p>
-                      <div className="flex items-center mt-2">
-                        {eventGrowth >= 0 ? (
-                          <ArrowUpRight className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <ArrowDownRight className="h-4 w-4 text-red-500" />
-                        )}
-                        <span className={`text-sm font-medium ${eventGrowth >= 0 ? "text-green-600" : "text-red-600"}`}>
-                          {formatPercentage(eventGrowth)}
-                        </span>
-                        <span className="text-sm text-gray-500 ml-1">vs last month</span>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-yellow-100 rounded-lg">
-                      <CalendarDays className="h-6 w-6 text-yellow-600" />
-                    </div>
-                  </div>
-                </AnimatedCard>
 
               </div>
 
               {/* Charts Section */}
-              <div className="flex justify-center">
-                <div className="w-full max-w-4xl">
+              <div className="w-full">
                   {/* User Growth Chart */}
                   <AnimatedCard variant="glass" className="p-6">
                     <div className="flex justify-between items-center mb-6">
@@ -1617,16 +1568,18 @@ export default function SuperadminPage() {
                         +12.5% this month
                       </Badge>
                     </div>
-                    <ChartContainer
-                      config={{
-                        users: {
-                          label: "Users",
-                          color: chartColors.primary,
-                        },
-                      }}
-                      className="h-[400px]"
-                    >
-                    <ResponsiveContainer width="100%" height="100%">
+                    <div className="flex justify-center">
+                      <div className="w-full max-w-4xl">
+                        <ChartContainer
+                          config={{
+                            users: {
+                              label: "Users",
+                              color: chartColors.primary,
+                            },
+                          }}
+                          className="h-[400px]"
+                        >
+                        <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={mockAnalyticsData}>
                         <defs>
                           <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1649,8 +1602,9 @@ export default function SuperadminPage() {
                       </AreaChart>
                     </ResponsiveContainer>
                   </ChartContainer>
+                      </div>
+                    </div>
                 </AnimatedCard>
-                </div>
               </div>
 
               {/* Community Performance and Geographic Distribution */}
@@ -2382,7 +2336,9 @@ export default function SuperadminPage() {
                                 <span>Total: {badge.limitedQuantity}</span>
                               </div>
                               <Progress
-                                value={((badge.limitedQuantity - badge.limitedRemaining) / badge.limitedQuantity) * 100}
+                                value={badge.limitedQuantity && badge.limitedRemaining !== undefined 
+                                  ? ((badge.limitedQuantity - badge.limitedRemaining) / badge.limitedQuantity) * 100 
+                                  : 0}
                                 className="h-1 mt-1"
                               />
                             </div>
@@ -2631,7 +2587,7 @@ export default function SuperadminPage() {
                           <div>
                             <label className="text-sm font-medium text-gray-600">Tags</label>
                             <div className="flex flex-wrap gap-2 mt-1">
-                              {selectedCommunity.tags?.map((tag, index) => (
+                              {selectedCommunity.tags?.map((tag: string, index: number) => (
                                 <Badge key={index} variant="outline" className="text-xs">
                                   {tag}
                                 </Badge>
@@ -2664,7 +2620,7 @@ export default function SuperadminPage() {
                             <div>
                               <label className="text-sm font-medium text-gray-600 mb-2 block">Moderators</label>
                               <div className="space-y-2">
-                                {selectedCommunity.moderators.map((mod) => (
+                                {selectedCommunity.moderators.map((mod: any) => (
                                   <div
                                     key={mod.id}
                                     className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
@@ -2694,7 +2650,7 @@ export default function SuperadminPage() {
                       <div className="bg-white rounded-lg border border-gray-200 p-6">
                         <h4 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h4>
                         <div className="space-y-3">
-                          {selectedCommunity.recentActivity?.map((activity, index) => (
+                          {selectedCommunity.recentActivity?.map((activity: any, index: number) => (
                             <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                               <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -2712,7 +2668,7 @@ export default function SuperadminPage() {
                       <div className="bg-white rounded-lg border border-gray-200 p-6">
                         <h4 className="text-lg font-semibold text-gray-900 mb-4">Top Contributors</h4>
                         <div className="space-y-3">
-                          {selectedCommunity.topContributors?.map((contributor, index) => (
+                          {selectedCommunity.topContributors?.map((contributor: any, index: number) => (
                             <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                               <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-xs font-bold">
                                 {index + 1}
@@ -2738,7 +2694,7 @@ export default function SuperadminPage() {
                         <div>
                           <h5 className="font-medium text-gray-800 mb-3">Community Rules</h5>
                           <ul className="space-y-2">
-                            {selectedCommunity.rules?.map((rule, index) => (
+                            {selectedCommunity.rules?.map((rule: string, index: number) => (
                               <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
                                 <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
                                 {rule}
@@ -2882,17 +2838,21 @@ export default function SuperadminPage() {
                     <div className="flex justify-between text-sm text-red-600 mb-1">
                       <span>Sold</span>
                       <span>
-                        {((selectedBadge.limitedQuantity - selectedBadge.limitedRemaining) /
-                          selectedBadge.limitedQuantity) *
-                          100}
+                        {selectedBadge.limitedQuantity && selectedBadge.limitedRemaining !== undefined
+                          ? ((selectedBadge.limitedQuantity - selectedBadge.limitedRemaining) /
+                              selectedBadge.limitedQuantity) *
+                              100
+                          : 0}
                         %
                       </span>
                     </div>
                     <Progress
                       value={
-                        ((selectedBadge.limitedQuantity - selectedBadge.limitedRemaining) /
-                          selectedBadge.limitedQuantity) *
-                        100
+                        selectedBadge.limitedQuantity && selectedBadge.limitedRemaining !== undefined
+                          ? ((selectedBadge.limitedQuantity - selectedBadge.limitedRemaining) /
+                              selectedBadge.limitedQuantity) *
+                              100
+                          : 0
                       }
                       className="h-2"
                     />
@@ -2935,7 +2895,9 @@ export default function SuperadminPage() {
             <AnimatedButton
               onClick={() => {
                 setIsViewDialogOpen(false)
-                handleEditBadge(selectedBadge)
+                if (selectedBadge) {
+                  handleEditBadge(selectedBadge)
+                }
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
@@ -2992,7 +2954,7 @@ export default function SuperadminPage() {
                 <>
                   Are you sure you want to delete the badge <strong>"{selectedBadge.name}"</strong>? This action cannot
                   be undone.
-                  {selectedBadge.purchaseCount > 0 && (
+                  {(selectedBadge.purchaseCount || 0) > 0 && (
                     <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                       <div className="text-sm text-yellow-800">
                         <strong>Warning:</strong> This badge has been purchased {selectedBadge.purchaseCount} times.
