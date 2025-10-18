@@ -2138,7 +2138,110 @@ export default function SuperadminPage() {
                 </AnimatedCard>
               </div>
 
-             
+              {/* Content Performance Metrics */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Content Types Performance */}
+                <AnimatedCard variant="glass" className="p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h4 className="text-lg font-semibold text-gray-900">
+                      Content Performance
+                    </h4>
+                    <Badge
+                      variant="outline"
+                      className="bg-blue-50 text-blue-700 border-blue-200"
+                    >
+                      Last 30 days
+                    </Badge>
+                  </div>
+                  <ChartContainer
+                    config={{
+                      count: {
+                        label: "Count",
+                        color: chartColors.quaternary,
+                      },
+                    }}
+                    className="h-[250px]"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={mockContentMetrics} layout="horizontal">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis type="number" stroke="#666" fontSize={12} />
+                        <YAxis
+                          dataKey="type"
+                          type="category"
+                          stroke="#666"
+                          fontSize={12}
+                          width={100}
+                        />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar
+                          dataKey="count"
+                          fill={chartColors.quaternary}
+                          radius={[0, 4, 4, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </AnimatedCard>
+
+                {/* Engagement Metrics */}
+                <AnimatedCard variant="glass" className="p-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-6">
+                    Engagement Metrics
+                  </h4>
+                  <div className="space-y-4">
+                    {mockContentMetrics.map((metric, index) => (
+                      <div
+                        key={metric.type}
+                        className="p-4 bg-white rounded-lg border border-gray-200"
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <h5 className="font-medium text-gray-900">
+                            {metric.type}
+                          </h5>
+                          <div className="flex items-center gap-2">
+                            {metric.growth >= 0 ? (
+                              <TrendingUp className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <TrendingDown className="h-4 w-4 text-red-500" />
+                            )}
+                            <span
+                              className={`text-sm font-medium ${
+                                metric.growth >= 0
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {formatPercentage(metric.growth)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="text-2xl font-bold text-gray-900">
+                              {formatNumber(metric.count)}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Total items
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-semibold text-blue-600">
+                              {metric.engagement}%
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Engagement
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <Progress value={metric.engagement} className="h-2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </AnimatedCard>
+              </div>
             </TabsContent>
 
             {/* Community Requests Tab - Simplified */}
