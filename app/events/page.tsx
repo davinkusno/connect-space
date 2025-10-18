@@ -103,8 +103,43 @@ export default function EventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [savedEvents, setSavedEvents] = useState<number[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  
+  // API state
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Enhanced mock events data
+  // Fetch events from API
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const params = new URLSearchParams();
+      if (searchQuery) params.append("search", searchQuery);
+      if (selectedCategory !== "all") params.append("category", selectedCategory);
+      if (selectedLocation !== "all") params.append("location", selectedLocation);
+      if (priceRange !== "all") params.append("priceRange", priceRange);
+      if (dateRange !== "all") params.append("dateRange", dateRange);
+      
+      const response = await fetch(`/api/events?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch events");
+      }
+      
+      const data = await response.json();
+      setEvents(data.events || []);
+    } catch (err) {
+      console.error("Error fetching events:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch events");
+      // Fallback to mock data on error
+      setEvents(mockEvents);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Enhanced mock events data (fallback)
   const mockEvents: Event[] = [
     {
       id: 1,
@@ -340,7 +375,7 @@ export default function EventsPage() {
   ];
 
   const filteredEvents = useMemo(() => {
-    let filtered = mockEvents;
+    let filtered = events;
 
     // Location filter
     if (locationQuery) {
@@ -458,6 +493,7 @@ export default function EventsPage() {
 
     return filtered;
   }, [
+    events,
     searchQuery,
     locationQuery,
     selectedCategory,
@@ -516,6 +552,11 @@ export default function EventsPage() {
     if (dateRange !== "all") count++;
     return count;
   };
+
+  // Fetch events on component mount and when filters change
+  useEffect(() => {
+    fetchEvents();
+  }, [searchQuery, selectedCategory, selectedLocation, priceRange, dateRange]);
 
   // Get user location on component mount
   useEffect(() => {
@@ -1030,13 +1071,50 @@ export default function EventsPage() {
                 </div>
               </div>
 
-              <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {filteredEvents.map((event, index) => (
-                  <div key={event.id} className="stagger-item">
-                    <EnhancedEventCard event={event} />
-                  </div>
-                ))}
-              </StaggerContainer>
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <Card key={index} className="overflow-hidden">
+                      <div className="h-48 bg-gray-200 animate-pulse" />
+                      <CardContent className="p-4">
+                        <div className="h-4 bg-gray-200 rounded animate-pulse mb-2" />
+                        <div className="h-4 bg-gray-200 rounded animate-pulse mb-4 w-3/4" />
+                        <div className="space-y-2">
+                          <div className="h-3 bg-gray-200 rounded animate-pulse" />
+                          <div className="h-3 bg-gray-200 rounded animate-pulse w-1/2" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : error ? (
+                <Card className="text-center py-16 border-dashed border-2 border-red-200">
+                  <CardContent>
+                    <div className="text-red-500 mb-4">
+                      <svg className="h-16 w-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      Error Loading Events
+                    </h3>
+                    <p className="text-gray-600 mb-6">
+                      {error}
+                    </p>
+                    <Button onClick={fetchEvents} className="bg-purple-600 hover:bg-purple-700">
+                      Try Again
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {filteredEvents.map((event, index) => (
+                    <div key={event.id} className="stagger-item">
+                      <EnhancedEventCard event={event} />
+                    </div>
+                  ))}
+                </StaggerContainer>
+              )}
 
               {filteredEvents.length === 0 && (
                 <SmoothReveal>

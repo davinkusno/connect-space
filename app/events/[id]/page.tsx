@@ -224,8 +224,41 @@ export default function EventDetailsPage({
 }: {
   params: { id: string };
 }) {
-  // Create a copy of DUMMY_EVENT with the correct ID from params
-  // TODO: Fetch actual event data from Supabase based on params.id
+  const [event, setEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch event data from API
+  const fetchEvent = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`/api/events/${params.id}`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("Event not found");
+        }
+        throw new Error("Failed to fetch event");
+      }
+      
+      const data = await response.json();
+      setEvent(data.event);
+    } catch (err) {
+      console.error("Error fetching event:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch event");
+      // Fallback to dummy data on error
+      setEvent({ ...DUMMY_EVENT, id: params.id });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvent();
+  }, [params.id]);
+
+  // Create a copy of DUMMY_EVENT with the correct ID from params (fallback)
   const baseEvent = { ...DUMMY_EVENT, id: params.id };
 
   // Customize event data based on ID for demo purposes
@@ -290,7 +323,8 @@ export default function EventDetailsPage({
     },
   };
 
-  const event = {
+  // Use API data if available, otherwise fallback to customized dummy data
+  const currentEvent = event || {
     ...baseEvent,
     title: eventTitles[params.id] || baseEvent.title,
     location: eventLocations[params.id] || baseEvent.location,
@@ -346,8 +380,8 @@ export default function EventDetailsPage({
   };
 
   const handleCopyLink = () => {
-    if (event.location.meetingLink) {
-      navigator.clipboard.writeText(event.location.meetingLink);
+    if (currentEvent.location.meetingLink) {
+      navigator.clipboard.writeText(currentEvent.location.meetingLink);
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
     }
@@ -357,14 +391,14 @@ export default function EventDetailsPage({
     // Check if user is logged in
     if (!isLoggedIn) {
       // Redirect to login/register page with return URL
-      router.push("/auth/login?redirect=/events/" + event.id);
+      router.push("/auth/login?redirect=/events/" + currentEvent.id);
       return;
     }
 
     // Directly set as registered (works for both online and onsite)
     setIsRegistered(true);
     // Optionally scroll to location tab for online events
-    if (event.location.isOnline) {
+    if (currentEvent.location.isOnline) {
       const locationTab = document.querySelector('[value="location"]');
       if (locationTab) {
         (locationTab as HTMLElement).click();
@@ -382,7 +416,7 @@ export default function EventDetailsPage({
     // Check if user is logged in
     if (!isLoggedIn) {
       // Redirect to login/register page with return URL
-      router.push("/auth/login?redirect=/events/" + event.id);
+      router.push("/auth/login?redirect=/events/" + currentEvent.id);
       return;
     }
 
@@ -392,10 +426,10 @@ export default function EventDetailsPage({
   };
 
   // Filter related events based on matching tags
-  const relatedEventsByTags = event.relatedEvents
+  const relatedEventsByTags = currentEvent.relatedEvents
     .map((relatedEvent) => {
       const matchingTags = relatedEvent.tags.filter((tag) =>
-        event.tags.includes(tag)
+        currentEvent.tags.includes(tag)
       );
       return {
         ...relatedEvent,
@@ -418,12 +452,49 @@ export default function EventDetailsPage({
     );
   };
 
-  const availableSpots = event.capacity - event.registered;
-  const registrationPercentage = (event.registered / event.capacity) * 100;
+  const availableSpots = currentEvent.capacity - currentEvent.registered;
+  const registrationPercentage = (currentEvent.registered / currentEvent.capacity) * 100;
 
   // Mock user role - replace with actual auth check
   const isAdmin = false; // Set to true if user is community admin
   const [showBanner, setShowBanner] = useState(true);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4" />
+            <div className="h-64 bg-gray-200 rounded mb-6" />
+            <div className="h-6 bg-gray-200 rounded w-1/2 mb-2" />
+            <div className="h-4 bg-gray-200 rounded w-3/4 mb-4" />
+            <div className="h-32 bg-gray-200 rounded" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !currentEvent) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <div className="text-center">
+            <div className="text-red-500 mb-4">
+              <svg className="h-16 w-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Event</h1>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <Button onClick={fetchEvent} className="bg-purple-600 hover:bg-purple-700">
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -444,8 +515,8 @@ export default function EventDetailsPage({
       {/* Hero Section */}
       <div className="relative h-[50vh] md:h-[60vh] lg:h-[70vh] overflow-hidden">
         <img
-          src={event.image || "/placeholder.svg"}
-          alt={event.title}
+          src={currentEvent.image || "/placeholder.svg"}
+          alt={currentEvent.title}
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
@@ -458,37 +529,37 @@ export default function EventDetailsPage({
                 variant="secondary"
                 className="bg-white/20 text-white border-white/30"
               >
-                {event.category}
+                {currentEvent.category}
               </Badge>
             </div>
 
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
-              {event.title}
+              {currentEvent.title}
             </h1>
 
             <div className="flex flex-wrap items-center gap-6 text-white/90 mb-6">
               <div className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                <span className="font-medium">{formatDate(event.date)}</span>
+                <span className="font-medium">{formatDate(currentEvent.date)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
                 <span>
-                  {formatTime(event.time)} - {formatTime(event.endTime)}
+                  {formatTime(currentEvent.time)} - {formatTime(currentEvent.endTime)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                <span>{event.location.venue}</span>
+                <span>{currentEvent.location.venue}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                <span>{event.registered} attending</span>
+                <span>{currentEvent.registered} attending</span>
               </div>
             </div>
 
             <p className="text-lg text-white/90 mb-8 max-w-3xl leading-relaxed">
-              {event.description}
+              {currentEvent.description}
             </p>
           </div>
         </div>
@@ -514,10 +585,10 @@ export default function EventDetailsPage({
             {/* Left: Date & Title */}
             <div className="hidden min-w-0 flex-1 flex-col gap-1 md:flex">
               <time className="text-xs uppercase leading-5 tracking-tight text-gray-500">
-                {formatDate(event.date)} · {formatTime(event.time)}
+                {formatDate(currentEvent.date)} · {formatTime(currentEvent.time)}
               </time>
               <h2 className="text-xl font-semibold text-gray-900 truncate">
-                {event.title}
+                {currentEvent.title}
               </h2>
             </div>
 
@@ -558,9 +629,9 @@ export default function EventDetailsPage({
                         variant="outline"
                         className="border-gray-300 text-gray-700 px-3 py-1.5 text-sm font-medium"
                       >
-                        {event.price.type === "free"
+                        {currentEvent.price.type === "free"
                           ? "FREE"
-                          : `$${event.price.amount}`}
+                          : `$${currentEvent.price.amount}`}
                       </Badge>
                       {/* Spots Left Badge */}
                       <Badge className="bg-orange-100 text-orange-700 border-orange-200 px-3 py-1.5 text-sm font-medium">
@@ -592,7 +663,7 @@ export default function EventDetailsPage({
                         <span className="truncate">
                           {isCheckingAuth
                             ? "Loading..."
-                            : event.location.isOnline
+                            : currentEvent.location.isOnline
                             ? "Attend online"
                             : "Attend onsite"}
                         </span>
@@ -708,12 +779,12 @@ export default function EventDetailsPage({
           <div className="flex flex-wrap gap-3">
             <CalendarIntegration
               event={{
-                title: event.title,
-                description: event.description,
-                startDate: `${event.date}T${event.time}`,
-                endDate: `${event.date}T${event.endTime}`,
-                location: event.location,
-                organizer: event.organizer.name,
+                title: currentEvent.title,
+                description: currentEvent.description,
+                startDate: `${currentEvent.date}T${currentEvent.time}`,
+                endDate: `${currentEvent.date}T${currentEvent.endTime}`,
+                location: currentEvent.location,
+                organizer: currentEvent.organizer.name,
               }}
               variant="default"
             />
@@ -744,7 +815,7 @@ export default function EventDetailsPage({
                 <CardContent>
                   <div className="prose prose-gray max-w-none">
                     <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                      {event.longDescription}
+                      {currentEvent.longDescription}
                     </p>
                   </div>
                 </CardContent>
@@ -757,7 +828,7 @@ export default function EventDetailsPage({
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
-                    {event.tags.map((tag, index) => (
+                    {currentEvent.tags.map((tag, index) => (
                       <Badge
                         key={index}
                         variant="outline"
@@ -782,16 +853,16 @@ export default function EventDetailsPage({
                   <div className="flex items-start gap-4">
                     <Avatar className="h-16 w-16">
                       <AvatarImage
-                        src={event.organizer.image || "/placeholder.svg"}
+                        src={currentEvent.organizer.image || "/placeholder.svg"}
                       />
-                      <AvatarFallback>{event.organizer.name[0]}</AvatarFallback>
+                      <AvatarFallback>{currentEvent.organizer.name[0]}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="font-semibold text-lg">
-                          {event.organizer.name}
+                          {currentEvent.organizer.name}
                         </h3>
-                        {event.organizer.verified && (
+                        {currentEvent.organizer.verified && (
                           <Badge variant="secondary" className="text-xs">
                             <Award className="h-3 w-3 mr-1" />
                             Verified
@@ -816,12 +887,12 @@ export default function EventDetailsPage({
               </Card>
 
               {/* Other Events by Organizer */}
-              {event.organizerEvents && event.organizerEvents.length > 0 && (
+              {currentEvent.organizerEvents && currentEvent.organizerEvents.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Calendar className="h-5 w-5 text-violet-600" />
-                      Other Events by {event.organizer.name}
+                      Other Events by {currentEvent.organizer.name}
                     </CardTitle>
                     <CardDescription>
                       Discover more events from this organizer
@@ -829,7 +900,7 @@ export default function EventDetailsPage({
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {event.organizerEvents.map((orgEvent) => (
+                      {currentEvent.organizerEvents.map((orgEvent) => (
                         <Link
                           key={orgEvent.id}
                           href={`/events/${orgEvent.id}`}
@@ -917,7 +988,7 @@ export default function EventDetailsPage({
                       </div>
                     </div>
                     <CardDescription>
-                      Based on similar tags: {event.tags.slice(0, 3).join(", ")}
+                      Based on similar tags: {currentEvent.tags.slice(0, 3).join(", ")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -1014,7 +1085,7 @@ export default function EventDetailsPage({
             </TabsContent>
 
             <TabsContent value="location" className="space-y-6 mt-6">
-              {event.location.isOnline ? (
+              {currentEvent.location.isOnline ? (
                 <Card>
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -1043,7 +1114,7 @@ export default function EventDetailsPage({
                         <div className="space-y-3">
                           <div className="flex items-center gap-3 text-gray-700">
                             <Calendar className="h-5 w-5 text-gray-500" />
-                            <span>{formatDate(event.date)}</span>
+                            <span>{formatDate(currentEvent.date)}</span>
                           </div>
 
                           <div className="flex items-center gap-3 text-gray-700">
@@ -1053,12 +1124,12 @@ export default function EventDetailsPage({
                                 Online event
                               </span>
                               <a
-                                href={event.location.meetingLink}
+                                href={currentEvent.location.meetingLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="block text-blue-600 hover:text-blue-700 hover:underline mt-0.5"
                               >
-                                {event.location.meetingLink}
+                                {currentEvent.location.meetingLink}
                               </a>
                             </div>
                           </div>
@@ -1121,13 +1192,13 @@ export default function EventDetailsPage({
                   <CardHeader>
                     <CardTitle>Event Location</CardTitle>
                     <CardDescription>
-                      {event.location.venue} • {event.location.address},{" "}
-                      {event.location.city}
+                      {currentEvent.location.venue} • {currentEvent.location.address},{" "}
+                      {currentEvent.location.city}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <InteractiveLeafletMap
-                      location={event.location}
+                      location={currentEvent.location}
                       height="500px"
                       showControls={true}
                       showDirections={true}
@@ -1140,8 +1211,8 @@ export default function EventDetailsPage({
 
             <TabsContent value="discussion" className="mt-6">
               <EventDiscussion
-                eventId={event.id}
-                organizerName={event.organizer.name}
+                eventId={currentEvent.id}
+                organizerName={currentEvent.organizer.name}
                 hasAnnouncement={true}
               />
             </TabsContent>
@@ -1153,7 +1224,7 @@ export default function EventDetailsPage({
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {event.images.map((image, index) => (
+                    {currentEvent.images.map((image, index) => (
                       <div
                         key={index}
                         className="aspect-video rounded-lg overflow-hidden hover:scale-105 transition-transform cursor-pointer"
@@ -1185,9 +1256,9 @@ export default function EventDetailsPage({
       <AttendeesDialog
         open={isAttendeesOpen}
         onOpenChange={setIsAttendeesOpen}
-        totalAttendees={event.registered}
-        maxAttendees={event.capacity}
-        eventTitle={event.title}
+        totalAttendees={currentEvent.registered}
+        maxAttendees={currentEvent.capacity}
+        eventTitle={currentEvent.title}
       />
     </div>
   );
