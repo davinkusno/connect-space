@@ -922,13 +922,6 @@ export default function EventsPage() {
                     )}
                   </Button>
 
-                  <Link href="/events/create">
-                    <Button className="bg-purple-600 hover:bg-purple-700 text-white h-10 px-4 rounded-lg font-medium">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create
-                    </Button>
-                  </Link>
-                </div>
               </div>
 
               {/* Collapsible Filters Panel */}

@@ -6,26 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { MapPin, Navigation, ZoomIn, ZoomOut, Layers, RotateCcw, Locate, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-
-interface Community {
-  id: number
-  name: string
-  description: string
-  memberCount: number
-  location: {
-    lat: number
-    lng: number
-    address: string
-    city: string
-  }
-  category: string
-  image: string
-  tags: string[]
-  upcomingEvents: number
-  memberGrowth: string
-  gradient: string
-  trending: boolean
-}
+import type { Community } from "@/types/community"
 
 interface LeafletCommunitiesMapProps {
   communities: Community[]
@@ -400,7 +381,7 @@ export function LeafletCommunitiesMap({
   // Global function for popup buttons
   useEffect(() => {
     if (typeof window !== "undefined") {
-      ;(window as any).selectCommunity = (communityId: number) => {
+      ;(window as any).selectCommunity = (communityId: string) => {
         const community = communities.find((c) => c.id === communityId)
         if (community) {
           onCommunitySelect?.(community)

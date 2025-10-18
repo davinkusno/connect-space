@@ -66,41 +66,7 @@ import {
   SheetClose
 } from "@/components/ui/sheet"
 import React from "react"
-
-interface Community {
-  id: string
-  name: string
-  description: string
-  category: string
-  tags: string[]
-  memberCount: number
-  averageRating: number
-  location: {
-    lat: number
-    lng: number
-    city: string
-    country: string
-    address: string
-  }
-  activityLevel: string
-  image: string
-  upcomingEvents: number
-  memberGrowth: string
-  gradient: string
-  trending: boolean
-  createdAt: string
-  lastActivity: string
-  engagementScore: number
-  isRecommended?: boolean
-  recommendationScore?: number
-  recommendationReason?: string
-  recommendationMethod?: string
-  isVerified?: boolean
-  isNew?: boolean
-  featured?: boolean
-  language?: string
-  privacy: "public" | "private" | "invite-only"
-}
+import type { Community } from "@/types/community"
 
 interface FilterState {
   categories: string[]
@@ -839,7 +805,7 @@ export default function DiscoverPage() {
           <div className="flex-grow">
             <div className="flex items-center gap-2 mb-2">
               <h3 className="font-bold text-lg text-gray-800 leading-tight truncate">{community.name}</h3>
-              {community.isVerified && <Award className="h-5 w-5 text-blue-500 flex-shrink-0" title="Verified" />}
+              {community.isVerified && <Award className="h-5 w-5 text-blue-500 flex-shrink-0"  />}
               {community.isNew && (
                 <Badge variant="secondary" className="text-xs font-semibold">New</Badge>
               )}
@@ -910,7 +876,7 @@ export default function DiscoverPage() {
                 </Badge>
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="font-bold text-xl text-gray-800 leading-tight">{community.name}</h3>
-                  {community.isVerified && <Award className="h-5 w-5 text-blue-500 flex-shrink-0" title="Verified" />}
+                  {community.isVerified && <Award className="h-5 w-5 text-blue-500 flex-shrink-0"  />}
                 </div>
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">{community.description}</p>
               </div>
@@ -1057,7 +1023,7 @@ export default function DiscoverPage() {
       {/* Content Display */}
       {viewMode === "grid" && (
         <StaggerContainer
-          stagger={0.05}
+          delay={50}
           className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
         >
           {filteredAndSortedCommunities.map((community) => (
@@ -1069,7 +1035,7 @@ export default function DiscoverPage() {
       )}
 
       {viewMode === "list" && (
-        <StaggerContainer stagger={0.05} className="space-y-4">
+        <StaggerContainer delay={50} className="space-y-4">
           {filteredAndSortedCommunities.map((community) => (
             <SmoothReveal key={community.id}>
               <CommunityListItem community={community} />

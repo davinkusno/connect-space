@@ -1,21 +1,16 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { PageTransition } from "@/components/ui/page-transition";
-import { FloatingElements } from "@/components/ui/floating-elements";
-import { AnimatedCard } from "@/components/ui/animated-card";
-import { AnimatedButton } from "@/components/ui/animated-button";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { PageTransition } from "@/components/ui/page-transition"
+import { FloatingElements } from "@/components/ui/floating-elements"
+import { AnimatedCard } from "@/components/ui/animated-card"
+import { AnimatedButton } from "@/components/ui/animated-button"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,59 +20,51 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Spinner } from "@/components/ui/loading-indicators";
-import { BadgeForm } from "@/components/superadmin/badge-form";
-import { BadgeList } from "@/components/superadmin/badge-list";
-import {
-  ShieldAlert,
-  ArrowLeft,
-  Search,
-  Plus,
-  ShoppingBag,
-  Sparkles,
-  AlertTriangle,
-  Info,
-} from "lucide-react";
-import Link from "next/link";
+} from "@/components/ui/alert-dialog"
+import { Spinner } from "@/components/ui/loading-indicators"
+import { BadgeForm } from "@/components/superadmin/badge-form"
+import { BadgeList } from "@/components/superadmin/badge-list"
+import { ShieldAlert, ArrowLeft, Search, Plus, ShoppingBag, Sparkles, AlertTriangle, Info } from "lucide-react"
+import Link from "next/link"
 
 // Mock badge data types
 export interface StoreBadge {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  category: "achievement" | "cosmetic" | "special" | "seasonal";
-  rarity: "common" | "rare" | "epic" | "legendary";
-  price: number;
-  image: string;
-  isActive: boolean;
-  isLimited?: boolean;
-  limitedQuantity?: number;
-  limitedRemaining?: number;
-  expiresAt?: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: "achievement" | "cosmetic" | "special" | "seasonal"
+  rarity: "common" | "rare" | "epic" | "legendary"
+  price: number
+  image: string
+  isActive: boolean
+  isLimited?: boolean
+  limitedQuantity?: number
+  limitedRemaining?: number
+  expiresAt?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export default function BadgeManagementPage() {
-  const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBadge, setSelectedBadge] = useState<StoreBadge | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [sortBy, setSortBy] = useState("newest");
+  const router = useRouter()
+  const [activeTab, setActiveTab] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedBadge, setSelectedBadge] = useState<StoreBadge | null>(null)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [sortBy, setSortBy] = useState("newest")
+  const [filterRarity, setFilterRarity] = useState("all")
 
   // Mock badges data
   const [badges, setBadges] = useState<StoreBadge[]>([
     {
       id: "1",
       name: "Tech Guru",
-      description:
-        "Awarded to members who consistently provide valuable technical insights and help others.",
+      description: "Awarded to members who consistently provide valuable technical insights and help others.",
       icon: "Trophy",
       category: "achievement",
       rarity: "epic",
@@ -103,8 +90,7 @@ export default function BadgeManagementPage() {
     {
       id: "3",
       name: "Community Champion",
-      description:
-        "Reserved for members who have made exceptional contributions to the community.",
+      description: "Reserved for members who have made exceptional contributions to the community.",
       icon: "Award",
       category: "achievement",
       rarity: "legendary",
@@ -117,8 +103,7 @@ export default function BadgeManagementPage() {
     {
       id: "4",
       name: "Holiday Special 2023",
-      description:
-        "Limited edition badge available only during the holiday season.",
+      description: "Limited edition badge available only during the holiday season.",
       icon: "Gift",
       category: "seasonal",
       rarity: "epic",
@@ -135,8 +120,7 @@ export default function BadgeManagementPage() {
     {
       id: "5",
       name: "Founding Member",
-      description:
-        "Exclusive badge for the first 100 members who joined the platform.",
+      description: "Exclusive badge for the first 100 members who joined the platform.",
       icon: "Crown",
       category: "special",
       rarity: "legendary",
@@ -149,48 +133,52 @@ export default function BadgeManagementPage() {
       createdAt: "2023-01-05T12:00:00Z",
       updatedAt: "2023-03-10T15:45:00Z",
     },
-  ]);
+  ])
 
-  // Filter badges based on search query
+  // Filter badges based on search query, tab, and filters
   const filteredBadges = badges.filter((badge) => {
     // Search filter
     const matchesSearch =
       searchQuery === "" ||
       badge.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      badge.description.toLowerCase().includes(searchQuery.toLowerCase());
+      badge.description.toLowerCase().includes(searchQuery.toLowerCase())
 
-    return matchesSearch;
-  });
+    // Tab filter
+    const matchesTab =
+      activeTab === "all" ||
+      (activeTab === "active" && badge.isActive) ||
+      (activeTab === "inactive" && !badge.isActive) ||
+      (activeTab === "limited" && badge.isLimited)
+
+    // Rarity filter
+    const matchesRarity = filterRarity === "all" || badge.rarity === filterRarity
+
+    return matchesSearch && matchesTab && matchesRarity
+  })
 
   // Sort badges
   const sortedBadges = [...filteredBadges].sort((a, b) => {
     switch (sortBy) {
       case "newest":
-        return (
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       case "oldest":
-        return (
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       case "name-asc":
-        return a.name.localeCompare(b.name);
+        return a.name.localeCompare(b.name)
       case "name-desc":
-        return b.name.localeCompare(a.name);
+        return b.name.localeCompare(a.name)
       case "price-high":
-        return b.price - a.price;
+        return b.price - a.price
       case "price-low":
-        return a.price - b.price;
+        return a.price - b.price
       default:
-        return 0;
+        return 0
     }
-  });
+  })
 
   // CRUD operations
-  const handleCreateBadge = (
-    badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">
-  ) => {
-    setIsLoading(true);
+  const handleCreateBadge = (badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">) => {
+    setIsLoading(true)
 
     // Simulate API call
     setTimeout(() => {
@@ -199,59 +187,57 @@ export default function BadgeManagementPage() {
         id: `${badges.length + 1}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      };
+      }
 
-      setBadges([...badges, newBadge]);
-      setIsLoading(false);
-      setIsCreateDialogOpen(false);
-    }, 1000);
-  };
+      setBadges([...badges, newBadge])
+      setIsLoading(false)
+      setIsCreateDialogOpen(false)
+    }, 1000)
+  }
 
   const handleUpdateBadge = (badge: StoreBadge) => {
-    setIsLoading(true);
+    setIsLoading(true)
 
     // Simulate API call
     setTimeout(() => {
       const updatedBadges = badges.map((b) =>
-        b.id === badge.id
-          ? { ...badge, updatedAt: new Date().toISOString() }
-          : b
-      );
-      setBadges(updatedBadges);
-      setIsLoading(false);
-      setIsEditDialogOpen(false);
-    }, 1000);
-  };
+        b.id === badge.id ? { ...badge, updatedAt: new Date().toISOString() } : b,
+      )
+      setBadges(updatedBadges)
+      setIsLoading(false)
+      setIsEditDialogOpen(false)
+    }, 1000)
+  }
 
   const handleDeleteBadge = () => {
-    if (!selectedBadge) return;
+    if (!selectedBadge) return
 
-    setIsLoading(true);
+    setIsLoading(true)
 
     // Simulate API call
     setTimeout(() => {
-      const updatedBadges = badges.filter((b) => b.id !== selectedBadge.id);
-      setBadges(updatedBadges);
-      setIsLoading(false);
-      setIsDeleteDialogOpen(false);
-      setSelectedBadge(null);
-    }, 1000);
-  };
+      const updatedBadges = badges.filter((b) => b.id !== selectedBadge.id)
+      setBadges(updatedBadges)
+      setIsLoading(false)
+      setIsDeleteDialogOpen(false)
+      setSelectedBadge(null)
+    }, 1000)
+  }
 
   const handleViewBadge = (badge: StoreBadge) => {
-    setSelectedBadge(badge);
-    setIsViewDialogOpen(true);
-  };
+    setSelectedBadge(badge)
+    setIsViewDialogOpen(true)
+  }
 
   const handleEditBadge = (badge: StoreBadge) => {
-    setSelectedBadge(badge);
-    setIsEditDialogOpen(true);
-  };
+    setSelectedBadge(badge)
+    setIsEditDialogOpen(true)
+  }
 
   const handleDeleteConfirmation = (badge: StoreBadge) => {
-    setSelectedBadge(badge);
-    setIsDeleteDialogOpen(true);
-  };
+    setSelectedBadge(badge)
+    setIsDeleteDialogOpen(true)
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 relative overflow-hidden">
@@ -263,11 +249,7 @@ export default function BadgeManagementPage() {
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-4">
               <Link href="/superadmin">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-600 hover:text-violet-700"
-                >
+                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-violet-700">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Admin
                 </Button>
@@ -278,9 +260,7 @@ export default function BadgeManagementPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Badge className="bg-purple-600 text-white border-0 px-3 py-1">
-                Superadmin
-              </Badge>
+              <Badge className="bg-purple-600 text-white border-0 px-3 py-1">Superadmin</Badge>
               <AnimatedButton
                 onClick={() => setIsCreateDialogOpen(true)}
                 className="bg-violet-700 hover:bg-violet-800 text-white"
@@ -299,14 +279,9 @@ export default function BadgeManagementPage() {
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-2">
               <ShieldAlert className="h-6 w-6 text-purple-600" />
-              <h1 className="text-3xl font-bold text-gray-900">
-                Store Badge Management
-              </h1>
+              <h1 className="text-3xl font-bold text-gray-900">Store Badge Management</h1>
             </div>
-            <p className="text-gray-600">
-              Create, edit, and manage badges that users can purchase in the
-              store.
-            </p>
+            <p className="text-gray-600">Create, edit, and manage badges that users can purchase in the store.</p>
           </div>
 
           {/* Filters and Search */}
@@ -323,6 +298,18 @@ export default function BadgeManagementPage() {
               </div>
               <div className="flex gap-2">
                 <select
+                  value={filterRarity}
+                  onChange={(e) => setFilterRarity(e.target.value)}
+                  className="w-[140px] glass-effect border-gray-200 focus:border-violet-300 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="all">All Rarities</option>
+                  <option value="common">Common</option>
+                  <option value="rare">Rare</option>
+                  <option value="epic">Epic</option>
+                  <option value="legendary">Legendary</option>
+                </select>
+
+                <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="w-[140px] glass-effect border-gray-200 focus:border-violet-300 rounded-md px-3 py-2 text-sm"
@@ -336,6 +323,36 @@ export default function BadgeManagementPage() {
                 </select>
               </div>
             </div>
+
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-4 glass-effect border-0 p-2 rounded-2xl">
+                <TabsTrigger
+                  value="all"
+                  className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300"
+                >
+                  All Badges
+                </TabsTrigger>
+                <TabsTrigger
+                  value="active"
+                  className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300"
+                >
+                  Active
+                </TabsTrigger>
+                <TabsTrigger
+                  value="inactive"
+                  className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300"
+                >
+                  Inactive
+                </TabsTrigger>
+                <TabsTrigger
+                  value="limited"
+                  className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300"
+                >
+                  Limited Edition
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
           {/* Badge List */}
@@ -343,7 +360,10 @@ export default function BadgeManagementPage() {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-600" />
-                All Badges
+                {activeTab === "all" && "All Badges"}
+                {activeTab === "active" && "Active Badges"}
+                {activeTab === "inactive" && "Inactive Badges"}
+                {activeTab === "limited" && "Limited Edition Badges"}
                 <Badge variant="outline" className="ml-2 bg-gray-100">
                   {sortedBadges.length}
                 </Badge>
@@ -355,13 +375,13 @@ export default function BadgeManagementPage() {
                 <div className="mb-4 text-gray-400">
                   <Search className="h-12 w-12 mx-auto" />
                 </div>
-                <h3 className="text-xl font-medium text-gray-900 mb-2">
-                  No badges found
-                </h3>
+                <h3 className="text-xl font-medium text-gray-900 mb-2">No badges found</h3>
                 <p className="text-gray-500 mb-6">
                   {searchQuery
                     ? `No results for "${searchQuery}"`
-                    : "No badges have been created yet."}
+                    : activeTab !== "all"
+                      ? `No ${activeTab} badges found.`
+                      : "No badges have been created yet."}
                 </p>
                 <AnimatedButton
                   onClick={() => setIsCreateDialogOpen(true)}
@@ -391,16 +411,10 @@ export default function BadgeManagementPage() {
               <Plus className="h-5 w-5 text-purple-600" />
               Create New Badge
             </DialogTitle>
-            <DialogDescription>
-              Fill in the details below to create a new badge for the store.
-            </DialogDescription>
+            <DialogDescription>Fill in the details below to create a new badge for the store.</DialogDescription>
           </DialogHeader>
 
-          <BadgeForm
-            onSubmit={handleCreateBadge}
-            onCancel={() => setIsCreateDialogOpen(false)}
-            isLoading={isLoading}
-          />
+          <BadgeForm onSubmit={handleCreateBadge} onCancel={() => setIsCreateDialogOpen(false)} isLoading={isLoading} />
         </DialogContent>
       </Dialog>
 
@@ -412,9 +426,7 @@ export default function BadgeManagementPage() {
               <Sparkles className="h-5 w-5 text-purple-600" />
               Edit Badge
             </DialogTitle>
-            <DialogDescription>
-              Update the details of this badge.
-            </DialogDescription>
+            <DialogDescription>Update the details of this badge.</DialogDescription>
           </DialogHeader>
 
           {selectedBadge && (
@@ -444,10 +456,7 @@ export default function BadgeManagementPage() {
                 <div className="w-full md:w-1/3 flex justify-center">
                   <div className="relative">
                     <img
-                      src={
-                        selectedBadge.image ||
-                        "/placeholder.svg?height=200&width=200"
-                      }
+                      src={selectedBadge.image || "/placeholder.svg?height=200&width=200"}
                       alt={selectedBadge.name}
                       className="w-40 h-40 rounded-full object-cover border-4 border-gray-100"
                     />
@@ -457,10 +466,7 @@ export default function BadgeManagementPage() {
                           ${selectedBadge.rarity === "common" && "bg-gray-500"}
                           ${selectedBadge.rarity === "rare" && "bg-blue-500"}
                           ${selectedBadge.rarity === "epic" && "bg-purple-500"}
-                          ${
-                            selectedBadge.rarity === "legendary" &&
-                            "bg-yellow-500"
-                          }
+                          ${selectedBadge.rarity === "legendary" && "bg-yellow-500"}
                           text-white border-0 capitalize
                         `}
                       >
@@ -472,14 +478,8 @@ export default function BadgeManagementPage() {
 
                 <div className="w-full md:w-2/3 space-y-4">
                   <div className="flex justify-between items-start">
-                    <h3 className="text-xl font-bold text-gray-900">
-                      {selectedBadge.name}
-                    </h3>
-                    <Badge
-                      className={
-                        selectedBadge.isActive ? "bg-green-500" : "bg-gray-500"
-                      }
-                    >
+                    <h3 className="text-xl font-bold text-gray-900">{selectedBadge.name}</h3>
+                    <Badge className={selectedBadge.isActive ? "bg-green-500" : "bg-gray-500"}>
                       {selectedBadge.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </div>
@@ -489,55 +489,39 @@ export default function BadgeManagementPage() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-500">Category:</span>
-                      <span className="ml-2 font-medium capitalize">
-                        {selectedBadge.category}
-                      </span>
+                      <span className="ml-2 font-medium capitalize">{selectedBadge.category}</span>
                     </div>
                     <div>
                       <span className="text-gray-500">Price:</span>
-                      <span className="ml-2 font-medium">
-                        {selectedBadge.price} points
-                      </span>
+                      <span className="ml-2 font-medium">{selectedBadge.price} points</span>
                     </div>
                     <div>
                       <span className="text-gray-500">Icon:</span>
-                      <span className="ml-2 font-medium">
-                        {selectedBadge.icon}
-                      </span>
+                      <span className="ml-2 font-medium">{selectedBadge.icon}</span>
                     </div>
                     <div>
                       <span className="text-gray-500">Created:</span>
-                      <span className="ml-2 font-medium">
-                        {new Date(selectedBadge.createdAt).toLocaleDateString()}
-                      </span>
+                      <span className="ml-2 font-medium">{new Date(selectedBadge.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
 
                   {selectedBadge.isLimited && (
                     <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-                      <h4 className="font-medium text-red-700 mb-1">
-                        Limited Edition Badge
-                      </h4>
+                      <h4 className="font-medium text-red-700 mb-1">Limited Edition Badge</h4>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
                           <span className="text-red-600">Total Quantity:</span>
-                          <span className="ml-2 font-medium">
-                            {selectedBadge.limitedQuantity}
-                          </span>
+                          <span className="ml-2 font-medium">{selectedBadge.limitedQuantity}</span>
                         </div>
                         <div>
                           <span className="text-red-600">Remaining:</span>
-                          <span className="ml-2 font-medium">
-                            {selectedBadge.limitedRemaining}
-                          </span>
+                          <span className="ml-2 font-medium">{selectedBadge.limitedRemaining}</span>
                         </div>
                         {selectedBadge.expiresAt && (
                           <div className="col-span-2">
                             <span className="text-red-600">Expires:</span>
                             <span className="ml-2 font-medium">
-                              {new Date(
-                                selectedBadge.expiresAt
-                              ).toLocaleDateString()}
+                              {new Date(selectedBadge.expiresAt).toLocaleDateString()}
                             </span>
                           </div>
                         )}
@@ -546,18 +530,15 @@ export default function BadgeManagementPage() {
                   )}
 
                   <div className="pt-4 flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsViewDialogOpen(false)}
-                    >
+                    <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
                       Close
                     </Button>
                     <Button
                       variant="default"
                       className="bg-violet-700 hover:bg-violet-800 text-white"
                       onClick={() => {
-                        setIsViewDialogOpen(false);
-                        handleEditBadge(selectedBadge);
+                        setIsViewDialogOpen(false)
+                        handleEditBadge(selectedBadge)
                       }}
                     >
                       Edit Badge
@@ -571,10 +552,7 @@ export default function BadgeManagementPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-      >
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="glass-effect">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -582,10 +560,9 @@ export default function BadgeManagementPage() {
               Delete Badge
             </AlertDialogTitle>
             <AlertDialogDescription className="text-gray-600">
-              Are you sure you want to delete the badge{" "}
-              <strong>{selectedBadge?.name}</strong>? This action cannot be
-              undone. Users who have already purchased this badge will keep it,
-              but it will no longer be available in the store.
+              Are you sure you want to delete the badge <strong>{selectedBadge?.name}</strong>? This action cannot be
+              undone. Users who have already purchased this badge will keep it, but it will no longer be available in
+              the store.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
