@@ -1008,8 +1008,8 @@ export default function EventsPage() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
-
             {/* All Events Tab */}
             <TabsContent value="all" className="space-y-6">
               <div className="flex items-center justify-between">

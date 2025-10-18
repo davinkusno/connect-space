@@ -238,7 +238,7 @@ export function LeaderboardTable({
                   </div>
                 </div>
 
-                {/* Actions */}
+              {/* Actions */}
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" className="gap-1">
                     <Eye className="h-3 w-3" />
