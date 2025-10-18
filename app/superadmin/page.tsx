@@ -3088,14 +3088,6 @@ export default function SuperadminPage() {
                         {formatDate(selectedBadge.updatedAt)}
                       </div>
                     </div>
-                    <div>
-                      <div className="text-sm text-gray-600 mb-1">
-                        Total Purchases
-                      </div>
-                      <div className="font-semibold text-blue-600 text-lg">
-                        {selectedBadge.purchaseCount || 0}
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
