@@ -36,8 +36,30 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Redirect to dashboard on successful authentication
-        return NextResponse.redirect(`${origin}/dashboard`)
+        // Check user role and redirect accordingly
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("user_type")
+          .eq("id", data.user.id)
+          .single()
+
+        if (userError) {
+          console.error("Error fetching user data:", userError)
+          // Default to dashboard if we can't fetch user data
+          return NextResponse.redirect(`${origin}/dashboard`)
+        }
+
+        // Redirect based on user role
+        const userRole = userData?.user_type
+        switch (userRole) {
+          case "super_admin":
+            return NextResponse.redirect(`${origin}/superadmin`)
+          case "community_admin":
+            return NextResponse.redirect(`${origin}/community-admin-registration`)
+          case "user":
+          default:
+            return NextResponse.redirect(`${origin}/dashboard`)
+        }
       }
     } catch (error) {
       console.error("Unexpected auth callback error:", error)

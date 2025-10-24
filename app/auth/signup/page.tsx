@@ -14,8 +14,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle, Sparkles } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle, Sparkles, ArrowLeft } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { RoleSelection } from "@/components/auth/role-selection"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
@@ -38,6 +39,8 @@ interface ValidationErrors {
 }
 
 export default function SignupPage() {
+  const [currentStep, setCurrentStep] = useState<"role" | "form">("role")
+  const [selectedRole, setSelectedRole] = useState<"user" | "community_admin" | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -150,7 +153,17 @@ export default function SignupPage() {
           description: "Your account has been created successfully.",
           variant: "success",
         })
-        router.push("/dashboard")
+        
+        // Redirect based on user role
+        switch (selectedRole) {
+          case "community_admin":
+            router.push("/community-admin-registration")
+            break
+          case "user":
+          default:
+            router.push("/dashboard")
+            break
+        }
       }
     } catch (err: any) {
       console.error("Signup error:", err)
@@ -211,17 +224,32 @@ export default function SignupPage() {
     }
   }
 
+  const handleRoleSelect = (role: "user" | "community_admin") => {
+    setSelectedRole(role)
+  }
+
+  const handleRoleContinue = () => {
+    if (selectedRole) {
+      setCurrentStep("form")
+    }
+  }
+
+  const handleBackToRole = () => {
+    setCurrentStep("role")
+  }
+
+
   return (
     <PageTransition>
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center p-6 relative overflow-hidden">
         <FloatingElements />
 
-        <div className="w-full max-w-md relative z-10">
+        <div className="w-full max-w-2xl relative z-10">
           <SmoothReveal>
             <AnimatedCard variant="glass" className="overflow-hidden smooth-hover">
               <div className="absolute inset-0 gradient-primary opacity-5"></div>
 
-              <div className="relative z-10 p-8">
+              <div className="relative z-10 p-10">
                 <div className="text-center mb-8">
                   <div className="flex justify-center mb-4">
                     <Image src="/logo.png" alt="Logo" width={64} height={64} className="w-16 h-16" />
@@ -248,14 +276,48 @@ export default function SignupPage() {
                   </SmoothReveal>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                {currentStep === "role" ? (
+                  <RoleSelection
+                    selectedRole={selectedRole}
+                    onRoleSelect={handleRoleSelect}
+                    onContinue={handleRoleContinue}
+                    isLoading={isLoading}
+                  />
+                ) : (
+                  <div className="space-y-6">
+                    {/* Back button */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <button
+                        type="button"
+                        onClick={handleBackToRole}
+                        className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        Back to role selection
+                      </button>
+                    </div>
+
+                    {/* Role indicator */}
+                    <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 mb-6">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-violet-600 rounded-full"></div>
+                        <span className="text-sm font-medium text-violet-800">
+                          Creating account as: {
+                            selectedRole === "community_admin" ? "Community Admin" : 
+                            "Community Member"
+                          }
+                        </span>
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-8">
                   <SmoothReveal delay={100}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
                         <Label htmlFor="firstName" className="text-gray-700 font-medium form-label">
                           First Name
                         </Label>
-                        <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                        <div className="group flex h-14 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
                           <User className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
                           <Input
                             id="firstName"
@@ -271,11 +333,11 @@ export default function SignupPage() {
                           <p className="text-xs text-red-600">{validationErrors.firstName}</p>
                         )}
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Label htmlFor="lastName" className="text-gray-700 font-medium form-label">
                           Last Name
                         </Label>
-                        <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                        <div className="group flex h-14 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
                           <User className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
                           <Input
                             id="lastName"
@@ -293,11 +355,11 @@ export default function SignupPage() {
                   </SmoothReveal>
 
                   <SmoothReveal delay={200}>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Label htmlFor="email" className="text-gray-700 font-medium form-label">
                         Email Address
                       </Label>
-                      <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                      <div className="group flex h-14 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
                         <Mail className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
                         <Input
                           id="email"
@@ -314,11 +376,11 @@ export default function SignupPage() {
                   </SmoothReveal>
 
                   <SmoothReveal delay={300}>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Label htmlFor="password" className="text-gray-700 font-medium form-label">
                         Password
                       </Label>
-                      <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                      <div className="group flex h-14 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
                         <Lock className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
                         <Input
                           id="password"
@@ -342,11 +404,11 @@ export default function SignupPage() {
                   </SmoothReveal>
 
                   <SmoothReveal delay={400}>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Label htmlFor="confirmPassword" className="text-gray-700 font-medium form-label">
                         Confirm Password
                       </Label>
-                      <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                      <div className="group flex h-14 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
                         <Lock className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
                         <Input
                           id="confirmPassword"
@@ -372,7 +434,7 @@ export default function SignupPage() {
                   </SmoothReveal>
 
                   <SmoothReveal delay={500}>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="flex items-start space-x-3">
                         <Checkbox
                           id="terms"
@@ -407,7 +469,7 @@ export default function SignupPage() {
                     <AnimatedButton
                       type="submit"
                       variant="gradient"
-                      className="w-full h-12 text-lg font-medium smooth-hover"
+                      className="w-full h-16 text-lg font-medium smooth-hover"
                       disabled={isLoading}
                     >
                       {isLoading ? (
@@ -438,7 +500,7 @@ export default function SignupPage() {
                         type="button"
                         onClick={handleOAuthSignUp}
                         variant="glass"
-                        className="w-full h-12 border-2 border-gray-200 hover:border-purple-300 smooth-hover"
+                        className="w-full h-16 border-2 border-gray-200 hover:border-purple-300 smooth-hover"
                         disabled={isGoogleLoading || isLoading}
                       >
                         {isGoogleLoading ? (
@@ -484,7 +546,9 @@ export default function SignupPage() {
                       </Link>
                     </div>
                   </SmoothReveal>
-                </form>
+                    </form>
+                  </div>
+                )}
               </div>
             </AnimatedCard>
           </SmoothReveal>
