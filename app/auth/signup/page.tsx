@@ -14,9 +14,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle, Sparkles, ArrowLeft } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle, Sparkles, Users, Crown } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { RoleSelection } from "@/components/auth/role-selection"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
@@ -39,7 +38,6 @@ interface ValidationErrors {
 }
 
 export default function SignupPage() {
-  const [currentStep, setCurrentStep] = useState<"role" | "form">("role")
   const [selectedRole, setSelectedRole] = useState<"user" | "community_admin" | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -228,28 +226,17 @@ export default function SignupPage() {
     setSelectedRole(role)
   }
 
-  const handleRoleContinue = () => {
-    if (selectedRole) {
-      setCurrentStep("form")
-    }
-  }
-
-  const handleBackToRole = () => {
-    setCurrentStep("role")
-  }
-
-
   return (
     <PageTransition>
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center p-6 relative overflow-hidden">
         <FloatingElements />
 
-        <div className="w-full max-w-2xl relative z-10">
+        <div className="w-full max-w-md relative z-10">
           <SmoothReveal>
             <AnimatedCard variant="glass" className="overflow-hidden smooth-hover">
               <div className="absolute inset-0 gradient-primary opacity-5"></div>
 
-              <div className="relative z-10 p-10">
+              <div className="relative z-10 p-8">
                 <div className="text-center mb-8">
                   <div className="flex justify-center mb-4">
                     <Image src="/logo.png" alt="Logo" width={64} height={64} className="w-16 h-16" />
@@ -276,279 +263,311 @@ export default function SignupPage() {
                   </SmoothReveal>
                 )}
 
-                {currentStep === "role" ? (
-                  <RoleSelection
-                    selectedRole={selectedRole}
-                    onRoleSelect={handleRoleSelect}
-                    onContinue={handleRoleContinue}
-                    isLoading={isLoading}
-                  />
-                ) : (
-                  <div className="space-y-6">
-                    {/* Back button */}
-                    <div className="flex items-center gap-2 mb-4">
-                      <button
-                        type="button"
-                        onClick={handleBackToRole}
-                        className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
-                      >
-                        <ArrowLeft className="h-4 w-4" />
-                        Back to role selection
-                      </button>
-                    </div>
+                <div className="space-y-6">
+                  {/* Role Selection */}
+                  <SmoothReveal>
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Choose Your Role</h3>
+                        <p className="text-sm text-gray-600">Select how you want to use ConnectSpace</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button
+                          type="button"
+                          onClick={() => handleRoleSelect("user")}
+                          className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                            selectedRole === "user"
+                              ? "border-purple-500 bg-purple-50"
+                              : "border-gray-200 hover:border-purple-300 hover:bg-purple-25"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-full ${
+                              selectedRole === "user" ? "bg-purple-100" : "bg-gray-100"
+                            }`}>
+                              <Users className={`h-5 w-5 ${
+                                selectedRole === "user" ? "text-purple-600" : "text-gray-600"
+                              }`} />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900">Community Member</h4>
+                              <p className="text-sm text-gray-600">Join communities and connect</p>
+                            </div>
+                            {selectedRole === "user" && (
+                              <CheckCircle className="h-5 w-5 text-purple-600 ml-auto" />
+                            )}
+                          </div>
+                        </button>
 
-                    {/* Role indicator */}
-                    <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 mb-6">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-violet-600 rounded-full"></div>
-                        <span className="text-sm font-medium text-violet-800">
-                          Creating account as: {
-                            selectedRole === "community_admin" ? "Community Admin" : 
-                            "Community Member"
-                          }
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRoleSelect("community_admin")}
+                          className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                            selectedRole === "community_admin"
+                              ? "border-purple-500 bg-purple-50"
+                              : "border-gray-200 hover:border-purple-300 hover:bg-purple-25"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-full ${
+                              selectedRole === "community_admin" ? "bg-purple-100" : "bg-gray-100"
+                            }`}>
+                              <Crown className={`h-5 w-5 ${
+                                selectedRole === "community_admin" ? "text-purple-600" : "text-gray-600"
+                              }`} />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900">Community Admin</h4>
+                              <p className="text-sm text-gray-600">Create and manage communities</p>
+                            </div>
+                            {selectedRole === "community_admin" && (
+                              <CheckCircle className="h-5 w-5 text-purple-600 ml-auto" />
+                            )}
+                          </div>
+                        </button>
                       </div>
                     </div>
+                  </SmoothReveal>
 
-                    <form onSubmit={handleSubmit} className="space-y-8">
-                  <SmoothReveal delay={100}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <Label htmlFor="firstName" className="text-gray-700 font-medium form-label">
-                          First Name
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    <SmoothReveal delay={100}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="firstName" className="text-gray-700 font-medium form-label">
+                            First Name
+                          </Label>
+                          <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                            <User className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
+                            <Input
+                              id="firstName"
+                              type="text"
+                              placeholder="John"
+                              value={formData.firstName}
+                              onChange={(e) => handleInputChange("firstName", e.target.value)}
+                              className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
+                              required
+                            />
+                          </div>
+                          {validationErrors.firstName && (
+                            <p className="text-xs text-red-600">{validationErrors.firstName}</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="lastName" className="text-gray-700 font-medium form-label">
+                            Last Name
+                          </Label>
+                          <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                            <User className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
+                            <Input
+                              id="lastName"
+                              type="text"
+                              placeholder="Doe"
+                              value={formData.lastName}
+                              onChange={(e) => handleInputChange("lastName", e.target.value)}
+                              className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
+                              required
+                            />
+                          </div>
+                          {validationErrors.lastName && <p className="text-xs text-red-600">{validationErrors.lastName}</p>}
+                        </div>
+                    </div>
+                  </SmoothReveal>
+
+                    <SmoothReveal delay={200}>
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="text-gray-700 font-medium form-label">
+                          Email Address
                         </Label>
-                        <div className="group flex h-14 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
-                          <User className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
+                          <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                            <Mail className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
+                            <Input
+                              id="email"
+                              type="email"
+                              placeholder="john.doe@example.com"
+                              value={formData.email}
+                              onChange={(e) => handleInputChange("email", e.target.value)}
+                              className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
+                              required
+                            />
+                          </div>
+                          {validationErrors.email && <p className="text-xs text-red-600">{validationErrors.email}</p>}
+                        </div>
+                    </SmoothReveal>
+
+                    <SmoothReveal delay={300}>
+                      <div className="space-y-2">
+                        <Label htmlFor="password" className="text-gray-700 font-medium form-label">
+                          Password
+                        </Label>
+                        <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                          <Lock className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
                           <Input
-                            id="firstName"
-                            type="text"
-                            placeholder="John"
-                            value={formData.firstName}
-                            onChange={(e) => handleInputChange("firstName", e.target.value)}
-                            className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
+                            id="password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="8+ characters"
+                            value={formData.password}
+                            onChange={(e) => handleInputChange("password", e.target.value)}
+                            className="h-full w-full border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                             required
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="mx-4 text-gray-400 transition-colors duration-300 hover:text-purple-600"
+                          >
+                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
                         </div>
-                        {validationErrors.firstName && (
-                          <p className="text-xs text-red-600">{validationErrors.firstName}</p>
+                        {validationErrors.password && <p className="text-xs text-red-600">{validationErrors.password}</p>}
+                      </div>
+                    </SmoothReveal>
+
+                    <SmoothReveal delay={400}>
+                      <div className="space-y-2">
+                        <Label htmlFor="confirmPassword" className="text-gray-700 font-medium form-label">
+                          Confirm Password
+                        </Label>
+                        <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                          <Lock className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
+                          <Input
+                            id="confirmPassword"
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="Re-enter your password"
+                            value={formData.confirmPassword}
+                            onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                            className="h-full w-full border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="mx-4 text-gray-400 transition-colors duration-300 hover:text-purple-600"
+                          >
+                            {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                        </div>
+                        {validationErrors.confirmPassword && (
+                          <p className="text-xs text-red-600">{validationErrors.confirmPassword}</p>
                         )}
                       </div>
-                      <div className="space-y-3">
-                        <Label htmlFor="lastName" className="text-gray-700 font-medium form-label">
-                          Last Name
-                        </Label>
-                        <div className="group flex h-14 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
-                          <User className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
-                          <Input
-                            id="lastName"
-                            type="text"
-                            placeholder="Doe"
-                            value={formData.lastName}
-                            onChange={(e) => handleInputChange("lastName", e.target.value)}
-                            className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
-                            required
-                          />
+                    </SmoothReveal>
+
+                    <SmoothReveal delay={500}>
+                      <div className="space-y-2">
+                          <div className="flex items-start space-x-3">
+                            <Checkbox
+                              id="terms"
+                              checked={formData.agreeToTerms}
+                              onCheckedChange={(checked) => handleInputChange("agreeToTerms", checked as boolean)}
+                              className="mt-1 text-purple-600 border-gray-300 focus:ring-purple-200 transition-colors duration-200"
+                            />
+                            <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
+                              I agree to the{" "}
+                              <Link
+                                href="/terms"
+                                className="text-purple-600 hover:text-purple-700 hover:underline transition-colors duration-300"
+                              >
+                                Terms of Service
+                              </Link>{" "}
+                              and{" "}
+                              <Link
+                                href="/privacy"
+                                className="text-purple-600 hover:text-purple-700 hover:underline transition-colors duration-300"
+                              >
+                                Privacy Policy
+                              </Link>
+                            </Label>
+                          </div>
+                          {validationErrors.agreeToTerms && (
+                            <p className="text-sm text-red-600 mt-1">{validationErrors.agreeToTerms}</p>
+                          )}
                         </div>
-                        {validationErrors.lastName && <p className="text-xs text-red-600">{validationErrors.lastName}</p>}
-                      </div>
-                    </div>
-                  </SmoothReveal>
+                    </SmoothReveal>
 
-                  <SmoothReveal delay={200}>
-                    <div className="space-y-3">
-                      <Label htmlFor="email" className="text-gray-700 font-medium form-label">
-                        Email Address
-                      </Label>
-                      <div className="group flex h-14 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
-                        <Mail className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="john.doe@example.com"
-                          value={formData.email}
-                          onChange={(e) => handleInputChange("email", e.target.value)}
-                          className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
-                          required
-                        />
-                      </div>
-                      {validationErrors.email && <p className="text-xs text-red-600">{validationErrors.email}</p>}
-                    </div>
-                  </SmoothReveal>
-
-                  <SmoothReveal delay={300}>
-                    <div className="space-y-3">
-                      <Label htmlFor="password" className="text-gray-700 font-medium form-label">
-                        Password
-                      </Label>
-                      <div className="group flex h-14 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
-                        <Lock className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
-                        <Input
-                          id="password"
-                          type={showPassword ? "text" : "password"}
-                          placeholder="8+ characters"
-                          value={formData.password}
-                          onChange={(e) => handleInputChange("password", e.target.value)}
-                          className="h-full w-full border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="mx-4 text-gray-400 transition-colors duration-300 hover:text-purple-600"
-                        >
-                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                        </button>
-                      </div>
-                      {validationErrors.password && <p className="text-xs text-red-600">{validationErrors.password}</p>}
-                    </div>
-                  </SmoothReveal>
-
-                  <SmoothReveal delay={400}>
-                    <div className="space-y-3">
-                      <Label htmlFor="confirmPassword" className="text-gray-700 font-medium form-label">
-                        Confirm Password
-                      </Label>
-                      <div className="group flex h-14 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
-                        <Lock className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
-                        <Input
-                          id="confirmPassword"
-                          type={showConfirmPassword ? "text" : "password"}
-                          placeholder="Re-enter your password"
-                          value={formData.confirmPassword}
-                          onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                          className="h-full w-full border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="mx-4 text-gray-400 transition-colors duration-300 hover:text-purple-600"
-                        >
-                          {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                        </button>
-                      </div>
-                      {validationErrors.confirmPassword && (
-                        <p className="text-xs text-red-600">{validationErrors.confirmPassword}</p>
-                      )}
-                    </div>
-                  </SmoothReveal>
-
-                  <SmoothReveal delay={500}>
-                    <div className="space-y-3">
-                      <div className="flex items-start space-x-3">
-                        <Checkbox
-                          id="terms"
-                          checked={formData.agreeToTerms}
-                          onCheckedChange={(checked) => handleInputChange("agreeToTerms", checked as boolean)}
-                          className="mt-1 text-purple-600 border-gray-300 focus:ring-purple-200 transition-colors duration-200"
-                        />
-                        <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
-                          I agree to the{" "}
-                          <Link
-                            href="/terms"
-                            className="text-purple-600 hover:text-purple-700 hover:underline transition-colors duration-300"
-                          >
-                            Terms of Service
-                          </Link>{" "}
-                          and{" "}
-                          <Link
-                            href="/privacy"
-                            className="text-purple-600 hover:text-purple-700 hover:underline transition-colors duration-300"
-                          >
-                            Privacy Policy
-                          </Link>
-                        </Label>
-                      </div>
-                      {validationErrors.agreeToTerms && (
-                        <p className="text-sm text-red-600 mt-1">{validationErrors.agreeToTerms}</p>
-                      )}
-                    </div>
-                  </SmoothReveal>
-
-                  <SmoothReveal delay={600}>
-                    <AnimatedButton
-                      type="submit"
-                      variant="gradient"
-                      className="w-full h-16 text-lg font-medium smooth-hover"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          Creating Account...
-                        </div>
-                      ) : (
-                        "Create Account"
-                      )}
-                    </AnimatedButton>
-                  </SmoothReveal>
-
-                  <SmoothReveal delay={700}>
-                    <div className="relative my-8">
-                      <div className="absolute inset-0 flex items-center">
-                        <Separator className="bg-gray-200" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-white px-4 text-gray-500 font-medium">Or continue with</span>
-                      </div>
-                    </div>
-                  </SmoothReveal>
-
-                  <SmoothReveal delay={800}>
-                    <div className="w-full">
+                    <SmoothReveal delay={600}>
                       <AnimatedButton
-                        type="button"
-                        onClick={handleOAuthSignUp}
-                        variant="glass"
-                        className="w-full h-16 border-2 border-gray-200 hover:border-purple-300 smooth-hover"
-                        disabled={isGoogleLoading || isLoading}
+                        type="submit"
+                        variant="gradient"
+                        className="w-full h-12 text-lg font-medium smooth-hover"
+                        disabled={isLoading}
                       >
-                        {isGoogleLoading ? (
+                        {isLoading ? (
                           <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                            Signing up...
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Creating Account...
                           </div>
                         ) : (
-                          <>
-                            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                              <path
-                                fill="#4285F4"
-                                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                              />
-                              <path
-                                fill="#34A853"
-                                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                              />
-                              <path
-                                fill="#FBBC05"
-                                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                              />
-                              <path
-                                fill="#EA4335"
-                                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                              />
-                            </svg>
-                            Google
-                          </>
+                          "Create Account"
                         )}
                       </AnimatedButton>
-                    </div>
-                  </SmoothReveal>
+                    </SmoothReveal>
 
-                  <SmoothReveal delay={900}>
-                    <div className="text-center mt-8">
-                      <span className="text-gray-600">Already have an account? </span>
-                      <Link
-                        href="/auth/login"
-                        className="text-purple-600 hover:text-purple-700 font-medium transition-colors duration-300 hover:underline nav-item"
-                      >
-                        Sign in
-                      </Link>
-                    </div>
-                  </SmoothReveal>
-                    </form>
-                  </div>
-                )}
+                    <SmoothReveal delay={700}>
+                      <div className="relative my-8">
+                        <div className="absolute inset-0 flex items-center">
+                          <Separator className="bg-gray-200" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-white px-4 text-gray-500 font-medium">Or continue with</span>
+                        </div>
+                      </div>
+                    </SmoothReveal>
+
+                    <SmoothReveal delay={800}>
+                      <div className="w-full">
+                        <AnimatedButton
+                          type="button"
+                          onClick={handleOAuthSignUp}
+                          variant="glass"
+                          className="w-full h-12 border-2 border-gray-200 hover:border-purple-300 smooth-hover"
+                          disabled={isGoogleLoading || isLoading}
+                        >
+                          {isGoogleLoading ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                              Signing up...
+                            </div>
+                          ) : (
+                            <>
+                              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                                <path
+                                  fill="#4285F4"
+                                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                                />
+                                <path
+                                  fill="#34A853"
+                                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                                />
+                                <path
+                                  fill="#FBBC05"
+                                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                                />
+                                <path
+                                  fill="#EA4335"
+                                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                                />
+                              </svg>
+                              Google
+                            </>
+                          )}
+                        </AnimatedButton>
+                      </div>
+                    </SmoothReveal>
+
+                    <SmoothReveal delay={900}>
+                      <div className="text-center mt-8">
+                        <span className="text-gray-600">Already have an account? </span>
+                        <Link
+                          href="/auth/login"
+                          className="text-purple-600 hover:text-purple-700 font-medium transition-colors duration-300 hover:underline nav-item"
+                        >
+                          Sign in
+                        </Link>
+                      </div>
+                    </SmoothReveal>
+                  </form>
+                </div>
               </div>
             </AnimatedCard>
           </SmoothReveal>

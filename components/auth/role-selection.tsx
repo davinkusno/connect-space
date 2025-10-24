@@ -61,7 +61,7 @@ export function RoleSelection({ selectedRole, onRoleSelect, onContinue, isLoadin
         </div>
       </SmoothReveal>
 
-      <div className="grid gap-8 md:grid-cols-2 max-w-6xl mx-auto">
+      <div className="grid gap-8 md:grid-cols-2 max-w-4xl mx-auto">
         {roles.map((role, index) => {
           const Icon = role.icon;
           const isSelected = selectedRole === role.id;
