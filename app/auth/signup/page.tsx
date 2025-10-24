@@ -231,23 +231,22 @@ export default function SignupPage() {
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center p-6 relative overflow-hidden">
         <FloatingElements />
 
-        <div className="w-full max-w-md relative z-10">
+        <div className="w-full max-w-lg relative z-10">
           <SmoothReveal>
             <AnimatedCard variant="glass" className="overflow-hidden smooth-hover">
               <div className="absolute inset-0 gradient-primary opacity-5"></div>
 
-              <div className="relative z-10 p-8">
-                <div className="text-center mb-8">
-                  <div className="flex justify-center mb-4">
-                    <Image src="/logo.png" alt="Logo" width={64} height={64} className="w-16 h-16" />
+              <div className="relative z-10 p-6">
+                <div className="text-center mb-4">
+                  <div className="flex justify-center mb-2">
+                    <Image src="/logo.png" alt="Logo" width={32} height={32} className="w-8 h-8" />
                   </div>
-                  <h1 className="text-3xl font-bold text-gradient mb-2">Create Account</h1>
-                  <p className="text-gray-600">Join thousands of community members</p>
+                  <h1 className="text-xl font-bold text-gradient mb-1">Create Account</h1>
                 </div>
 
                 {error && (
                   <SmoothReveal>
-                    <Alert className="mb-6 border-red-200 bg-red-50">
+                    <Alert className="mb-4 border-red-200 bg-red-50">
                       <AlertCircle className="h-4 w-4 text-red-600" />
                       <AlertDescription className="text-red-600">{error}</AlertDescription>
                     </Alert>
@@ -256,46 +255,44 @@ export default function SignupPage() {
 
                 {success && (
                   <SmoothReveal>
-                    <Alert className="mb-6 border-green-200 bg-green-50">
+                    <Alert className="mb-4 border-green-200 bg-green-50">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <AlertDescription className="text-green-600">{success}</AlertDescription>
                     </Alert>
                   </SmoothReveal>
                 )}
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Role Selection */}
                   <SmoothReveal>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       <div className="text-center">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Choose Your Role</h3>
-                        <p className="text-sm text-gray-600">Select how you want to use ConnectSpace</p>
+                        <h3 className="text-base font-semibold text-gray-900 mb-2">Choose Your Role</h3>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <button
                           type="button"
                           onClick={() => handleRoleSelect("user")}
-                          className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                          className={`p-3 rounded-lg border-2 transition-all duration-200 text-left ${
                             selectedRole === "user"
                               ? "border-purple-500 bg-purple-50"
                               : "border-gray-200 hover:border-purple-300 hover:bg-purple-25"
                           }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-full ${
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-full ${
                               selectedRole === "user" ? "bg-purple-100" : "bg-gray-100"
                             }`}>
-                              <Users className={`h-5 w-5 ${
+                              <Users className={`h-4 w-4 ${
                                 selectedRole === "user" ? "text-purple-600" : "text-gray-600"
                               }`} />
                             </div>
-                            <div>
-                              <h4 className="font-medium text-gray-900">Community Member</h4>
-                              <p className="text-sm text-gray-600">Join communities and connect</p>
+                            <div className="flex-1">
+                              <h4 className="font-medium text-sm text-gray-900">Member</h4>
                             </div>
                             {selectedRole === "user" && (
-                              <CheckCircle className="h-5 w-5 text-purple-600 ml-auto" />
+                              <CheckCircle className="h-4 w-4 text-purple-600" />
                             )}
                           </div>
                         </button>
@@ -303,26 +300,25 @@ export default function SignupPage() {
                         <button
                           type="button"
                           onClick={() => handleRoleSelect("community_admin")}
-                          className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                          className={`p-3 rounded-lg border-2 transition-all duration-200 text-left ${
                             selectedRole === "community_admin"
                               ? "border-purple-500 bg-purple-50"
                               : "border-gray-200 hover:border-purple-300 hover:bg-purple-25"
                           }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-full ${
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-full ${
                               selectedRole === "community_admin" ? "bg-purple-100" : "bg-gray-100"
                             }`}>
-                              <Crown className={`h-5 w-5 ${
+                              <Crown className={`h-4 w-4 ${
                                 selectedRole === "community_admin" ? "text-purple-600" : "text-gray-600"
                               }`} />
                             </div>
-                            <div>
-                              <h4 className="font-medium text-gray-900">Community Admin</h4>
-                              <p className="text-sm text-gray-600">Create and manage communities</p>
+                            <div className="flex-1">
+                              <h4 className="font-medium text-sm text-gray-900">Admin</h4>
                             </div>
                             {selectedRole === "community_admin" && (
-                              <CheckCircle className="h-5 w-5 text-purple-600 ml-auto" />
+                              <CheckCircle className="h-4 w-4 text-purple-600" />
                             )}
                           </div>
                         </button>
@@ -330,14 +326,14 @@ export default function SignupPage() {
                     </div>
                   </SmoothReveal>
 
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    <SmoothReveal delay={100}>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <SmoothReveal delay={50}>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="firstName" className="text-gray-700 font-medium form-label">
                             First Name
                           </Label>
-                          <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                          <div className="group flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
                             <User className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
                             <Input
                               id="firstName"
@@ -357,7 +353,7 @@ export default function SignupPage() {
                           <Label htmlFor="lastName" className="text-gray-700 font-medium form-label">
                             Last Name
                           </Label>
-                          <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                          <div className="group flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
                             <User className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
                             <Input
                               id="lastName"
@@ -374,86 +370,86 @@ export default function SignupPage() {
                     </div>
                   </SmoothReveal>
 
-                    <SmoothReveal delay={200}>
+                    <SmoothReveal delay={100}>
                       <div className="space-y-2">
                         <Label htmlFor="email" className="text-gray-700 font-medium form-label">
                           Email Address
                         </Label>
-                          <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
-                            <Mail className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
+                        <div className="group flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                          <Mail className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="john.doe@example.com"
+                            value={formData.email}
+                            onChange={(e) => handleInputChange("email", e.target.value)}
+                            className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
+                            required
+                          />
+                        </div>
+                        {validationErrors.email && <p className="text-xs text-red-600">{validationErrors.email}</p>}
+                      </div>
+                    </SmoothReveal>
+
+                    <SmoothReveal delay={150}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="password" className="text-gray-700 font-medium form-label">
+                            Password
+                          </Label>
+                          <div className="group flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                            <Lock className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
                             <Input
-                              id="email"
-                              type="email"
-                              placeholder="john.doe@example.com"
-                              value={formData.email}
-                              onChange={(e) => handleInputChange("email", e.target.value)}
-                              className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
+                              id="password"
+                              type={showPassword ? "text" : "password"}
+                              placeholder="8+ characters"
+                              value={formData.password}
+                              onChange={(e) => handleInputChange("password", e.target.value)}
+                              className="h-full w-full border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                               required
                             />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="mx-4 text-gray-400 transition-colors duration-300 hover:text-purple-600"
+                            >
+                              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
                           </div>
-                          {validationErrors.email && <p className="text-xs text-red-600">{validationErrors.email}</p>}
+                          {validationErrors.password && <p className="text-xs text-red-600">{validationErrors.password}</p>}
                         </div>
-                    </SmoothReveal>
 
-                    <SmoothReveal delay={300}>
-                      <div className="space-y-2">
-                        <Label htmlFor="password" className="text-gray-700 font-medium form-label">
-                          Password
-                        </Label>
-                        <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
-                          <Lock className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
-                          <Input
-                            id="password"
-                            type={showPassword ? "text" : "password"}
-                            placeholder="8+ characters"
-                            value={formData.password}
-                            onChange={(e) => handleInputChange("password", e.target.value)}
-                            className="h-full w-full border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="mx-4 text-gray-400 transition-colors duration-300 hover:text-purple-600"
-                          >
-                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                          </button>
+                        <div className="space-y-2">
+                          <Label htmlFor="confirmPassword" className="text-gray-700 font-medium form-label">
+                            Confirm Password
+                          </Label>
+                          <div className="group flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                            <Lock className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
+                            <Input
+                              id="confirmPassword"
+                              type={showConfirmPassword ? "text" : "password"}
+                              placeholder="Re-enter password"
+                              value={formData.confirmPassword}
+                              onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                              className="h-full w-full border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              className="mx-4 text-gray-400 transition-colors duration-300 hover:text-purple-600"
+                            >
+                              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                          </div>
+                          {validationErrors.confirmPassword && (
+                            <p className="text-xs text-red-600">{validationErrors.confirmPassword}</p>
+                          )}
                         </div>
-                        {validationErrors.password && <p className="text-xs text-red-600">{validationErrors.password}</p>}
                       </div>
                     </SmoothReveal>
 
-                    <SmoothReveal delay={400}>
-                      <div className="space-y-2">
-                        <Label htmlFor="confirmPassword" className="text-gray-700 font-medium form-label">
-                          Confirm Password
-                        </Label>
-                        <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
-                          <Lock className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
-                          <Input
-                            id="confirmPassword"
-                            type={showConfirmPassword ? "text" : "password"}
-                            placeholder="Re-enter your password"
-                            value={formData.confirmPassword}
-                            onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                            className="h-full w-full border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="mx-4 text-gray-400 transition-colors duration-300 hover:text-purple-600"
-                          >
-                            {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                          </button>
-                        </div>
-                        {validationErrors.confirmPassword && (
-                          <p className="text-xs text-red-600">{validationErrors.confirmPassword}</p>
-                        )}
-                      </div>
-                    </SmoothReveal>
-
-                    <SmoothReveal delay={500}>
+                    <SmoothReveal delay={250}>
                       <div className="space-y-2">
                           <div className="flex items-start space-x-3">
                             <Checkbox
@@ -485,11 +481,11 @@ export default function SignupPage() {
                         </div>
                     </SmoothReveal>
 
-                    <SmoothReveal delay={600}>
+                    <SmoothReveal delay={300}>
                       <AnimatedButton
                         type="submit"
                         variant="gradient"
-                        className="w-full h-12 text-lg font-medium smooth-hover"
+                        className="w-full h-10 text-base font-medium smooth-hover"
                         disabled={isLoading}
                       >
                         {isLoading ? (
@@ -503,8 +499,8 @@ export default function SignupPage() {
                       </AnimatedButton>
                     </SmoothReveal>
 
-                    <SmoothReveal delay={700}>
-                      <div className="relative my-8">
+                    <SmoothReveal delay={350}>
+                      <div className="relative my-6">
                         <div className="absolute inset-0 flex items-center">
                           <Separator className="bg-gray-200" />
                         </div>
@@ -514,13 +510,13 @@ export default function SignupPage() {
                       </div>
                     </SmoothReveal>
 
-                    <SmoothReveal delay={800}>
+                    <SmoothReveal delay={400}>
                       <div className="w-full">
                         <AnimatedButton
                           type="button"
                           onClick={handleOAuthSignUp}
                           variant="glass"
-                          className="w-full h-12 border-2 border-gray-200 hover:border-purple-300 smooth-hover"
+                          className="w-full h-10 border-2 border-gray-200 hover:border-purple-300 smooth-hover"
                           disabled={isGoogleLoading || isLoading}
                         >
                           {isGoogleLoading ? (
@@ -555,8 +551,8 @@ export default function SignupPage() {
                       </div>
                     </SmoothReveal>
 
-                    <SmoothReveal delay={900}>
-                      <div className="text-center mt-8">
+                    <SmoothReveal delay={450}>
+                      <div className="text-center mt-6">
                         <span className="text-gray-600">Already have an account? </span>
                         <Link
                           href="/auth/login"
