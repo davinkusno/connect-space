@@ -236,7 +236,6 @@ export function LeaderboardTable({
                       Communities
                     </div>
                   </div>
-                </div>
 
                 {/* Actions */}
                 <div className="flex items-center gap-2">
@@ -318,9 +317,9 @@ export function LeaderboardTable({
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
 
         {/* Load More */}

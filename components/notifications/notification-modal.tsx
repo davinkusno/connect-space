@@ -1,48 +1,49 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { NotificationItem } from "./notification-item"
+import { useState, useMemo } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { NotificationItem } from "./notification-item";
 import {
   Search,
   Bell,
-  MessageCircle,
-  Calendar,
-  Award,
   CheckCheck,
   Trash2,
-  X,
   ChevronLeft,
   ChevronRight,
-} from "lucide-react"
+} from "lucide-react";
 
 export interface Notification {
-  id: string
-  type: "message" | "event" | "achievement" | "system" | "community"
-  title: string
-  content: string
-  timestamp: string
-  isRead: boolean
-  community?: string
-  actionUrl?: string
+  id: string;
+  type: "message" | "event" | "achievement" | "system" | "community";
+  title: string;
+  content: string;
+  timestamp: string;
+  isRead: boolean;
+  community?: string;
+  actionUrl?: string;
 }
 
 interface NotificationModalProps {
-  isOpen: boolean
-  onClose: () => void
-  notifications: Notification[]
-  onMarkAsRead: (id: string) => void
-  onMarkAsUnread: (id: string) => void
-  onDelete: (id: string) => void
-  onMarkAllAsRead: () => void
-  onDeleteAllRead: () => void
+  isOpen: boolean;
+  onClose: () => void;
+  notifications: Notification[];
+  onMarkAsRead: (id: string) => void;
+  onMarkAsUnread: (id: string) => void;
+  onDelete: (id: string) => void;
+  onMarkAllAsRead: () => void;
+  onDeleteAllRead: () => void;
 }
 
-const NOTIFICATIONS_PER_PAGE = 10
+const NOTIFICATIONS_PER_PAGE = 10;
 
 export function NotificationModal({
   isOpen,
@@ -54,99 +55,98 @@ export function NotificationModal({
   onMarkAllAsRead,
   onDeleteAllRead,
 }: NotificationModalProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [activeFilter, setActiveFilter] = useState("all")
-  const [currentPage, setCurrentPage] = useState(1)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const filteredNotifications = useMemo(() => {
-    let filtered = notifications
+    let filtered = notifications;
 
     // Apply search filter
     if (searchQuery) {
       filtered = filtered.filter(
         (notification) =>
-          notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          notification.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          notification.community?.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
+          notification.title
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          notification.content
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          notification.community
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase())
+      );
     }
 
-    // Apply status/type filter
+    // Apply status filter
     switch (activeFilter) {
       case "unread":
-        filtered = filtered.filter((n) => !n.isRead)
-        break
+        filtered = filtered.filter((n) => !n.isRead);
+        break;
       case "read":
-        filtered = filtered.filter((n) => n.isRead)
-        break
-      case "messages":
-        filtered = filtered.filter((n) => n.type === "message")
-        break
-      case "events":
-        filtered = filtered.filter((n) => n.type === "event")
-        break
-      case "achievements":
-        filtered = filtered.filter((n) => n.type === "achievement")
-        break
-      case "system":
-        filtered = filtered.filter((n) => n.type === "system")
-        break
+        filtered = filtered.filter((n) => n.isRead);
+        break;
       default:
         // "all" - no additional filtering
-        break
+        break;
     }
 
     return filtered.sort((a, b) => {
       // Sort by read status (unread first) then by timestamp
       if (a.isRead !== b.isRead) {
-        return a.isRead ? 1 : -1
+        return a.isRead ? 1 : -1;
       }
-      return 0 // Keep original order for same read status
-    })
-  }, [notifications, searchQuery, activeFilter])
+      return 0; // Keep original order for same read status
+    });
+  }, [notifications, searchQuery, activeFilter]);
 
   // Pagination calculations
-  const totalPages = Math.ceil(filteredNotifications.length / NOTIFICATIONS_PER_PAGE)
-  const startIndex = (currentPage - 1) * NOTIFICATIONS_PER_PAGE
-  const endIndex = startIndex + NOTIFICATIONS_PER_PAGE
-  const paginatedNotifications = filteredNotifications.slice(startIndex, endIndex)
+  const totalPages = Math.ceil(
+    filteredNotifications.length / NOTIFICATIONS_PER_PAGE
+  );
+  const startIndex = (currentPage - 1) * NOTIFICATIONS_PER_PAGE;
+  const endIndex = startIndex + NOTIFICATIONS_PER_PAGE;
+  const paginatedNotifications = filteredNotifications.slice(
+    startIndex,
+    endIndex
+  );
 
   // Reset to first page when filters change
   const handleFilterChange = (filter: string) => {
-    setActiveFilter(filter)
-    setCurrentPage(1)
-  }
+    setActiveFilter(filter);
+    setCurrentPage(1);
+  };
 
   const handleSearchChange = (query: string) => {
-    setSearchQuery(query)
-    setCurrentPage(1)
-  }
+    setSearchQuery(query);
+    setCurrentPage(1);
+  };
 
   const handleMarkAsRead = (id: string) => {
-    onMarkAsRead(id)
-  }
+    onMarkAsRead(id);
+  };
 
   const handleMarkAsUnread = (id: string) => {
-    onMarkAsUnread(id)
-  }
+    onMarkAsUnread(id);
+  };
 
   const handleDelete = (id: string) => {
-    onDelete(id)
-  }
+    onDelete(id);
+  };
 
   const handleMarkAllAsRead = () => {
-    onMarkAllAsRead()
-  }
+    onMarkAllAsRead();
+  };
 
   const handleDeleteAllRead = () => {
-    onDeleteAllRead()
-  }
+    onDeleteAllRead();
+  };
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-  }
+    setCurrentPage(page);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -155,8 +155,14 @@ export function NotificationModal({
         <DialogHeader className="flex-shrink-0 p-6 border-b border-gray-200 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <DialogTitle className="text-2xl font-bold text-gray-900">Notifications</DialogTitle>
-              {unreadCount > 0 && <Badge className="bg-red-500 text-white">{unreadCount} unread</Badge>}
+              <DialogTitle className="text-2xl font-bold text-gray-900">
+                Notifications
+              </DialogTitle>
+              {unreadCount > 0 && (
+                <Badge className="bg-red-500 text-white">
+                  {unreadCount} unread
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -200,30 +206,18 @@ export function NotificationModal({
         {/* Filters - Fixed */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200">
           <Tabs value={activeFilter} onValueChange={handleFilterChange}>
-            <TabsList className="grid w-full grid-cols-6 bg-gray-100">
-              <TabsTrigger value="all" className="flex items-center gap-2 text-xs">
-                <Bell className="w-3 h-3" />
+            <TabsList className="grid w-full grid-cols-3 bg-gray-100">
+              <TabsTrigger value="all" className="flex items-center gap-2">
+                <Bell className="w-4 h-4" />
                 All
               </TabsTrigger>
-              <TabsTrigger value="unread" className="flex items-center gap-2 text-xs">
+              <TabsTrigger value="unread" className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-blue-500 rounded-full" />
                 Unread
               </TabsTrigger>
-              <TabsTrigger value="read" className="flex items-center gap-2 text-xs">
-                <CheckCheck className="w-3 h-3" />
+              <TabsTrigger value="read" className="flex items-center gap-2">
+                <CheckCheck className="w-4 h-4" />
                 Read
-              </TabsTrigger>
-              <TabsTrigger value="messages" className="flex items-center gap-2 text-xs">
-                <MessageCircle className="w-3 h-3" />
-                Messages
-              </TabsTrigger>
-              <TabsTrigger value="events" className="flex items-center gap-2 text-xs">
-                <Calendar className="w-3 h-3" />
-                Events
-              </TabsTrigger>
-              <TabsTrigger value="achievements" className="flex items-center gap-2 text-xs">
-                <Award className="w-3 h-3" />
-                Badges
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -235,7 +229,9 @@ export function NotificationModal({
             <div className="text-center py-12">
               <Bell className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {searchQuery || activeFilter !== "all" ? "No notifications found" : "No notifications yet"}
+                {searchQuery || activeFilter !== "all"
+                  ? "No notifications found"
+                  : "No notifications yet"}
               </h3>
               <p className="text-gray-500">
                 {searchQuery || activeFilter !== "all"
@@ -264,7 +260,8 @@ export function NotificationModal({
           <div className="flex-shrink-0 px-6 py-4 border-t border-gray-200 bg-gray-50/50">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600">
-                Showing {startIndex + 1}-{Math.min(endIndex, filteredNotifications.length)} of{" "}
+                Showing {startIndex + 1}-
+                {Math.min(endIndex, filteredNotifications.length)} of{" "}
                 {filteredNotifications.length} notifications
               </div>
 
@@ -281,28 +278,30 @@ export function NotificationModal({
 
                 <div className="flex items-center gap-1">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNumber
+                    let pageNumber;
                     if (totalPages <= 5) {
-                      pageNumber = i + 1
+                      pageNumber = i + 1;
                     } else if (currentPage <= 3) {
-                      pageNumber = i + 1
+                      pageNumber = i + 1;
                     } else if (currentPage >= totalPages - 2) {
-                      pageNumber = totalPages - 4 + i
+                      pageNumber = totalPages - 4 + i;
                     } else {
-                      pageNumber = currentPage - 2 + i
+                      pageNumber = currentPage - 2 + i;
                     }
 
                     return (
                       <Button
                         key={pageNumber}
-                        variant={currentPage === pageNumber ? "default" : "outline"}
+                        variant={
+                          currentPage === pageNumber ? "default" : "outline"
+                        }
                         size="sm"
                         onClick={() => handlePageChange(pageNumber)}
                         className="h-8 w-8 p-0 text-xs"
                       >
                         {pageNumber}
                       </Button>
-                    )
+                    );
                   })}
                 </div>
 
@@ -321,5 +320,5 @@ export function NotificationModal({
         )}
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -20,7 +20,7 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { StaggerContainer } from "@/components/ui/stagger-container";
 
 // Mock data for demonstration
-const generateMockUsers = (count: number) => {
+const generateMockUsers = (count: number, currentUserEmail?: string) => {
   const usernames = [
     "TechGuru2024",
     "CreativeMinds",
@@ -216,8 +216,14 @@ export default function LeaderboardPage() {
               </Card>
             </div>
 
-            {/* Stats */}
-            <LeaderboardStats />
+                    <Button variant="outline" className="gap-2">
+                      <User className="h-4 w-4" />
+                      View My Rank
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div> */}
 
             {/* Main Content */}
             <div className="mt-8">
