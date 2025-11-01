@@ -1,71 +1,87 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { uploadBadgeImage } from "@/lib/supabase"
-import { Upload, Loader2, AlertCircle, X } from "lucide-react"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { uploadBadgeImage } from "@/lib/supabase";
+import { getClientSession } from "@/lib/supabase/client";
+import { Upload, Loader2, AlertCircle, X } from "lucide-react";
 
 interface BadgeImageUploadProps {
-  onImageUrlChange: (url: string) => void
-  currentImageUrl?: string
+  onImageUrlChange: (url: string) => void;
+  currentImageUrl?: string;
 }
 
-export function BadgeImageUpload({ onImageUrlChange, currentImageUrl }: BadgeImageUploadProps) {
-  const [isUploading, setIsUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [preview, setPreview] = useState<string | null>(currentImageUrl || null)
+export function BadgeImageUpload({
+  onImageUrlChange,
+  currentImageUrl,
+}: BadgeImageUploadProps) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(
+    currentImageUrl || null
+  );
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (!file) {
-      console.log("No file selected")
-      return
+      console.log("No file selected");
+      return;
     }
 
-    console.log("File selected:", { name: file.name, size: file.size, type: file.type })
+    console.log("File selected:", {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    });
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
-      const errorMsg = "Please select an image file"
-      console.error(errorMsg)
-      setError(errorMsg)
-      return
+      const errorMsg = "Please select an image file";
+      console.error(errorMsg);
+      setError(errorMsg);
+      return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      const errorMsg = "File size must be less than 5MB"
-      console.error(errorMsg)
-      setError(errorMsg)
-      return
+      const errorMsg = "File size must be less than 5MB";
+      console.error(errorMsg);
+      setError(errorMsg);
+      return;
     }
 
     try {
-      console.log("Starting upload...")
-      setIsUploading(true)
-      setError(null)
+      console.log("Starting upload...");
+      setIsUploading(true);
+      setError(null);
 
-      // Upload to Supabase Storage
-      const publicUrl = await uploadBadgeImage(file)
-      console.log("Upload successful! URL:", publicUrl)
+      // Get auth token
+      const session = await getClientSession();
+      if (!session?.access_token) {
+        throw new Error("No authentication token available");
+      }
+
+      // Upload to Supabase Storage via API
+      const publicUrl = await uploadBadgeImage(file, session.access_token);
+      console.log("Upload successful! URL:", publicUrl);
 
       // Update preview and callback
-      setPreview(publicUrl)
-      onImageUrlChange(publicUrl)
+      setPreview(publicUrl);
+      onImageUrlChange(publicUrl);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Upload failed"
-      console.error("Upload error:", errorMessage, err)
-      setError(errorMessage)
+      const errorMessage = err instanceof Error ? err.message : "Upload failed";
+      console.error("Upload error:", errorMessage, err);
+      setError(errorMessage);
     } finally {
-      setIsUploading(false)
+      setIsUploading(false);
     }
-  }
+  };
 
   const handleClear = () => {
-    setPreview(null)
-    onImageUrlChange("")
-  }
+    setPreview(null);
+    onImageUrlChange("");
+  };
 
   return (
     <div className="space-y-4">
@@ -95,7 +111,9 @@ export function BadgeImageUpload({ onImageUrlChange, currentImageUrl }: BadgeIma
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-2 text-gray-500" />
-                  <span className="text-sm text-gray-600">Click to upload image</span>
+                  <span className="text-sm text-gray-600">
+                    Click to upload image
+                  </span>
                 </>
               )}
             </label>
@@ -133,5 +151,5 @@ export function BadgeImageUpload({ onImageUrlChange, currentImageUrl }: BadgeIma
         </div>
       )}
     </div>
-  )
+  );
 }

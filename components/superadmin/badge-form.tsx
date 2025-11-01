@@ -9,6 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { Spinner } from "@/components/ui/loading-indicators";
 import { Trophy, Eye, Save, X } from "lucide-react";
@@ -19,6 +26,7 @@ export interface StoreBadge {
   name: string;
   description: string;
   icon: string;
+  category: "achievement" | "cosmetic" | "special" | "seasonal";
   price: number;
   image: string;
   isActive: boolean;
@@ -44,6 +52,9 @@ export function BadgeForm({
     name: badge?.name || "",
     description: badge?.description || "",
     icon: "Trophy",
+    category:
+      badge?.category ||
+      ("achievement" as "achievement" | "cosmetic" | "special" | "seasonal"),
     price: badge?.price || 100,
     image_url: badge?.image || "",
     isActive: badge?.isActive ?? true,
@@ -79,7 +90,8 @@ export function BadgeForm({
     if (validateForm()) {
       onSubmit({
         ...formData,
-        image: formData.image_url,
+        category: formData.category,
+        image: formData.image_url || "", // Empty string if no image
         purchaseCount: badge?.purchaseCount || 0,
       });
     }
@@ -148,6 +160,31 @@ export function BadgeForm({
 
                 <div>
                   <Label
+                    htmlFor="category"
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Category *
+                  </Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(
+                      value: "achievement" | "cosmetic" | "special" | "seasonal"
+                    ) => setFormData({ ...formData, category: value })}
+                  >
+                    <SelectTrigger className="mt-1 bg-white border-gray-300 focus:border-purple-500 focus:ring-purple-200">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="achievement">Achievement</SelectItem>
+                      <SelectItem value="cosmetic">Cosmetic</SelectItem>
+                      <SelectItem value="special">Special</SelectItem>
+                      <SelectItem value="seasonal">Seasonal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label
                     htmlFor="price"
                     className="text-sm font-medium text-gray-700"
                   >
@@ -182,7 +219,9 @@ export function BadgeForm({
                 Badge Image
               </h4>
               <BadgeImageUpload
-                onImageUrlChange={(url) => setFormData({ ...formData, image_url: url })}
+                onImageUrlChange={(url) =>
+                  setFormData({ ...formData, image_url: url })
+                }
                 currentImageUrl={formData.image_url}
               />
             </div>
