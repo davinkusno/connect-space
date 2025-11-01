@@ -39,7 +39,6 @@ interface Achievement {
   description: string
   icon: React.ReactNode
   category: "participation" | "contribution" | "milestone" | "special"
-  rarity: "common" | "rare" | "epic" | "legendary"
   points: number
   unlockedAt?: string
   progress?: {
@@ -93,7 +92,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "Welcome to the community! Complete your profile and join your first community.",
       icon: <Star className="h-5 w-5" />,
       category: "milestone",
-      rarity: "common",
       points: 50,
       unlockedAt: "2023-10-15",
       isUnlocked: true,
@@ -105,7 +103,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "Attend 10 community events and make new connections.",
       icon: <Users className="h-5 w-5" />,
       category: "participation",
-      rarity: "rare",
       points: 200,
       unlockedAt: "2023-11-02",
       isUnlocked: true,
@@ -117,7 +114,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "Create 25 posts and share your knowledge with the community.",
       icon: <MessageCircle className="h-5 w-5" />,
       category: "contribution",
-      rarity: "rare",
       points: 300,
       unlockedAt: "2023-11-20",
       isUnlocked: true,
@@ -129,7 +125,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "Receive 100 likes on your posts and comments.",
       icon: <Heart className="h-5 w-5" />,
       category: "contribution",
-      rarity: "epic",
       points: 500,
       unlockedAt: "2023-12-01",
       isUnlocked: true,
@@ -141,7 +136,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "Attend 25 events across different communities.",
       icon: <Calendar className="h-5 w-5" />,
       category: "participation",
-      rarity: "epic",
       points: 750,
       progress: {
         current: 23,
@@ -156,7 +150,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "Reach level 10 and establish yourself as an active community member.",
       icon: <TrendingUp className="h-5 w-5" />,
       category: "milestone",
-      rarity: "epic",
       points: 1000,
       progress: {
         current: 8,
@@ -171,7 +164,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "Connect with members from 10 different communities.",
       icon: <Target className="h-5 w-5" />,
       category: "participation",
-      rarity: "rare",
       points: 400,
       progress: {
         current: 5,
@@ -186,7 +178,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "Become a recognized expert in technology discussions.",
       icon: <Trophy className="h-5 w-5" />,
       category: "special",
-      rarity: "legendary",
       points: 2000,
       isUnlocked: false,
       image: "/placeholder.svg?height=100&width=100",
@@ -197,7 +188,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "Help 20 new members get started in the community.",
       icon: <Award className="h-5 w-5" />,
       category: "contribution",
-      rarity: "epic",
       points: 800,
       progress: {
         current: 12,
@@ -212,7 +202,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "Complete community challenges in record time.",
       icon: <Zap className="h-5 w-5" />,
       category: "special",
-      rarity: "rare",
       points: 350,
       isUnlocked: false,
       image: "/placeholder.svg?height=100&width=100",
@@ -223,7 +212,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "One of the first 100 members to join the platform.",
       icon: <Crown className="h-5 w-5" />,
       category: "special",
-      rarity: "legendary",
       points: 1500,
       unlockedAt: "2023-10-01",
       isUnlocked: true,
@@ -235,7 +223,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
       description: "Propose and lead innovative community initiatives.",
       icon: <Medal className="h-5 w-5" />,
       category: "contribution",
-      rarity: "legendary",
       points: 2500,
       isUnlocked: false,
       image: "/placeholder.svg?height=100&width=100",
@@ -249,16 +236,16 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
     .sort((a, b) => new Date(b.unlockedAt!).getTime() - new Date(a.unlockedAt!).getTime())
     .slice(0, 3)
 
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case "common":
-        return "bg-gray-500"
-      case "rare":
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case "participation":
         return "bg-blue-500"
-      case "epic":
+      case "contribution":
         return "bg-purple-500"
-      case "legendary":
+      case "milestone":
         return "bg-yellow-500"
+      case "special":
+        return "bg-pink-500"
       default:
         return "bg-gray-500"
     }
@@ -417,7 +404,7 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
                       />
                       <div className="absolute -top-1 -right-1">
                         <div
-                          className={`w-5 h-5 ${getRarityColor(achievement.rarity)} rounded-full flex items-center justify-center`}
+                          className={`w-5 h-5 ${getCategoryColor(achievement.category)} rounded-full flex items-center justify-center`}
                         >
                           <AnimatedIcon icon={achievement.icon} animationType="pulse" className="text-white text-xs" />
                         </div>
@@ -427,11 +414,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
                       <h4 className="font-medium text-gray-900">{achievement.name}</h4>
                       <p className="text-sm text-gray-600">{achievement.description}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <Badge
-                          className={`${getRarityColor(achievement.rarity)} text-white border-0 text-xs capitalize`}
-                        >
-                          {achievement.rarity}
-                        </Badge>
                         <Badge variant="outline" className="text-xs border-gray-200 text-gray-600">
                           +{achievement.points} points
                         </Badge>
@@ -479,9 +461,6 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
                           </p>
                         </div>
                       </div>
-                      <Badge className={`${getRarityColor(achievement.rarity)} text-white border-0 text-xs capitalize`}>
-                        {achievement.rarity}
-                      </Badge>
                     </div>
                     {achievement.progress && (
                       <Progress
@@ -515,7 +494,7 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
                           />
                           <div className="absolute -top-1 -right-1">
                             <div
-                              className={`w-5 h-5 ${getRarityColor(achievement.rarity)} rounded-full flex items-center justify-center`}
+                              className={`w-5 h-5 ${getCategoryColor(achievement.category)} rounded-full flex items-center justify-center`}
                             >
                               <AnimatedIcon
                                 icon={achievement.icon}
@@ -537,17 +516,10 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
                         </div>
                       </div>
                       <p className="text-sm text-gray-600 mb-3">{achievement.description}</p>
-                      <div className="flex items-center justify-between">
-                        <Badge
-                          className={`${getRarityColor(achievement.rarity)} text-white border-0 text-xs capitalize`}
-                        >
-                          {achievement.rarity}
-                        </Badge>
-                        <div className="flex items-center gap-1 text-sm">
+                      <div className="flex items-center justify-end gap-1 text-sm">
                           <Sparkles className="h-3 w-3 text-yellow-500" />
                           <span className="font-medium text-gray-900">+{achievement.points}</span>
                         </div>
-                      </div>
                       {achievement.unlockedAt && (
                         <div className="mt-2 pt-2 border-t border-gray-200">
                           <p className="text-xs text-gray-500">
@@ -609,14 +581,9 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
                         />
                       </div>
                     )}
-                    <div className="flex items-center justify-between">
-                      <Badge className={`${getRarityColor(achievement.rarity)} text-white border-0 text-xs capitalize`}>
-                        {achievement.rarity}
-                      </Badge>
-                      <div className="flex items-center gap-1 text-sm">
-                        <Sparkles className="h-3 w-3 text-yellow-500" />
-                        <span className="font-medium text-gray-900">+{achievement.points}</span>
-                      </div>
+                    <div className="flex items-center justify-end gap-1 text-sm">
+                      <Sparkles className="h-3 w-3 text-yellow-500" />
+                      <span className="font-medium text-gray-900">+{achievement.points}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -657,12 +624,9 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
                       </div>
                     </div>
                     <p className="text-sm text-gray-500 mb-3">{achievement.description}</p>
-                    <div className="flex items-center justify-between">
-                      <Badge className="bg-gray-400 text-white border-0 text-xs capitalize">{achievement.rarity}</Badge>
-                      <div className="flex items-center gap-1 text-sm">
-                        <Sparkles className="h-3 w-3 text-gray-400" />
-                        <span className="font-medium text-gray-500">+{achievement.points}</span>
-                      </div>
+                    <div className="flex items-center justify-end gap-1 text-sm">
+                      <Sparkles className="h-3 w-3 text-gray-400" />
+                      <span className="font-medium text-gray-500">+{achievement.points}</span>
                     </div>
                   </CardContent>
                 </Card>

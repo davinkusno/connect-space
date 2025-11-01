@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageTransition } from "@/components/ui/page-transition";
 import { FloatingElements } from "@/components/ui/floating-elements";
@@ -116,7 +116,7 @@ export interface StoreBadge {
   description: string;
   icon: string;
   category: "achievement" | "cosmetic" | "special" | "seasonal";
-  rarity: "common" | "rare" | "epic" | "legendary";
+
   price: number;
   image: string;
   isActive: boolean;
@@ -931,86 +931,112 @@ export default function SuperadminPage() {
   const [isCommunityDetailOpen, setIsCommunityDetailOpen] = useState(false);
   const [communityDetailTab, setCommunityDetailTab] = useState("overview");
 
-  // Mock badges data with enhanced information
-  const [badges, setBadges] = useState<StoreBadge[]>([
-    {
-      id: "1",
-      name: "Tech Guru",
-      description:
-        "Awarded to members who consistently provide valuable technical insights and help others solve complex problems.",
-      icon: "Trophy",
-      price: 1000,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-05-15T10:30:00Z",
-      updatedAt: "2023-05-15T10:30:00Z",
-      purchaseCount: 145,
-    },
-    {
-      id: "2",
-      name: "Event Master",
-      description:
-        "For those who have attended at least 20 community events and actively participate in discussions.",
-      icon: "Star",
-      price: 500,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-06-20T14:15:00Z",
-      updatedAt: "2023-06-20T14:15:00Z",
-      purchaseCount: 289,
-    },
-    {
-      id: "3",
-      name: "Community Champion",
-      description:
-        "Reserved for members who have made exceptional contributions to the community and helped it grow.",
-      icon: "Award",
-      price: 2000,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-04-10T09:45:00Z",
-      updatedAt: "2023-07-05T11:20:00Z",
-      purchaseCount: 67,
-    },
-    {
-      id: "4",
-      name: "Holiday Special 2023",
-      description:
-        "Limited edition badge available only during the holiday season. Features exclusive winter-themed design.",
-      icon: "Gift",
-      price: 1200,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-11-25T08:30:00Z",
-      updatedAt: "2023-11-25T08:30:00Z",
-      purchaseCount: 38,
-    },
-    {
-      id: "5",
-      name: "Founding Member",
-      description:
-        "Exclusive badge for the first 100 members who joined the platform. A mark of true community pioneers.",
-      icon: "Crown",
-      price: 3000,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: false,
-      createdAt: "2023-01-05T12:00:00Z",
-      updatedAt: "2023-03-10T15:45:00Z",
-      purchaseCount: 100,
-    },
-    {
-      id: "6",
-      name: "Creative Spark",
-      description:
-        "For members who consistently share creative content and inspire others with their artistic vision.",
-      icon: "Sparkles",
-      price: 750,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-08-12T16:20:00Z",
-      updatedAt: "2023-08-12T16:20:00Z",
-      purchaseCount: 212,
-    },
+  // Badges state
+  const [badges, setBadges] = useState<StoreBadge[]>([]);
+  const [isBadgesLoading, setIsBadgesLoading] = useState(true);
+  const [badgesError, setBadgesError] = useState<string | null>(null);
+
+  // Fetch badges on mount
+  useEffect(() => {
+    fetchBadges();
+  }, []);
+
+  const fetchBadges = async () => {
+    try {
+      setIsBadgesLoading(true);
+      setBadgesError(null);
+      const response = await fetch("/api/badges");
+      if (!response.ok) throw new Error("Failed to fetch badges");
+      const data = await response.json();
+      setBadges(data);
+    } catch (error) {
+      setBadgesError(error instanceof Error ? error.message : "Failed to load badges");
+      console.error("Error fetching badges:", error);
+    } finally {
+      setIsBadgesLoading(false);
+    }
+  };
+
+  // Mock badges data with enhanced information (backup)
+  const [mockBadges] = useState<StoreBadge[]>([
+    // {
+    //   id: "1",
+    //   name: "Tech Guru",
+    //   description:
+    //     "Awarded to members who consistently provide valuable technical insights and help others solve complex problems.",
+    //   icon: "Trophy",
+    //   price: 1000,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: true,
+    //   createdAt: "2023-05-15T10:30:00Z",
+    //   updatedAt: "2023-05-15T10:30:00Z",
+    //   purchaseCount: 145,
+    // },
+    // {
+    //   id: "2",
+    //   name: "Event Master",
+    //   description:
+    //     "For those who have attended at least 20 community events and actively participate in discussions.",
+    //   icon: "Star",
+    //   price: 500,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: true,
+    //   createdAt: "2023-06-20T14:15:00Z",
+    //   updatedAt: "2023-06-20T14:15:00Z",
+    //   purchaseCount: 289,
+    // },
+    // {
+    //   id: "3",
+    //   name: "Community Champion",
+    //   description:
+    //     "Reserved for members who have made exceptional contributions to the community and helped it grow.",
+    //   icon: "Award",
+    //   price: 2000,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: true,
+    //   createdAt: "2023-04-10T09:45:00Z",
+    //   updatedAt: "2023-07-05T11:20:00Z",
+    //   purchaseCount: 67,
+    // },
+    // {
+    //   id: "4",
+    //   name: "Holiday Special 2023",
+    //   description:
+    //     "Limited edition badge available only during the holiday season. Features exclusive winter-themed design.",
+    //   icon: "Gift",
+    //   price: 1200,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: true,
+    //   createdAt: "2023-11-25T08:30:00Z",
+    //   updatedAt: "2023-11-25T08:30:00Z",
+    //   purchaseCount: 38,
+    // },
+    // {
+    //   id: "5",
+    //   name: "Founding Member",
+    //   description:
+    //     "Exclusive badge for the first 100 members who joined the platform. A mark of true community pioneers.",
+    //   icon: "Crown",
+    //   price: 3000,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: false,
+    //   createdAt: "2023-01-05T12:00:00Z",
+    //   updatedAt: "2023-03-10T15:45:00Z",
+    //   purchaseCount: 100,
+    // },
+    // {
+    //   id: "6",
+    //   name: "Creative Spark",
+    //   description:
+    //     "For members who consistently share creative content and inspire others with their artistic vision.",
+    //   icon: "Sparkles",
+    //   price: 750,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: true,
+    //   createdAt: "2023-08-12T16:20:00Z",
+    //   updatedAt: "2023-08-12T16:20:00Z",
+    //   purchaseCount: 212,
+    // },
   ]);
 
   // Calculate request statistics
@@ -1160,22 +1186,31 @@ export default function SuperadminPage() {
     : 0;
 
   // CRUD operations for badges
-  const handleCreateBadge = (
+  const handleCreateBadge = async (
     badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">
   ) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      const newBadge: StoreBadge = {
-        ...badge,
-        id: `${badges.length + 1}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        purchaseCount: 0,
-      };
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/badges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(badge),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create badge");
+      }
+
+      const newBadge = await response.json();
       setBadges([...badges, newBadge]);
-      setIsLoading(false);
       setIsCreateDialogOpen(false);
-    }, 1000);
+    } catch (error) {
+      console.error("Error creating badge:", error);
+      alert(error instanceof Error ? error.message : "Failed to create badge");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleUpdateBadge = (
@@ -1337,35 +1372,9 @@ export default function SuperadminPage() {
     }
   };
 
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case "common":
-        return "from-gray-400 to-gray-600";
-      case "rare":
-        return "from-blue-400 to-blue-600";
-      case "epic":
-        return "from-purple-400 to-purple-600";
-      case "legendary":
-        return "from-yellow-400 to-yellow-600";
-      default:
-        return "from-gray-400 to-gray-600";
-    }
-  };
 
-  const getRarityBadgeColor = (rarity: string) => {
-    switch (rarity) {
-      case "common":
-        return "bg-gray-500";
-      case "rare":
-        return "bg-blue-500";
-      case "epic":
-        return "bg-purple-500";
-      case "legendary":
-        return "bg-yellow-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
+
+
 
   const getIconComponent = (iconName: string) => {
     const iconMap: Record<string, any> = {
@@ -2859,3 +2868,4 @@ export default function SuperadminPage() {
     </div>
   );
 }
+

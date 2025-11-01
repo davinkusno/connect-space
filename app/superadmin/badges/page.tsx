@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PageTransition } from "@/components/ui/page-transition";
 import { FloatingElements } from "@/components/ui/floating-elements";
@@ -48,14 +48,9 @@ export interface StoreBadge {
   description: string;
   icon: string;
   category: "achievement" | "cosmetic" | "special" | "seasonal";
-  rarity: "common" | "rare" | "epic" | "legendary";
   price: number;
   image: string;
   isActive: boolean;
-  isLimited?: boolean;
-  limitedQuantity?: number;
-  limitedRemaining?: number;
-  expiresAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -71,85 +66,31 @@ export default function BadgeManagementPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
 
-  // Mock badges data
-  const [badges, setBadges] = useState<StoreBadge[]>([
-    {
-      id: "1",
-      name: "Tech Guru",
-      description:
-        "Awarded to members who consistently provide valuable technical insights and help others.",
-      icon: "Trophy",
-      category: "achievement",
-      rarity: "epic",
-      price: 1000,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-05-15T10:30:00Z",
-      updatedAt: "2023-05-15T10:30:00Z",
-    },
-    {
-      id: "2",
-      name: "Event Master",
-      description: "For those who have attended at least 20 community events.",
-      icon: "Star",
-      category: "achievement",
-      rarity: "rare",
-      price: 500,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-06-20T14:15:00Z",
-      updatedAt: "2023-06-20T14:15:00Z",
-    },
-    {
-      id: "3",
-      name: "Community Champion",
-      description:
-        "Reserved for members who have made exceptional contributions to the community.",
-      icon: "Award",
-      category: "achievement",
-      rarity: "legendary",
-      price: 2000,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-04-10T09:45:00Z",
-      updatedAt: "2023-07-05T11:20:00Z",
-    },
-    {
-      id: "4",
-      name: "Holiday Special 2023",
-      description:
-        "Limited edition badge available only during the holiday season.",
-      icon: "Gift",
-      category: "seasonal",
-      rarity: "epic",
-      price: 1200,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      isLimited: true,
-      limitedQuantity: 50,
-      limitedRemaining: 12,
-      expiresAt: "2024-01-01T00:00:00Z",
-      createdAt: "2023-11-25T08:30:00Z",
-      updatedAt: "2023-11-25T08:30:00Z",
-    },
-    {
-      id: "5",
-      name: "Founding Member",
-      description:
-        "Exclusive badge for the first 100 members who joined the platform.",
-      icon: "Crown",
-      category: "special",
-      rarity: "legendary",
-      price: 3000,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: false,
-      isLimited: true,
-      limitedQuantity: 100,
-      limitedRemaining: 0,
-      createdAt: "2023-01-05T12:00:00Z",
-      updatedAt: "2023-03-10T15:45:00Z",
-    },
-  ]);
+  // Badges state
+  const [badges, setBadges] = useState<StoreBadge[]>([]);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch badges on mount
+  useEffect(() => {
+    fetchBadges();
+  }, []);
+
+  const fetchBadges = async () => {
+    try {
+      setIsPageLoading(true);
+      setError(null);
+      const response = await fetch("/api/badges");
+      if (!response.ok) throw new Error("Failed to fetch badges");
+      const data = await response.json();
+      setBadges(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load badges");
+      console.error("Error fetching badges:", err);
+    } finally {
+      setIsPageLoading(false);
+    }
+  };
 
   // Filter badges based on search query
   const filteredBadges = badges.filter((badge) => {
@@ -187,55 +128,91 @@ export default function BadgeManagementPage() {
   });
 
   // CRUD operations
-  const handleCreateBadge = (
+  const handleCreateBadge = async (
     badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">
   ) => {
-    setIsLoading(true);
+    try {
+      setIsLoading(true);
+      setError(null);
 
-    // Simulate API call
-    setTimeout(() => {
-      const newBadge: StoreBadge = {
-        ...badge,
-        id: `${badges.length + 1}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      const response = await fetch("/api/badges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(badge),
+      });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create badge");
+      }
+
+      const newBadge = await response.json();
       setBadges([...badges, newBadge]);
-      setIsLoading(false);
       setIsCreateDialogOpen(false);
-    }, 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create badge");
+      console.error("Error creating badge:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleUpdateBadge = (badge: StoreBadge) => {
-    setIsLoading(true);
+  const handleUpdateBadge = async (badge: StoreBadge) => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-    // Simulate API call
-    setTimeout(() => {
+      const response = await fetch(`/api/badges/${badge.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(badge),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update badge");
+      }
+
+      const updatedBadge = await response.json();
       const updatedBadges = badges.map((b) =>
-        b.id === badge.id
-          ? { ...badge, updatedAt: new Date().toISOString() }
-          : b
+        b.id === badge.id ? updatedBadge : b
       );
       setBadges(updatedBadges);
-      setIsLoading(false);
       setIsEditDialogOpen(false);
-    }, 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update badge");
+      console.error("Error updating badge:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDeleteBadge = () => {
+  const handleDeleteBadge = async () => {
     if (!selectedBadge) return;
 
-    setIsLoading(true);
+    try {
+      setIsLoading(true);
+      setError(null);
 
-    // Simulate API call
-    setTimeout(() => {
+      const response = await fetch(`/api/badges/${selectedBadge.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete badge");
+      }
+
       const updatedBadges = badges.filter((b) => b.id !== selectedBadge.id);
       setBadges(updatedBadges);
-      setIsLoading(false);
       setIsDeleteDialogOpen(false);
       setSelectedBadge(null);
-    }, 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete badge");
+      console.error("Error deleting badge:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleViewBadge = (badge: StoreBadge) => {
@@ -309,77 +286,99 @@ export default function BadgeManagementPage() {
             </p>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-red-900">Error</p>
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {isPageLoading && (
+            <div className="flex justify-center items-center py-12">
+              <Spinner size="lg" />
+            </div>
+          )}
+
           {/* Filters and Search */}
-          <div className="mb-8">
-            <div className="flex flex-col lg:flex-row gap-4 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search badges by name or description..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 border-gray-200 focus:border-violet-300 focus:ring-violet-200 glass-effect"
-                />
-              </div>
-              <div className="flex gap-2">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-[140px] glass-effect border-gray-200 focus:border-violet-300 rounded-md px-3 py-2 text-sm"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="name-asc">Name (A-Z)</option>
-                  <option value="name-desc">Name (Z-A)</option>
-                  <option value="price-high">Price (High-Low)</option>
-                  <option value="price-low">Price (Low-High)</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Badge List */}
-          <AnimatedCard variant="glass" className="p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-600" />
-                All Badges
-                <Badge variant="outline" className="ml-2 bg-gray-100">
-                  {sortedBadges.length}
-                </Badge>
-              </h2>
-            </div>
-
-            {sortedBadges.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="mb-4 text-gray-400">
-                  <Search className="h-12 w-12 mx-auto" />
+          {!isPageLoading && (
+            <>
+              <div className="mb-8">
+                <div className="flex flex-col lg:flex-row gap-4 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search badges by name or description..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 border-gray-200 focus:border-violet-300 focus:ring-violet-200 glass-effect"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="w-[140px] glass-effect border-gray-200 focus:border-violet-300 rounded-md px-3 py-2 text-sm"
+                    >
+                      <option value="newest">Newest First</option>
+                      <option value="oldest">Oldest First</option>
+                      <option value="name-asc">Name (A-Z)</option>
+                      <option value="name-desc">Name (Z-A)</option>
+                      <option value="price-high">Price (High-Low)</option>
+                      <option value="price-low">Price (Low-High)</option>
+                    </select>
+                  </div>
                 </div>
-                <h3 className="text-xl font-medium text-gray-900 mb-2">
-                  No badges found
-                </h3>
-                <p className="text-gray-500 mb-6">
-                  {searchQuery
-                    ? `No results for "${searchQuery}"`
-                    : "No badges have been created yet."}
-                </p>
-                <AnimatedButton
-                  onClick={() => setIsCreateDialogOpen(true)}
-                  className="bg-violet-700 hover:bg-violet-800 text-white"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create First Badge
-                </AnimatedButton>
               </div>
-            ) : (
-              <BadgeList
-                badges={sortedBadges}
-                onView={handleViewBadge}
-                onEdit={handleEditBadge}
-                onDelete={handleDeleteConfirmation}
-              />
-            )}
-          </AnimatedCard>
+
+              {/* Badge List */}
+              <AnimatedCard variant="glass" className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                    All Badges
+                    <Badge variant="outline" className="ml-2 bg-gray-100">
+                      {sortedBadges.length}
+                    </Badge>
+                  </h2>
+                </div>
+
+                {sortedBadges.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="mb-4 text-gray-400">
+                      <Search className="h-12 w-12 mx-auto" />
+                    </div>
+                    <h3 className="text-xl font-medium text-gray-900 mb-2">
+                      No badges found
+                    </h3>
+                    <p className="text-gray-500 mb-6">
+                      {searchQuery
+                        ? `No results for "${searchQuery}"`
+                        : "No badges have been created yet."}
+                    </p>
+                    <AnimatedButton
+                      onClick={() => setIsCreateDialogOpen(true)}
+                      className="bg-violet-700 hover:bg-violet-800 text-white"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create First Badge
+                    </AnimatedButton>
+                  </div>
+                ) : (
+                  <BadgeList
+                    badges={sortedBadges}
+                    onView={handleViewBadge}
+                    onEdit={handleEditBadge}
+                    onDelete={handleDeleteConfirmation}
+                  />
+                )}
+              </AnimatedCard>
+            </>
+          )}
         </div>
       </PageTransition>
 
@@ -451,22 +450,6 @@ export default function BadgeManagementPage() {
                       alt={selectedBadge.name}
                       className="w-40 h-40 rounded-full object-cover border-4 border-gray-100"
                     />
-                    <div className="absolute -bottom-2 -right-2 bg-white p-1 rounded-full shadow-md">
-                      <Badge
-                        className={`
-                          ${selectedBadge.rarity === "common" && "bg-gray-500"}
-                          ${selectedBadge.rarity === "rare" && "bg-blue-500"}
-                          ${selectedBadge.rarity === "epic" && "bg-purple-500"}
-                          ${
-                            selectedBadge.rarity === "legendary" &&
-                            "bg-yellow-500"
-                          }
-                          text-white border-0 capitalize
-                        `}
-                      >
-                        {selectedBadge.rarity}
-                      </Badge>
-                    </div>
                   </div>
                 </div>
 
@@ -512,38 +495,6 @@ export default function BadgeManagementPage() {
                       </span>
                     </div>
                   </div>
-
-                  {selectedBadge.isLimited && (
-                    <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-                      <h4 className="font-medium text-red-700 mb-1">
-                        Limited Edition Badge
-                      </h4>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="text-red-600">Total Quantity:</span>
-                          <span className="ml-2 font-medium">
-                            {selectedBadge.limitedQuantity}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-red-600">Remaining:</span>
-                          <span className="ml-2 font-medium">
-                            {selectedBadge.limitedRemaining}
-                          </span>
-                        </div>
-                        {selectedBadge.expiresAt && (
-                          <div className="col-span-2">
-                            <span className="text-red-600">Expires:</span>
-                            <span className="ml-2 font-medium">
-                              {new Date(
-                                selectedBadge.expiresAt
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
 
                   <div className="pt-4 flex justify-end gap-2">
                     <Button

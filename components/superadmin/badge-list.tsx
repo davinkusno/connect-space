@@ -16,20 +16,6 @@ interface BadgeListProps {
 export function BadgeList({ badges, onView, onEdit, onDelete }: BadgeListProps) {
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
 
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case "common":
-        return "bg-gray-500"
-      case "rare":
-        return "bg-blue-500"
-      case "epic":
-        return "bg-purple-500"
-      case "legendary":
-        return "bg-yellow-500"
-      default:
-        return "bg-gray-500"
-    }
-  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString()
@@ -45,9 +31,6 @@ export function BadgeList({ badges, onView, onEdit, onDelete }: BadgeListProps) 
             </th>
             <th scope="col" className="px-4 py-3">
               Category
-            </th>
-            <th scope="col" className="px-4 py-3">
-              Rarity
             </th>
             <th scope="col" className="px-4 py-3">
               Price
@@ -100,11 +83,6 @@ export function BadgeList({ badges, onView, onEdit, onDelete }: BadgeListProps) 
               <td className="px-4 py-3">
                 <Badge variant="outline" className="capitalize">
                   {badge.category}
-                </Badge>
-              </td>
-              <td className="px-4 py-3">
-                <Badge className={`${getRarityColor(badge.rarity)} text-white border-0 capitalize`}>
-                  {badge.rarity}
                 </Badge>
               </td>
               <td className="px-4 py-3 font-medium">{badge.price} points</td>
