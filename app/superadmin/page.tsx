@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getClientSession } from "@/lib/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageTransition } from "@/components/ui/page-transition";
 import { FloatingElements } from "@/components/ui/floating-elements";
@@ -116,7 +117,7 @@ export interface StoreBadge {
   description: string;
   icon: string;
   category: "achievement" | "cosmetic" | "special" | "seasonal";
-  rarity: "common" | "rare" | "epic" | "legendary";
+
   price: number;
   image: string;
   isActive: boolean;
@@ -915,6 +916,8 @@ export default function SuperadminPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
+  const [currentBadgePage, setCurrentBadgePage] = useState(1);
+  const [badgeItemsPerPage] = useState(8);
 
   // Community requests state
   const [requestSearchQuery, setRequestSearchQuery] = useState("");
@@ -931,86 +934,142 @@ export default function SuperadminPage() {
   const [isCommunityDetailOpen, setIsCommunityDetailOpen] = useState(false);
   const [communityDetailTab, setCommunityDetailTab] = useState("overview");
 
-  // Mock badges data with enhanced information
-  const [badges, setBadges] = useState<StoreBadge[]>([
-    {
-      id: "1",
-      name: "Tech Guru",
-      description:
-        "Awarded to members who consistently provide valuable technical insights and help others solve complex problems.",
-      icon: "Trophy",
-      price: 1000,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-05-15T10:30:00Z",
-      updatedAt: "2023-05-15T10:30:00Z",
-      purchaseCount: 145,
-    },
-    {
-      id: "2",
-      name: "Event Master",
-      description:
-        "For those who have attended at least 20 community events and actively participate in discussions.",
-      icon: "Star",
-      price: 500,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-06-20T14:15:00Z",
-      updatedAt: "2023-06-20T14:15:00Z",
-      purchaseCount: 289,
-    },
-    {
-      id: "3",
-      name: "Community Champion",
-      description:
-        "Reserved for members who have made exceptional contributions to the community and helped it grow.",
-      icon: "Award",
-      price: 2000,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-04-10T09:45:00Z",
-      updatedAt: "2023-07-05T11:20:00Z",
-      purchaseCount: 67,
-    },
-    {
-      id: "4",
-      name: "Holiday Special 2023",
-      description:
-        "Limited edition badge available only during the holiday season. Features exclusive winter-themed design.",
-      icon: "Gift",
-      price: 1200,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-11-25T08:30:00Z",
-      updatedAt: "2023-11-25T08:30:00Z",
-      purchaseCount: 38,
-    },
-    {
-      id: "5",
-      name: "Founding Member",
-      description:
-        "Exclusive badge for the first 100 members who joined the platform. A mark of true community pioneers.",
-      icon: "Crown",
-      price: 3000,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: false,
-      createdAt: "2023-01-05T12:00:00Z",
-      updatedAt: "2023-03-10T15:45:00Z",
-      purchaseCount: 100,
-    },
-    {
-      id: "6",
-      name: "Creative Spark",
-      description:
-        "For members who consistently share creative content and inspire others with their artistic vision.",
-      icon: "Sparkles",
-      price: 750,
-      image: "/placeholder.svg?height=200&width=200",
-      isActive: true,
-      createdAt: "2023-08-12T16:20:00Z",
-      updatedAt: "2023-08-12T16:20:00Z",
-      purchaseCount: 212,
-    },
+  // Badges state
+  const [badges, setBadges] = useState<StoreBadge[]>([]);
+  const [isBadgesLoading, setIsBadgesLoading] = useState(true);
+  const [badgesError, setBadgesError] = useState<string | null>(null);
+
+  // Fetch badges on mount
+  useEffect(() => {
+    fetchBadges();
+  }, []);
+
+  // Helper function to get auth headers
+  const getAuthHeaders = async () => {
+    const session = await getClientSession();
+    if (!session?.access_token) {
+      throw new Error("No authentication token available");
+    }
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    };
+  };
+
+  const fetchBadges = async () => {
+    try {
+      setIsBadgesLoading(true);
+      setBadgesError(null);
+      const response = await fetch("/api/badges");
+      if (!response.ok) throw new Error("Failed to fetch badges");
+      const data = await response.json();
+
+      // Transform snake_case from API to camelCase for frontend
+      const transformedData = data.map((badge: any) => ({
+        id: badge.id,
+        name: badge.name,
+        description: badge.description,
+        icon: badge.icon,
+        category: badge.category,
+        price: badge.price,
+        image: badge.image_url,
+        isActive: badge.is_active,
+        createdAt: badge.created_at,
+        updatedAt: badge.updated_at,
+        purchaseCount: badge.purchase_count,
+      }));
+
+      setBadges(transformedData);
+    } catch (error) {
+      setBadgesError(
+        error instanceof Error ? error.message : "Failed to load badges"
+      );
+      console.error("Error fetching badges:", error);
+    } finally {
+      setIsBadgesLoading(false);
+    }
+  };
+
+  // Mock badges data with enhanced information (backup)
+  const [mockBadges] = useState<StoreBadge[]>([
+    // {
+    //   id: "1",
+    //   name: "Tech Guru",
+    //   description:
+    //     "Awarded to members who consistently provide valuable technical insights and help others solve complex problems.",
+    //   icon: "Trophy",
+    //   price: 1000,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: true,
+    //   createdAt: "2023-05-15T10:30:00Z",
+    //   updatedAt: "2023-05-15T10:30:00Z",
+    //   purchaseCount: 145,
+    // },
+    // {
+    //   id: "2",
+    //   name: "Event Master",
+    //   description:
+    //     "For those who have attended at least 20 community events and actively participate in discussions.",
+    //   icon: "Star",
+    //   price: 500,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: true,
+    //   createdAt: "2023-06-20T14:15:00Z",
+    //   updatedAt: "2023-06-20T14:15:00Z",
+    //   purchaseCount: 289,
+    // },
+    // {
+    //   id: "3",
+    //   name: "Community Champion",
+    //   description:
+    //     "Reserved for members who have made exceptional contributions to the community and helped it grow.",
+    //   icon: "Award",
+    //   price: 2000,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: true,
+    //   createdAt: "2023-04-10T09:45:00Z",
+    //   updatedAt: "2023-07-05T11:20:00Z",
+    //   purchaseCount: 67,
+    // },
+    // {
+    //   id: "4",
+    //   name: "Holiday Special 2023",
+    //   description:
+    //     "Limited edition badge available only during the holiday season. Features exclusive winter-themed design.",
+    //   icon: "Gift",
+    //   price: 1200,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: true,
+    //   createdAt: "2023-11-25T08:30:00Z",
+    //   updatedAt: "2023-11-25T08:30:00Z",
+    //   purchaseCount: 38,
+    // },
+    // {
+    //   id: "5",
+    //   name: "Founding Member",
+    //   description:
+    //     "Exclusive badge for the first 100 members who joined the platform. A mark of true community pioneers.",
+    //   icon: "Crown",
+    //   price: 3000,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: false,
+    //   createdAt: "2023-01-05T12:00:00Z",
+    //   updatedAt: "2023-03-10T15:45:00Z",
+    //   purchaseCount: 100,
+    // },
+    // {
+    //   id: "6",
+    //   name: "Creative Spark",
+    //   description:
+    //     "For members who consistently share creative content and inspire others with their artistic vision.",
+    //   icon: "Sparkles",
+    //   price: 750,
+    //   image: "/placeholder.svg?height=200&width=200",
+    //   isActive: true,
+    //   createdAt: "2023-08-12T16:20:00Z",
+    //   updatedAt: "2023-08-12T16:20:00Z",
+    //   purchaseCount: 212,
+    // },
   ]);
 
   // Calculate request statistics
@@ -1139,6 +1198,12 @@ export default function SuperadminPage() {
     }
   });
 
+  // Badge pagination logic
+  const totalBadgePages = Math.ceil(sortedBadges.length / badgeItemsPerPage);
+  const badgeStartIndex = (currentBadgePage - 1) * badgeItemsPerPage;
+  const badgeEndIndex = badgeStartIndex + badgeItemsPerPage;
+  const paginatedBadges = sortedBadges.slice(badgeStartIndex, badgeEndIndex);
+
   // Analytics calculations
   const totalCommunities =
     mockAnalyticsData[mockAnalyticsData.length - 1]?.communities || 0;
@@ -1160,51 +1225,147 @@ export default function SuperadminPage() {
     : 0;
 
   // CRUD operations for badges
-  const handleCreateBadge = (
+  const handleCreateBadge = async (
     badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">
   ) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      const newBadge: StoreBadge = {
-        ...badge,
-        id: `${badges.length + 1}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        purchaseCount: 0,
+    try {
+      setIsLoading(true);
+      const headers = await getAuthHeaders();
+
+      // Transform camelCase to snake_case for API
+      const apiPayload = {
+        name: badge.name,
+        description: badge.description,
+        icon: badge.icon,
+        category: badge.category,
+        price: badge.price,
+        image_url: badge.image,
+        is_active: badge.isActive,
       };
+
+      const response = await fetch("/api/badges", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(apiPayload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create badge");
+      }
+
+      const apiResponse = await response.json();
+
+      // Transform response from snake_case to camelCase
+      const newBadge = {
+        id: apiResponse.id,
+        name: apiResponse.name,
+        description: apiResponse.description,
+        icon: apiResponse.icon,
+        category: apiResponse.category,
+        price: apiResponse.price,
+        image: apiResponse.image_url,
+        isActive: apiResponse.is_active,
+        createdAt: apiResponse.created_at,
+        updatedAt: apiResponse.updated_at,
+        purchaseCount: apiResponse.purchase_count,
+      };
+
       setBadges([...badges, newBadge]);
-      setIsLoading(false);
       setIsCreateDialogOpen(false);
-    }, 1000);
+    } catch (error) {
+      console.error("Error creating badge:", error);
+      alert(error instanceof Error ? error.message : "Failed to create badge");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleUpdateBadge = (
+  const handleUpdateBadge = async (
     badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">
   ) => {
     if (!selectedBadge) return;
-    setIsLoading(true);
-    setTimeout(() => {
+    try {
+      setIsLoading(true);
+      const headers = await getAuthHeaders();
+
+      // Transform camelCase to snake_case for API
+      const apiPayload = {
+        name: badge.name,
+        description: badge.description,
+        icon: badge.icon,
+        category: badge.category,
+        price: badge.price,
+        image_url: badge.image,
+        is_active: badge.isActive,
+      };
+
+      const response = await fetch(`/api/badges/${selectedBadge.id}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(apiPayload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update badge");
+      }
+
+      const apiResponse = await response.json();
+
+      // Transform response from snake_case to camelCase
+      const updatedBadge = {
+        id: apiResponse.id,
+        name: apiResponse.name,
+        description: apiResponse.description,
+        icon: apiResponse.icon,
+        category: apiResponse.category,
+        price: apiResponse.price,
+        image: apiResponse.image_url,
+        isActive: apiResponse.is_active,
+        createdAt: apiResponse.created_at,
+        updatedAt: apiResponse.updated_at,
+        purchaseCount: apiResponse.purchase_count,
+      };
+
       const updatedBadges = badges.map((b) =>
-        b.id === selectedBadge.id
-          ? { ...b, ...badge, updatedAt: new Date().toISOString() }
-          : b
+        b.id === selectedBadge.id ? updatedBadge : b
       );
       setBadges(updatedBadges);
-      setIsLoading(false);
       setIsEditDialogOpen(false);
-    }, 1000);
+    } catch (error) {
+      console.error("Error updating badge:", error);
+      alert(error instanceof Error ? error.message : "Failed to update badge");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDeleteBadge = () => {
+  const handleDeleteBadge = async () => {
     if (!selectedBadge) return;
-    setIsLoading(true);
-    setTimeout(() => {
+    try {
+      setIsLoading(true);
+      const headers = await getAuthHeaders();
+      const response = await fetch(`/api/badges/${selectedBadge.id}`, {
+        method: "DELETE",
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete badge");
+      }
+
       const updatedBadges = badges.filter((b) => b.id !== selectedBadge.id);
       setBadges(updatedBadges);
-      setIsLoading(false);
       setIsDeleteDialogOpen(false);
       setSelectedBadge(null);
-    }, 1000);
+    } catch (error) {
+      console.error("Error deleting badge:", error);
+      alert(error instanceof Error ? error.message : "Failed to delete badge");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleViewBadge = (badge: StoreBadge) => {
@@ -1220,6 +1381,17 @@ export default function SuperadminPage() {
   const handleDeleteConfirmation = (badge: StoreBadge) => {
     setSelectedBadge(badge);
     setIsDeleteDialogOpen(true);
+  };
+
+  // Badge pagination handlers
+  const handleBadgeSearchChange = (value: string) => {
+    setBadgeSearchQuery(value);
+    setCurrentBadgePage(1); // Reset to page 1 on search
+  };
+
+  const handleBadgeSortChange = (value: string) => {
+    setSortBy(value);
+    setCurrentBadgePage(1); // Reset to page 1 on sort
   };
 
   const handleViewCommunity = (community: any) => {
@@ -1334,36 +1506,6 @@ export default function SuperadminPage() {
         );
       default:
         return <Badge variant="outline">{level}</Badge>;
-    }
-  };
-
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case "common":
-        return "from-gray-400 to-gray-600";
-      case "rare":
-        return "from-blue-400 to-blue-600";
-      case "epic":
-        return "from-purple-400 to-purple-600";
-      case "legendary":
-        return "from-yellow-400 to-yellow-600";
-      default:
-        return "from-gray-400 to-gray-600";
-    }
-  };
-
-  const getRarityBadgeColor = (rarity: string) => {
-    switch (rarity) {
-      case "common":
-        return "bg-gray-500";
-      case "rare":
-        return "bg-blue-500";
-      case "epic":
-        return "bg-purple-500";
-      case "legendary":
-        return "bg-yellow-500";
-      default:
-        return "bg-gray-500";
     }
   };
 
@@ -2019,8 +2161,6 @@ export default function SuperadminPage() {
                   </div>
                 </AnimatedCard>
               </div>
-
-             
             </TabsContent>
 
             {/* Community Requests Tab - Simplified */}
@@ -2331,14 +2471,14 @@ export default function SuperadminPage() {
                     <Input
                       placeholder="Search badges by name, description, or category..."
                       value={badgeSearchQuery}
-                      onChange={(e) => setBadgeSearchQuery(e.target.value)}
+                      onChange={(e) => handleBadgeSearchChange(e.target.value)}
                       className="pl-10 border-gray-200 focus:border-violet-300 focus:ring-violet-200 glass-effect"
                     />
                   </div>
                   <div className="flex gap-2">
                     <select
                       value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
+                      onChange={(e) => handleBadgeSortChange(e.target.value)}
                       className="w-[160px] glass-effect border-gray-200 focus:border-violet-300 rounded-md px-3 py-2 text-sm"
                     >
                       <option value="newest">Newest First</option>
@@ -2375,93 +2515,148 @@ export default function SuperadminPage() {
                     </AnimatedButton>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {sortedBadges.map((badge, index) => (
-                      <div
-                        key={badge.id}
-                        className="group relative bg-white rounded-xl border-2 border-gray-200 hover:border-purple-300 transition-all duration-300 hover:shadow-lg overflow-hidden"
-                        style={{
-                          animationDelay: `${index * 100}ms`,
-                          animationFillMode: "both",
-                        }}
-                      >
-                        {/* Badge Header */}
-                        <div className="h-24 bg-gradient-to-br from-purple-500 to-indigo-600 relative">
-                          <div className="absolute inset-0 bg-black/10"></div>
-                          <div className="absolute top-2 right-2">
-                            {badge.isActive ? (
-                              <Badge className="bg-green-500 text-white text-xs">
-                                Active
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-gray-500 text-white text-xs">
-                                Inactive
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Badge Image */}
-                        <div className="relative -mt-8 flex justify-center">
-                          <div className="w-16 h-16 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center">
-                            <img
-                              src={
-                                badge.image ||
-                                "/placeholder.svg?height=48&width=48"
-                              }
-                              alt={badge.name}
-                              className="w-12 h-12 rounded-full object-cover"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Badge Content */}
-                        <div className="p-4 pt-2">
-                          <div className="text-center mb-4">
-                            <h4 className="font-bold text-gray-900 text-lg mb-2">
-                              {badge.name}
-                            </h4>
-                            <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                              {badge.description}
-                            </p>
-                            <div className="text-lg font-bold text-purple-600">
-                              {badge.price} points
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {paginatedBadges.map((badge, index) => (
+                        <div
+                          key={badge.id}
+                          className="group relative bg-white rounded-xl border-2 border-gray-200 hover:border-purple-300 transition-all duration-300 hover:shadow-lg overflow-hidden"
+                          style={{
+                            animationDelay: `${index * 100}ms`,
+                            animationFillMode: "both",
+                          }}
+                        >
+                          {/* Badge Header */}
+                          <div className="h-24 bg-gradient-to-br from-purple-500 to-indigo-600 relative">
+                            <div className="absolute inset-0 bg-black/10"></div>
+                            <div className="absolute top-2 right-2">
+                              {badge.isActive ? (
+                                <Badge className="bg-green-500 text-white text-xs">
+                                  Active
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-gray-500 text-white text-xs">
+                                  Inactive
+                                </Badge>
+                              )}
                             </div>
                           </div>
 
-                          {/* Action Buttons */}
-                          <div className="flex gap-1">
-                            <AnimatedButton
-                              variant="glass"
-                              size="sm"
-                              onClick={() => handleViewBadge(badge)}
-                              className="flex-1 text-xs"
-                            >
-                              <Eye className="h-3 w-3 mr-1" />
-                              View
-                            </AnimatedButton>
-                            <AnimatedButton
-                              variant="glass"
-                              size="sm"
-                              onClick={() => handleEditBadge(badge)}
-                              className="flex-1 text-xs text-blue-600 hover:text-blue-700"
-                            >
-                              <Edit className="h-3 w-3 mr-1" />
-                              Edit
-                            </AnimatedButton>
-                            <AnimatedButton
-                              variant="glass"
-                              size="sm"
-                              onClick={() => handleDeleteConfirmation(badge)}
-                              className="text-xs text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </AnimatedButton>
+                          {/* Badge Image */}
+                          <div className="relative -mt-8 flex justify-center">
+                            <div className="w-16 h-16 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center">
+                              <img
+                                src={
+                                  badge.image ||
+                                  "/placeholder.svg?height=48&width=48"
+                                }
+                                alt={badge.name}
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Badge Content */}
+                          <div className="p-4 pt-2">
+                            <div className="text-center mb-4">
+                              <h4 className="font-bold text-gray-900 text-lg mb-2">
+                                {badge.name}
+                              </h4>
+                              <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                                {badge.description}
+                              </p>
+                              <div className="text-lg font-bold text-purple-600">
+                                {badge.price} points
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-1">
+                              <AnimatedButton
+                                variant="glass"
+                                size="sm"
+                                onClick={() => handleViewBadge(badge)}
+                                className="flex-1 text-xs"
+                              >
+                                <Eye className="h-3 w-3 mr-1" />
+                                View
+                              </AnimatedButton>
+                              <AnimatedButton
+                                variant="glass"
+                                size="sm"
+                                onClick={() => handleEditBadge(badge)}
+                                className="flex-1 text-xs text-blue-600 hover:text-blue-700"
+                              >
+                                <Edit className="h-3 w-3 mr-1" />
+                                Edit
+                              </AnimatedButton>
+                              <AnimatedButton
+                                variant="glass"
+                                size="sm"
+                                onClick={() => handleDeleteConfirmation(badge)}
+                                className="text-xs text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </AnimatedButton>
+                            </div>
                           </div>
                         </div>
+                      ))}
+                    </div>
+
+                    {/* Badge Pagination */}
+                    {totalBadgePages > 1 && (
+                      <div className="flex items-center justify-center gap-2 mt-8">
+                        <AnimatedButton
+                          variant="glass"
+                          onClick={() =>
+                            setCurrentBadgePage((prev) => Math.max(1, prev - 1))
+                          }
+                          disabled={currentBadgePage === 1}
+                          className="!bg-white hover:!bg-gray-50 border border-gray-200"
+                        >
+                          <ChevronLeft className="h-4 w-4 mr-1" />
+                          Previous
+                        </AnimatedButton>
+
+                        <div className="flex gap-2">
+                          {Array.from(
+                            { length: totalBadgePages },
+                            (_, i) => i + 1
+                          ).map((page) => (
+                            <AnimatedButton
+                              key={page}
+                              variant={
+                                currentBadgePage === page ? "default" : "glass"
+                              }
+                              onClick={() => setCurrentBadgePage(page)}
+                              className={`w-10 h-10 p-0 ${
+                                currentBadgePage === page
+                                  ? "!bg-gradient-to-r !from-purple-600 !to-indigo-600 text-white"
+                                  : "!bg-white hover:!bg-gray-50 border border-gray-200"
+                              }`}
+                            >
+                              {page}
+                            </AnimatedButton>
+                          ))}
+                        </div>
+
+                        <AnimatedButton
+                          variant="glass"
+                          onClick={() =>
+                            setCurrentBadgePage((prev) =>
+                              Math.min(totalBadgePages, prev + 1)
+                            )
+                          }
+                          disabled={currentBadgePage === totalBadgePages}
+                          className="!bg-white hover:!bg-gray-50 border border-gray-200"
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </AnimatedButton>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 )}
               </AnimatedCard>
             </TabsContent>
@@ -2787,6 +2982,14 @@ export default function SuperadminPage() {
       {/* Create Badge Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl bg-white border border-gray-200 shadow-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              Create New Badge
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Create a new badge that users can purchase with their points.
+            </DialogDescription>
+          </DialogHeader>
           <BadgeForm
             onSubmit={handleCreateBadge}
             onCancel={() => setIsCreateDialogOpen(false)}
@@ -2798,6 +3001,14 @@ export default function SuperadminPage() {
       {/* Edit Badge Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl bg-white border border-gray-200 shadow-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              Edit Badge
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Update the badge information and settings.
+            </DialogDescription>
+          </DialogHeader>
           {selectedBadge && (
             <BadgeForm
               badge={selectedBadge}

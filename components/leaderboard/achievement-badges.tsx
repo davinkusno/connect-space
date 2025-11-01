@@ -14,7 +14,6 @@ const achievementCategories = [
         name: "First Steps",
         description: "Join your first community",
         icon: Users,
-        rarity: "common",
         progress: 100,
         unlocked: true,
         points: 50,
@@ -23,7 +22,6 @@ const achievementCategories = [
         name: "Social Butterfly",
         description: "Join 10 different communities",
         icon: Heart,
-        rarity: "uncommon",
         progress: 80,
         unlocked: false,
         points: 200,
@@ -32,7 +30,6 @@ const achievementCategories = [
         name: "Community Champion",
         description: "Be active in 25 communities",
         icon: Crown,
-        rarity: "rare",
         progress: 45,
         unlocked: false,
         points: 500,
@@ -47,7 +44,6 @@ const achievementCategories = [
         name: "First Post",
         description: "Create your first community post",
         icon: MessageCircle,
-        rarity: "common",
         progress: 100,
         unlocked: true,
         points: 25,
@@ -56,7 +52,6 @@ const achievementCategories = [
         name: "Content Creator",
         description: "Create 50 posts",
         icon: Star,
-        rarity: "uncommon",
         progress: 75,
         unlocked: false,
         points: 300,
@@ -65,7 +60,6 @@ const achievementCategories = [
         name: "Viral Sensation",
         description: "Get 1000 likes on a single post",
         icon: Flame,
-        rarity: "legendary",
         progress: 20,
         unlocked: false,
         points: 1000,
@@ -80,7 +74,6 @@ const achievementCategories = [
         name: "Event Attendee",
         description: "Attend your first event",
         icon: Calendar,
-        rarity: "common",
         progress: 100,
         unlocked: true,
         points: 75,
@@ -89,7 +82,6 @@ const achievementCategories = [
         name: "Event Enthusiast",
         description: "Attend 20 events",
         icon: Target,
-        rarity: "rare",
         progress: 60,
         unlocked: false,
         points: 400,
@@ -98,7 +90,6 @@ const achievementCategories = [
         name: "Event Master",
         description: "Organize 10 successful events",
         icon: Award,
-        rarity: "epic",
         progress: 30,
         unlocked: false,
         points: 750,
@@ -107,37 +98,16 @@ const achievementCategories = [
   },
 ]
 
-const getRarityColor = (rarity: string) => {
-  switch (rarity) {
-    case "common":
-      return "from-gray-400 to-gray-600"
-    case "uncommon":
-      return "from-green-400 to-green-600"
-    case "rare":
+const getCategoryColor = (category: string) => {
+  switch (category) {
+    case "Community Engagement":
       return "from-blue-400 to-blue-600"
-    case "epic":
+    case "Content Creation":
       return "from-purple-400 to-purple-600"
-    case "legendary":
+    case "Event Participation":
       return "from-yellow-400 to-orange-500"
     default:
       return "from-gray-400 to-gray-600"
-  }
-}
-
-const getRarityBadgeColor = (rarity: string) => {
-  switch (rarity) {
-    case "common":
-      return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
-    case "uncommon":
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-    case "rare":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-    case "epic":
-      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-    case "legendary":
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-    default:
-      return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
   }
 }
 
@@ -169,17 +139,17 @@ export function AchievementBadges() {
                       : "bg-gray-50 dark:bg-gray-800/50 opacity-75"
                   }`}
                 >
-                  {/* Rarity Glow */}
+                  {/* Achievement Glow */}
                   {achievement.unlocked && (
                     <div
-                      className={`absolute inset-0 bg-gradient-to-r ${getRarityColor(achievement.rarity)} opacity-10`}
+                      className={`absolute inset-0 bg-gradient-to-r from-purple-400 to-blue-600 opacity-10`}
                     />
                   )}
 
                   <CardContent className="p-6 text-center relative">
                     {/* Achievement Icon */}
                     <div
-                      className={`w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r ${getRarityColor(achievement.rarity)} flex items-center justify-center ${
+                      className={`w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-400 to-blue-600 flex items-center justify-center ${
                         achievement.unlocked ? "shadow-lg" : "grayscale opacity-50"
                       }`}
                     >
@@ -190,10 +160,6 @@ export function AchievementBadges() {
                     <h3 className="font-bold text-lg mb-2">{achievement.name}</h3>
                     <p className="text-sm text-muted-foreground mb-4">{achievement.description}</p>
 
-                    {/* Rarity Badge */}
-                    <Badge className={`mb-4 ${getRarityBadgeColor(achievement.rarity)}`}>
-                      {achievement.rarity.charAt(0).toUpperCase() + achievement.rarity.slice(1)}
-                    </Badge>
 
                     {/* Progress */}
                     <div className="space-y-2 mb-4">

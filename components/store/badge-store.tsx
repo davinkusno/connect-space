@@ -44,12 +44,8 @@ interface StoreBadge {
   description: string
   icon: React.ReactNode
   category: "achievement" | "cosmetic" | "special" | "seasonal"
-  rarity: "common" | "rare" | "epic" | "legendary"
   price: number
   isOwned: boolean
-  isLimited?: boolean
-  limitedQuantity?: number
-  expiresAt?: string
   previewImage?: string
 }
 
@@ -61,7 +57,6 @@ interface BadgeStoreProps {
 export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [filterCategory, setFilterCategory] = useState<string>("all")
-  const [filterRarity, setFilterRarity] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("price-low")
   const [selectedBadge, setSelectedBadge] = useState<StoreBadge | null>(null)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
@@ -74,7 +69,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
       description: "A prestigious golden star badge for exceptional contributors",
       icon: <Star className="h-6 w-6" />,
       category: "achievement",
-      rarity: "legendary",
       price: 1000,
       isOwned: false,
     },
@@ -84,7 +78,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
       description: "Show your royal status in the community",
       icon: <Crown className="h-6 w-6" />,
       category: "cosmetic",
-      rarity: "epic",
       price: 750,
       isOwned: false,
     },
@@ -94,7 +87,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
       description: "Celebrate your event participation achievements",
       icon: <Trophy className="h-6 w-6" />,
       category: "achievement",
-      rarity: "rare",
       price: 500,
       isOwned: true,
     },
@@ -104,7 +96,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
       description: "Recognize your helpful contributions to the community",
       icon: <Heart className="h-6 w-6" />,
       category: "achievement",
-      rarity: "common",
       price: 200,
       isOwned: false,
     },
@@ -114,7 +105,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
       description: "For the fastest responders and most active members",
       icon: <Zap className="h-6 w-6" />,
       category: "cosmetic",
-      rarity: "rare",
       price: 400,
       isOwned: false,
     },
@@ -124,12 +114,8 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
       description: "Limited edition winter themed badge",
       icon: <Sparkles className="h-6 w-6" />,
       category: "seasonal",
-      rarity: "epic",
       price: 600,
       isOwned: false,
-      isLimited: true,
-      limitedQuantity: 50,
-      expiresAt: "2024-02-29",
     },
     {
       id: "7",
@@ -137,7 +123,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
       description: "For those who guide and support new community members",
       icon: <Medal className="h-6 w-6" />,
       category: "special",
-      rarity: "epic",
       price: 800,
       isOwned: false,
     },
@@ -147,7 +132,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
       description: "Hit your goals with this motivational badge",
       icon: <Target className="h-6 w-6" />,
       category: "achievement",
-      rarity: "common",
       price: 150,
       isOwned: false,
     },
@@ -157,7 +141,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
       description: "Spread joy and kindness in the community",
       icon: <Gift className="h-6 w-6" />,
       category: "special",
-      rarity: "rare",
       price: 350,
       isOwned: false,
     },
@@ -167,7 +150,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
       description: "The ultimate badge for outstanding community members",
       icon: <Award className="h-6 w-6" />,
       category: "achievement",
-      rarity: "legendary",
       price: 1500,
       isOwned: false,
     },
@@ -179,8 +161,7 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
         badge.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         badge.description.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesCategory = filterCategory === "all" || badge.category === filterCategory
-      const matchesRarity = filterRarity === "all" || badge.rarity === filterRarity
-      return matchesSearch && matchesCategory && matchesRarity
+      return matchesSearch && matchesCategory
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -188,9 +169,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
           return a.price - b.price
         case "price-high":
           return b.price - a.price
-        case "rarity":
-          const rarityOrder = { common: 1, rare: 2, epic: 3, legendary: 4 }
-          return rarityOrder[b.rarity] - rarityOrder[a.rarity]
         case "name":
           return a.name.localeCompare(b.name)
         default:
@@ -266,18 +244,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
                   <SelectItem value="seasonal">Seasonal</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={filterRarity} onValueChange={setFilterRarity}>
-                <SelectTrigger className="w-32 border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Rarity</SelectItem>
-                  <SelectItem value="common">Common</SelectItem>
-                  <SelectItem value="rare">Rare</SelectItem>
-                  <SelectItem value="epic">Epic</SelectItem>
-                  <SelectItem value="legendary">Legendary</SelectItem>
-                </SelectContent>
-              </Select>
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="w-36 border-gray-200 dark:bg-gray-900 dark:border-gray-700">
                   <SelectValue />
@@ -285,7 +251,6 @@ export function BadgeStore({ userPoints, onPurchase }: BadgeStoreProps) {
                 <SelectContent>
                   <SelectItem value="price-low">Price: Low to High</SelectItem>
                   <SelectItem value="price-high">Price: High to Low</SelectItem>
-                  <SelectItem value="rarity">Rarity</SelectItem>
                   <SelectItem value="name">Name</SelectItem>
                 </SelectContent>
               </Select>

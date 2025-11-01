@@ -9,15 +9,24 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { Spinner } from "@/components/ui/loading-indicators";
-import { Trophy, Upload, Eye, Save, X } from "lucide-react";
+import { Trophy, Eye, Save, X } from "lucide-react";
+import { BadgeImageUpload } from "./badge-image-upload";
 
 export interface StoreBadge {
   id: string;
   name: string;
   description: string;
   icon: string;
+  category: "achievement" | "cosmetic" | "special" | "seasonal";
   price: number;
   image: string;
   isActive: boolean;
@@ -43,8 +52,11 @@ export function BadgeForm({
     name: badge?.name || "",
     description: badge?.description || "",
     icon: "Trophy",
+    category:
+      badge?.category ||
+      ("achievement" as "achievement" | "cosmetic" | "special" | "seasonal"),
     price: badge?.price || 100,
-    image: badge?.image || "",
+    image_url: badge?.image || "",
     isActive: badge?.isActive ?? true,
   });
 
@@ -78,6 +90,8 @@ export function BadgeForm({
     if (validateForm()) {
       onSubmit({
         ...formData,
+        category: formData.category,
+        image: formData.image_url || "", // Empty string if no image
         purchaseCount: badge?.purchaseCount || 0,
       });
     }
@@ -146,6 +160,31 @@ export function BadgeForm({
 
                 <div>
                   <Label
+                    htmlFor="category"
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Category *
+                  </Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(
+                      value: "achievement" | "cosmetic" | "special" | "seasonal"
+                    ) => setFormData({ ...formData, category: value })}
+                  >
+                    <SelectTrigger className="mt-1 bg-white border-gray-300 focus:border-purple-500 focus:ring-purple-200">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="achievement">Achievement</SelectItem>
+                      <SelectItem value="cosmetic">Cosmetic</SelectItem>
+                      <SelectItem value="special">Special</SelectItem>
+                      <SelectItem value="seasonal">Seasonal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label
                     htmlFor="price"
                     className="text-sm font-medium text-gray-700"
                   >
@@ -179,39 +218,12 @@ export function BadgeForm({
               <h4 className="text-lg font-semibold text-gray-900 mb-4">
                 Badge Image
               </h4>
-              <div className="space-y-3">
-                <div>
-                  <Label
-                    htmlFor="image"
-                    className="text-sm font-medium text-gray-700"
-                  >
-                    Image URL
-                  </Label>
-                  <Input
-                    id="image"
-                    value={formData.image}
-                    onChange={(e) =>
-                      setFormData({ ...formData, image: e.target.value })
-                    }
-                    placeholder="https://example.com/badge-image.png"
-                    className="mt-1 bg-white border-gray-300 focus:border-purple-500 focus:ring-purple-200"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="bg-white border-gray-300"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Image
-                  </Button>
-                  <span className="text-sm text-gray-500">
-                    or enter URL above
-                  </span>
-                </div>
-              </div>
+              <BadgeImageUpload
+                onImageUrlChange={(url) =>
+                  setFormData({ ...formData, image_url: url })
+                }
+                currentImageUrl={formData.image_url}
+              />
             </div>
 
             {/* Settings */}
@@ -271,9 +283,9 @@ export function BadgeForm({
                 {/* Badge Image */}
                 <div className="relative -mt-6 flex justify-center">
                   <div className="w-12 h-12 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center">
-                    {formData.image ? (
+                    {formData.image_url ? (
                       <img
-                        src={formData.image || "/placeholder.svg"}
+                        src={formData.image_url || "/placeholder.svg"}
                         alt={formData.name}
                         className="w-10 h-10 rounded-full object-cover"
                         onError={(e) => {
@@ -284,7 +296,7 @@ export function BadgeForm({
                         }}
                       />
                     ) : null}
-                    <div className={formData.image ? "hidden" : ""}>
+                    <div className={formData.image_url ? "hidden" : ""}>
                       <Trophy className="h-6 w-6 text-gray-600" />
                     </div>
                   </div>

@@ -2,7 +2,8 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getClientSession } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge as BadgeComponent } from "@/components/ui/badge";
@@ -62,7 +63,18 @@ interface StoreBadge {
   icon: React.ReactNode;
   price: number;
   image: string;
+  imageUrl?: string;
+  category?: string;
   isOwned?: boolean;
+  isLimited?: boolean;
+  limitedQuantity?: number;
+  limitedRemaining?: number;
+  expiresAt?: string;
+}
+
+interface UserData {
+  points: number;
+  level: number;
 }
 
 export default function StorePage() {
@@ -75,146 +87,121 @@ export default function StorePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Mock user data
-  const userData = {
-    points: 2450,
-    level: 8,
+  // Real data states
+  const [badges, setBadges] = useState<StoreBadge[]>([]);
+  const [userData, setUserData] = useState<UserData>({ points: 0, level: 1 });
+  const [ownedBadgeIds, setOwnedBadgeIds] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+
+  // Helper function to get category icon
+  const getCategoryIcon = (category: string) => {
+    const icons: Record<string, React.ReactNode> = {
+      achievement: <Trophy className="h-5 w-5" />,
+      participation: <Star className="h-5 w-5" />,
+      leadership: <Award className="h-5 w-5" />,
+      social: <Target className="h-5 w-5" />,
+      special: <Crown className="h-5 w-5" />,
+      seasonal: <Gift className="h-5 w-5" />,
+    };
+    return icons[category] || <Award className="h-5 w-5" />;
   };
 
-  // Mock badges data
-  const badges: StoreBadge[] = [
-    {
-      id: "1",
-      name: "Tech Guru",
-      description:
-        "Awarded to members who consistently provide valuable technical insights and help others.",
-      icon: <Trophy className="h-5 w-5" />,
-      price: 1000,
-      image: "/placeholder.svg?height=200&width=200",
-    },
-    {
-      id: "2",
-      name: "Event Master",
-      description: "For those who have attended at least 20 community events.",
-      icon: <Star className="h-5 w-5" />,
-      category: "participation",
-      rarity: "rare",
-      price: 500,
-      image: "/placeholder.svg?height=200&width=200",
-    },
-    {
-      id: "3",
-      name: "Community Champion",
-      description:
-        "Reserved for members who have made exceptional contributions to the community.",
-      icon: <Award className="h-5 w-5" />,
-      category: "achievement",
-      rarity: "legendary",
-      price: 2000,
-      image: "/placeholder.svg?height=200&width=200",
-    },
-    {
-      id: "4",
-      name: "Networking Pro",
-      description:
-        "For members who excel at connecting people and fostering collaborations.",
-      icon: <Target className="h-5 w-5" />,
-      category: "achievement",
-      rarity: "rare",
-      price: 750,
-      image: "/placeholder.svg?height=200&width=200",
-    },
-    {
-      id: "5",
-      name: "Founding Member",
-      description:
-        "Exclusive badge for the first 100 members who joined the platform.",
-      icon: <Crown className="h-5 w-5" />,
-      category: "special",
-      rarity: "legendary",
-      price: 3000,
-      image: "/placeholder.svg?height=200&width=200",
-      isOwned: true,
-    },
-    {
-      id: "6",
-      name: "Holiday Special 2023",
-      description:
-        "Limited edition badge available only during the holiday season.",
-      icon: <Gift className="h-5 w-5" />,
-      category: "limited",
-      rarity: "epic",
-      price: 1200,
-      image: "/placeholder.svg?height=200&width=200",
-      isLimited: true,
-      limitedQuantity: 50,
-      limitedRemaining: 12,
-      expiresAt: "2024-01-01",
-    },
-    {
-      id: "7",
-      name: "Rising Star",
-      description:
-        "For new members who quickly become active and engaged in the community.",
-      icon: <TrendingUp className="h-5 w-5" />,
-      category: "achievement",
-      rarity: "common",
-      price: 200,
-      image: "/placeholder.svg?height=200&width=200",
-    },
-    {
-      id: "8",
-      name: "Mentor",
-      description: "Awarded to members who actively help and guide newcomers.",
-      icon: <Heart className="h-5 w-5" />,
-      category: "achievement",
-      rarity: "rare",
-      price: 800,
-      image: "/placeholder.svg?height=200&width=200",
-    },
-    {
-      id: "9",
-      name: "Speed Demon",
-      description: "For completing challenges in record time.",
-      icon: <Zap className="h-5 w-5" />,
-      category: "participation",
-      rarity: "epic",
-      price: 1500,
-      image: "/placeholder.svg?height=200&width=200",
-    },
-    {
-      id: "10",
-      name: "Early Bird",
-      description: "For members who consistently arrive early to events.",
-      icon: <Clock className="h-5 w-5" />,
-      category: "participation",
-      rarity: "common",
-      price: 150,
-      image: "/placeholder.svg?height=200&width=200",
-    },
-    {
-      id: "11",
-      name: "Innovation Leader",
-      description:
-        "For members who propose and lead innovative community initiatives.",
-      icon: <Medal className="h-5 w-5" />,
-      category: "achievement",
-      rarity: "legendary",
-      price: 2500,
-      image: "/placeholder.svg?height=200&width=200",
-    },
-    {
-      id: "12",
-      name: "Social Butterfly",
-      description:
-        "For members who actively engage in community discussions and networking.",
-      icon: <Sparkles className="h-5 w-5" />,
-      category: "participation",
-      rarity: "rare",
-      price: 600,
-      image: "/placeholder.svg?height=200&width=200",
-    },
-  ];
+  // Fetch data on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Get user session
+        const session = await getClientSession();
+
+        if (!session || !session.user) {
+          console.error("User not authenticated");
+          return;
+        }
+
+        const user = session.user;
+        setUserId(user.id);
+        setAuthToken(session.access_token);
+
+        // Fetch badges
+        const badgesResponse = await fetch("/api/badges");
+        const badgesData = await badgesResponse.json();
+
+        console.log("Badges API Response:", badgesData);
+
+        if (badgesData && Array.isArray(badgesData)) {
+          // Transform snake_case to camelCase and add icons
+          const transformedBadges = badgesData
+            .filter((badge: any) => badge.is_active !== false) // Only show active badges (snake_case from DB)
+            .map((badge: any) => ({
+              id: badge.id,
+              name: badge.name,
+              description: badge.description,
+              price: badge.price,
+              image: badge.image_url || "/placeholder.svg?height=200&width=200",
+              imageUrl: badge.image_url,
+              category: badge.category || "achievement",
+              icon: getCategoryIcon(badge.category || "achievement"),
+              isOwned: false, // Will be updated below
+            }));
+
+          console.log("Transformed badges:", transformedBadges);
+          setBadges(transformedBadges);
+        } else {
+          console.error("Invalid badges data format:", badgesData);
+        }
+
+        // Fetch user points
+        const pointsResponse = await fetch("/api/user/points", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        const pointsData = await pointsResponse.json();
+
+        if (pointsData.points !== undefined) {
+          setUserData({
+            points: pointsData.points,
+            level: Math.floor(pointsData.points / 500) + 1, // Simple level calculation
+          });
+        }
+
+        // Fetch owned badges
+        const ownedResponse = await fetch(
+          `/api/user-badges?userId=${user.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
+        const ownedData = await ownedResponse.json();
+
+        if (ownedData && Array.isArray(ownedData)) {
+          const ownedIds = ownedData.map((ub: any) => ub.badge_id); // snake_case from DB
+          setOwnedBadgeIds(ownedIds);
+
+          // Update badges with owned status
+          setBadges((prevBadges) =>
+            prevBadges.map((badge) => ({
+              ...badge,
+              isOwned: ownedIds.includes(badge.id),
+            }))
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching store data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   // Filter and sort badges
   const filteredBadges = badges
@@ -254,20 +241,77 @@ export default function StorePage() {
     setShowPurchaseDialog(true);
   };
 
-  const confirmPurchase = () => {
-    if (!selectedBadge) return;
+  const confirmPurchase = async () => {
+    if (!selectedBadge || !userId || !authToken) return;
+
+    // Validate points before purchase
+    if (userData.points < selectedBadge.price) {
+      setPurchaseError(
+        `Insufficient points. You need ${
+          selectedBadge.price - userData.points
+        } more points.`
+      );
+      return;
+    }
 
     setIsPurchasing(true);
-    // Simulate purchase process
-    setTimeout(() => {
+    setPurchaseError(null);
+
+    try {
+      const response = await fetch(`/api/badges/${selectedBadge.id}/purchase`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.error === "User already owns this badge") {
+          setPurchaseError("You already own this badge!");
+        } else if (data.error === "Insufficient points") {
+          setPurchaseError(
+            `Insufficient points. You have ${data.currentPoints}, but need ${data.requiredPoints}.`
+          );
+        } else {
+          setPurchaseError(data.error || "Failed to purchase badge");
+        }
+        setIsPurchasing(false);
+        return;
+      }
+
+      // Update points balance
+      if (data.newBalance !== undefined) {
+        setUserData((prev) => ({
+          ...prev,
+          points: data.newBalance,
+          level: Math.floor(data.newBalance / 500) + 1,
+        }));
+      }
+
+      // Mark badge as owned
+      setBadges((prevBadges) =>
+        prevBadges.map((badge) =>
+          badge.id === selectedBadge.id ? { ...badge, isOwned: true } : badge
+        )
+      );
+      setOwnedBadgeIds((prev) => [...prev, selectedBadge.id]);
+
       setIsPurchasing(false);
       setPurchaseSuccess(true);
-    }, 1500);
+    } catch (error) {
+      console.error("Purchase error:", error);
+      setPurchaseError("An error occurred while processing your purchase");
+      setIsPurchasing(false);
+    }
   };
 
   const handleCloseModal = () => {
     setShowPurchaseDialog(false);
     setPurchaseSuccess(false);
+    setPurchaseError(null);
     setSelectedBadge(null);
   };
 
@@ -337,7 +381,14 @@ export default function StorePage() {
         </div>
 
         {/* Badges Grid */}
-        {filteredBadges.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="text-center">
+              <Spinner size="lg" />
+              <p className="mt-4 text-gray-600">Loading badges...</p>
+            </div>
+          </div>
+        ) : filteredBadges.length === 0 ? (
           <div className="text-center py-12">
             <div className="mb-4 text-gray-400">
               <Search className="h-12 w-12 mx-auto" />
@@ -602,6 +653,15 @@ export default function StorePage() {
                         <AlertCircle className="h-5 w-5 text-red-600" />
                         <span className="text-sm text-red-700 dark:text-red-300 font-medium">
                           You don't have enough points for this badge.
+                        </span>
+                      </div>
+                    )}
+
+                    {purchaseError && (
+                      <div className="flex items-center gap-2 p-3 bg-red-100/50 dark:bg-red-900/30 border border-red-200 dark:border-red-600/50 rounded-lg">
+                        <AlertCircle className="h-5 w-5 text-red-600" />
+                        <span className="text-sm text-red-700 dark:text-red-300 font-medium">
+                          {purchaseError}
                         </span>
                       </div>
                     )}
