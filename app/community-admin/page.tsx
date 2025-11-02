@@ -78,7 +78,6 @@ export default function CommunityAdminPage() {
   }, [])
 
   const loadCommunityData = async () => {
-    setIsLoading(true)
     try {
       // Mock data for now - replace with actual API calls
       await new Promise((resolve) => setTimeout(resolve, 1000))

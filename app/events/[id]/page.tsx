@@ -1,5 +1,6 @@
 "use client";
 
+import { use } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -222,11 +223,14 @@ const DUMMY_EVENT: Event = {
 export default function EventDetailsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  // Unwrap params Promise (Next.js 15+)
+  const { id } = use(params);
+
   // Create a copy of DUMMY_EVENT with the correct ID from params
-  // TODO: Fetch actual event data from Supabase based on params.id
-  const baseEvent = { ...DUMMY_EVENT, id: params.id };
+  // TODO: Fetch actual event data from Supabase based on id
+  const baseEvent = { ...DUMMY_EVENT, id: id };
 
   // Customize event data based on ID for demo purposes
   const eventTitles: Record<string, string> = {
@@ -292,8 +296,8 @@ export default function EventDetailsPage({
 
   const event = {
     ...baseEvent,
-    title: eventTitles[params.id] || baseEvent.title,
-    location: eventLocations[params.id] || baseEvent.location,
+    title: eventTitles[id] || baseEvent.title,
+    location: eventLocations[id] || baseEvent.location,
   };
 
   const router = useRouter();

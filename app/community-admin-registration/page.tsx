@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MapPin, Upload, Wand2, Users, Tag, FileText } from "lucide-react";
+import { MapPin, Upload, Wand2, Users, Tag, FileText, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -72,11 +72,14 @@ export default function CommunityAdminRegistrationPage() {
   });
   const [customLocation, setCustomLocation] = useState("");
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // States for location API
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [selectedProvince, setSelectedProvince] = useState("");
+  const [selectedProvinceName, setSelectedProvinceName] = useState(""); // Store province name
+  const [selectedCity, setSelectedCity] = useState(""); // Store selected city name only
   const [loadingProvinces, setLoadingProvinces] = useState(true);
   const [loadingCities, setLoadingCities] = useState(false);
 
@@ -125,8 +128,24 @@ export default function CommunityAdminRegistrationPage() {
     }
   };
 
+  // Convert city name from CAPSLOCK to Title Case
+  const toTitleCase = (str: string) => {
+    return str
+      .toLowerCase()
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   const handleLocationChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, location: value }));
+    // Store the selected city name
+    setSelectedCity(value);
+    // Format location as "Province, City" (with Title Case for city)
+    const cityTitleCase = toTitleCase(value);
+    const fullLocation = selectedProvinceName
+      ? `${selectedProvinceName}, ${cityTitleCase}`
+      : cityTitleCase;
+    setFormData((prev) => ({ ...prev, location: fullLocation }));
   };
 
   const handleInterestToggle = (interest: string) => {
@@ -150,6 +169,17 @@ export default function CommunityAdminRegistrationPage() {
     const file = event.target.files?.[0];
     if (file) {
       setFormData((prev) => ({ ...prev, profileImage: file }));
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData((prev) => ({ ...prev, profileImage: null }));
+    // Reset file input
+    const fileInput = document.getElementById(
+      "profileImage"
+    ) as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = "";
     }
   };
 
@@ -217,6 +247,7 @@ export default function CommunityAdminRegistrationPage() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const formDataToSend = new FormData();
       formDataToSend.append("location", formData.location);
@@ -227,21 +258,32 @@ export default function CommunityAdminRegistrationPage() {
         formDataToSend.append("profileImage", formData.profileImage);
       }
 
+      console.log("Submitting community creation...");
       const response = await fetch("/api/communities/create", {
         method: "POST",
         body: formDataToSend,
       });
 
+      const data = await response.json();
+      console.log("API Response:", data);
+
       if (!response.ok) {
-        throw new Error("Failed to create community");
+        throw new Error(data.error || "Failed to create community");
       }
 
-      const { communityId } = await response.json();
       toast.success("Community created successfully!");
-      router.push(`/community/${communityId}`);
-    } catch (error) {
+
+      // Redirect to community admin dashboard
+      setTimeout(() => {
+        router.push("/community-admin");
+      }, 500);
+    } catch (error: any) {
       console.error("Error creating community:", error);
-      toast.error("Failed to create community. Please try again.");
+      toast.error(
+        error.message || "Failed to create community. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -354,6 +396,11 @@ export default function CommunityAdminRegistrationPage() {
                     value={selectedProvince}
                     onValueChange={(value) => {
                       setSelectedProvince(value);
+                      // Save province name as well
+                      const province = provinces.find((p) => p.id === value);
+                      setSelectedProvinceName(province?.name || "");
+                      // Reset city selection
+                      setSelectedCity("");
                       setFormData((prev) => ({ ...prev, location: "" }));
                     }}
                     disabled={loadingProvinces}
@@ -389,7 +436,7 @@ export default function CommunityAdminRegistrationPage() {
                       Kota/Kabupaten *
                     </Label>
                     <Select
-                      value={formData.location}
+                      value={selectedCity}
                       onValueChange={handleLocationChange}
                       disabled={loadingCities}
                     >
@@ -409,7 +456,7 @@ export default function CommunityAdminRegistrationPage() {
                             value={city.name}
                             className="text-base py-2.5"
                           >
-                            {city.name}
+                            {toTitleCase(city.name)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -559,12 +606,22 @@ export default function CommunityAdminRegistrationPage() {
                   </label>
                 </div>
                 {formData.profileImage && (
-                  <div className="mt-4">
-                    <img
-                      src={URL.createObjectURL(formData.profileImage)}
-                      alt="Preview"
-                      className="w-32 h-32 object-cover rounded-lg mx-auto"
-                    />
+                  <div className="mt-4 flex justify-center">
+                    <div className="relative inline-block">
+                      <img
+                        src={URL.createObjectURL(formData.profileImage)}
+                        alt="Preview"
+                        className="w-32 h-32 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-lg transition-colors"
+                        aria-label="Remove image"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 )}
                 <p className="text-sm text-gray-500">
@@ -590,8 +647,9 @@ export default function CommunityAdminRegistrationPage() {
                 <Button
                   onClick={handleSubmit}
                   className="bg-violet-600 hover:bg-violet-700"
+                  disabled={isSubmitting}
                 >
-                  Create Community
+                  {isSubmitting ? "Creating Community..." : "Create Community"}
                 </Button>
               )}
             </div>
