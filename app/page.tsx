@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { AnimatedCard } from "@/components/ui/animated-card";
 import { Badge } from "@/components/ui/badge";
@@ -19,68 +17,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { getClientSession } from "@/lib/supabase/client";
-import { createClient } from "@/lib/supabase/client";
 
 export default function HomePage() {
-  const router = useRouter();
-
-  // Auto-redirect authenticated users to their appropriate dashboard
-  useEffect(() => {
-    const checkUserAndRedirect = async () => {
-      try {
-        const session = await getClientSession();
-
-        if (session && session.user) {
-          // User is logged in, check their role
-          const supabase = createClient();
-          const { data: userData, error } = await supabase
-            .from("users")
-            .select("user_type, onboarding_completed, role_selected")
-            .eq("id", session.user.id)
-            .single();
-
-          if (!error && userData) {
-            const { user_type, onboarding_completed, role_selected } = userData;
-
-            // Check role selection first (for OAuth users)
-            if (!role_selected) {
-              router.push("/onboarding/role");
-              return;
-            }
-
-            // Redirect based on user type and onboarding status
-            switch (user_type) {
-              case "super_admin":
-                router.push("/superadmin");
-                break;
-              case "community_admin":
-                if (!onboarding_completed) {
-                  router.push("/community-admin-registration");
-                } else {
-                  router.push("/community-admin");
-                }
-                break;
-              case "user":
-              default:
-                if (!onboarding_completed) {
-                  router.push("/onboarding");
-                } else {
-                  router.push("/dashboard");
-                }
-                break;
-            }
-          }
-        }
-        // If no session or error, stay on homepage (landing page for non-authenticated users)
-      } catch (error) {
-        console.error("Error checking user session:", error);
-        // On error, stay on homepage
-      }
-    };
-
-    checkUserAndRedirect();
-  }, [router]);
+  // Note: Auto-redirect removed to allow authenticated users to view homepage
+  // Users can navigate to dashboard via navigation menu
   const featuredCommunities = [
     {
       id: 1,

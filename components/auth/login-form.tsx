@@ -1,65 +1,65 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import Image from "next/image"
-import { AnimatedButton } from "@/components/ui/animated-button"
-import { AnimatedCard } from "@/components/ui/animated-card"
-import { FloatingElements } from "@/components/ui/floating-elements"
-import { PageTransition } from "@/components/ui/page-transition"
-import { SmoothReveal } from "@/components/ui/smooth-reveal"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { Eye, EyeOff, Mail, Lock, Sparkles } from "lucide-react"
-import Link from "next/link"
-import { getSupabaseBrowser } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
-import { useToast } from "@/hooks/use-toast"
+import type React from "react";
+import { useState } from "react";
+import Image from "next/image";
+import { AnimatedButton } from "@/components/ui/animated-button";
+import { AnimatedCard } from "@/components/ui/animated-card";
+import { FloatingElements } from "@/components/ui/floating-elements";
+import { PageTransition } from "@/components/ui/page-transition";
+import { SmoothReveal } from "@/components/ui/smooth-reveal";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Eye, EyeOff, Mail, Lock, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 export function LoginForm() {
-  const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
-  const supabase = getSupabaseBrowser()
-  const { toast } = useToast()
+  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const supabase = getSupabaseBrowser();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError(null)
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
-      })
+      });
 
       if (error) {
-        setError(error.message)
+        setError(error.message);
       } else {
-        router.push("/dashboard")
-        router.refresh()
+        router.push("/");
+        router.refresh();
         toast({
           title: "Signed in successfully!",
           description: "Welcome back to ConnectSpace!",
           variant: "success",
-        })
+        });
       }
     } catch (err) {
-      setError("An unexpected error occurred")
-      console.error(err)
+      setError("An unexpected error occurred");
+      console.error(err);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleOAuthSignIn = async () => {
-    setIsLoading(true)
-    setError(null)
+    setIsLoading(true);
+    setError(null);
 
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -71,29 +71,31 @@ export function LoginForm() {
             prompt: "consent",
           },
         },
-      })
+      });
 
       if (error) {
-        throw error
+        throw error;
       }
 
       toast({
         title: "Redirecting...",
         description: "Signing in with Google...",
         variant: "info",
-      })
+      });
     } catch (err: any) {
-      console.error("Google sign-in error:", err)
-      setError(err.message || "Failed to sign in with Google. Please try again.")
+      console.error("Google sign-in error:", err);
+      setError(
+        err.message || "Failed to sign in with Google. Please try again."
+      );
       toast({
         title: "Sign-in failed",
         description: err.message || "Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <PageTransition>
@@ -102,15 +104,26 @@ export function LoginForm() {
 
         <div className="w-full max-w-md relative z-10">
           <SmoothReveal>
-            <AnimatedCard variant="glass" className="overflow-hidden smooth-hover">
+            <AnimatedCard
+              variant="glass"
+              className="overflow-hidden smooth-hover"
+            >
               <div className="absolute inset-0 gradient-primary opacity-5"></div>
 
               <div className="relative z-10 p-8">
                 <div className="text-center mb-8">
                   <div className="flex justify-center mb-4">
-                    <Image src="/logo.png" alt="Logo" width={64} height={64} className="w-16 h-16" />
+                    <Image
+                      src="/logo.png"
+                      alt="Logo"
+                      width={64}
+                      height={64}
+                      className="w-16 h-16"
+                    />
                   </div>
-                  <h1 className="text-3xl font-bold text-gradient mb-2">Welcome Back</h1>
+                  <h1 className="text-3xl font-bold text-gradient mb-2">
+                    Welcome Back
+                  </h1>
                   <p className="text-gray-600">Sign in to your account</p>
                 </div>
 
@@ -123,7 +136,10 @@ export function LoginForm() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <SmoothReveal delay={100}>
                     <div className="space-y-2">
-                      <Label htmlFor="email" className="text-gray-700 font-medium form-label">
+                      <Label
+                        htmlFor="email"
+                        className="text-gray-700 font-medium form-label"
+                      >
                         Email
                       </Label>
                       <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
@@ -143,7 +159,10 @@ export function LoginForm() {
 
                   <SmoothReveal delay={200}>
                     <div className="space-y-2">
-                      <Label htmlFor="password" className="text-gray-700 font-medium form-label">
+                      <Label
+                        htmlFor="password"
+                        className="text-gray-700 font-medium form-label"
+                      >
                         Password
                       </Label>
                       <div className="group flex h-12 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
@@ -162,7 +181,11 @@ export function LoginForm() {
                           onClick={() => setShowPassword(!showPassword)}
                           className="mx-4 text-gray-400 transition-colors duration-300 hover:text-purple-600"
                         >
-                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          {showPassword ? (
+                            <EyeOff className="h-5 w-5" />
+                          ) : (
+                            <Eye className="h-5 w-5" />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -176,7 +199,10 @@ export function LoginForm() {
                           id="remember"
                           className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 transition-colors duration-200"
                         />
-                        <Label htmlFor="remember" className="text-sm text-gray-600">
+                        <Label
+                          htmlFor="remember"
+                          className="text-sm text-gray-600"
+                        >
                           Remember me
                         </Label>
                       </div>
@@ -213,7 +239,9 @@ export function LoginForm() {
                         <Separator className="bg-gray-200" />
                       </div>
                       <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-white px-4 text-gray-500 font-medium">Or continue with</span>
+                        <span className="bg-white px-4 text-gray-500 font-medium">
+                          Or continue with
+                        </span>
                       </div>
                     </div>
                   </SmoothReveal>
@@ -261,7 +289,9 @@ export function LoginForm() {
 
                   <SmoothReveal delay={700}>
                     <div className="text-center mt-8">
-                      <span className="text-gray-600">Don't have an account? </span>
+                      <span className="text-gray-600">
+                        Don't have an account?{" "}
+                      </span>
                       <Link
                         href="/auth/signup"
                         className="text-purple-600 hover:text-purple-700 font-medium transition-colors duration-300 hover:underline nav-item"
@@ -277,5 +307,5 @@ export function LoginForm() {
         </div>
       </div>
     </PageTransition>
-  )
+  );
 }
