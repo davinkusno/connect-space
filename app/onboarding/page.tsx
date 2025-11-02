@@ -40,26 +40,12 @@ interface City {
 
 // Interest categories
 const INTEREST_CATEGORIES = [
-  "Technology",
-  "Business & Entrepreneurship",
-  "Health & Wellness",
-  "Education",
-  "Arts & Culture",
-  "Sports & Fitness",
-  "Food & Cooking",
-  "Travel & Adventure",
-  "Environment & Sustainability",
-  "Social Impact",
-  "Gaming",
-  "Photography",
+  "Environmental",
   "Music",
-  "Writing & Literature",
-  "Science & Research",
-  "Finance & Investment",
-  "Design & Creative",
-  "Language Learning",
-  "Parenting & Family",
-  "Professional Development",
+  "Sports",
+  "Hobbies",
+  "Education",
+  "Art",
 ];
 
 export default function OnboardingPage() {

@@ -962,13 +962,17 @@ export default function DashboardPage() {
                   userId="current-user"
                   userProfile={{
                     interests: [
-                      { topic: "Technology", strength: 0.9, category: "Tech" },
                       {
-                        topic: "Startups",
-                        strength: 0.8,
-                        category: "Business",
+                        topic: "Education",
+                        strength: 0.9,
+                        category: "Education",
                       },
-                      { topic: "AI", strength: 0.7, category: "Tech" },
+                      {
+                        topic: "Sports",
+                        strength: 0.8,
+                        category: "Sports",
+                      },
+                      { topic: "Art", strength: 0.7, category: "Art" },
                     ],
                     joinedCommunities: ["Tech Innovators", "Startup Founders"],
                     location: "New York",
