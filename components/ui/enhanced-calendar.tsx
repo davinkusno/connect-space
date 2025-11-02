@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState } from "react";
 import {
   format,
   addMonths,
@@ -12,11 +12,18 @@ import {
   isSameDay,
   parseISO,
   isToday,
-} from "date-fns"
-import { ChevronLeft, ChevronRight, CalendarIcon, Clock, MapPin, Users } from "lucide-react"
-import { AnimatedButton } from "./animated-button"
-import { AnimatedCard } from "./animated-card"
-import { Badge } from "./badge"
+} from "date-fns";
+import {
+  ChevronLeft,
+  ChevronRight,
+  CalendarIcon,
+  Clock,
+  MapPin,
+  Users,
+} from "lucide-react";
+import { AnimatedButton } from "./animated-button";
+import { AnimatedCard } from "./animated-card";
+import { Badge } from "./badge";
 
 // Sample event data
 const eventData = [
@@ -26,7 +33,8 @@ const eventData = [
     date: "2024-01-15",
     time: "6:00 PM - 9:00 PM",
     location: "WeWork SoHo",
-    description: "Deep dive into modern AI techniques and practical applications",
+    description:
+      "Deep dive into modern AI techniques and practical applications",
     attendees: 45,
     category: "tech",
     community: "Tech Innovators",
@@ -40,7 +48,8 @@ const eventData = [
     date: "2024-01-15",
     time: "7:00 AM - 8:30 AM",
     location: "Central Park",
-    description: "Refreshing morning yoga to start the day with positive energy",
+    description:
+      "Refreshing morning yoga to start the day with positive energy",
     attendees: 23,
     category: "health",
     community: "Wellness Warriors",
@@ -189,108 +198,110 @@ const eventData = [
     gradient: "gradient-secondary",
     tags: ["Community", "Networking", "Social"],
   },
-]
+];
 
 // Helper function to get category color
 const getCategoryColor = (category: string) => {
   switch (category) {
     case "tech":
-      return "bg-blue-500"
+      return "bg-blue-500";
     case "health":
-      return "bg-green-500"
+      return "bg-green-500";
     case "outdoor":
-      return "bg-emerald-500"
+      return "bg-emerald-500";
     case "arts":
-      return "bg-purple-500"
+      return "bg-purple-500";
     case "business":
-      return "bg-amber-500"
+      return "bg-amber-500";
     case "community":
-      return "bg-pink-500"
+      return "bg-pink-500";
     default:
-      return "bg-gray-500"
+      return "bg-gray-500";
   }
-}
+};
 
 // Helper function to get category icon
 const getCategoryIcon = (category: string) => {
   switch (category) {
     case "tech":
-      return "💻"
+      return "💻";
     case "health":
-      return "🧘"
+      return "🧘";
     case "outdoor":
-      return "🏞️"
+      return "🏞️";
     case "arts":
-      return "🎨"
+      return "🎨";
     case "business":
-      return "💼"
+      return "💼";
     case "community":
-      return "👥"
+      return "👥";
     default:
-      return "📅"
+      return "📅";
   }
-}
+};
 
 export function EnhancedCalendar() {
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Navigation functions
-  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1))
-  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1))
+  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
   // Get days for the current month view
-  const monthStart = startOfMonth(currentMonth)
-  const monthEnd = endOfMonth(currentMonth)
-  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   // Add days from previous and next month to fill the calendar grid
-  const startDay = monthStart.getDay() // 0 = Sunday, 1 = Monday, etc.
-  const endDay = 6 - monthEnd.getDay() // Days needed to complete the last week
+  const startDay = monthStart.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const endDay = 6 - monthEnd.getDay(); // Days needed to complete the last week
 
   // Create previous month days
-  const prevMonthDays = []
+  const prevMonthDays = [];
   for (let i = startDay - 1; i >= 0; i--) {
-    const date = new Date(monthStart)
-    date.setDate(date.getDate() - (i + 1))
-    prevMonthDays.push(date)
+    const date = new Date(monthStart);
+    date.setDate(date.getDate() - (i + 1));
+    prevMonthDays.push(date);
   }
 
   // Create next month days
-  const nextMonthDays = []
+  const nextMonthDays = [];
   for (let i = 1; i <= endDay; i++) {
-    const date = new Date(monthEnd)
-    date.setDate(date.getDate() + i)
-    nextMonthDays.push(date)
+    const date = new Date(monthEnd);
+    date.setDate(date.getDate() + i);
+    nextMonthDays.push(date);
   }
 
   // Combine all days
-  const calendarDays = [...prevMonthDays, ...monthDays, ...nextMonthDays]
+  const calendarDays = [...prevMonthDays, ...monthDays, ...nextMonthDays];
 
   // Get events for the selected date
   const getEventsForDate = (date: Date) => {
     return eventData.filter((event) => {
-      const eventDate = parseISO(event.date)
-      return isSameDay(eventDate, date)
-    })
-  }
+      const eventDate = parseISO(event.date);
+      return isSameDay(eventDate, date);
+    });
+  };
 
   // Check if a date has events
   const hasEvents = (date: Date) => {
-    return getEventsForDate(date).length > 0
-  }
+    return getEventsForDate(date).length > 0;
+  };
 
   // Get events for the selected date
-  const selectedDateEvents = getEventsForDate(selectedDate)
+  const selectedDateEvents = getEventsForDate(selectedDate);
 
   // Get day of week headers
-  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
     <div className="w-full">
       {/* Calendar Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">{format(currentMonth, "MMMM yyyy")}</h2>
+        <h2 className="text-lg font-semibold text-gray-900">
+          {format(currentMonth, "MMMM yyyy")}
+        </h2>
         <div className="flex space-x-2">
           <AnimatedButton
             variant="glass"
@@ -318,7 +329,10 @@ export function EnhancedCalendar() {
         {/* Day headers */}
         <div className="grid grid-cols-7 bg-gray-50">
           {weekDays.map((day) => (
-            <div key={day} className="py-2 text-center text-sm font-medium text-gray-500">
+            <div
+              key={day}
+              className="py-2 text-center text-sm font-medium text-gray-500"
+            >
               {day}
             </div>
           ))}
@@ -327,11 +341,11 @@ export function EnhancedCalendar() {
         {/* Calendar days */}
         <div className="grid grid-cols-7 bg-white">
           {calendarDays.map((day, i) => {
-            const isCurrentMonth = isSameMonth(day, currentMonth)
-            const isSelected = isSameDay(day, selectedDate)
-            const dayHasEvents = hasEvents(day)
-            const dayEvents = getEventsForDate(day)
-            const isCurrentDay = isToday(day)
+            const isCurrentMonth = isSameMonth(day, currentMonth);
+            const isSelected = isSameDay(day, selectedDate);
+            const dayHasEvents = hasEvents(day);
+            const dayEvents = getEventsForDate(day);
+            const isCurrentDay = isToday(day);
 
             return (
               <button
@@ -350,133 +364,78 @@ export function EnhancedCalendar() {
                   <span
                     className={`
                       text-sm font-medium 
-                      ${isCurrentDay ? "bg-purple-600 text-white rounded-full w-7 h-7 flex items-center justify-center mx-auto" : ""}
+                      ${
+                        isCurrentDay
+                          ? "bg-purple-600 text-white rounded-full w-7 h-7 flex items-center justify-center mx-auto"
+                          : ""
+                      }
                     `}
                   >
                     {format(day, "d")}
                   </span>
 
-                  {/* Event indicators */}
+                  {/* Event indicator - Single purple dot */}
                   {dayHasEvents && (
-                    <div className="flex flex-wrap gap-1 mt-1 justify-center">
-                      {dayEvents.slice(0, 3).map((event, index) => (
-                        <span
-                          key={index}
-                          className={`w-2 h-2 rounded-full ${getCategoryColor(event.category)}`}
-                          title={event.title}
-                        />
-                      ))}
-                      {dayEvents.length > 3 && (
-                        <span className="text-xs text-gray-500 font-medium">+{dayEvents.length - 3}</span>
-                      )}
+                    <div className="flex justify-center mt-1">
+                      <span
+                        className="w-2 h-2 rounded-full bg-purple-600"
+                        title={`${dayEvents.length} event${
+                          dayEvents.length > 1 ? "s" : ""
+                        }`}
+                      />
                     </div>
                   )}
                 </div>
               </button>
-            )
+            );
           })}
         </div>
       </div>
 
-      {/* Selected Date Events */}
+      {/* Selected Date Events - Simplified */}
       {selectedDate && (
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <h4 className="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2">
-            <CalendarIcon className="w-4 h-4 text-purple-600" />
-            Events on {format(selectedDate, "EEEE, MMMM d, yyyy")}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">
+            {format(selectedDate, "EEEE, MMMM d")}
+            {selectedDateEvents.length > 0 && ` (${selectedDateEvents.length})`}
           </h4>
 
           {selectedDateEvents.length > 0 ? (
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {selectedDateEvents.map((event, index) => (
-                <AnimatedCard
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {selectedDateEvents.map((event) => (
+                <div
                   key={event.id}
-                  variant="glass"
-                  className="p-4 group hover:shadow-lg transition-all duration-300"
-                  style={{ animationDelay: `${index * 100}ms` }}
+                  className="flex items-start gap-3 p-3 rounded-lg bg-purple-50/50 hover:bg-purple-50 transition-colors cursor-pointer border border-purple-100"
                 >
-                  <div
-                    className={`absolute inset-0 ${event.gradient} opacity-5 rounded-lg group-hover:opacity-10 transition-opacity duration-300`}
-                  ></div>
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg" aria-hidden="true">
-                          {getCategoryIcon(event.category)}
-                        </span>
-                        <h5 className="font-bold text-purple-700 group-hover:text-purple-800 transition-colors duration-300">
-                          {event.title}
-                        </h5>
-                      </div>
-                      <Badge
-                        className={`${
-                          event.status === "attended"
-                            ? "bg-green-500 text-white"
-                            : event.status === "attending"
-                              ? "bg-blue-500 text-white"
-                              : "bg-yellow-500 text-white"
-                        } border-0`}
-                      >
-                        {event.status === "attended"
-                          ? "Attended"
-                          : event.status === "attending"
-                            ? "Attending"
-                            : "Maybe"}
-                      </Badge>
-                    </div>
-
-                    <p className="text-sm text-gray-600 mb-2 font-medium">{event.community}</p>
-                    <p className="text-sm text-gray-700 mb-3 leading-relaxed">{event.description}</p>
-
-                    <div className="space-y-2 text-xs text-gray-600">
-                      <div className="flex items-center gap-2">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h5 className="text-sm font-medium text-gray-900 truncate">
+                      {event.title}
+                    </h5>
+                    <div className="flex items-center gap-4 mt-1 text-xs text-gray-600">
+                      <div className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        <span>{event.time}</span>
+                        <span>{event.time.split(" - ")[0]}</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
-                        <span>{event.location}</span>
+                        <span className="truncate">{event.location}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="w-3 h-3" />
-                        <span>{event.attendees} attendees</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-4">
-                      <div className="flex flex-wrap gap-1">
-                        {event.tags.slice(0, 2).map((tag, tagIndex) => (
-                          <Badge
-                            key={tagIndex}
-                            variant="outline"
-                            className="text-xs border-purple-200 text-purple-600 bg-purple-50"
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
-                        {event.tags.length > 2 && (
-                          <Badge variant="outline" className="text-xs border-gray-200 text-gray-500">
-                            +{event.tags.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                      <AnimatedButton variant="glass" size="sm">
-                        Details
-                      </AnimatedButton>
                     </div>
                   </div>
-                </AnimatedCard>
+                </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 bg-gray-50 rounded-lg">
-              <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-sm text-gray-500 font-medium">No events on this date</p>
-              <p className="text-xs text-gray-400 mt-1">Select another date to view events</p>
+            <div className="text-center py-6 px-4 bg-gray-50 rounded-lg">
+              <CalendarIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">No events on this date</p>
             </div>
           )}
         </div>
       )}
     </div>
-  )
+  );
 }

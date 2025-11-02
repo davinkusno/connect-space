@@ -1,31 +1,31 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { Heart, Calendar, ArrowRight } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { useWishlist } from "./wishlist-provider"
-import Link from "next/link"
-import { AnimatedCard } from "@/components/ui/animated-card"
+import type React from "react";
+import { Heart, Calendar, ArrowRight } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useWishlist } from "./wishlist-provider";
+import Link from "next/link";
+import { AnimatedCard } from "@/components/ui/animated-card";
 
 export const WishlistSummary: React.FC = () => {
-  const { wishlist } = useWishlist()
+  const { wishlist } = useWishlist();
 
   // Sort events by date (closest first)
   const sortedWishlist = [...wishlist].sort((a, b) => {
-    return new Date(a.date).getTime() - new Date(b.date).getTime()
-  })
+    return new Date(a.date).getTime() - new Date(b.date).getTime();
+  });
 
   // Get only the next 3 upcoming events
-  const upcomingEvents = sortedWishlist.slice(0, 3)
+  const upcomingEvents = sortedWishlist.slice(0, 3);
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
+    const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
-    })
-  }
+    });
+  };
 
   if (wishlist.length === 0) {
     return (
@@ -33,14 +33,14 @@ export const WishlistSummary: React.FC = () => {
         <CardHeader>
           <CardTitle className="text-xl font-bold flex items-center gap-2">
             <Heart className="w-5 h-5 text-purple-600" />
-            Wishlist
+            My Saved Events
           </CardTitle>
         </CardHeader>
         <CardContent className="text-center py-6">
           <div className="w-16 h-16 mx-auto mb-4 bg-purple-100 rounded-full flex items-center justify-center">
             <Heart className="w-8 h-8 text-purple-400" />
           </div>
-          <p className="text-muted-foreground mb-4">Your wishlist is empty</p>
+          <p className="text-muted-foreground mb-4">No saved events yet</p>
           <Link href="/events">
             <Button variant="outline" size="sm">
               Discover Events
@@ -48,7 +48,7 @@ export const WishlistSummary: React.FC = () => {
           </Link>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -57,9 +57,11 @@ export const WishlistSummary: React.FC = () => {
         <CardTitle className="text-xl font-bold flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Heart className="w-5 h-5 text-purple-600 fill-current" />
-            My Wishlist
+            My Saved Events
           </div>
-          <span className="text-sm font-normal text-muted-foreground">{wishlist.length} events</span>
+          <span className="text-sm font-normal text-muted-foreground">
+            {wishlist.length} events
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -85,17 +87,23 @@ export const WishlistSummary: React.FC = () => {
 
         {wishlist.length > 3 && (
           <div className="mt-4 text-center">
-            <p className="text-xs text-muted-foreground mb-2">+{wishlist.length - 3} more events in your wishlist</p>
+            <p className="text-xs text-muted-foreground mb-2">
+              +{wishlist.length - 3} more saved events
+            </p>
           </div>
         )}
 
         <Link href="/wishlist" className="block mt-4">
-          <Button variant="outline" className="w-full justify-between" size="sm">
-            <span>View all wishlisted events</span>
+          <Button
+            variant="outline"
+            className="w-full justify-between"
+            size="sm"
+          >
+            <span>View all saved events</span>
             <ArrowRight className="w-4 h-4" />
           </Button>
         </Link>
       </CardContent>
     </AnimatedCard>
-  )
-}
+  );
+};
