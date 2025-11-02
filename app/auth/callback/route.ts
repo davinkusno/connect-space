@@ -50,8 +50,8 @@ export async function GET(request: NextRequest) {
 
         if (userError) {
           console.error("Error fetching user data:", userError);
-          // Default to dashboard if we can't fetch user data
-          return NextResponse.redirect(`${origin}/dashboard`);
+          // Default to homepage if we can't fetch user data
+          return NextResponse.redirect(`${origin}/`);
         }
 
         // Redirect based on user role and onboarding status
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
             if (!onboardingCompleted) {
               return NextResponse.redirect(`${origin}/onboarding`);
             }
-            return NextResponse.redirect(`${origin}/dashboard`);
+            return NextResponse.redirect(`${origin}/`);
         }
       }
     } catch (error) {

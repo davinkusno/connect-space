@@ -1,42 +1,62 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import { getSupabaseBrowser } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { toast } from "@/components/ui/use-toast"
-import Link from "next/link"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/components/ui/use-toast";
+import Link from "next/link";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
-})
+  password: z
+    .string()
+    .min(6, { message: "Password must be at least 6 characters" }),
+});
 
 const signupSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  password: z
+    .string()
+    .min(6, { message: "Password must be at least 6 characters" }),
   username: z
     .string()
     .min(3, { message: "Username must be at least 3 characters" })
-    .regex(/^[a-zA-Z0-9_]+$/, { message: "Username can only contain letters, numbers, and underscores" }),
+    .regex(/^[a-zA-Z0-9_]+$/, {
+      message: "Username can only contain letters, numbers, and underscores",
+    }),
   fullName: z.string().optional(),
-})
+});
 
-type LoginValues = z.infer<typeof loginSchema>
-type SignupValues = z.infer<typeof signupSchema>
+type LoginValues = z.infer<typeof loginSchema>;
+type SignupValues = z.infer<typeof signupSchema>;
 
 export function AuthForm() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<"login" | "signup">("login")
-  const router = useRouter()
-  const supabase = getSupabaseBrowser()
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
+  const router = useRouter();
+  const supabase = getSupabaseBrowser();
 
   // Login form
   const loginForm = useForm<LoginValues>({
@@ -45,7 +65,7 @@ export function AuthForm() {
       email: "",
       password: "",
     },
-  })
+  });
 
   // Signup form
   const signupForm = useForm<SignupValues>({
@@ -56,43 +76,43 @@ export function AuthForm() {
       username: "",
       fullName: "",
     },
-  })
+  });
 
   // Handle login
   async function onLoginSubmit(data: LoginValues) {
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
-      })
+      });
 
       if (error) {
-        throw error
+        throw error;
       }
 
       toast({
         title: "Login successful",
         description: "You have been logged in successfully.",
-      })
+      });
 
-      router.push("/dashboard")
-      router.refresh()
+      router.push("/");
+      router.refresh();
     } catch (error: any) {
       toast({
         title: "Login failed",
         description: error.message || "Something went wrong. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
   // Handle signup
   async function onSignupSubmit(data: SignupValues) {
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
       const { error } = await supabase.auth.signUp({
@@ -104,26 +124,26 @@ export function AuthForm() {
             full_name: data.fullName,
           },
         },
-      })
+      });
 
       if (error) {
-        throw error
+        throw error;
       }
 
       toast({
         title: "Signup successful",
         description: "Please check your email to verify your account.",
-      })
+      });
 
-      setActiveTab("login")
+      setActiveTab("login");
     } catch (error: any) {
       toast({
         title: "Signup failed",
         description: error.message || "Something went wrong. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -131,10 +151,15 @@ export function AuthForm() {
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
         <CardTitle className="text-2xl text-center">Welcome</CardTitle>
-        <CardDescription className="text-center">Sign in to your account or create a new one</CardDescription>
+        <CardDescription className="text-center">
+          Sign in to your account or create a new one
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "login" | "signup")}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as "login" | "signup")}
+        >
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -142,7 +167,10 @@ export function AuthForm() {
 
           <TabsContent value="login">
             <Form {...loginForm}>
-              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+              <form
+                onSubmit={loginForm.handleSubmit(onLoginSubmit)}
+                className="space-y-4"
+              >
                 <FormField
                   control={loginForm.control}
                   name="email"
@@ -163,14 +191,21 @@ export function AuthForm() {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
+                        <Input
+                          type="password"
+                          placeholder="••••••••"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 <div className="flex justify-end">
-                  <Link href="/auth/forgot-password" className="text-sm text-muted-foreground hover:text-primary">
+                  <Link
+                    href="/auth/forgot-password"
+                    className="text-sm text-muted-foreground hover:text-primary"
+                  >
                     Forgot password?
                   </Link>
                 </div>
@@ -183,7 +218,10 @@ export function AuthForm() {
 
           <TabsContent value="signup">
             <Form {...signupForm}>
-              <form onSubmit={signupForm.handleSubmit(onSignupSubmit)} className="space-y-4">
+              <form
+                onSubmit={signupForm.handleSubmit(onSignupSubmit)}
+                className="space-y-4"
+              >
                 <FormField
                   control={signupForm.control}
                   name="email"
@@ -230,7 +268,11 @@ export function AuthForm() {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
+                        <Input
+                          type="password"
+                          placeholder="••••••••"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -250,7 +292,9 @@ export function AuthForm() {
             <span className="w-full border-t" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+            <span className="bg-background px-2 text-muted-foreground">
+              Or continue with
+            </span>
           </div>
         </div>
         <div className="w-full">
@@ -265,14 +309,14 @@ export function AuthForm() {
                   options: {
                     redirectTo: `${window.location.origin}/auth/callback`,
                   },
-                })
-                if (error) throw error
+                });
+                if (error) throw error;
               } catch (error) {
                 toast({
                   title: "Error",
                   description: "Could not sign in with Google",
                   variant: "destructive",
-                })
+                });
               }
             }}
           >
@@ -299,5 +343,5 @@ export function AuthForm() {
         </div>
       </CardFooter>
     </Card>
-  )
+  );
 }
