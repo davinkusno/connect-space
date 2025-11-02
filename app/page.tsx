@@ -1,22 +1,94 @@
-"use client"
+"use client";
 
-import { AnimatedButton } from "@/components/ui/animated-button"
-import { AnimatedCard } from "@/components/ui/animated-card"
-import { Badge } from "@/components/ui/badge"
-import { FloatingElements } from "@/components/ui/floating-elements"
-import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ArrowRight, Calendar, Heart, MapPin, Search, Sparkles, Users } from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { AnimatedButton } from "@/components/ui/animated-button";
+import { AnimatedCard } from "@/components/ui/animated-card";
+import { Badge } from "@/components/ui/badge";
+import { FloatingElements } from "@/components/ui/floating-elements";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  ArrowRight,
+  Calendar,
+  Heart,
+  MapPin,
+  Search,
+  Sparkles,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { getClientSession } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 export default function HomePage() {
+  const router = useRouter();
+
+  // Auto-redirect authenticated users to their appropriate dashboard
+  useEffect(() => {
+    const checkUserAndRedirect = async () => {
+      try {
+        const session = await getClientSession();
+
+        if (session && session.user) {
+          // User is logged in, check their role
+          const supabase = createClient();
+          const { data: userData, error } = await supabase
+            .from("users")
+            .select("user_type, onboarding_completed, role_selected")
+            .eq("id", session.user.id)
+            .single();
+
+          if (!error && userData) {
+            const { user_type, onboarding_completed, role_selected } = userData;
+
+            // Check role selection first (for OAuth users)
+            if (!role_selected) {
+              router.push("/onboarding/role");
+              return;
+            }
+
+            // Redirect based on user type and onboarding status
+            switch (user_type) {
+              case "super_admin":
+                router.push("/superadmin");
+                break;
+              case "community_admin":
+                if (!onboarding_completed) {
+                  router.push("/community-admin-registration");
+                } else {
+                  router.push("/community-admin");
+                }
+                break;
+              case "user":
+              default:
+                if (!onboarding_completed) {
+                  router.push("/onboarding");
+                } else {
+                  router.push("/dashboard");
+                }
+                break;
+            }
+          }
+        }
+        // If no session or error, stay on homepage (landing page for non-authenticated users)
+      } catch (error) {
+        console.error("Error checking user session:", error);
+        // On error, stay on homepage
+      }
+    };
+
+    checkUserAndRedirect();
+  }, [router]);
   const featuredCommunities = [
     {
       id: 1,
       name: "Creative Coders",
-      description: "A community for designers and developers who are passionate about creative coding and generative art.",
-      image: "https://images.unsplash.com/photo-1587620962725-abab7fe55159?w=800&q=80",
+      description:
+        "A community for designers and developers who are passionate about creative coding and generative art.",
+      image:
+        "https://images.unsplash.com/photo-1587620962725-abab7fe55159?w=800&q=80",
       members: 12500,
       location: "Online",
       upcomingEvents: 5,
@@ -28,8 +100,10 @@ export default function HomePage() {
     {
       id: 2,
       name: "Urban Gardeners",
-      description: "Share tips, celebrate harvests, and grow together with fellow city gardening enthusiasts.",
-      image: "https://images.unsplash.com/photo-1466692496629-3696f092c8d5?w=800&q=80",
+      description:
+        "Share tips, celebrate harvests, and grow together with fellow city gardening enthusiasts.",
+      image:
+        "https://images.unsplash.com/photo-1466692496629-3696f092c8d5?w=800&q=80",
       members: 8200,
       location: "New York",
       upcomingEvents: 3,
@@ -41,8 +115,10 @@ export default function HomePage() {
     {
       id: 3,
       name: "Indie Filmmakers",
-      description: "Connect with writers, directors, and cinematographers to collaborate on independent film projects.",
-      image: "https://images.unsplash.com/photo-1542204165-65bf26472b9b?w=800&q=80",
+      description:
+        "Connect with writers, directors, and cinematographers to collaborate on independent film projects.",
+      image:
+        "https://images.unsplash.com/photo-1542204165-65bf26472b9b?w=800&q=80",
       members: 15300,
       location: "Los Angeles",
       upcomingEvents: 8,
@@ -51,16 +127,26 @@ export default function HomePage() {
       gradient: "gradient-tertiary",
       growth: 18,
     },
-  ]
+  ];
 
   const categories = [
     { name: "Tech", count: 1234, icon: "💻", gradient: "gradient-primary" },
-    { name: "Art & Design", count: 876, icon: "🎨", gradient: "gradient-secondary" },
+    {
+      name: "Art & Design",
+      count: 876,
+      icon: "🎨",
+      gradient: "gradient-secondary",
+    },
     { name: "Gaming", count: 2451, icon: "🎮", gradient: "gradient-tertiary" },
     { name: "Music", count: 1789, icon: "🎵", gradient: "gradient-quaternary" },
     { name: "Sports", count: 945, icon: "⚽", gradient: "gradient-primary" },
-    { name: "Business", count: 198, icon: "💼", gradient: "gradient-secondary" },
-  ]
+    {
+      name: "Business",
+      count: 198,
+      icon: "💼",
+      gradient: "gradient-secondary",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 relative overflow-hidden">
@@ -81,7 +167,8 @@ export default function HomePage() {
           </div>
 
           <p className="text-2xl text-gray-600 mb-16 max-w-3xl mx-auto leading-relaxed">
-            Connect with like-minded people and discover communities that share your passions
+            Connect with like-minded people and discover communities that share
+            your passions
           </p>
 
           {/* Enhanced Search Bar */}
@@ -95,7 +182,11 @@ export default function HomePage() {
                     placeholder="Search communities..."
                     className="pl-16 pr-6 py-6 text-lg border-0 bg-transparent focus:ring-0 focus:outline-none"
                   />
-                  <AnimatedButton variant="gradient" size="lg" className="rounded-full">
+                  <AnimatedButton
+                    variant="gradient"
+                    size="lg"
+                    className="rounded-full"
+                  >
                     <ArrowRight className="w-5 h-5" />
                   </AnimatedButton>
                 </div>
@@ -110,9 +201,15 @@ export default function HomePage() {
               { number: "50K+", label: "Members", icon: "👥" },
               { number: "1K+", label: "Events", icon: "📅" },
             ].map((stat, index) => (
-              <AnimatedCard key={index} variant="glass" className="p-8 text-center">
+              <AnimatedCard
+                key={index}
+                variant="glass"
+                className="p-8 text-center"
+              >
                 <div className="text-4xl mb-2">{stat.icon}</div>
-                <div className="text-4xl font-bold text-gradient mb-2">{stat.number}</div>
+                <div className="text-4xl font-bold text-gradient mb-2">
+                  {stat.number}
+                </div>
                 <div className="text-gray-600">{stat.label}</div>
               </AnimatedCard>
             ))}
@@ -124,20 +221,30 @@ export default function HomePage() {
       <section className="py-24 px-6 relative">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
-            <h2 className="text-5xl font-bold text-gray-900 mb-6">Explore Categories</h2>
-            <p className="text-xl text-gray-600">Discover communities across diverse interests</p>
+            <h2 className="text-5xl font-bold text-gray-900 mb-6">
+              Explore Categories
+            </h2>
+            <p className="text-xl text-gray-600">
+              Discover communities across diverse interests
+            </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
             {categories.map((category, index) => (
-              <AnimatedCard key={index} variant="3d" className="p-8 text-center cursor-pointer group">
+              <AnimatedCard
+                key={index}
+                variant="3d"
+                className="p-8 text-center cursor-pointer group"
+              >
                 <div className="text-4xl mb-4 transform group-hover:scale-110 transition-transform duration-300">
                   {category.icon}
                 </div>
                 <h3 className="font-bold text-lg mb-2 group-hover:text-purple-600 transition-colors duration-300">
                   {category.name}
                 </h3>
-                <p className="text-gray-500 text-sm">{category.count} communities</p>
+                <p className="text-gray-500 text-sm">
+                  {category.count} communities
+                </p>
                 <div
                   className={`absolute inset-0 ${category.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500 rounded-lg`}
                 ></div>
@@ -152,8 +259,12 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-20">
             <div>
-              <h2 className="text-5xl font-bold text-gray-900 mb-4">Featured Communities</h2>
-              <p className="text-xl text-gray-600">Join thriving communities today</p>
+              <h2 className="text-5xl font-bold text-gray-900 mb-4">
+                Featured Communities
+              </h2>
+              <p className="text-xl text-gray-600">
+                Join thriving communities today
+              </p>
             </div>
             <Link href="/discover">
               <AnimatedButton variant="neon" size="lg" className="group">
@@ -165,7 +276,11 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {featuredCommunities.map((community, index) => (
-              <AnimatedCard key={community.id} variant="3d" className="overflow-hidden group">
+              <AnimatedCard
+                key={community.id}
+                variant="3d"
+                className="overflow-hidden group"
+              >
                 <div className="relative overflow-hidden">
                   <Image
                     src={community.image || "/placeholder.svg"}
@@ -178,7 +293,9 @@ export default function HomePage() {
                     className={`absolute inset-0 ${community.gradient} opacity-20 group-hover:opacity-40 transition-opacity duration-500`}
                   ></div>
                   <div className="absolute top-4 left-4">
-                    <Badge className="glass-effect text-gray-800 border-0">{community.category}</Badge>
+                    <Badge className="glass-effect text-gray-800 border-0">
+                      {community.category}
+                    </Badge>
                   </div>
                   <div className="absolute bottom-4 right-4">
                     <Badge className="bg-white/90 text-purple-600 border-0 font-bold">
@@ -191,7 +308,9 @@ export default function HomePage() {
                   <h3 className="text-2xl font-bold mb-3 group-hover:text-purple-600 transition-colors duration-300">
                     {community.name}
                   </h3>
-                  <p className="text-gray-600 mb-6 leading-relaxed">{community.description}</p>
+                  <p className="text-gray-600 mb-6 leading-relaxed">
+                    {community.description}
+                  </p>
 
                   <div className="flex items-center gap-6 text-sm text-gray-500 mb-6">
                     <div className="flex items-center gap-2">
@@ -223,8 +342,13 @@ export default function HomePage() {
                   <div className="flex justify-between items-center">
                     <div className="flex -space-x-3">
                       {[1, 2, 3, 4].map((i) => (
-                        <Avatar key={i} className="h-10 w-10 border-3 border-white ring-2 ring-purple-100">
-                          <AvatarImage src={`/placeholder.svg?height=40&width=40`} />
+                        <Avatar
+                          key={i}
+                          className="h-10 w-10 border-3 border-white ring-2 ring-purple-100"
+                        >
+                          <AvatarImage
+                            src={`/placeholder.svg?height=40&width=40`}
+                          />
                           <AvatarFallback className="text-xs bg-gradient-to-r from-purple-400 to-blue-400 text-white">
                             U{i}
                           </AvatarFallback>
@@ -251,14 +375,21 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="max-w-5xl mx-auto text-center text-white relative z-10">
           <div className="mb-8">
-            <h2 className="text-6xl font-bold mb-6">Ready to Build Your Community?</h2>
+            <h2 className="text-6xl font-bold mb-6">
+              Ready to Build Your Community?
+            </h2>
             <p className="text-2xl opacity-90 leading-relaxed max-w-3xl mx-auto">
-              Create your own community and bring people together around shared interests
+              Create your own community and bring people together around shared
+              interests
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-            <AnimatedButton variant="glass" size="lg" className="text-white border-white/30">
+            <AnimatedButton
+              variant="glass"
+              size="lg"
+              className="text-white border-white/30"
+            >
               <Sparkles className="w-5 h-5 mr-2" />
               Create Community
             </AnimatedButton>
@@ -289,11 +420,13 @@ export default function HomePage() {
             <div className="md:col-span-2">
               <div className="flex items-center gap-3 mb-6">
                 <Sparkles className="w-8 h-8 text-purple-400" />
-                <div className="text-2xl font-bold text-gradient">ConnectSpace</div>
+                <div className="text-2xl font-bold text-gradient">
+                  ConnectSpace
+                </div>
               </div>
               <p className="text-gray-300 leading-relaxed text-lg mb-8">
-                Connecting people through shared interests and meaningful communities. Join thousands of communities
-                worldwide.
+                Connecting people through shared interests and meaningful
+                communities. Join thousands of communities worldwide.
               </p>
               <div className="flex space-x-4">
                 {["🌟", "💫", "✨"].map((emoji, index) => (
@@ -310,41 +443,48 @@ export default function HomePage() {
             <div>
               <h3 className="font-bold mb-6 text-xl">Platform</h3>
               <ul className="space-y-4 text-gray-300">
-                {["Discover", "Events", "Create Community", "Mobile App"].map((item) => (
-                  <li key={item}>
-                    <Link
-                      href="#"
-                      className="hover:text-purple-400 transition-colors duration-300 hover:translate-x-1 inline-block"
-                    >
-                      {item}
-                    </Link>
-                  </li>
-                ))}
+                {["Discover", "Events", "Create Community", "Mobile App"].map(
+                  (item) => (
+                    <li key={item}>
+                      <Link
+                        href="#"
+                        className="hover:text-purple-400 transition-colors duration-300 hover:translate-x-1 inline-block"
+                      >
+                        {item}
+                      </Link>
+                    </li>
+                  )
+                )}
               </ul>
             </div>
 
             <div>
               <h3 className="font-bold mb-6 text-xl">Support</h3>
               <ul className="space-y-4 text-gray-300">
-                {["Help Center", "Contact", "Guidelines", "Privacy"].map((item) => (
-                  <li key={item}>
-                    <Link
-                      href="#"
-                      className="hover:text-purple-400 transition-colors duration-300 hover:translate-x-1 inline-block"
-                    >
-                      {item}
-                    </Link>
-                  </li>
-                ))}
+                {["Help Center", "Contact", "Guidelines", "Privacy"].map(
+                  (item) => (
+                    <li key={item}>
+                      <Link
+                        href="#"
+                        className="hover:text-purple-400 transition-colors duration-300 hover:translate-x-1 inline-block"
+                      >
+                        {item}
+                      </Link>
+                    </li>
+                  )
+                )}
               </ul>
             </div>
           </div>
 
           <div className="border-t border-gray-700 mt-16 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 ConnectSpace. All rights reserved. Made with ❤️ for communities worldwide.</p>
+            <p>
+              &copy; 2024 ConnectSpace. All rights reserved. Made with ❤️ for
+              communities worldwide.
+            </p>
           </div>
         </div>
       </footer>
     </div>
-  )
+  );
 }

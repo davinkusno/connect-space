@@ -1,51 +1,84 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { usePathname } from "next/navigation"
-import Link from "next/link"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { 
-  Users, 
-  Calendar, 
-  Bell, 
-  Settings, 
+} from "@/components/ui/dropdown-menu";
+import {
+  Users,
+  Calendar,
+  Bell,
+  Settings,
   LogOut,
-  ChevronDown
-} from "lucide-react"
-import { cn } from "@/lib/utils"
+  ChevronDown,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 interface CommunityAdminNavProps {
-  communityProfilePicture?: string
-  communityName?: string
+  communityProfilePicture?: string;
+  communityName?: string;
 }
 
-export function CommunityAdminNav({ 
-  communityProfilePicture = "/placeholder-user.jpg", 
-  communityName = "Community" 
+export function CommunityAdminNav({
+  communityProfilePicture = "/placeholder-user.jpg",
+  communityName = "Community",
 }: CommunityAdminNavProps) {
-  const pathname = usePathname()
-  
+  const pathname = usePathname();
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   // Determine active tab based on pathname
   const getActiveTab = () => {
-    if (pathname?.startsWith("/community-admin/events") || pathname === "/community-admin/create") {
-      return "events"
+    if (
+      pathname?.startsWith("/community-admin/events") ||
+      pathname === "/community-admin/create"
+    ) {
+      return "events";
     }
     if (pathname?.startsWith("/community-admin/notifications")) {
-      return "notification"
+      return "notification";
     }
-    return "community-profile"
-  }
-  
-  const activeTab = getActiveTab()
+    return "community-profile";
+  };
+
+  const activeTab = getActiveTab();
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Logout error:", error);
+        toast.error("Failed to log out. Please try again.");
+        return;
+      }
+
+      toast.success("Logged out successfully");
+      // Redirect to homepage like a user who hasn't signed in
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("An error occurred while logging out");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const navItems = [
     {
@@ -66,7 +99,7 @@ export function CommunityAdminNav({
       icon: Bell,
       href: "/community-admin/notifications",
     },
-  ]
+  ];
 
   return (
     <nav className="bg-white/80 backdrop-blur-sm border-b border-gray-200 shadow-sm sticky top-0 z-50">
@@ -94,9 +127,9 @@ export function CommunityAdminNav({
           {/* Navigation Items - Center */}
           <div className="hidden md:flex space-x-1">
             {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive = activeTab === item.id
-              
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+
               return (
                 <Link key={item.id} href={item.href}>
                   <Button
@@ -104,8 +137,8 @@ export function CommunityAdminNav({
                     size="sm"
                     className={cn(
                       "flex items-center space-x-2 transition-all duration-200",
-                      isActive 
-                        ? "text-purple-600 font-bold" 
+                      isActive
+                        ? "text-purple-600 font-bold"
                         : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
                     )}
                     onClick={() => {}}
@@ -114,7 +147,7 @@ export function CommunityAdminNav({
                     <span>{item.label}</span>
                   </Button>
                 </Link>
-              )
+              );
             })}
           </div>
 
@@ -122,10 +155,13 @@ export function CommunityAdminNav({
           <div className="flex items-center space-x-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center space-x-2 p-2 hover:bg-purple-50">
+                <Button
+                  variant="ghost"
+                  className="flex items-center space-x-2 p-2 hover:bg-purple-50"
+                >
                   <Avatar className="w-8 h-8">
-                    <AvatarImage 
-                      src={communityProfilePicture} 
+                    <AvatarImage
+                      src={communityProfilePicture}
                       alt={communityName}
                       className="object-cover"
                     />
@@ -139,24 +175,40 @@ export function CommunityAdminNav({
               <DropdownMenuContent align="end" className="w-56">
                 <div className="flex items-center space-x-2 p-2">
                   <Avatar className="w-8 h-8">
-                    <AvatarImage src={communityProfilePicture} alt={communityName} />
+                    <AvatarImage
+                      src={communityProfilePicture}
+                      alt={communityName}
+                    />
                     <AvatarFallback className="text-sm font-bold bg-gradient-to-br from-purple-500 to-blue-500 text-white">
                       {communityName.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-900">{communityName}</span>
-                    <span className="text-xs text-gray-500">Community Admin</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {communityName}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Community Admin
+                    </span>
                   </div>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="flex items-center space-x-2 cursor-pointer">
-                  <Settings className="w-4 h-4" />
-                  <span>Settings</span>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link
+                    href="/settings"
+                    className="flex items-center space-x-2"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Settings</span>
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="flex items-center space-x-2 cursor-pointer text-red-600 focus:text-red-600">
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="flex items-center space-x-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                >
                   <LogOut className="w-4 h-4" />
-                  <span>Log out</span>
+                  <span>{isLoggingOut ? "Logging out..." : "Log out"}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -164,5 +216,5 @@ export function CommunityAdminNav({
         </div>
       </div>
     </nav>
-  )
+  );
 }

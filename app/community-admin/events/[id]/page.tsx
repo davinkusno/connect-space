@@ -1,5 +1,6 @@
 "use client";
 
+import { use } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -219,11 +220,14 @@ const DUMMY_EVENT: Event = {
 export default function EventDetailsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  // Unwrap params Promise (Next.js 15+)
+  const { id } = use(params);
+
   // Create a copy of DUMMY_EVENT with the correct ID from params
-  // TODO: Fetch actual event data from Supabase based on params.id
-  const baseEvent = { ...DUMMY_EVENT, id: params.id };
+  // TODO: Fetch actual event data from Supabase based on id
+  const baseEvent = { ...DUMMY_EVENT, id: id };
 
   // Customize event data based on ID for demo purposes
   const eventTitles: Record<string, string> = {
@@ -289,8 +293,8 @@ export default function EventDetailsPage({
 
   const event = {
     ...baseEvent,
-    title: eventTitles[params.id] || baseEvent.title,
-    location: eventLocations[params.id] || baseEvent.location,
+    title: eventTitles[id] || baseEvent.title,
+    location: eventLocations[id] || baseEvent.location,
   };
 
   const router = useRouter();
@@ -366,7 +370,6 @@ export default function EventDetailsPage({
     }
   };
 
-
   const handleSaveEvent = () => {
     // Check if user is logged in
     if (!isLoggedIn) {
@@ -379,8 +382,6 @@ export default function EventDetailsPage({
     // TODO: Implement actual save/bookmark functionality with Supabase
     console.log("Event saved/bookmarked");
   };
-
-
 
   const availableSpots = event.capacity - event.registered;
   const registrationPercentage = (event.registered / event.capacity) * 100;
@@ -500,23 +501,24 @@ export default function EventDetailsPage({
                   <div className="flex flex-1 items-center gap-2 sm:flex-initial">
                     <div className="flex w-full min-w-0 items-center gap-2">
                       {/* Edit RSVP Button */}
-          <Button
+                      <Button
                         variant="ghost"
                         className="hover:bg-gray-100 text-gray-700 px-6 py-4 rounded-full flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max"
-                        onClick={() => {/* RSVP edit coming soon */}}
+                        onClick={() => {
+                          /* RSVP edit coming soon */
+                        }}
                       >
                         <PenLine className="h-5 w-5 mr-2" />
                         <span className="truncate">Edit RSVP</span>
-          </Button>
-        </div>
-      </div>
+                      </Button>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <>
                   {/* Badges */}
                   <div className="flex items-center gap-2">
-                    <div className="flex flex-col gap-2 md:flex-row">
-                    </div>
+                    <div className="flex flex-col gap-2 md:flex-row"></div>
                   </div>
 
                   {/* Action Buttons */}
@@ -532,7 +534,6 @@ export default function EventDetailsPage({
                       >
                         <Bookmark className="h-5 w-5 text-gray-700" />
                       </Button>
-
                     </div>
                   </div>
                 </>
@@ -542,78 +543,79 @@ export default function EventDetailsPage({
         </div>
       </div>
 
-
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="space-y-8">
-            {/* Quick Actions */}
-            <div className="flex flex-wrap gap-3">
-              <CalendarIntegration
-                event={{
-                  title: event.title,
-                  description: event.description,
-                  startDate: `${event.date}T${event.time}`,
-                  endDate: `${event.date}T${event.endTime}`,
-                  location: event.location,
-                  organizer: event.organizer.name,
-                }}
-                variant="default"
-              />
-            <Button variant="outline" onClick={() => {/* View attendees coming soon */}}>
-                <Users className="h-4 w-4 mr-2" />
-                View Attendees
-              </Button>
-            </div>
+          {/* Quick Actions */}
+          <div className="flex flex-wrap gap-3">
+            <CalendarIntegration
+              event={{
+                title: event.title,
+                description: event.description,
+                startDate: `${event.date}T${event.time}`,
+                endDate: `${event.date}T${event.endTime}`,
+                location: event.location,
+                organizer: event.organizer.name,
+              }}
+              variant="default"
+            />
+            <Button
+              variant="outline"
+              onClick={() => {
+                /* View attendees coming soon */
+              }}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              View Attendees
+            </Button>
+          </div>
 
-            {/* Content Tabs */}
-            <Tabs defaultValue="about" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="about">About</TabsTrigger>
-                <TabsTrigger value="location">Location</TabsTrigger>
+          {/* Content Tabs */}
+          <Tabs defaultValue="about" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="about">About</TabsTrigger>
+              <TabsTrigger value="location">Location</TabsTrigger>
               <TabsTrigger value="discussion">Discussion</TabsTrigger>
-                <TabsTrigger value="gallery">Gallery</TabsTrigger>
-              </TabsList>
+              <TabsTrigger value="gallery">Gallery</TabsTrigger>
+            </TabsList>
 
-              <TabsContent value="about" className="space-y-6 mt-6">
-                {/* Description */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <BookOpen className="h-5 w-5" />
-                      About This Event
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="prose prose-gray max-w-none">
+            <TabsContent value="about" className="space-y-6 mt-6">
+              {/* Description */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    About This Event
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="prose prose-gray max-w-none">
                     <p className="text-gray-700 leading-relaxed whitespace-pre-line">
                       {event.longDescription}
                     </p>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </CardContent>
+              </Card>
 
-                {/* Tags */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Topics & Tags</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {event.tags.map((tag, index) => (
+              {/* Tags */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Topics & Tags</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {event.tags.map((tag, index) => (
                       <Badge
                         key={index}
                         variant="outline"
                         className="hover:bg-violet-50 cursor-pointer"
                       >
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-
-
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="location" className="space-y-6 mt-6">
@@ -622,10 +624,10 @@ export default function EventDetailsPage({
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div>
-                    <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2">
                           <Video className="h-5 w-5 text-purple-600" />
                           Virtual Event
-                    </CardTitle>
+                        </CardTitle>
                         <CardDescription className="mt-2">
                           This is an online event. Join from anywhere!
                         </CardDescription>
@@ -678,7 +680,7 @@ export default function EventDetailsPage({
                         <div className="text-center py-12">
                           <div className="inline-flex h-20 w-20 rounded-full bg-violet-100 items-center justify-center mb-4">
                             <Video className="h-10 w-10 text-violet-600" />
-                        </div>
+                          </div>
                           <h3 className="text-lg font-semibold text-gray-900 mb-2">
                             Join this online event
                           </h3>
@@ -713,8 +715,8 @@ export default function EventDetailsPage({
                               <span className="h-1.5 w-1.5 rounded-full bg-violet-600"></span>
                               Works on desktop, mobile, and tablet
                             </p>
-                      </div>
-                    </div>
+                          </div>
+                        </div>
                       </>
                     )}
                   </CardContent>
@@ -739,7 +741,7 @@ export default function EventDetailsPage({
                   </CardContent>
                 </Card>
               )}
-              </TabsContent>
+            </TabsContent>
 
             <TabsContent value="discussion" className="mt-6">
               <div className="space-y-6">
@@ -780,11 +782,15 @@ export default function EventDetailsPage({
                         <div className="flex items-center gap-4">
                           <label className="flex items-center gap-2">
                             <input type="checkbox" className="rounded" />
-                            <span className="text-sm text-gray-600">Pin this post</span>
+                            <span className="text-sm text-gray-600">
+                              Pin this post
+                            </span>
                           </label>
                           <label className="flex items-center gap-2">
                             <input type="checkbox" className="rounded" />
-                            <span className="text-sm text-gray-600">Send notification</span>
+                            <span className="text-sm text-gray-600">
+                              Send notification
+                            </span>
                           </label>
                         </div>
                         <Button className="bg-violet-600 hover:bg-violet-700 text-white">
@@ -815,20 +821,32 @@ export default function EventDetailsPage({
                             </Avatar>
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="font-semibold text-sm">HealthTech Admin</span>
+                                <span className="font-semibold text-sm">
+                                  HealthTech Admin
+                                </span>
                                 <Badge className="bg-yellow-100 text-yellow-800 text-xs">
                                   <Award className="h-3 w-3 mr-1" />
                                   Pinned
                                 </Badge>
                               </div>
-                              <span className="text-xs text-gray-500">2 hours ago</span>
+                              <span className="text-xs text-gray-500">
+                                2 hours ago
+                              </span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm" className="text-yellow-600 hover:bg-yellow-100">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-yellow-600 hover:bg-yellow-100"
+                            >
                               <Award className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="text-gray-500">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-500"
+                            >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           </div>
@@ -837,7 +855,9 @@ export default function EventDetailsPage({
                           Important: Event Schedule Update
                         </h3>
                         <p className="text-gray-700 text-sm mb-3">
-                          Due to technical requirements, we're moving the keynote presentation to 10:30 AM instead of 10:00 AM. All other sessions remain unchanged.
+                          Due to technical requirements, we're moving the
+                          keynote presentation to 10:30 AM instead of 10:00 AM.
+                          All other sessions remain unchanged.
                         </p>
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <span>📌 Pinned by Admin</span>
@@ -867,15 +887,27 @@ export default function EventDetailsPage({
                               <AvatarFallback>JD</AvatarFallback>
                             </Avatar>
                             <div>
-                              <span className="font-semibold text-sm">John Doe</span>
-                              <span className="text-xs text-gray-500 ml-2">1 hour ago</span>
+                              <span className="font-semibold text-sm">
+                                John Doe
+                              </span>
+                              <span className="text-xs text-gray-500 ml-2">
+                                1 hour ago
+                              </span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm" className="text-gray-500">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-500"
+                            >
                               <Heart className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="text-gray-500">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-500"
+                            >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           </div>
@@ -884,7 +916,9 @@ export default function EventDetailsPage({
                           Excited for the AI workshop!
                         </h3>
                         <p className="text-gray-700 text-sm mb-3">
-                          Looking forward to learning about the latest developments in healthcare AI. Any specific topics we should prepare for?
+                          Looking forward to learning about the latest
+                          developments in healthcare AI. Any specific topics we
+                          should prepare for?
                         </p>
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <span>❤️ 12 likes</span>
@@ -901,15 +935,27 @@ export default function EventDetailsPage({
                               <AvatarFallback>SM</AvatarFallback>
                             </Avatar>
                             <div>
-                              <span className="font-semibold text-sm">Sarah Miller</span>
-                              <span className="text-xs text-gray-500 ml-2">3 hours ago</span>
+                              <span className="font-semibold text-sm">
+                                Sarah Miller
+                              </span>
+                              <span className="text-xs text-gray-500 ml-2">
+                                3 hours ago
+                              </span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm" className="text-gray-500">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-500"
+                            >
                               <Heart className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="text-gray-500">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-500"
+                            >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           </div>
@@ -918,7 +964,8 @@ export default function EventDetailsPage({
                           Networking opportunities
                         </h3>
                         <p className="text-gray-700 text-sm mb-3">
-                          Would love to connect with other healthcare professionals attending. Feel free to reach out!
+                          Would love to connect with other healthcare
+                          professionals attending. Feel free to reach out!
                         </p>
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <span>❤️ 8 likes</span>
@@ -929,35 +976,34 @@ export default function EventDetailsPage({
                   </CardContent>
                 </Card>
               </div>
-              </TabsContent>
+            </TabsContent>
 
-              <TabsContent value="gallery" className="space-y-6 mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Event Gallery</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {event.images.map((image, index) => (
-                        <div
-                          key={index}
-                          className="aspect-video rounded-lg overflow-hidden hover:scale-105 transition-transform cursor-pointer"
-                        >
-                          <img
-                            src={image || "/placeholder.svg"}
-                            alt={`Event image ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-                </div>
-
+            <TabsContent value="gallery" className="space-y-6 mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Event Gallery</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {event.images.map((image, index) => (
+                      <div
+                        key={index}
+                        className="aspect-video rounded-lg overflow-hidden hover:scale-105 transition-transform cursor-pointer"
+                      >
+                        <img
+                          src={image || "/placeholder.svg"}
+                          alt={`Event image ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </div>
   );
 }

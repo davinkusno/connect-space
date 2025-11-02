@@ -1,51 +1,66 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { getSupabaseBrowser } from "@/lib/supabase/client"
-import { AnimatedButton } from "@/components/ui/animated-button"
-import { AnimatedCard } from "@/components/ui/animated-card"
-import { FloatingElements } from "@/components/ui/floating-elements"
-import { PageTransition } from "@/components/ui/page-transition"
-import { SmoothReveal } from "@/components/ui/smooth-reveal"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle, Sparkles, Users, Crown } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import Link from "next/link"
-import { useToast } from "@/hooks/use-toast"
+import type React from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { AnimatedButton } from "@/components/ui/animated-button";
+import { AnimatedCard } from "@/components/ui/animated-card";
+import { FloatingElements } from "@/components/ui/floating-elements";
+import { PageTransition } from "@/components/ui/page-transition";
+import { SmoothReveal } from "@/components/ui/smooth-reveal";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  User,
+  AlertCircle,
+  CheckCircle,
+  Sparkles,
+  Users,
+  Crown,
+} from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
 interface FormData {
-  firstName: string
-  lastName: string
-  email: string
-  password: string
-  confirmPassword: string
-  agreeToTerms: boolean
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  agreeToTerms: boolean;
 }
 
 interface ValidationErrors {
-  firstName?: string
-  lastName?: string
-  email?: string
-  password?: string
-  confirmPassword?: string
-  agreeToTerms?: string
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+  agreeToTerms?: string;
 }
 
 export default function SignupPage() {
-  const [selectedRole, setSelectedRole] = useState<"user" | "community_admin" | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
+  const [selectedRole, setSelectedRole] = useState<
+    "user" | "community_admin" | null
+  >(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>(
+    {}
+  );
 
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
@@ -54,72 +69,74 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
     agreeToTerms: false,
-  })
+  });
 
-  const router = useRouter()
-  const supabase = getSupabaseBrowser()
-  const { toast } = useToast()
+  const router = useRouter();
+  const supabase = getSupabaseBrowser();
+  const { toast } = useToast();
 
   const validateForm = (): boolean => {
-    const errors: ValidationErrors = {}
+    const errors: ValidationErrors = {};
 
     // First name validation
     if (!formData.firstName.trim()) {
-      errors.firstName = "First name is required"
+      errors.firstName = "First name is required";
     } else if (formData.firstName.trim().length < 2) {
-      errors.firstName = "First name must be at least 2 characters"
+      errors.firstName = "First name must be at least 2 characters";
     }
 
     // Last name validation
     if (!formData.lastName.trim()) {
-      errors.lastName = "Last name is required"
+      errors.lastName = "Last name is required";
     } else if (formData.lastName.trim().length < 2) {
-      errors.lastName = "Last name must be at least 2 characters"
+      errors.lastName = "Last name must be at least 2 characters";
     }
 
     // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) {
-      errors.email = "Email is required"
+      errors.email = "Email is required";
     } else if (!emailRegex.test(formData.email)) {
-      errors.email = "Please enter a valid email address"
+      errors.email = "Please enter a valid email address";
     }
 
     // Password validation
     if (!formData.password) {
-      errors.password = "Password is required"
+      errors.password = "Password is required";
     } else if (formData.password.length < 8) {
-      errors.password = "Password must be at least 8 characters"
+      errors.password = "Password must be at least 8 characters";
     } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      errors.password = "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+      errors.password =
+        "Password must contain at least one uppercase letter, one lowercase letter, and one number";
     }
 
     // Confirm password validation
     if (!formData.confirmPassword) {
-      errors.confirmPassword = "Please confirm your password"
+      errors.confirmPassword = "Please confirm your password";
     } else if (formData.password !== formData.confirmPassword) {
-      errors.confirmPassword = "Passwords do not match"
+      errors.confirmPassword = "Passwords do not match";
     }
 
     // Terms agreement validation
     if (!formData.agreeToTerms) {
-      errors.agreeToTerms = "You must agree to the Terms of Service and Privacy Policy"
+      errors.agreeToTerms =
+        "You must agree to the Terms of Service and Privacy Policy";
     }
 
-    setValidationErrors(errors)
-    return Object.keys(errors).length === 0
-  }
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setSuccess(null)
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
 
     if (!validateForm()) {
-      return
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -132,53 +149,58 @@ export default function SignupPage() {
             last_name: formData.lastName,
           },
         },
-      })
+      });
 
       if (error) {
-        throw error
+        throw error;
       }
 
       if (data.user && !data.session) {
-        setSuccess("Please check your email for a verification link to complete your registration.")
+        setSuccess(
+          "Please check your email for a verification link to complete your registration."
+        );
         toast({
           title: "Registration successful!",
           description: "Please check your email to verify your account.",
           variant: "success",
-        })
+        });
       } else if (data.session) {
         toast({
           title: "Welcome to ConnectSpace!",
           description: "Your account has been created successfully.",
           variant: "success",
-        })
-        
+        });
+
         // Redirect based on user role
         switch (selectedRole) {
           case "community_admin":
-            router.push("/community-admin-registration")
-            break
+            router.push("/community-admin-registration");
+            break;
           case "user":
           default:
-            router.push("/dashboard")
-            break
+            router.push("/onboarding");
+            break;
         }
       }
     } catch (err: any) {
-      console.error("Signup error:", err)
-      setError(err.message || "An error occurred during registration. Please try again.")
+      console.error("Signup error:", err);
+      setError(
+        err.message ||
+          "An error occurred during registration. Please try again."
+      );
       toast({
         title: "Registration failed",
         description: err.message || "Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleOAuthSignUp = async () => {
-    setIsGoogleLoading(true)
-    setError(null)
+    setIsGoogleLoading(true);
+    setError(null);
 
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -190,41 +212,46 @@ export default function SignupPage() {
             prompt: "consent",
           },
         },
-      })
+      });
 
       if (error) {
-        throw error
+        throw error;
       }
 
       toast({
         title: "Redirecting...",
         description: "Creating account with Google...",
         variant: "info",
-      })
+      });
     } catch (err: any) {
-      console.error("Google signup error:", err)
-      setError(err.message || "Failed to sign up with Google. Please try again.")
+      console.error("Google signup error:", err);
+      setError(
+        err.message || "Failed to sign up with Google. Please try again."
+      );
       toast({
         title: "Sign-up failed",
         description: err.message || "Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsGoogleLoading(false)
+      setIsGoogleLoading(false);
     }
-  }
+  };
 
-  const handleInputChange = (field: keyof FormData, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+  const handleInputChange = (
+    field: keyof FormData,
+    value: string | boolean
+  ) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
     // Clear validation error when user starts typing
     if (validationErrors[field]) {
-      setValidationErrors((prev) => ({ ...prev, [field]: undefined }))
+      setValidationErrors((prev) => ({ ...prev, [field]: undefined }));
     }
-  }
+  };
 
   const handleRoleSelect = (role: "user" | "community_admin") => {
-    setSelectedRole(role)
-  }
+    setSelectedRole(role);
+  };
 
   return (
     <PageTransition>
@@ -233,22 +260,35 @@ export default function SignupPage() {
 
         <div className="w-full max-w-lg relative z-10">
           <SmoothReveal>
-            <AnimatedCard variant="glass" className="overflow-hidden smooth-hover">
+            <AnimatedCard
+              variant="glass"
+              className="overflow-hidden smooth-hover"
+            >
               <div className="absolute inset-0 gradient-primary opacity-5"></div>
 
               <div className="relative z-10 p-6">
                 <div className="text-center mb-4">
                   <div className="flex justify-center mb-2">
-                    <Image src="/logo.png" alt="Logo" width={32} height={32} className="w-8 h-8" />
+                    <Image
+                      src="/logo.png"
+                      alt="Logo"
+                      width={32}
+                      height={32}
+                      className="w-8 h-8"
+                    />
                   </div>
-                  <h1 className="text-xl font-bold text-gradient mb-1">Create Account</h1>
+                  <h1 className="text-xl font-bold text-gradient mb-1">
+                    Create Account
+                  </h1>
                 </div>
 
                 {error && (
                   <SmoothReveal>
                     <Alert className="mb-4 border-red-200 bg-red-50">
                       <AlertCircle className="h-4 w-4 text-red-600" />
-                      <AlertDescription className="text-red-600">{error}</AlertDescription>
+                      <AlertDescription className="text-red-600">
+                        {error}
+                      </AlertDescription>
                     </Alert>
                   </SmoothReveal>
                 )}
@@ -257,7 +297,9 @@ export default function SignupPage() {
                   <SmoothReveal>
                     <Alert className="mb-4 border-green-200 bg-green-50">
                       <CheckCircle className="h-4 w-4 text-green-600" />
-                      <AlertDescription className="text-green-600">{success}</AlertDescription>
+                      <AlertDescription className="text-green-600">
+                        {success}
+                      </AlertDescription>
                     </Alert>
                   </SmoothReveal>
                 )}
@@ -267,9 +309,11 @@ export default function SignupPage() {
                   <SmoothReveal>
                     <div className="space-y-3">
                       <div className="text-center">
-                        <h3 className="text-base font-semibold text-gray-900 mb-2">Choose Your Role</h3>
+                        <h3 className="text-base font-semibold text-gray-900 mb-2">
+                          Choose Your Role
+                        </h3>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-3">
                         <button
                           type="button"
@@ -281,15 +325,25 @@ export default function SignupPage() {
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-full ${
-                              selectedRole === "user" ? "bg-purple-100" : "bg-gray-100"
-                            }`}>
-                              <Users className={`h-4 w-4 ${
-                                selectedRole === "user" ? "text-purple-600" : "text-gray-600"
-                              }`} />
+                            <div
+                              className={`p-1.5 rounded-full ${
+                                selectedRole === "user"
+                                  ? "bg-purple-100"
+                                  : "bg-gray-100"
+                              }`}
+                            >
+                              <Users
+                                className={`h-4 w-4 ${
+                                  selectedRole === "user"
+                                    ? "text-purple-600"
+                                    : "text-gray-600"
+                                }`}
+                              />
                             </div>
                             <div className="flex-1">
-                              <h4 className="font-medium text-sm text-gray-900">Member</h4>
+                              <h4 className="font-medium text-sm text-gray-900">
+                                Member
+                              </h4>
                             </div>
                             {selectedRole === "user" && (
                               <CheckCircle className="h-4 w-4 text-purple-600" />
@@ -307,15 +361,25 @@ export default function SignupPage() {
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-full ${
-                              selectedRole === "community_admin" ? "bg-purple-100" : "bg-gray-100"
-                            }`}>
-                              <Crown className={`h-4 w-4 ${
-                                selectedRole === "community_admin" ? "text-purple-600" : "text-gray-600"
-                              }`} />
+                            <div
+                              className={`p-1.5 rounded-full ${
+                                selectedRole === "community_admin"
+                                  ? "bg-purple-100"
+                                  : "bg-gray-100"
+                              }`}
+                            >
+                              <Crown
+                                className={`h-4 w-4 ${
+                                  selectedRole === "community_admin"
+                                    ? "text-purple-600"
+                                    : "text-gray-600"
+                                }`}
+                              />
                             </div>
                             <div className="flex-1">
-                              <h4 className="font-medium text-sm text-gray-900">Admin</h4>
+                              <h4 className="font-medium text-sm text-gray-900">
+                                Admin
+                              </h4>
                             </div>
                             {selectedRole === "community_admin" && (
                               <CheckCircle className="h-4 w-4 text-purple-600" />
@@ -330,7 +394,10 @@ export default function SignupPage() {
                     <SmoothReveal delay={50}>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="firstName" className="text-gray-700 font-medium form-label">
+                          <Label
+                            htmlFor="firstName"
+                            className="text-gray-700 font-medium form-label"
+                          >
                             First Name
                           </Label>
                           <div className="group flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
@@ -340,17 +407,24 @@ export default function SignupPage() {
                               type="text"
                               placeholder="John"
                               value={formData.firstName}
-                              onChange={(e) => handleInputChange("firstName", e.target.value)}
+                              onChange={(e) =>
+                                handleInputChange("firstName", e.target.value)
+                              }
                               className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
                               required
                             />
                           </div>
                           {validationErrors.firstName && (
-                            <p className="text-xs text-red-600">{validationErrors.firstName}</p>
+                            <p className="text-xs text-red-600">
+                              {validationErrors.firstName}
+                            </p>
                           )}
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="lastName" className="text-gray-700 font-medium form-label">
+                          <Label
+                            htmlFor="lastName"
+                            className="text-gray-700 font-medium form-label"
+                          >
                             Last Name
                           </Label>
                           <div className="group flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
@@ -360,19 +434,28 @@ export default function SignupPage() {
                               type="text"
                               placeholder="Doe"
                               value={formData.lastName}
-                              onChange={(e) => handleInputChange("lastName", e.target.value)}
+                              onChange={(e) =>
+                                handleInputChange("lastName", e.target.value)
+                              }
                               className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
                               required
                             />
                           </div>
-                          {validationErrors.lastName && <p className="text-xs text-red-600">{validationErrors.lastName}</p>}
+                          {validationErrors.lastName && (
+                            <p className="text-xs text-red-600">
+                              {validationErrors.lastName}
+                            </p>
+                          )}
                         </div>
-                    </div>
-                  </SmoothReveal>
+                      </div>
+                    </SmoothReveal>
 
                     <SmoothReveal delay={100}>
                       <div className="space-y-2">
-                        <Label htmlFor="email" className="text-gray-700 font-medium form-label">
+                        <Label
+                          htmlFor="email"
+                          className="text-gray-700 font-medium form-label"
+                        >
                           Email Address
                         </Label>
                         <div className="group flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
@@ -382,19 +465,28 @@ export default function SignupPage() {
                             type="email"
                             placeholder="john.doe@example.com"
                             value={formData.email}
-                            onChange={(e) => handleInputChange("email", e.target.value)}
+                            onChange={(e) =>
+                              handleInputChange("email", e.target.value)
+                            }
                             className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
                             required
                           />
                         </div>
-                        {validationErrors.email && <p className="text-xs text-red-600">{validationErrors.email}</p>}
+                        {validationErrors.email && (
+                          <p className="text-xs text-red-600">
+                            {validationErrors.email}
+                          </p>
+                        )}
                       </div>
                     </SmoothReveal>
 
                     <SmoothReveal delay={150}>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="password" className="text-gray-700 font-medium form-label">
+                          <Label
+                            htmlFor="password"
+                            className="text-gray-700 font-medium form-label"
+                          >
                             Password
                           </Label>
                           <div className="group flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
@@ -404,7 +496,9 @@ export default function SignupPage() {
                               type={showPassword ? "text" : "password"}
                               placeholder="8+ characters"
                               value={formData.password}
-                              onChange={(e) => handleInputChange("password", e.target.value)}
+                              onChange={(e) =>
+                                handleInputChange("password", e.target.value)
+                              }
                               className="h-full w-full border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                               required
                             />
@@ -413,14 +507,25 @@ export default function SignupPage() {
                               onClick={() => setShowPassword(!showPassword)}
                               className="mx-4 text-gray-400 transition-colors duration-300 hover:text-purple-600"
                             >
-                              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                              {showPassword ? (
+                                <EyeOff className="h-5 w-5" />
+                              ) : (
+                                <Eye className="h-5 w-5" />
+                              )}
                             </button>
                           </div>
-                          {validationErrors.password && <p className="text-xs text-red-600">{validationErrors.password}</p>}
+                          {validationErrors.password && (
+                            <p className="text-xs text-red-600">
+                              {validationErrors.password}
+                            </p>
+                          )}
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="confirmPassword" className="text-gray-700 font-medium form-label">
+                          <Label
+                            htmlFor="confirmPassword"
+                            className="text-gray-700 font-medium form-label"
+                          >
                             Confirm Password
                           </Label>
                           <div className="group flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
@@ -430,20 +535,33 @@ export default function SignupPage() {
                               type={showConfirmPassword ? "text" : "password"}
                               placeholder="Re-enter password"
                               value={formData.confirmPassword}
-                              onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "confirmPassword",
+                                  e.target.value
+                                )
+                              }
                               className="h-full w-full border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                               required
                             />
                             <button
                               type="button"
-                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              onClick={() =>
+                                setShowConfirmPassword(!showConfirmPassword)
+                              }
                               className="mx-4 text-gray-400 transition-colors duration-300 hover:text-purple-600"
                             >
-                              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                              {showConfirmPassword ? (
+                                <EyeOff className="h-5 w-5" />
+                              ) : (
+                                <Eye className="h-5 w-5" />
+                              )}
                             </button>
                           </div>
                           {validationErrors.confirmPassword && (
-                            <p className="text-xs text-red-600">{validationErrors.confirmPassword}</p>
+                            <p className="text-xs text-red-600">
+                              {validationErrors.confirmPassword}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -451,34 +569,44 @@ export default function SignupPage() {
 
                     <SmoothReveal delay={250}>
                       <div className="space-y-2">
-                          <div className="flex items-start space-x-3">
-                            <Checkbox
-                              id="terms"
-                              checked={formData.agreeToTerms}
-                              onCheckedChange={(checked) => handleInputChange("agreeToTerms", checked as boolean)}
-                              className="mt-1 text-purple-600 border-gray-300 focus:ring-purple-200 transition-colors duration-200"
-                            />
-                            <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
-                              I agree to the{" "}
-                              <Link
-                                href="/terms"
-                                className="text-purple-600 hover:text-purple-700 hover:underline transition-colors duration-300"
-                              >
-                                Terms of Service
-                              </Link>{" "}
-                              and{" "}
-                              <Link
-                                href="/privacy"
-                                className="text-purple-600 hover:text-purple-700 hover:underline transition-colors duration-300"
-                              >
-                                Privacy Policy
-                              </Link>
-                            </Label>
-                          </div>
-                          {validationErrors.agreeToTerms && (
-                            <p className="text-sm text-red-600 mt-1">{validationErrors.agreeToTerms}</p>
-                          )}
+                        <div className="flex items-start space-x-3">
+                          <Checkbox
+                            id="terms"
+                            checked={formData.agreeToTerms}
+                            onCheckedChange={(checked) =>
+                              handleInputChange(
+                                "agreeToTerms",
+                                checked as boolean
+                              )
+                            }
+                            className="mt-1 text-purple-600 border-gray-300 focus:ring-purple-200 transition-colors duration-200"
+                          />
+                          <Label
+                            htmlFor="terms"
+                            className="text-sm text-gray-600 leading-relaxed"
+                          >
+                            I agree to the{" "}
+                            <Link
+                              href="/terms"
+                              className="text-purple-600 hover:text-purple-700 hover:underline transition-colors duration-300"
+                            >
+                              Terms of Service
+                            </Link>{" "}
+                            and{" "}
+                            <Link
+                              href="/privacy"
+                              className="text-purple-600 hover:text-purple-700 hover:underline transition-colors duration-300"
+                            >
+                              Privacy Policy
+                            </Link>
+                          </Label>
                         </div>
+                        {validationErrors.agreeToTerms && (
+                          <p className="text-sm text-red-600 mt-1">
+                            {validationErrors.agreeToTerms}
+                          </p>
+                        )}
+                      </div>
                     </SmoothReveal>
 
                     <SmoothReveal delay={300}>
@@ -505,7 +633,9 @@ export default function SignupPage() {
                           <Separator className="bg-gray-200" />
                         </div>
                         <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-white px-4 text-gray-500 font-medium">Or continue with</span>
+                          <span className="bg-white px-4 text-gray-500 font-medium">
+                            Or continue with
+                          </span>
                         </div>
                       </div>
                     </SmoothReveal>
@@ -553,7 +683,9 @@ export default function SignupPage() {
 
                     <SmoothReveal delay={450}>
                       <div className="text-center mt-6">
-                        <span className="text-gray-600">Already have an account? </span>
+                        <span className="text-gray-600">
+                          Already have an account?{" "}
+                        </span>
                         <Link
                           href="/auth/login"
                           className="text-purple-600 hover:text-purple-700 font-medium transition-colors duration-300 hover:underline nav-item"
@@ -570,5 +702,5 @@ export default function SignupPage() {
         </div>
       </div>
     </PageTransition>
-  )
+  );
 }

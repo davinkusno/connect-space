@@ -14,6 +14,7 @@ export const STORAGE_CONFIG = {
     events: "events",
     communities: "communities",
     banners: "banners",
+    communityProfile: "community-profile",
   },
 
   // File size limits (in bytes)
