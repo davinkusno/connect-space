@@ -35,8 +35,6 @@ interface Event {
   category: string;
   attendees: number;
   maxAttendees: number;
-  price: number;
-  originalPrice?: number;
   organizer: string;
   image: string;
   tags: string[];
@@ -231,15 +229,6 @@ export function LeafletEventsMap({
           `
               : ""
           }
-          ${
-            event.price === 0
-              ? `
-            <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
-              <span class="text-white text-xs font-bold">F</span>
-            </div>
-          `
-              : ""
-          }
         </div>
       `,
         className: "event-marker",
@@ -319,9 +308,6 @@ export function LeafletEventsMap({
         
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-lg font-bold" style="color: ${color}">
-              ${event.price === 0 ? "Free" : `$${event.price}`}
-            </span>
             <span class="text-xs text-gray-500">by ${event.organizer}</span>
           </div>
           <button class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors duration-200" 

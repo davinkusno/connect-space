@@ -70,8 +70,6 @@ interface Event {
   organizer: string;
   attendees: number;
   maxAttendees: number;
-  price: number;
-  originalPrice?: number;
   rating: number;
   reviewCount: number;
   image: string;
@@ -96,7 +94,6 @@ export default function EventsPage() {
   } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState("all");
-  const [priceRange, setPriceRange] = useState("all");
   const [dateRange, setDateRange] = useState("all");
   const [searchFilter, setSearchFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
@@ -133,8 +130,6 @@ export default function EventsPage() {
       organizer: "TechEvents Global",
       attendees: 847,
       maxAttendees: 1000,
-      price: 299,
-      originalPrice: 399,
       rating: 4.8,
       reviewCount: 156,
       image: "/placeholder.svg?height=300&width=500",
@@ -177,7 +172,6 @@ export default function EventsPage() {
       organizer: "Digital Marketing Pros",
       attendees: 234,
       maxAttendees: 300,
-      price: 149,
       rating: 4.6,
       reviewCount: 89,
       image: "/placeholder.svg?height=300&width=500",
@@ -216,7 +210,6 @@ export default function EventsPage() {
       organizer: "Startup Austin Community",
       attendees: 156,
       maxAttendees: 200,
-      price: 0,
       rating: 4.7,
       reviewCount: 67,
       image: "/placeholder.svg?height=300&width=500",
@@ -249,8 +242,6 @@ export default function EventsPage() {
       organizer: "Design Academy",
       attendees: 445,
       maxAttendees: 500,
-      price: 99,
-      originalPrice: 149,
       rating: 4.9,
       reviewCount: 203,
       image: "/placeholder.svg?height=300&width=500",
@@ -282,7 +273,6 @@ export default function EventsPage() {
       organizer: "Blockchain Society",
       attendees: 567,
       maxAttendees: 800,
-      price: 399,
       rating: 4.7,
       reviewCount: 134,
       image: "/placeholder.svg?height=300&width=500",
@@ -315,7 +305,6 @@ export default function EventsPage() {
       organizer: "HealthTech Innovations",
       attendees: 347,
       maxAttendees: 500,
-      price: 299,
       rating: 4.8,
       reviewCount: 127,
       image: "/placeholder.svg?height=300&width=500",
@@ -400,31 +389,6 @@ export default function EventsPage() {
       }
     }
 
-    // Price filter
-    if (priceRange !== "all") {
-      switch (priceRange) {
-        case "free":
-          filtered = filtered.filter((event) => event.price === 0);
-          break;
-        case "paid":
-          filtered = filtered.filter((event) => event.price > 0);
-          break;
-        case "under-100":
-          filtered = filtered.filter(
-            (event) => event.price > 0 && event.price < 100
-          );
-          break;
-        case "100-300":
-          filtered = filtered.filter(
-            (event) => event.price >= 100 && event.price <= 300
-          );
-          break;
-        case "over-300":
-          filtered = filtered.filter((event) => event.price > 300);
-          break;
-      }
-    }
-
     // Date filter
     if (dateRange !== "all") {
       const now = new Date();
@@ -462,7 +426,6 @@ export default function EventsPage() {
     locationQuery,
     selectedCategory,
     selectedLocation,
-    priceRange,
     dateRange,
   ]);
 
@@ -502,7 +465,8 @@ export default function EventsPage() {
           }
         },
         (error) => {
-          console.error("Error getting location:", error);
+          // Silently handle geolocation errors (user denied or unavailable)
+          // Location features will simply be disabled
         }
       );
     }
@@ -512,7 +476,6 @@ export default function EventsPage() {
     let count = 0;
     if (selectedCategory !== "all") count++;
     if (selectedLocation !== "all") count++;
-    if (priceRange !== "all") count++;
     if (dateRange !== "all") count++;
     return count;
   };
@@ -530,7 +493,6 @@ export default function EventsPage() {
   const clearFilters = () => {
     setSelectedCategory("all");
     setSelectedLocation("all");
-    setPriceRange("all");
     setDateRange("all");
     setSearchQuery("");
   };
@@ -554,13 +516,6 @@ export default function EventsPage() {
             height={300}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
-
-          {/* Price Badge */}
-          <div className="absolute top-3 left-3">
-            <Badge className="bg-white text-gray-900 font-semibold shadow-sm">
-              {event.price === 0 ? "Free" : `$${event.price}`}
-            </Badge>
-          </div>
 
           {/* Save Button */}
           <Button
@@ -684,7 +639,7 @@ export default function EventsPage() {
 
             {/* Quick Stats */}
             <SmoothReveal delay={200}>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+              <div className="grid grid-cols-3 gap-6 mb-8 max-w-3xl mx-auto">
                 <div className="text-center">
                   <div className="text-3xl font-bold mb-1">
                     <AnimatedCounter end={filteredEvents.length} />
@@ -700,14 +655,6 @@ export default function EventsPage() {
                     />
                   </div>
                   <div className="text-purple-200 text-sm">Trending Now</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold mb-1">
-                    <AnimatedCounter
-                      end={filteredEvents.filter((e) => e.price === 0).length}
-                    />
-                  </div>
-                  <div className="text-purple-200 text-sm">Free Events</div>
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold mb-1">
@@ -921,93 +868,74 @@ export default function EventsPage() {
                       </span>
                     )}
                   </Button>
+                </div>
 
-              </div>
-
-              {/* Collapsible Filters Panel */}
-              {showFilters && (
-                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-700">
-                        Location
-                      </label>
-                      <Select
-                        value={selectedLocation}
-                        onValueChange={setSelectedLocation}
-                      >
-                        <SelectTrigger className="w-[160px] h-9 text-sm bg-white border-gray-300 rounded-lg">
-                          <SelectValue placeholder="All Locations" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Locations</SelectItem>
-                          <SelectItem value="online">Online</SelectItem>
-                          <SelectItem value="san francisco">
-                            San Francisco
-                          </SelectItem>
-                          <SelectItem value="new york">New York</SelectItem>
-                          <SelectItem value="austin">Austin</SelectItem>
-                          <SelectItem value="miami">Miami</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-700">
-                        Price
-                      </label>
-                      <Select value={priceRange} onValueChange={setPriceRange}>
-                        <SelectTrigger className="w-[140px] h-9 text-sm bg-white border-gray-300 rounded-lg">
-                          <SelectValue placeholder="All Prices" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Prices</SelectItem>
-                          <SelectItem value="free">Free</SelectItem>
-                          <SelectItem value="under-100">Under $100</SelectItem>
-                          <SelectItem value="100-300">$100 - $300</SelectItem>
-                          <SelectItem value="over-300">Over $300</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-700">
-                        Date
-                      </label>
-                      <Select value={dateRange} onValueChange={setDateRange}>
-                        <SelectTrigger className="w-[140px] h-9 text-sm bg-white border-gray-300 rounded-lg">
-                          <SelectValue placeholder="All Dates" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Dates</SelectItem>
-                          <SelectItem value="today">Today</SelectItem>
-                          <SelectItem value="week">This Week</SelectItem>
-                          <SelectItem value="month">This Month</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex items-center gap-2 ml-auto">
-                      <span className="text-sm text-gray-600">
-                        <span className="font-semibold text-gray-900">
-                          {filteredEvents.length}
-                        </span>{" "}
-                        events
-                      </span>
-                      {getActiveFiltersCount() > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={clearFilters}
-                          className="h-9 text-sm text-gray-600 hover:text-gray-900"
+                {/* Collapsible Filters Panel */}
+                {showFilters && (
+                  <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">
+                          Location
+                        </label>
+                        <Select
+                          value={selectedLocation}
+                          onValueChange={setSelectedLocation}
                         >
-                          Clear all
-                        </Button>
-                      )}
+                          <SelectTrigger className="w-[160px] h-9 text-sm bg-white border-gray-300 rounded-lg">
+                            <SelectValue placeholder="All Locations" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Locations</SelectItem>
+                            <SelectItem value="online">Online</SelectItem>
+                            <SelectItem value="san francisco">
+                              San Francisco
+                            </SelectItem>
+                            <SelectItem value="new york">New York</SelectItem>
+                            <SelectItem value="austin">Austin</SelectItem>
+                            <SelectItem value="miami">Miami</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">
+                          Date
+                        </label>
+                        <Select value={dateRange} onValueChange={setDateRange}>
+                          <SelectTrigger className="w-[140px] h-9 text-sm bg-white border-gray-300 rounded-lg">
+                            <SelectValue placeholder="All Dates" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Dates</SelectItem>
+                            <SelectItem value="today">Today</SelectItem>
+                            <SelectItem value="week">This Week</SelectItem>
+                            <SelectItem value="month">This Month</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex items-center gap-2 ml-auto">
+                        <span className="text-sm text-gray-600">
+                          <span className="font-semibold text-gray-900">
+                            {filteredEvents.length}
+                          </span>{" "}
+                          events
+                        </span>
+                        {getActiveFiltersCount() > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearFilters}
+                            className="h-9 text-sm text-gray-600 hover:text-gray-900"
+                          >
+                            Clear all
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
               </div>
             </div>
             {/* All Events Tab */}
@@ -1106,13 +1034,6 @@ export default function EventsPage() {
                               <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-0 flex items-center gap-1 shadow-md">
                                 <Brain className="h-3 w-3" />
                                 AI Recommended
-                              </Badge>
-                            </div>
-
-                            {/* Price Badge */}
-                            <div className="absolute bottom-3 left-3">
-                              <Badge className="bg-white text-gray-900 font-semibold shadow-sm">
-                                {event.price === 0 ? "Free" : `$${event.price}`}
                               </Badge>
                             </div>
 
@@ -1398,9 +1319,6 @@ export default function EventsPage() {
                               <Badge variant="secondary" className="text-xs">
                                 {event.category}
                               </Badge>
-                              <span className="text-sm font-bold text-purple-600">
-                                {event.price === 0 ? "Free" : `$${event.price}`}
-                              </span>
                             </div>
                           </div>
                         </div>

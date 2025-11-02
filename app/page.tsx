@@ -32,7 +32,7 @@ export default function HomePage() {
       members: 12500,
       location: "Online",
       upcomingEvents: 5,
-      category: "Technology",
+      category: "Hobbies",
       tags: ["JavaScript", "p5.js", "Generative Art", "UI/UX"],
       gradient: "gradient-primary",
       growth: 15,
@@ -47,7 +47,7 @@ export default function HomePage() {
       members: 8200,
       location: "New York",
       upcomingEvents: 3,
-      category: "Gardening",
+      category: "Environmental",
       tags: ["Balcony Gardens", "Composting", "Organic", "DIY"],
       gradient: "gradient-secondary",
       growth: 22,
@@ -62,7 +62,7 @@ export default function HomePage() {
       members: 15300,
       location: "Los Angeles",
       upcomingEvents: 8,
-      category: "Film",
+      category: "Art",
       tags: ["Screenwriting", "Short Films", "Festivals", "Networking"],
       gradient: "gradient-tertiary",
       growth: 18,
@@ -70,22 +70,27 @@ export default function HomePage() {
   ];
 
   const categories = [
-    { name: "Tech", count: 1234, icon: "💻", gradient: "gradient-primary" },
     {
-      name: "Art & Design",
+      name: "Environmental",
       count: 876,
-      icon: "🎨",
-      gradient: "gradient-secondary",
+      icon: "🌱",
+      gradient: "gradient-primary",
     },
-    { name: "Gaming", count: 2451, icon: "🎮", gradient: "gradient-tertiary" },
-    { name: "Music", count: 1789, icon: "🎵", gradient: "gradient-quaternary" },
-    { name: "Sports", count: 945, icon: "⚽", gradient: "gradient-primary" },
+    { name: "Music", count: 1789, icon: "🎵", gradient: "gradient-secondary" },
+    { name: "Sports", count: 945, icon: "⚽", gradient: "gradient-tertiary" },
     {
-      name: "Business",
-      count: 198,
-      icon: "💼",
-      gradient: "gradient-secondary",
+      name: "Hobbies",
+      count: 2451,
+      icon: "🎨",
+      gradient: "gradient-quaternary",
     },
+    {
+      name: "Education",
+      count: 1234,
+      icon: "📚",
+      gradient: "gradient-primary",
+    },
+    { name: "Art", count: 987, icon: "🎭", gradient: "gradient-secondary" },
   ];
 
   return (
@@ -158,38 +163,56 @@ export default function HomePage() {
       </section>
 
       {/* Categories Section */}
-      <section className="py-24 px-6 relative">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20">
-            <h2 className="text-5xl font-bold text-gray-900 mb-6">
+      <section className="py-24 px-6 relative overflow-hidden">
+        {/* Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-white to-blue-50"></div>
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-10 left-10 w-72 h-72 bg-purple-300 rounded-full filter blur-3xl"></div>
+          <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-300 rounded-full filter blur-3xl"></div>
+        </div>
+
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 glass-effect border-purple-200">
               Explore Categories
+            </Badge>
+            <h2 className="text-5xl font-bold text-gray-900 mb-4">
+              Find Your Perfect Community
             </h2>
             <p className="text-xl text-gray-600">
               Discover communities across diverse interests
             </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {categories.map((category, index) => (
-              <AnimatedCard
-                key={index}
-                variant="3d"
-                className="p-8 text-center cursor-pointer group"
-              >
-                <div className="text-4xl mb-4 transform group-hover:scale-110 transition-transform duration-300">
-                  {category.icon}
+              <div key={index} className="group relative cursor-pointer">
+                <div className="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm p-6 border border-gray-100 hover:border-purple-300 transition-all duration-300 hover:shadow-xl hover:shadow-purple-100/50 hover:-translate-y-1">
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                  <div className="relative z-10 text-center">
+                    <div className="text-5xl mb-4 transform group-hover:scale-110 transition-transform duration-300">
+                      {category.icon}
+                    </div>
+                    <h3 className="font-bold text-lg mb-1 text-gray-900 group-hover:text-purple-600 transition-colors duration-300">
+                      {category.name}
+                    </h3>
+                    <p className="text-gray-500 text-sm font-medium">
+                      {category.count.toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-                <h3 className="font-bold text-lg mb-2 group-hover:text-purple-600 transition-colors duration-300">
-                  {category.name}
-                </h3>
-                <p className="text-gray-500 text-sm">
-                  {category.count} communities
-                </p>
-                <div
-                  className={`absolute inset-0 ${category.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500 rounded-lg`}
-                ></div>
-              </AnimatedCard>
+              </div>
             ))}
+          </div>
+
+          <div className="text-center mt-12">
+            <Link href="/communities">
+              <AnimatedButton variant="glass" size="lg" className="group">
+                View All Categories
+                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
+              </AnimatedButton>
+            </Link>
           </div>
         </div>
       </section>

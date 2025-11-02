@@ -15,6 +15,7 @@ export const STORAGE_CONFIG = {
     communities: "communities",
     banners: "banners",
     communityProfile: "community-profile",
+    userProfile: "user-profile",
   },
 
   // File size limits (in bytes)
@@ -55,22 +56,53 @@ export function generateUniqueFilename(originalName: string): string {
 }
 
 /**
+ * Helper function to generate profile picture filename based on username
+ */
+export function generateProfileFilename(
+  username: string,
+  originalFilename: string
+): string {
+  // Sanitize username (remove special chars, convert to lowercase)
+  const sanitizedUsername = username.toLowerCase().replace(/[^a-z0-9]/g, "_");
+
+  // Extract file extension
+  const extension = originalFilename.split(".").pop()?.toLowerCase() || "jpg";
+
+  // Format: username_profile_picture.ext
+  return `${sanitizedUsername}_profile_picture.${extension}`;
+}
+
+/**
  * Helper function to extract path from storage URL
  */
 export function extractPathFromUrl(
   url: string,
   folder: keyof typeof STORAGE_CONFIG.folders
 ): string | null {
+  console.log("🔍 Extracting path from URL:", url);
+  console.log("📁 Looking for folder:", folder);
+
+  // Remove query parameters (e.g., ?t=1234567890)
+  const urlWithoutParams = url.split("?")[0];
+  console.log("🧹 URL without params:", urlWithoutParams);
+
   const folderPath = STORAGE_CONFIG.folders[folder];
-  const pathMatch = url.match(new RegExp(`${folderPath}\\/.+`));
-  return pathMatch ? pathMatch[0] : null;
+  console.log("📂 Folder path:", folderPath);
+
+  const pathMatch = urlWithoutParams.match(new RegExp(`${folderPath}\\/.+`));
+  console.log("✨ Path match result:", pathMatch);
+
+  const extractedPath = pathMatch ? pathMatch[0] : null;
+  console.log("📍 Extracted path:", extractedPath);
+
+  return extractedPath;
 }
 
 /**
  * Helper function to validate file type
  */
 export function isValidImageType(mimeType: string): boolean {
-  return STORAGE_CONFIG.allowedTypes.images.includes(mimeType);
+  return STORAGE_CONFIG.allowedTypes.images.includes(mimeType as any);
 }
 
 /**
