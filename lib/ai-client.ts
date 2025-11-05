@@ -1,78 +1,64 @@
-import OpenAI from "openai";
+// GitHub Models AI Client Implementation
 import { z } from "zod";
-import { AI_CONFIG, AIProvider } from "./ai-config";
-import { createOpenAI } from "@ai-sdk/openai";
+import { AI_CONFIG } from "./ai-config";
 
-let openAIClient: OpenAI | undefined;
-if (AI_CONFIG.openai.apiKey) {
-  openAIClient = new OpenAI({
-    apiKey: AI_CONFIG.openai.apiKey,
-  });
+interface ChatMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
 }
 
-// Helper to get the current AI provider
-function getProvider(): AIProvider {
-  if (AI_CONFIG.local.enabled) {
-    return "local";
-  }
-  // Prioritize Anthropic over OpenAI
-  if (AI_CONFIG.anthropic.apiKey) {
-    return "anthropic";
-  }
-  if (AI_CONFIG.openai.apiKey) {
-    return "openai";
-  }
-  throw new Error(
-    "No AI provider configured. Please set LOCAL_AI_ENABLED or an API key for OpenAI/Anthropic."
-  );
+interface GitHubModelsResponse {
+  choices: Array<{
+    message: {
+      content: string;
+    };
+  }>;
+  error?: {
+    message: string;
+    type: string;
+  };
 }
 
-// Unified AI Client
 class AIClient {
-  private client: OpenAI;
-
-  constructor() {
-    const provider = getProvider();
-
-    switch (provider) {
-      case "local":
-        this.client = new OpenAI({
-          baseURL: AI_CONFIG.local.endpoint,
-          apiKey: "ollama", // Ollama doesn't require an API key
-        });
-        break;
-      case "openai":
-        if (!openAIClient) {
-          throw new Error("OpenAI API key not configured.");
-        }
-        this.client = openAIClient;
-        break;
-      case "anthropic":
-        // Use OpenAI client with Anthropic's Messages API compatibility
-        this.client = new OpenAI({
-          baseURL: "https://api.anthropic.com/v1/messages",
-          apiKey: AI_CONFIG.anthropic.apiKey,
-          defaultHeaders: {
-            "anthropic-version": "2023-06-01",
-          },
-        });
-        break;
-      default:
-        throw new Error(`Unsupported AI provider: ${provider}`);
+  private async makeRequest(messages: ChatMessage[], options?: {
+    maxTokens?: number;
+    temperature?: number;
+    responseFormat?: { type: "json_object" };
+  }): Promise<GitHubModelsResponse> {
+    const apiKey = AI_CONFIG.github.apiKey;
+    
+    if (!apiKey) {
+      throw new Error(
+        "GitHub Models API key not configured. Please set GITHUB_MODELS_API_KEY, GITHUB_PERSONAL_ACCESS_TOKEN, or GITHUB_TOKEN environment variable."
+      );
     }
-  }
 
-  private getModel(provider: AIProvider): string {
-    switch (provider) {
-      case "local":
-        return AI_CONFIG.local.model;
-      case "openai":
-        return AI_CONFIG.openai.model;
-      case "anthropic":
-        return AI_CONFIG.anthropic.model;
-      default:
-        return "gpt-3.5-turbo"; // Fallback
+    const url = `${AI_CONFIG.github.baseURL}/chat/completions`;
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify({
+        model: AI_CONFIG.github.model,
+        messages: messages,
+        max_tokens: options?.maxTokens || AI_CONFIG.github.maxTokens,
+        temperature: options?.temperature ?? AI_CONFIG.github.temperature,
+        ...(options?.responseFormat && { response_format: options.responseFormat }),
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(
+        `GitHub Models API error: ${errorData.message || response.statusText} (${response.status})`
+      );
     }
+
+    return await response.json();
   }
 
   async generateText(
@@ -82,27 +68,30 @@ class AIClient {
       maxTokens?: number;
       temperature?: number;
     }
-  ) {
-    const {
-      systemPrompt = "You are a helpful AI assistant.",
-      maxTokens = 1000,
-      temperature = 0.7,
-    } = options || {};
+  ): Promise<string> {
+    try {
+      const messages: ChatMessage[] = [];
+      
+      if (options?.systemPrompt) {
+        messages.push({ role: "system", content: options.systemPrompt });
+      }
+      
+      messages.push({ role: "user", content: prompt });
 
-    const provider = getProvider();
-    const model = this.getModel(provider);
+      const response = await this.makeRequest(messages, {
+        maxTokens: options?.maxTokens,
+        temperature: options?.temperature,
+      });
 
-    const response = await this.client.chat.completions.create({
-      model: model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: maxTokens,
-      temperature: temperature,
-    });
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
 
-    return response.choices[0]?.message?.content || "";
+      return response.choices[0]?.message?.content || "";
+    } catch (error) {
+      console.error("GitHub Models generateText error:", error);
+      throw error;
+    }
   }
 
   async generateObject<T>(
@@ -114,42 +103,47 @@ class AIClient {
       temperature?: number;
     }
   ): Promise<T> {
-    const {
-      systemPrompt = "You are a helpful AI assistant that responds with valid JSON.",
-      maxTokens = 2000, // Increased for potentially larger JSON
-      temperature = 0.5, // Lowered for more deterministic JSON output
-    } = options || {};
-
-    const provider = getProvider();
-    const model = this.getModel(provider);
-
-    const response = await this.client.chat.completions.create({
-      model: model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: maxTokens,
-      temperature: temperature,
-      response_format: { type: "json_object" },
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("No response content received");
-    }
-
     try {
-      const parsed = JSON.parse(content);
-      return schema.parse(parsed);
+      const messages: ChatMessage[] = [];
+      
+      const systemPrompt = options?.systemPrompt || 
+        "You are a helpful AI assistant that responds with valid JSON.";
+      
+      messages.push({ role: "system", content: systemPrompt });
+      messages.push({ 
+        role: "user", 
+        content: `${prompt}\n\nRespond with valid JSON only, no additional text.` 
+      });
+
+      const response = await this.makeRequest(messages, {
+        maxTokens: options?.maxTokens || 2000,
+        temperature: options?.temperature ?? 0.5,
+        responseFormat: { type: "json_object" },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response content received from GitHub Models");
+      }
+
+      try {
+        const parsed = JSON.parse(content);
+        return schema.parse(parsed);
+      } catch (parseError) {
+        console.error("Failed to parse GitHub Models JSON response. Content:", content);
+        throw new Error(
+          `Failed to parse AI response: ${
+            parseError instanceof Error ? parseError.message : String(parseError)
+          }`
+        );
+      }
     } catch (error) {
-      // Add more context to the error
-      console.error("Failed to parse AI JSON response. Content:", content);
-      throw new Error(
-        `Failed to parse AI response: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
+      console.error("GitHub Models generateObject error:", error);
+      throw error;
     }
   }
 
@@ -158,9 +152,24 @@ class AIClient {
     analysisType: "sentiment" | "toxicity" | "quality"
   ) {
     const prompts = {
-      sentiment: `Analyze the sentiment of this content and return a score from -1 (very negative) to 1 (very positive): "${content}"`,
-      toxicity: `Analyze this content for toxicity, harassment, or inappropriate material. Return a score from 0 (safe) to 1 (toxic): "${content}"`,
-      quality: `Analyze the quality of this content considering clarity, usefulness, and engagement. Return a score from 0 (poor) to 1 (excellent): "${content}"`,
+      sentiment: `Analyze the sentiment of this content and return a JSON object with:
+- score: a number from -1 (very negative) to 1 (very positive)
+- reasoning: a brief explanation
+- confidence: a number from 0 to 1
+
+Content: "${content}"`,
+      toxicity: `Analyze this content for toxicity, harassment, or inappropriate material. Return a JSON object with:
+- score: a number from 0 (safe) to 1 (toxic)
+- reasoning: a brief explanation
+- confidence: a number from 0 to 1
+
+Content: "${content}"`,
+      quality: `Analyze the quality of this content considering clarity, usefulness, and engagement. Return a JSON object with:
+- score: a number from 0 (poor) to 1 (excellent)
+- reasoning: a brief explanation
+- confidence: a number from 0 to 1
+
+Content: "${content}"`,
     };
 
     const schema = z.object({
@@ -169,10 +178,21 @@ class AIClient {
       confidence: z.number().min(0).max(1),
     });
 
-    return this.generateObject(prompts[analysisType], schema, {
-      systemPrompt:
-        "You are an expert content analyst. Provide accurate, unbiased analysis in JSON format.",
-    });
+    try {
+      return await this.generateObject(prompts[analysisType], schema, {
+        systemPrompt:
+          "You are an expert content analyst. Provide accurate, unbiased analysis in JSON format.",
+        temperature: 0.3,
+      });
+    } catch (error) {
+      console.error("Content analysis error:", error);
+      // Return fallback analysis on error
+      return {
+        score: analysisType === "sentiment" ? 0 : 0.5,
+        reasoning: "Analysis unavailable due to error.",
+        confidence: 0,
+      };
+    }
   }
 }
 

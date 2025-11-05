@@ -1,5 +1,3 @@
-import { openai } from "@ai-sdk/openai"
-import { generateText } from "ai"
 import { aiClient } from "../ai-client"
 
 export interface UserActivityData {

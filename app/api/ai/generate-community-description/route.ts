@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { aiClient } from "@/lib/ai-client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,37 +37,15 @@ Based on the community name "${name}" and the selected interests (${interests.jo
 Write a description that would make people want to join this specific community.`;
 
     try {
-      // Use Anthropic Claude API
-      const anthropicResponse = await fetch(
-        "https://api.anthropic.com/v1/messages",
+      const description = await aiClient.generateText(
+        `You are a community manager expert who writes compelling community descriptions that attract engaged members.\n\n${prompt}`,
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": process.env.ANTHROPIC_API_KEY || "",
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-3-haiku-20240307", // Using Claude 3 Haiku (fastest and cheapest)
-            max_tokens: 300,
-            messages: [
-              {
-                role: "user",
-                content: `You are a community manager expert who writes compelling community descriptions that attract engaged members.\n\n${prompt}`,
-              },
-            ],
-          }),
+          systemPrompt:
+            "You are a community manager expert who writes compelling community descriptions that attract engaged members.",
+          maxTokens: 300,
+          temperature: 0.7,
         }
       );
-
-      if (!anthropicResponse.ok) {
-        const errorData = await anthropicResponse.json();
-        console.error("Anthropic API error:", errorData);
-        throw new Error("Anthropic API failed");
-      }
-
-      const anthropicData = await anthropicResponse.json();
-      const description = anthropicData.content?.[0]?.text;
 
       if (!description) {
         throw new Error("No description generated");

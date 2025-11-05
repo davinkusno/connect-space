@@ -23,9 +23,8 @@
 
 ### AI & Machine Learning
 
+- **GitHub Models** - Free AI models via GitHub API (GPT-4o)
 - **AI SDK** - Unified AI interface
-- **OpenAI** - GPT models for content generation
-- **Anthropic** - Claude models for advanced reasoning
 - **Custom AI Services**:
   - Content generation and enhancement
   - Recommendation engine
@@ -53,7 +52,7 @@
 - Node.js (latest LTS)
 - pnpm package manager
 - Supabase account and project
-- OpenAI/Anthropic API keys
+- GitHub Personal Access Token (for GitHub Models API)
 
 ### Environment Variables
 
@@ -63,9 +62,9 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
-# AI Services
-OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
+# AI Services - GitHub Models
+GITHUB_MODELS_API_KEY=your_github_personal_access_token
+# Alternative: GITHUB_PERSONAL_ACCESS_TOKEN (also supported)
 
 # Redis
 UPSTASH_REDIS_REST_URL=

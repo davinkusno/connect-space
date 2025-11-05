@@ -1,28 +1,21 @@
-// AI Configuration and API setup
+// AI Configuration - GitHub Models integration
+// 
+// Required Environment Variables:
+// - GITHUB_MODELS_API_KEY or GITHUB_PERSONAL_ACCESS_TOKEN or GITHUB_TOKEN: Your GitHub Personal Access Token
+//   To create one: https://github.com/settings/tokens
+//   Required scopes: models:read (for fine-grained tokens) or models (for classic tokens)
+//
 export const AI_CONFIG = {
-  // OpenAI Configuration
-  openai: {
-    apiKey: process.env.OPENAI_API_KEY,
-    model: "gpt-3.5-turbo",
-    maxTokens: 1000,
+  // GitHub Models Configuration
+  github: {
+    apiKey: process.env.GITHUB_MODELS_API_KEY || process.env.GITHUB_PERSONAL_ACCESS_TOKEN || process.env.GITHUB_TOKEN,
+    model: "openai/gpt-4o", // GitHub Models format for GPT-4o
+    baseURL: "https://models.github.ai/inference", // GitHub Models API endpoint (correct endpoint from GitHub docs)
+    maxTokens: 2000,
     temperature: 0.7,
   },
 
-  // Anthropic Configuration
-  anthropic: {
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    model: "claude-3-sonnet-20240229",
-    maxTokens: 1000,
-  },
-
-  // Local AI Configuration (for privacy-sensitive operations)
-  local: {
-    enabled: process.env.LOCAL_AI_ENABLED === "true",
-    endpoint: process.env.LOCAL_AI_ENDPOINT || "http://localhost:11434",
-    model: "llama2",
-  },
-
-  // Feature flags
+  // Feature flags - all enabled with GitHub Models
   features: {
     contentGeneration: true,
     smartSearch: true,
@@ -40,5 +33,5 @@ export const AI_CONFIG = {
   },
 };
 
-export type AIProvider = "openai" | "anthropic" | "local";
+export type AIProvider = "github";
 export type AIFeature = keyof typeof AI_CONFIG.features;
