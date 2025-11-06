@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -28,19 +27,12 @@ import {
   Mic,
   MicOff,
   VolumeX,
-  Volume2,
-  Settings,
-  Download,
-  RefreshCw,
   MapPin,
   Filter,
   Zap,
-  Heart,
   ChevronDown,
   ChevronUp,
   Lightbulb,
-  HelpCircle,
-  Home,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
@@ -81,7 +73,6 @@ export function EnhancedChatbotWidget({
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [userPreferences, setUserPreferences] = useState<any>({})
-  const [activeTab, setActiveTab] = useState("chat")
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [recognition, setRecognition] = useState<any>(null)
@@ -608,7 +599,7 @@ export function EnhancedChatbotWidget({
 
   // Enhanced message bubble component
   const MessageBubble = ({ message }: { message: Message }) => (
-    <div className={cn("flex gap-3 mb-4", message.role === "user" ? "justify-end" : "justify-start")}>
+    <div className={cn("flex gap-3 mb-4 min-w-0", message.role === "user" ? "justify-end" : "justify-start")}>
       {message.role === "assistant" && (
         <Avatar className="h-8 w-8 flex-shrink-0">
           <AvatarFallback className="bg-purple-100">
@@ -617,11 +608,11 @@ export function EnhancedChatbotWidget({
         </Avatar>
       )}
 
-      <div className={cn("max-w-[85%] space-y-2", message.role === "user" ? "order-first" : "")}>
+      <div className={cn("min-w-0 flex-shrink space-y-2", message.role === "user" ? "order-first ml-4 mr-0 max-w-[75%]" : "mr-4 max-w-[75%]")}>
         <div
           className={cn(
-            "rounded-lg px-3 py-2 text-sm",
-            message.role === "user" ? "bg-purple-600 text-white ml-auto" : "bg-gray-100 text-gray-900",
+            "rounded-lg px-3 py-2 text-sm break-words overflow-wrap-anywhere",
+            message.role === "user" ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-900",
           )}
         >
           {message.content}
@@ -892,245 +883,78 @@ export function EnhancedChatbotWidget({
       </CardHeader>
 
       {!isMinimized && (
-        <>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-3 mx-4 mt-2">
-              <TabsTrigger value="chat">Chat</TabsTrigger>
-              <TabsTrigger value="support">Support</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="chat" className="flex-1 flex flex-col mt-2">
-              <ScrollArea className="flex-1 px-4 max-h-[calc(100vh-300px)]">
-                {messages.map((message) => (
-                  <MessageBubble key={message.id} message={message} />
-                ))}
-                {isLoading && (
-                  <div className="flex gap-3 mb-4">
-                    <Avatar className="h-8 w-8 flex-shrink-0">
-                      <AvatarFallback className="bg-purple-100">
-                        <Bot className="h-4 w-4 text-purple-600" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="bg-gray-100 rounded-lg px-3 py-2">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.1s" }}
-                        ></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.2s" }}
-                        ></div>
-                      </div>
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <ScrollArea className="flex-1 overflow-y-auto">
+            <div className="pl-4 pr-6 py-2 min-w-0">
+              {messages.map((message) => (
+                <MessageBubble key={message.id} message={message} />
+              ))}
+              {isLoading && (
+                <div className="flex gap-3 mb-4">
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarFallback className="bg-purple-100">
+                      <Bot className="h-4 w-4 text-purple-600" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="bg-gray-100 rounded-lg px-3 py-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: "0.1s" }}
+                      ></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: "0.2s" }}
+                      ></div>
                     </div>
                   </div>
-                )}
-                <div ref={messagesEndRef} />
-              </ScrollArea>
-
-              <Separator />
-
-              <div className="p-4 flex-shrink-0">
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <Input
-                      ref={inputRef}
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      placeholder="Ask me anything..."
-                      onKeyPress={(e) => e.key === "Enter" && sendMessage(inputValue)}
-                      disabled={isLoading}
-                      className="pr-10"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-1 top-1 h-8 w-8 p-0"
-                      onClick={isListening ? stopListening : startListening}
-                      disabled={isLoading}
-                    >
-                      {isListening ? <MicOff className="h-4 w-4 text-red-500" /> : <Mic className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  <Button
-                    onClick={() => sendMessage(inputValue)}
-                    disabled={isLoading || !inputValue.trim()}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
                 </div>
-                {isListening && (
-                  <div className="mt-2 text-xs text-purple-600 flex items-center gap-1">
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                    Listening...
-                  </div>
-                )}
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+
+          <Separator className="flex-shrink-0" />
+
+          <div className="p-4 flex-shrink-0">
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <Input
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Ask me anything..."
+                  onKeyPress={(e) => e.key === "Enter" && sendMessage(inputValue)}
+                  disabled={isLoading}
+                  className="pr-10"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1 h-8 w-8 p-0"
+                  onClick={isListening ? stopListening : startListening}
+                  disabled={isLoading}
+                >
+                  {isListening ? <MicOff className="h-4 w-4 text-red-500" /> : <Mic className="h-4 w-4" />}
+                </Button>
               </div>
-            </TabsContent>
-
-            <TabsContent value="support" className="flex-1 flex flex-col mt-2">
-              <ScrollArea className="flex-1 px-4">
-                <div className="space-y-4">
-                  <div className="text-sm text-gray-600">
-                    <h3 className="font-medium mb-3 flex items-center gap-2">
-                      <HelpCircle className="h-4 w-4" />
-                      Frequently Asked Questions
-                    </h3>
-                    <div className="space-y-2">
-                      {[
-                        "How do I join a community?",
-                        "How do I create an event?",
-                        "What are the community guidelines?",
-                        "How do I manage my privacy settings?",
-                        "I'm having technical issues",
-                        "How do I change my notification preferences?",
-                      ].map((question) => (
-                        <Button
-                          key={question}
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-start text-left h-auto py-2"
-                          onClick={() => {
-                            setActiveTab("chat")
-                            sendMessage(question)
-                          }}
-                        >
-                          {question}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-3">
-                    <h3 className="font-medium text-sm mb-3">Quick Actions</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push("/dashboard")}
-                        className="flex items-center gap-2"
-                      >
-                        <Home className="h-4 w-4" />
-                        Dashboard
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push("/events")}
-                        className="flex items-center gap-2"
-                      >
-                        <Calendar className="h-4 w-4" />
-                        Events
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push("/discover")}
-                        className="flex items-center gap-2"
-                      >
-                        <Users className="h-4 w-4" />
-                        Discover
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push("/wishlist")}
-                        className="flex items-center gap-2"
-                      >
-                        <Heart className="h-4 w-4" />
-                        Wishlist
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </ScrollArea>
-            </TabsContent>
-
-            <TabsContent value="settings" className="flex-1 flex flex-col mt-2">
-              <ScrollArea className="flex-1 px-4">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
-                      <Settings className="h-4 w-4" />
-                      Chat Settings
-                    </h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Voice responses</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => (isSpeaking ? stopSpeaking() : speakMessage("Test message"))}
-                        >
-                          {isSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                        </Button>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Export conversation</span>
-                        <Button variant="outline" size="sm" onClick={exportConversation}>
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Clear conversation</span>
-                        <Button variant="outline" size="sm" onClick={clearConversation}>
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h3 className="font-medium text-sm mb-3">Your Preferences</h3>
-                    <div className="space-y-2 text-xs">
-                      {Object.entries(userPreferences).map(([key, value]) => (
-                        <div key={key} className="flex justify-between">
-                          <span className="capitalize">{key.replace(/([A-Z])/g, " $1").trim()}:</span>
-                          <span className="text-gray-600">
-                            {Array.isArray(value) ? value.join(", ") : String(value)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h3 className="font-medium text-sm mb-3">Rate this conversation</h3>
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map((rating) => (
-                        <Button
-                          key={rating}
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => setConversationRating(rating)}
-                        >
-                          <Star
-                            className={cn(
-                              "h-4 w-4",
-                              rating <= (conversationRating || 0) ? "text-yellow-500 fill-current" : "text-gray-300",
-                            )}
-                          />
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
-        </>
+              <Button
+                onClick={() => sendMessage(inputValue)}
+                disabled={isLoading || !inputValue.trim()}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            {isListening && (
+              <div className="mt-2 text-xs text-purple-600 flex items-center gap-1">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                Listening...
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </Card>
   )

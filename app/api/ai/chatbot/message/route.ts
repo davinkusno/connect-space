@@ -39,13 +39,32 @@ User's current preferences: ${JSON.stringify(userPreferences || {})}
 
 Based on the user's message, provide a natural, helpful response. 
 
+CRITICAL: The actionType field MUST be one of these exact values (no other values allowed):
+- "continue_conversation" - for general conversation or when asking clarifying questions
+- "show_recommendations" - when user wants to see recommendations
+- "search_content" - when user is searching for specific content
+- "provide_info" - when answering questions about the platform
+- "escalate_support" - when user needs human support
+
 Guidelines:
 - If the user mentions specific interests, extract them
 - If they mention location, size preferences, or format preferences, extract those
 - If they're asking about specific content (like "events tomorrow" or "book clubs in Jakarta"), set actionType to "search_content"
 - If you have enough information to make recommendations, set actionType to "show_recommendations"
 - If they need support or have questions about the platform, set actionType to "provide_info"
+- If asking clarifying questions or general conversation, set actionType to "continue_conversation"
 - Always be encouraging and ask follow-up questions to better understand their needs
+- IMPORTANT: Always use one of the exact actionType values listed above - never use any other value
+
+REQUIRED JSON STRUCTURE (you MUST follow this exact format):
+{
+  "response": "Your conversational response text here as a string (NOT an object, NOT a field called 'message')",
+  "actionType": "one of the exact values listed above",
+  "followUpQuestions": ["optional array of strings"],
+  "extractedPreferences": { "optional object" }
+}
+
+CRITICAL: The "response" field MUST be a string, not an object. Do NOT use "message" instead of "response".
 
 Extract any new preferences mentioned in the user's message.`
 

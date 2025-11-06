@@ -1,64 +1,28 @@
 // GitHub Models AI Client Implementation
 import { z } from "zod";
 import { AI_CONFIG } from "./ai-config";
-
-interface ChatMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-}
-
-interface GitHubModelsResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-  error?: {
-    message: string;
-    type: string;
-  };
-}
+import OpenAI from "openai";
 
 class AIClient {
-  private async makeRequest(messages: ChatMessage[], options?: {
-    maxTokens?: number;
-    temperature?: number;
-    responseFormat?: { type: "json_object" };
-  }): Promise<GitHubModelsResponse> {
-    const apiKey = AI_CONFIG.github.apiKey;
-    
-    if (!apiKey) {
-      throw new Error(
-        "GitHub Models API key not configured. Please set GITHUB_MODELS_API_KEY, GITHUB_PERSONAL_ACCESS_TOKEN, or GITHUB_TOKEN environment variable."
-      );
+  private client: OpenAI | null = null;
+
+  private getClient(): OpenAI {
+    if (!this.client) {
+      const apiKey = AI_CONFIG.github.apiKey;
+      
+      if (!apiKey) {
+        throw new Error(
+          "GitHub Models API key not configured. Please set GITHUB_MODELS_API_KEY, GITHUB_PERSONAL_ACCESS_TOKEN, or GITHUB_TOKEN environment variable."
+        );
+      }
+
+      this.client = new OpenAI({
+        apiKey: apiKey,
+        baseURL: AI_CONFIG.github.baseURL,
+      });
     }
 
-    const url = `${AI_CONFIG.github.baseURL}/chat/completions`;
-    
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      body: JSON.stringify({
-        model: AI_CONFIG.github.model,
-        messages: messages,
-        max_tokens: options?.maxTokens || AI_CONFIG.github.maxTokens,
-        temperature: options?.temperature ?? AI_CONFIG.github.temperature,
-        ...(options?.responseFormat && { response_format: options.responseFormat }),
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(
-        `GitHub Models API error: ${errorData.message || response.statusText} (${response.status})`
-      );
-    }
-
-    return await response.json();
+    return this.client;
   }
 
   async generateText(
@@ -70,7 +34,9 @@ class AIClient {
     }
   ): Promise<string> {
     try {
-      const messages: ChatMessage[] = [];
+      const client = this.getClient();
+      
+      const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
       
       if (options?.systemPrompt) {
         messages.push({ role: "system", content: options.systemPrompt });
@@ -78,18 +44,41 @@ class AIClient {
       
       messages.push({ role: "user", content: prompt });
 
-      const response = await this.makeRequest(messages, {
-        maxTokens: options?.maxTokens,
-        temperature: options?.temperature,
+      // Log request to GitHub Models
+      console.log("=".repeat(80));
+      console.log("📤 GitHub Models Request (generateText):");
+      console.log("=".repeat(80));
+      console.log("Model:", AI_CONFIG.github.model);
+      console.log("Messages:", JSON.stringify(messages, null, 2));
+      console.log("=".repeat(80));
+
+      const response = await client.chat.completions.create({
+        model: AI_CONFIG.github.model,
+        messages: messages,
+        max_tokens: options?.maxTokens || AI_CONFIG.github.maxTokens,
+        temperature: options?.temperature ?? AI_CONFIG.github.temperature,
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
+      const content = response.choices[0]?.message?.content || "";
+      
+      // Log response from GitHub Models
+      console.log("=".repeat(80));
+      console.log("📥 GitHub Models Response (generateText):");
+      console.log("=".repeat(80));
+      console.log(content);
+      console.log("=".repeat(80));
 
-      return response.choices[0]?.message?.content || "";
-    } catch (error) {
-      console.error("GitHub Models generateText error:", error);
+      return content;
+    } catch (error: any) {
+      console.error("GitHub Models generateText error:", {
+        error: error?.message || error,
+        status: error?.status,
+        statusText: error?.statusText,
+        response: error?.response?.data || error?.response,
+      });
+      if (error instanceof Error) {
+        throw new Error(`GitHub Models API error: ${error.message}`);
+      }
       throw error;
     }
   }
@@ -104,45 +93,193 @@ class AIClient {
     }
   ): Promise<T> {
     try {
-      const messages: ChatMessage[] = [];
+      const client = this.getClient();
       
       const systemPrompt = options?.systemPrompt || 
         "You are a helpful AI assistant that responds with valid JSON.";
       
-      messages.push({ role: "system", content: systemPrompt });
-      messages.push({ 
-        role: "user", 
-        content: `${prompt}\n\nRespond with valid JSON only, no additional text.` 
-      });
+      const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+        { role: "system", content: systemPrompt },
+        { 
+          role: "user", 
+          content: `${prompt}\n\nRespond with valid JSON only, no additional text.` 
+        }
+      ];
 
-      const response = await this.makeRequest(messages, {
-        maxTokens: options?.maxTokens || 2000,
+      // Log request to GitHub Models
+      console.log("=".repeat(80));
+      console.log("📤 GitHub Models Request (generateObject):");
+      console.log("=".repeat(80));
+      console.log("Model:", AI_CONFIG.github.model);
+      console.log("Messages:", JSON.stringify(messages, null, 2));
+      console.log("=".repeat(80));
+
+      const response = await client.chat.completions.create({
+        model: AI_CONFIG.github.model,
+        messages: messages,
+        max_tokens: options?.maxTokens || 2000,
         temperature: options?.temperature ?? 0.5,
-        responseFormat: { type: "json_object" },
+        response_format: { type: "json_object" },
       });
-
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
 
       const content = response.choices[0]?.message?.content;
       if (!content) {
         throw new Error("No response content received from GitHub Models");
       }
 
+      // Log raw response from GitHub Models
+      console.log("=".repeat(80));
+      console.log("🔵 GitHub Models Raw Response:");
+      console.log("=".repeat(80));
+      console.log(JSON.stringify(content, null, 2));
+      console.log("=".repeat(80));
+
       try {
         const parsed = JSON.parse(content);
-        return schema.parse(parsed);
+        
+        // Log parsed JSON before auto-fixes
+        console.log("📋 Parsed JSON (before auto-fixes):");
+        console.log(JSON.stringify(parsed, null, 2));
+        
+        // Auto-fix common mistakes
+        const hadFixes = {
+          messageToResponse: false,
+          objectToString: false,
+          nullToUndefined: false,
+        };
+        
+        // Helper function to convert null to undefined for optional fields
+        const convertNullToUndefined = (obj: any): any => {
+          if (obj === null) {
+            return undefined;
+          }
+          if (Array.isArray(obj)) {
+            return obj.map(convertNullToUndefined);
+          }
+          if (typeof obj === 'object') {
+            const result: any = {};
+            for (const key in obj) {
+              if (obj[key] === null) {
+                result[key] = undefined;
+              } else {
+                result[key] = convertNullToUndefined(obj[key]);
+              }
+            }
+            return result;
+          }
+          return obj;
+        };
+        
+        // Helper function to check if object has null values
+        const hasNullValues = (obj: any): boolean => {
+          if (obj === null) return true;
+          if (Array.isArray(obj)) {
+            return obj.some(hasNullValues);
+          }
+          if (typeof obj === 'object') {
+            return Object.values(obj).some(hasNullValues);
+          }
+          return false;
+        };
+        
+        if (parsed && typeof parsed === 'object') {
+          // Fix: "message" instead of "response"
+          if (parsed.message && !parsed.response) {
+            parsed.response = typeof parsed.message === 'string' 
+              ? parsed.message 
+              : JSON.stringify(parsed.message);
+            delete parsed.message;
+            hadFixes.messageToResponse = true;
+            console.log("🔧 Auto-fix applied: Renamed 'message' to 'response'");
+          }
+          
+          // Fix: "response" is an object instead of a string
+          if (parsed.response && typeof parsed.response === 'object') {
+            // Try to extract message from the object
+            if (parsed.response.message) {
+              parsed.response = parsed.response.message;
+              hadFixes.objectToString = true;
+              console.log("🔧 Auto-fix applied: Extracted 'message' from response object");
+            } else if (parsed.response.text) {
+              parsed.response = parsed.response.text;
+              hadFixes.objectToString = true;
+              console.log("🔧 Auto-fix applied: Extracted 'text' from response object");
+            } else {
+              // Convert object to string
+              parsed.response = JSON.stringify(parsed.response);
+              hadFixes.objectToString = true;
+              console.log("🔧 Auto-fix applied: Converted response object to string");
+            }
+          }
+          
+          // Fix: Convert null values to undefined for optional fields
+          if (hasNullValues(parsed)) {
+            // Convert null to undefined recursively
+            for (const key in parsed) {
+              if (parsed[key] === null) {
+                parsed[key] = undefined;
+                hadFixes.nullToUndefined = true;
+              } else if (typeof parsed[key] === 'object' && parsed[key] !== null) {
+                // Recursively fix nested objects
+                const fixed = convertNullToUndefined(parsed[key]);
+                if (JSON.stringify(parsed[key]) !== JSON.stringify(fixed)) {
+                  parsed[key] = fixed;
+                  hadFixes.nullToUndefined = true;
+                }
+              }
+            }
+            if (hadFixes.nullToUndefined) {
+              console.log("🔧 Auto-fix applied: Converted null values to undefined for optional fields");
+            }
+          }
+        }
+        
+        // Log parsed JSON after auto-fixes (if any were applied)
+        if (hadFixes.messageToResponse || hadFixes.objectToString || hadFixes.nullToUndefined) {
+          console.log("📋 Parsed JSON (after auto-fixes):");
+          console.log(JSON.stringify(parsed, null, 2));
+        }
+        
+        const validated = schema.parse(parsed);
+        
+        // Log successful validation
+        console.log("✅ Validation successful!");
+        console.log("=".repeat(80));
+        
+        return validated;
       } catch (parseError) {
-        console.error("Failed to parse GitHub Models JSON response. Content:", content);
+        // If it's a Zod validation error, provide more context
+        if (parseError instanceof z.ZodError) {
+          console.error("❌ Zod validation error:");
+          console.error(JSON.stringify(parseError.errors, null, 2));
+          console.error("📥 Original raw content:");
+          console.error(content);
+          console.error("=".repeat(80));
+          // Re-throw with more detailed error message
+          throw new Error(
+            `Failed to parse AI response: ${JSON.stringify(parseError.errors, null, 2)}`
+          );
+        }
+        console.error("❌ Failed to parse GitHub Models JSON response:");
+        console.error("📥 Content:", content);
+        console.error("🔴 Parse error:", parseError);
+        console.error("=".repeat(80));
         throw new Error(
           `Failed to parse AI response: ${
             parseError instanceof Error ? parseError.message : String(parseError)
           }`
         );
       }
-    } catch (error) {
-      console.error("GitHub Models generateObject error:", error);
+    } catch (error: any) {
+      console.error("GitHub Models generateObject error:", {
+        error: error?.message || error,
+        status: error?.status,
+        statusText: error?.statusText,
+        response: error?.response?.data || error?.response,
+      });
+      if (error instanceof Error) {
+        throw new Error(`GitHub Models API error: ${error.message}`);
+      }
       throw error;
     }
   }

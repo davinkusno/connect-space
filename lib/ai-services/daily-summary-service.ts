@@ -1,4 +1,5 @@
 import { aiClient } from "../ai-client"
+import { createServerClient } from "../supabase/server"
 
 export interface UserActivityData {
   userId: string
@@ -447,70 +448,343 @@ Make it personal, actionable, and encouraging. Focus on progress and opportuniti
   }
 
   async getUserActivityData(userId: string, date: string): Promise<UserActivityData> {
-    // Fetch user activity data (would integrate with database)
+    const supabase = await createServerClient()
+    const dateStart = new Date(date)
+    dateStart.setHours(0, 0, 0, 0)
+    const dateEnd = new Date(date)
+    dateEnd.setHours(23, 59, 59, 999)
+
+    try {
+      // Fetch messages sent today (top-level messages)
+      const { count: messagesSentCount } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("sender_id", userId)
+        .is("parent_id", null) // Top-level messages only
+        .gte("created_at", dateStart.toISOString())
+        .lte("created_at", dateEnd.toISOString())
+
+      // Fetch comments posted today (messages with parent_id)
+      const { count: commentsPostedCount } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("sender_id", userId)
+        .not("parent_id", "is", null) // Comments only
+        .gte("created_at", dateStart.toISOString())
+        .lte("created_at", dateEnd.toISOString())
+
+      // Get user's community IDs first
+      const { data: userCommunities } = await supabase
+        .from("community_members")
+        .select("community_id")
+        .eq("user_id", userId)
+
+      const communityIds = (userCommunities || []).map((c) => c.community_id)
+
+      // Fetch messages received today (messages in communities user is member of)
+      let messagesReceivedQuery = supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .neq("sender_id", userId)
+        .gte("created_at", dateStart.toISOString())
+        .lte("created_at", dateEnd.toISOString())
+
+      if (communityIds.length > 0) {
+        messagesReceivedQuery = messagesReceivedQuery.in("community_id", communityIds)
+      } else {
+        messagesReceivedQuery = messagesReceivedQuery.eq("community_id", "00000000-0000-0000-0000-000000000000") // No communities, return 0
+      }
+
+      const { count: messagesReceivedCount } = await messagesReceivedQuery
+
+      // Get top contacts (users who sent messages in communities user is in)
+      let messagesDataQuery = supabase
+        .from("messages")
+        .select("sender_id")
+        .neq("sender_id", userId)
+        .gte("created_at", dateStart.toISOString())
+        .lte("created_at", dateEnd.toISOString())
+
+      if (communityIds.length > 0) {
+        messagesDataQuery = messagesDataQuery.in("community_id", communityIds)
+      } else {
+        messagesDataQuery = messagesDataQuery.eq("community_id", "00000000-0000-0000-0000-000000000000") // No communities
+      }
+
+      const { data: messagesData } = await messagesDataQuery
+
+      // Count messages per sender
+      const contactCounts = new Map<string, number>()
+      messagesData?.forEach((msg) => {
+        const senderId = msg.sender_id
+        contactCounts.set(senderId, (contactCounts.get(senderId) || 0) + 1)
+      })
+
+      // Get user details for top contacts
+      const topSenderIds = Array.from(contactCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([senderId]) => senderId)
+
+      let topContacts: Array<{ name: string; count: number }> = []
+      if (topSenderIds.length > 0) {
+        const { data: usersData } = await supabase
+          .from("users")
+          .select("id, username, full_name")
+          .in("id", topSenderIds)
+
+        topContacts = topSenderIds
+          .map((senderId) => {
+            const user = usersData?.find((u) => u.id === senderId)
+            const count = contactCounts.get(senderId) || 0
+            return {
+              name: user?.full_name || user?.username || "Unknown",
+              count,
+            }
+          })
+          .filter((c) => c.count > 0)
+      }
+
+      // Get communities user is active in
+      const { data: activeCommunities } = await supabase
+        .from("community_members")
+        .select("community_id")
+        .eq("user_id", userId)
+
+      const userCommunityIds = (activeCommunities || []).map((c) => c.community_id)
+
+      // Get community names
+      let communityNamesMap = new Map<string, string>()
+      if (userCommunityIds.length > 0) {
+        const { data: communitiesData } = await supabase
+          .from("communities")
+          .select("id, name")
+          .in("id", userCommunityIds)
+
+        communitiesData?.forEach((c) => {
+          communityNamesMap.set(c.id, c.name)
+        })
+      }
+
+      // Get message count per community
+      const communityActivity = await Promise.all(
+        userCommunityIds.map(async (communityId) => {
+          const { count } = await supabase
+            .from("messages")
+            .select("*", { count: "exact", head: true })
+            .eq("sender_id", userId)
+            .eq("community_id", communityId)
+            .gte("created_at", dateStart.toISOString())
+            .lte("created_at", dateEnd.toISOString())
+
+          return {
+            name: communityNamesMap.get(communityId) || "Unknown",
+            activity: count || 0,
+          }
+        })
+      )
+
+      // Get unique community names from messages sent today
+      const { data: messageCommunities } = await supabase
+        .from("messages")
+        .select("community_id")
+        .eq("sender_id", userId)
+        .gte("created_at", dateStart.toISOString())
+        .lte("created_at", dateEnd.toISOString())
+
+      const uniqueCommunityIds = [
+        ...new Set((messageCommunities || []).map((msg) => msg.community_id)),
+      ]
+
+      const uniqueCommunityNames = uniqueCommunityIds
+        .map((id) => communityNamesMap.get(id))
+        .filter(Boolean) as string[]
+
+      // Get communities joined today
+      const { count: communitiesJoined } = await supabase
+        .from("community_members")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("joined_at", dateStart.toISOString())
+        .lte("joined_at", dateEnd.toISOString())
+
+      // Get events that started today
+      const { data: todayEvents } = await supabase
+        .from("events")
+        .select("id")
+        .gte("start_time", dateStart.toISOString())
+        .lte("start_time", dateEnd.toISOString())
+
+      const todayEventIds = (todayEvents || []).map((e) => e.id)
+
+      // Get events attended today
+      let eventsAttendedQuery = supabase
+        .from("event_attendees")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("status", "going")
+
+      if (todayEventIds.length > 0) {
+        eventsAttendedQuery = eventsAttendedQuery.in("event_id", todayEventIds)
+      } else {
+        eventsAttendedQuery = eventsAttendedQuery.eq("event_id", "00000000-0000-0000-0000-000000000000") // No events today
+      }
+
+      const { count: eventsAttended } = await eventsAttendedQuery
+
+      // Get events created today
+      const { count: eventsCreated } = await supabase
+        .from("events")
+        .select("*", { count: "exact", head: true })
+        .eq("creator_id", userId)
+        .gte("created_at", dateStart.toISOString())
+        .lte("created_at", dateEnd.toISOString())
+
+      // Get upcoming events IDs first
+      const { data: upcomingEventIdsData } = await supabase
+        .from("events")
+        .select("id")
+        .gte("start_time", new Date().toISOString())
+
+      const upcomingEventIds = (upcomingEventIdsData || []).map((e) => e.id)
+
+      // Get RSVP'd events (upcoming)
+      let eventsRsvpedQuery = supabase
+        .from("event_attendees")
+        .select("event_id")
+        .eq("user_id", userId)
+        .eq("status", "going")
+
+      if (upcomingEventIds.length > 0) {
+        eventsRsvpedQuery = eventsRsvpedQuery.in("event_id", upcomingEventIds)
+      } else {
+        eventsRsvpedQuery = eventsRsvpedQuery.eq("event_id", "00000000-0000-0000-0000-000000000000") // No upcoming events
+      }
+
+      const { data: upcomingEventsAttendees } = await eventsRsvpedQuery
+      const upcomingEventIdsForUser = (upcomingEventsAttendees || []).map((a) => a.event_id)
+
+      // Get upcoming events details
+      let upcomingEvents: Array<{ title: string; date: string; type: string }> = []
+      if (upcomingEventIdsForUser.length > 0) {
+        const { data: upcomingEventsData } = await supabase
+          .from("events")
+          .select("title, start_time, category")
+          .in("id", upcomingEventIdsForUser)
+          .order("start_time", { ascending: true })
+          .limit(5)
+
+        upcomingEvents =
+          upcomingEventsData?.map((event) => ({
+            title: event.title || "Unknown Event",
+            date: event.start_time ? new Date(event.start_time).toISOString().split("T")[0] : date,
+            type: event.category || "General",
+          })) || []
+      }
+
+      const eventsRsvped = upcomingEventIdsForUser.length
+
+      // Calculate engagement (messages sent + received)
+      const totalMessages = (messagesSentCount || 0) + (messagesReceivedCount || 0)
+
+      // For fields not available in current schema, return defaults
+      return {
+        userId,
+        date,
+        messages: {
+          sent: messagesSentCount || 0,
+          received: messagesReceivedCount || 0,
+          communities: uniqueCommunityNames,
+          topContacts: topContacts,
+        },
+        communities: {
+          joined: communitiesJoined || 0,
+          left: 0, // Not tracked in current schema
+          postsCreated: messagesSentCount || 0, // Top-level messages (posts)
+          postsLiked: 0, // Not available in current schema
+          commentsPosted: commentsPostedCount || 0, // Messages with parent_id (comments/replies)
+          activeIn: communityActivity.filter((c) => c.activity > 0),
+        },
+        events: {
+          attended: eventsAttended || 0,
+          created: eventsCreated || 0,
+          rsvped: upcomingEvents.length,
+          cancelled: 0, // Not tracked in current schema
+          upcoming: upcomingEvents,
+        },
+        achievements: [], // Not available in current schema
+        connections: {
+          newFollowers: 0, // Not available in current schema
+          newFollowing: 0, // Not available in current schema
+          profileViews: 0, // Not available in current schema
+        },
+        engagement: {
+          totalInteractions: totalMessages,
+          likesReceived: 0, // Not available in current schema
+          commentsReceived: 0, // Not available in current schema
+          sharesReceived: 0, // Not available in current schema
+        },
+        goals: {
+          completed: 0, // Not available in current schema
+          inProgress: 0, // Not available in current schema
+          overdue: 0, // Not available in current schema
+        },
+        streaks: {
+          dailyLogin: 0, // Would need login tracking
+          eventAttendance: 0, // Would need historical calculation
+          communityEngagement: 0, // Would need historical calculation
+        },
+      }
+    } catch (error) {
+      console.error("Error fetching user activity data:", error)
+      // Return minimal data structure on error
     return {
       userId,
       date,
       messages: {
-        sent: Math.floor(Math.random() * 20),
-        received: Math.floor(Math.random() * 25),
-        communities: ["Tech Innovators", "Outdoor Adventures"],
-        topContacts: [
-          { name: "Sarah Chen", count: 5 },
-          { name: "Mike Johnson", count: 3 },
-          { name: "Lisa Wang", count: 2 },
-        ],
+          sent: 0,
+          received: 0,
+          communities: [],
+          topContacts: [],
       },
       communities: {
         joined: 0,
         left: 0,
-        postsCreated: Math.floor(Math.random() * 5),
-        postsLiked: Math.floor(Math.random() * 15),
-        commentsPosted: Math.floor(Math.random() * 10),
-        activeIn: [
-          { name: "Tech Innovators", activity: 8 },
-          { name: "Outdoor Adventures", activity: 5 },
-        ],
+          postsCreated: 0,
+          postsLiked: 0,
+          commentsPosted: 0,
+          activeIn: [],
       },
       events: {
-        attended: Math.floor(Math.random() * 3),
-        created: Math.floor(Math.random() * 2),
-        rsvped: Math.floor(Math.random() * 4),
+          attended: 0,
+          created: 0,
+          rsvped: 0,
         cancelled: 0,
-        upcoming: [
-          { title: "AI Workshop", date: "2024-01-15", type: "Workshop" },
-          { title: "Hiking Trip", date: "2024-01-18", type: "Outdoor" },
-        ],
-      },
-      achievements: [
-        {
-          type: "engagement",
-          title: "Active Member",
-          description: "Posted 5 times this week",
-          earnedAt: new Date().toISOString(),
+          upcoming: [],
         },
-      ],
+        achievements: [],
       connections: {
-        newFollowers: Math.floor(Math.random() * 5),
-        newFollowing: Math.floor(Math.random() * 3),
-        profileViews: Math.floor(Math.random() * 20),
+          newFollowers: 0,
+          newFollowing: 0,
+          profileViews: 0,
       },
       engagement: {
-        totalInteractions: Math.floor(Math.random() * 50),
-        likesReceived: Math.floor(Math.random() * 25),
-        commentsReceived: Math.floor(Math.random() * 15),
-        sharesReceived: Math.floor(Math.random() * 5),
+          totalInteractions: 0,
+          likesReceived: 0,
+          commentsReceived: 0,
+          sharesReceived: 0,
       },
       goals: {
-        completed: Math.floor(Math.random() * 3),
-        inProgress: Math.floor(Math.random() * 5),
-        overdue: Math.floor(Math.random() * 2),
+          completed: 0,
+          inProgress: 0,
+          overdue: 0,
       },
       streaks: {
-        dailyLogin: Math.floor(Math.random() * 30),
-        eventAttendance: Math.floor(Math.random() * 10),
-        communityEngagement: Math.floor(Math.random() * 15),
-      },
+          dailyLogin: 0,
+          eventAttendance: 0,
+          communityEngagement: 0,
+        },
+      }
     }
   }
 }

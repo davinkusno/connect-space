@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   MessageCircle,
   Send,
@@ -51,7 +50,6 @@ export function ChatbotWidget({ className, defaultOpen = false }: ChatbotWidgetP
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [userPreferences, setUserPreferences] = useState<any>({})
-  const [activeTab, setActiveTab] = useState("chat")
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [recognition, setRecognition] = useState<any>(null)
@@ -358,7 +356,7 @@ export function ChatbotWidget({ className, defaultOpen = false }: ChatbotWidgetP
   }
 
   const MessageBubble = ({ message }: { message: Message }) => (
-    <div className={cn("flex gap-3 mb-4", message.role === "user" ? "justify-end" : "justify-start")}>
+    <div className={cn("flex gap-3 mb-4 min-w-0", message.role === "user" ? "justify-end" : "justify-start")}>
       {message.role === "assistant" && (
         <Avatar className="h-8 w-8 flex-shrink-0">
           <AvatarFallback className="bg-purple-100">
@@ -367,11 +365,11 @@ export function ChatbotWidget({ className, defaultOpen = false }: ChatbotWidgetP
         </Avatar>
       )}
 
-      <div className={cn("max-w-[80%] space-y-2", message.role === "user" ? "order-first" : "")}>
+      <div className={cn("min-w-0 flex-shrink space-y-2", message.role === "user" ? "order-first ml-4 mr-0 max-w-[75%]" : "mr-4 max-w-[75%]")}>
         <div
           className={cn(
-            "rounded-lg px-3 py-2 text-sm",
-            message.role === "user" ? "bg-purple-600 text-white ml-auto" : "bg-gray-100 text-gray-900",
+            "rounded-lg px-3 py-2 text-sm break-words overflow-wrap-anywhere",
+            message.role === "user" ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-900",
           )}
         >
           {message.content}
@@ -504,15 +502,9 @@ export function ChatbotWidget({ className, defaultOpen = false }: ChatbotWidgetP
       </CardHeader>
 
       {!isMinimized && (
-        <>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-2 mx-4">
-              <TabsTrigger value="chat">Chat</TabsTrigger>
-              <TabsTrigger value="support">Support</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="chat" className="flex-1 flex flex-col mt-2">
-              <ScrollArea className="flex-1 px-4">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <ScrollArea className="flex-1 overflow-y-auto">
+            <div className="pl-4 pr-6 py-2 min-w-0">
                 {messages.map((message) => (
                   <MessageBubble key={message.id} message={message} />
                 ))}
@@ -539,6 +531,7 @@ export function ChatbotWidget({ className, defaultOpen = false }: ChatbotWidgetP
                   </div>
                 )}
                 <div ref={messagesEndRef} />
+            </div>
               </ScrollArea>
 
               <div className="p-4 border-t flex-shrink-0">
@@ -577,64 +570,8 @@ export function ChatbotWidget({ className, defaultOpen = false }: ChatbotWidgetP
                     Listening...
                   </div>
                 )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="support" className="flex-1 flex flex-col mt-2">
-              <div className="p-4 space-y-4">
-                <div className="text-sm text-gray-600">
-                  <h3 className="font-medium mb-2">Frequently Asked Questions</h3>
-                  <div className="space-y-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start text-left h-auto py-2"
-                      onClick={() => {
-                        setActiveTab("chat")
-                        sendMessage("How do I join a community?")
-                      }}
-                    >
-                      How do I join a community?
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start text-left h-auto py-2"
-                      onClick={() => {
-                        setActiveTab("chat")
-                        sendMessage("How do I create an event?")
-                      }}
-                    >
-                      How do I create an event?
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start text-left h-auto py-2"
-                      onClick={() => {
-                        setActiveTab("chat")
-                        sendMessage("What are the community guidelines?")
-                      }}
-                    >
-                      Community guidelines
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start text-left h-auto py-2"
-                      onClick={() => {
-                        setActiveTab("chat")
-                        sendMessage("I'm having technical issues")
-                      }}
-                    >
-                      Technical support
-                    </Button>
-                  </div>
                 </div>
               </div>
-            </TabsContent>
-          </Tabs>
-        </>
       )}
     </Card>
   )
