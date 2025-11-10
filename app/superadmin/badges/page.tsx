@@ -47,7 +47,6 @@ export interface StoreBadge {
   name: string;
   description: string;
   icon: string;
-  category: "achievement" | "cosmetic" | "special" | "seasonal";
   price: number;
   image: string;
   isActive: boolean;
@@ -157,12 +156,14 @@ export default function BadgeManagementPage() {
     }
   };
 
-  const handleUpdateBadge = async (badge: StoreBadge) => {
+  const handleUpdateBadge = async (badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">) => {
+    if (!selectedBadge) return;
+    
     try {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/badges/${badge.id}`, {
+      const response = await fetch(`/api/badges/${selectedBadge.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(badge),
@@ -175,7 +176,7 @@ export default function BadgeManagementPage() {
 
       const updatedBadge = await response.json();
       const updatedBadges = badges.map((b) =>
-        b.id === badge.id ? updatedBadge : b
+        b.id === selectedBadge.id ? updatedBadge : b
       );
       setBadges(updatedBadges);
       setIsEditDialogOpen(false);
@@ -470,12 +471,6 @@ export default function BadgeManagementPage() {
                   <p className="text-gray-600">{selectedBadge.description}</p>
 
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Category:</span>
-                      <span className="ml-2 font-medium capitalize">
-                        {selectedBadge.category}
-                      </span>
-                    </div>
                     <div>
                       <span className="text-gray-500">Price:</span>
                       <span className="ml-2 font-medium">

@@ -116,8 +116,6 @@ export interface StoreBadge {
   name: string;
   description: string;
   icon: string;
-  category: "achievement" | "cosmetic" | "special" | "seasonal";
-
   price: number;
   image: string;
   isActive: boolean;
@@ -970,7 +968,6 @@ export default function SuperadminPage() {
         name: badge.name,
         description: badge.description,
         icon: badge.icon,
-        category: badge.category,
         price: badge.price,
         image: badge.image_url,
         isActive: badge.is_active,
@@ -1237,7 +1234,6 @@ export default function SuperadminPage() {
         name: badge.name,
         description: badge.description,
         icon: badge.icon,
-        category: badge.category,
         price: badge.price,
         image_url: badge.image,
         is_active: badge.isActive,
@@ -1294,7 +1290,6 @@ export default function SuperadminPage() {
         name: badge.name,
         description: badge.description,
         icon: badge.icon,
-        category: badge.category,
         price: badge.price,
         image_url: badge.image,
         is_active: badge.isActive,
@@ -3037,10 +3032,10 @@ export default function SuperadminPage() {
                   <strong>"{selectedBadge.name}"</strong>? This action cannot be
                   undone.
                   <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                    <p className="text-sm text-red-700">
+                    <span className="text-sm text-red-700 block">
                       {selectedBadge.purchaseCount || 0} users have purchased
                       this badge.
-                    </p>
+                    </span>
                   </div>
                 </>
               )}

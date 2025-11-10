@@ -30,9 +30,6 @@ export function BadgeList({ badges, onView, onEdit, onDelete }: BadgeListProps) 
               Badge
             </th>
             <th scope="col" className="px-4 py-3">
-              Category
-            </th>
-            <th scope="col" className="px-4 py-3">
               Price
             </th>
             <th scope="col" className="px-4 py-3">
@@ -79,11 +76,6 @@ export function BadgeList({ badges, onView, onEdit, onDelete }: BadgeListProps) 
                     <div className="text-xs text-gray-500 line-clamp-1 max-w-[200px]">{badge.description}</div>
                   </div>
                 </div>
-              </td>
-              <td className="px-4 py-3">
-                <Badge variant="outline" className="capitalize">
-                  {badge.category}
-                </Badge>
               </td>
               <td className="px-4 py-3 font-medium">{badge.price} points</td>
               <td className="px-4 py-3">
