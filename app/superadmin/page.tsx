@@ -9,6 +9,7 @@ import { AnimatedCard } from "@/components/ui/animated-card";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Calendar } from "@/components/ui/calendar";
@@ -108,6 +109,7 @@ import Link from "next/link";
 import { ActivityLogsTable } from "@/components/superadmin/activity-logs-table";
 import { RecentActivities } from "@/components/superadmin/recent-activities";
 import { BadgeForm } from "@/components/superadmin/badge-form";
+import { SuperAdminNav } from "@/components/navigation/superadmin-nav";
 import { format, subMonths } from "date-fns";
 
 // Badge data types
@@ -145,9 +147,7 @@ interface CommunityPerformance {
   members: number;
   growth: number;
   engagement: number;
-  posts: number;
   events: number;
-  rating: number;
   category: string;
 }
 
@@ -273,9 +273,7 @@ const mockCommunityPerformance: CommunityPerformance[] = [
     members: 450,
     growth: 15.2,
     engagement: 89,
-    posts: 1250,
     events: 45,
-    rating: 4.8,
     category: "Technology",
   },
   {
@@ -284,9 +282,7 @@ const mockCommunityPerformance: CommunityPerformance[] = [
     members: 320,
     growth: 12.8,
     engagement: 82,
-    posts: 1100,
     events: 35,
-    rating: 4.7,
     category: "Health",
   },
   {
@@ -295,9 +291,7 @@ const mockCommunityPerformance: CommunityPerformance[] = [
     members: 230,
     growth: 8.7,
     engagement: 65,
-    posts: 890,
     events: 22,
-    rating: 4.6,
     category: "Writing",
   },
   {
@@ -306,9 +300,7 @@ const mockCommunityPerformance: CommunityPerformance[] = [
     members: 180,
     growth: 10.3,
     engagement: 71,
-    posts: 650,
     events: 18,
-    rating: 4.5,
     category: "Travel",
   },
   {
@@ -317,9 +309,7 @@ const mockCommunityPerformance: CommunityPerformance[] = [
     members: 120,
     growth: -2.1,
     engagement: 26,
-    posts: 340,
     events: 8,
-    rating: 4.2,
     category: "Environment",
   },
 ];
@@ -508,7 +498,6 @@ const mockCommunities = [
     tags: ["Technology", "Innovation", "Startups", "AI"],
     totalPosts: 1250,
     totalEvents: 45,
-    rating: 4.8,
     growthRate: 15.2,
     engagementRate: 78.5,
     weeklyActiveUsers: 320,
@@ -931,6 +920,9 @@ export default function SuperadminPage() {
   const [selectedCommunity, setSelectedCommunity] = useState<any>(null);
   const [isCommunityDetailOpen, setIsCommunityDetailOpen] = useState(false);
   const [communityDetailTab, setCommunityDetailTab] = useState("overview");
+  const [isAllCommunitiesDialogOpen, setIsAllCommunitiesDialogOpen] = useState(false);
+  const [dialogCurrentPage, setDialogCurrentPage] = useState(1);
+  const [dialogItemsPerPage] = useState(10);
 
   // Badges state
   const [badges, setBadges] = useState<StoreBadge[]>([]);
@@ -1454,56 +1446,6 @@ export default function SuperadminPage() {
     }
   };
 
-  const getCommunityStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
-        return (
-          <Badge className="bg-green-500 hover:bg-green-600 text-white border-0">
-            Active
-          </Badge>
-        );
-      case "inactive":
-        return (
-          <Badge className="bg-red-500 hover:bg-red-600 text-white border-0">
-            Inactive
-          </Badge>
-        );
-      case "under review":
-        return (
-          <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white border-0">
-            Under Review
-          </Badge>
-        );
-      default:
-        return <Badge>{status}</Badge>;
-    }
-  };
-
-  const getActivityLevelBadge = (level: string) => {
-    switch (level) {
-      case "high":
-        return (
-          <Badge className="bg-green-100 text-green-800 border-green-200">
-            High Activity
-          </Badge>
-        );
-      case "medium":
-        return (
-          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
-            Medium Activity
-          </Badge>
-        );
-      case "low":
-        return (
-          <Badge className="bg-red-100 text-red-800 border-red-200">
-            Low Activity
-          </Badge>
-        );
-      default:
-        return <Badge variant="outline">{level}</Badge>;
-    }
-  };
-
   const getIconComponent = (iconName: string) => {
     const iconMap: Record<string, any> = {
       Trophy: Trophy,
@@ -1526,33 +1468,7 @@ export default function SuperadminPage() {
       <FloatingElements />
 
       {/* Navigation */}
-      <nav className="glass-effect sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex justify-between items-center h-20">
-            <Link
-              href="/"
-              className="text-2xl font-bold text-gradient flex items-center gap-2"
-            >
-              <Sparkles className="w-8 h-8 text-purple-600" />
-              ConnectSpace
-            </Link>
-            <div className="flex items-center space-x-4">
-              <AnimatedButton variant="glass" size="sm">
-                <Bell className="h-4 w-4" />
-              </AnimatedButton>
-              <AnimatedButton variant="glass" size="sm">
-                <Settings className="h-4 w-4" />
-              </AnimatedButton>
-              <Avatar className="ring-2 ring-purple-200">
-                <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                <AvatarFallback className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
-                  SA
-                </AvatarFallback>
-              </Avatar>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <SuperAdminNav />
 
       <PageTransition>
         <div className="max-w-7xl mx-auto px-6 py-12 relative z-10">
@@ -1686,7 +1602,6 @@ export default function SuperadminPage() {
                               <Badge variant="outline" className="text-xs">
                                 {community.category}
                               </Badge>
-                              {getCommunityStatusBadge(community.status)}
                             </div>
                             <p className="text-gray-600 mb-3 line-clamp-2">
                               {community.description}
@@ -1844,12 +1759,13 @@ export default function SuperadminPage() {
                     onChange={(e) => setAnalyticsFilter(e.target.value)}
                     className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
                   >
-                    <option value="all">All Categories</option>
-                    <option value="technology">Technology</option>
-                    <option value="health">Health & Fitness</option>
-                    <option value="writing">Writing</option>
-                    <option value="travel">Travel</option>
-                    <option value="environment">Environment</option>
+                    <option value="all">🎯 All Categories</option>
+                    <option value="environmental">🌱 Environmental</option>
+                    <option value="music">🎵 Music</option>
+                    <option value="sports">⚽ Sports</option>
+                    <option value="hobbies">🎨 Hobbies</option>
+                    <option value="education">📚 Education</option>
+                    <option value="art">🎭 Art</option>
                   </select>
                   <AnimatedButton variant="glass" size="sm">
                     <RefreshCw className="h-4 w-4 mr-2" />
@@ -2013,7 +1929,14 @@ export default function SuperadminPage() {
                       <h4 className="text-lg font-semibold text-gray-900">
                         Top Performing Communities
                       </h4>
-                      <AnimatedButton variant="glass" size="sm">
+                      <AnimatedButton 
+                        variant="glass" 
+                        size="sm"
+                        onClick={() => {
+                          setDialogCurrentPage(1);
+                          setIsAllCommunitiesDialogOpen(true);
+                        }}
+                      >
                         <Eye className="h-4 w-4 mr-2" />
                         View All
                       </AnimatedButton>
@@ -2037,24 +1960,11 @@ export default function SuperadminPage() {
                                   {formatNumber(community.members)} members
                                 </span>
                                 <span>•</span>
-                                <span>{community.posts} posts</span>
+                                <span>{community.events} events</span>
                                 <span>•</span>
                                 <Badge variant="outline" className="text-xs">
                                   {community.category}
                                 </Badge>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 text-right">
-                            <div>
-                              <div className="text-sm text-gray-600">
-                                Rating
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                                <span className="font-semibold">
-                                  {community.rating}
-                                </span>
                               </div>
                             </div>
                           </div>
@@ -3062,6 +2972,148 @@ export default function SuperadminPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* All Communities Dialog */}
+      <Dialog open={isAllCommunitiesDialogOpen} onOpenChange={setIsAllCommunitiesDialogOpen}>
+        <DialogContent className="max-w-6xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              <Users className="h-6 w-6 text-purple-600" />
+              All Communities
+            </DialogTitle>
+            <DialogDescription>
+              View and manage all communities in the platform
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Search and Filter */}
+          <div className="flex gap-3 py-4 border-b">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search communities..."
+                value={communitySearchQuery}
+                onChange={(e) => setCommunitySearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <select
+              value={communityFilterStatus}
+              onChange={(e) => setCommunityFilterStatus(e.target.value)}
+              className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <select
+              value={communitySortBy}
+              onChange={(e) => setCommunitySortBy(e.target.value)}
+              className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="name">Name (A-Z)</option>
+              <option value="members">Most Members</option>
+            </select>
+          </div>
+
+          {/* Communities List */}
+          <div className="flex-1 overflow-y-auto space-y-3 py-4">
+            {filteredCommunities.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No communities found</p>
+              </div>
+            ) : (
+              [...filteredCommunities]
+                .sort((a, b) => b.memberCount - a.memberCount)
+                .slice(
+                  (dialogCurrentPage - 1) * dialogItemsPerPage,
+                  dialogCurrentPage * dialogItemsPerPage
+                )
+                .map((community, index) => (
+                  <div
+                    key={community.id}
+                    className="p-4 rounded-lg border border-gray-200 bg-white hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Numbering */}
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white text-sm font-bold flex-shrink-0">
+                        {(dialogCurrentPage - 1) * dialogItemsPerPage + index + 1}
+                      </div>
+
+                      <div className="flex-1">
+                        <h5 className="font-semibold text-gray-900 mb-2">
+                          {community.name}
+                        </h5>
+                        <div className="flex items-center gap-3 text-sm text-gray-600">
+                          <span>
+                            {formatNumber(community.memberCount)} members
+                          </span>
+                          <span>•</span>
+                          <span>{community.totalEvents} events</span>
+                          <span>•</span>
+                          <Badge variant="outline" className="text-xs">
+                            {community.category}
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedCommunity(community);
+                            setIsCommunityDetailOpen(true);
+                            setIsAllCommunitiesDialogOpen(false);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+
+          {/* Pagination */}
+          {filteredCommunities.length > 0 && (
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div className="text-sm text-gray-500">
+                Showing {(dialogCurrentPage - 1) * dialogItemsPerPage + 1} to{" "}
+                {Math.min(dialogCurrentPage * dialogItemsPerPage, filteredCommunities.length)} of{" "}
+                {filteredCommunities.length} communities
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDialogCurrentPage(dialogCurrentPage - 1)}
+                  disabled={dialogCurrentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="text-sm text-gray-600 px-3">
+                  Page {dialogCurrentPage} of {Math.ceil(filteredCommunities.length / dialogItemsPerPage)}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDialogCurrentPage(dialogCurrentPage + 1)}
+                  disabled={dialogCurrentPage >= Math.ceil(filteredCommunities.length / dialogItemsPerPage)}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

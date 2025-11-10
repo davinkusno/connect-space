@@ -29,6 +29,7 @@ import {
 import { Spinner } from "@/components/ui/loading-indicators";
 import { BadgeForm } from "@/components/superadmin/badge-form";
 import { BadgeList } from "@/components/superadmin/badge-list";
+import { SuperAdminNav } from "@/components/navigation/superadmin-nav";
 import {
   ShieldAlert,
   ArrowLeft,
@@ -236,29 +237,33 @@ export default function BadgeManagementPage() {
       <FloatingElements />
 
       {/* Navigation */}
-      <nav className="glass-effect sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex justify-between items-center h-20">
-            <div className="flex items-center gap-4">
-              <Link href="/superadmin">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-600 hover:text-violet-700"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Admin
-                </Button>
-              </Link>
-              <div className="text-2xl font-bold text-gradient flex items-center gap-2">
-                <ShoppingBag className="w-8 h-8 text-purple-600" />
-                Badge Management
+      <SuperAdminNav />
+
+      <PageTransition>
+        <div className="max-w-7xl mx-auto px-6 py-12 relative z-10">
+          {/* Back Button */}
+          <div className="mb-6">
+            <Link href="/superadmin">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 hover:text-violet-700"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Admin Dashboard
+              </Button>
+            </Link>
+          </div>
+
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <ShieldAlert className="h-6 w-6 text-purple-600" />
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Store Badge Management
+                </h1>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge className="bg-purple-600 text-white border-0 px-3 py-1">
-                Superadmin
-              </Badge>
               <AnimatedButton
                 onClick={() => setIsCreateDialogOpen(true)}
                 className="bg-violet-700 hover:bg-violet-800 text-white"
@@ -266,20 +271,6 @@ export default function BadgeManagementPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Create Badge
               </AnimatedButton>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <PageTransition>
-        <div className="max-w-7xl mx-auto px-6 py-12 relative z-10">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <ShieldAlert className="h-6 w-6 text-purple-600" />
-              <h1 className="text-3xl font-bold text-gray-900">
-                Store Badge Management
-              </h1>
             </div>
             <p className="text-gray-600">
               Create, edit, and manage badges that users can purchase in the
