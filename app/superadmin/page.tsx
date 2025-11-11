@@ -921,8 +921,6 @@ export default function SuperadminPage() {
   const [isCommunityDetailOpen, setIsCommunityDetailOpen] = useState(false);
   const [communityDetailTab, setCommunityDetailTab] = useState("overview");
   const [isAllCommunitiesDialogOpen, setIsAllCommunitiesDialogOpen] = useState(false);
-  const [dialogCurrentPage, setDialogCurrentPage] = useState(1);
-  const [dialogItemsPerPage] = useState(10);
 
   // Badges state
   const [badges, setBadges] = useState<StoreBadge[]>([]);
@@ -1932,10 +1930,7 @@ export default function SuperadminPage() {
                       <AnimatedButton 
                         variant="glass" 
                         size="sm"
-                        onClick={() => {
-                          setDialogCurrentPage(1);
-                          setIsAllCommunitiesDialogOpen(true);
-                        }}
+                        onClick={() => setIsAllCommunitiesDialogOpen(true)}
                       >
                         <Eye className="h-4 w-4 mr-2" />
                         View All
@@ -3028,10 +3023,6 @@ export default function SuperadminPage() {
             ) : (
               [...filteredCommunities]
                 .sort((a, b) => b.memberCount - a.memberCount)
-                .slice(
-                  (dialogCurrentPage - 1) * dialogItemsPerPage,
-                  dialogCurrentPage * dialogItemsPerPage
-                )
                 .map((community, index) => (
                   <div
                     key={community.id}
@@ -3040,7 +3031,7 @@ export default function SuperadminPage() {
                     <div className="flex items-start gap-4">
                       {/* Numbering */}
                       <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white text-sm font-bold flex-shrink-0">
-                        {(dialogCurrentPage - 1) * dialogItemsPerPage + index + 1}
+                        {index + 1}
                       </div>
 
                       <div className="flex-1">
@@ -3083,33 +3074,15 @@ export default function SuperadminPage() {
           {filteredCommunities.length > 0 && (
             <div className="flex items-center justify-between pt-4 border-t">
               <div className="text-sm text-gray-500">
-                Showing {(dialogCurrentPage - 1) * dialogItemsPerPage + 1} to{" "}
-                {Math.min(dialogCurrentPage * dialogItemsPerPage, filteredCommunities.length)} of{" "}
-                {filteredCommunities.length} communities
+                Showing {filteredCommunities.length} communities
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDialogCurrentPage(dialogCurrentPage - 1)}
-                  disabled={dialogCurrentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <div className="text-sm text-gray-600 px-3">
-                  Page {dialogCurrentPage} of {Math.ceil(filteredCommunities.length / dialogItemsPerPage)}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDialogCurrentPage(dialogCurrentPage + 1)}
-                  disabled={dialogCurrentPage >= Math.ceil(filteredCommunities.length / dialogItemsPerPage)}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAllCommunitiesDialogOpen(false)}
+              >
+                Close
+              </Button>
             </div>
           )}
         </DialogContent>

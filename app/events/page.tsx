@@ -37,6 +37,9 @@ import {
   X,
   Users,
   Check,
+  Lock,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -81,6 +84,7 @@ interface Event {
   duration?: string;
   language?: string;
   certificates?: boolean;
+  isPrivate?: boolean;
 }
 
 export default function EventsPage() {
@@ -100,6 +104,8 @@ export default function EventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [savedEvents, setSavedEvents] = useState<number[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(6);
 
   // Enhanced mock events data
   const mockEvents: Event[] = [
@@ -144,6 +150,7 @@ export default function EventsPage() {
       duration: "9 hours",
       language: "English",
       certificates: true,
+      isPrivate: false,
     },
     {
       id: 2,
@@ -182,6 +189,7 @@ export default function EventsPage() {
       duration: "3 hours",
       language: "English",
       certificates: false,
+      isPrivate: true,
     },
     {
       id: 3,
@@ -220,6 +228,7 @@ export default function EventsPage() {
       duration: "3 hours",
       language: "English",
       certificates: false,
+      isPrivate: false,
     },
     {
       id: 4,
@@ -252,6 +261,7 @@ export default function EventsPage() {
       duration: "6 hours",
       language: "English",
       certificates: true,
+      isPrivate: true,
     },
     {
       id: 5,
@@ -283,6 +293,7 @@ export default function EventsPage() {
       duration: "8 hours",
       language: "English",
       certificates: true,
+      isPrivate: false,
     },
     {
       id: 6,
@@ -315,6 +326,7 @@ export default function EventsPage() {
       duration: "8 hours",
       language: "English",
       certificates: true,
+      isPrivate: true,
     },
   ];
 
@@ -429,6 +441,23 @@ export default function EventsPage() {
     dateRange,
   ]);
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredEvents.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, locationQuery, selectedCategory, selectedLocation, dateRange]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Smooth scroll to top of events section
+    window.scrollTo({ top: 400, behavior: 'smooth' });
+  };
+
   const toggleSaveEvent = (eventId: number) => {
     setSavedEvents((prev) =>
       prev.includes(eventId)
@@ -497,6 +526,90 @@ export default function EventsPage() {
     setSearchQuery("");
   };
 
+  // Pagination Component
+  const PaginationControls = () => {
+    if (totalPages <= 1) return null;
+
+    const getPageNumbers = () => {
+      const pages = [];
+      const maxVisible = 5;
+      
+      if (totalPages <= maxVisible) {
+        for (let i = 1; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        if (currentPage <= 3) {
+          for (let i = 1; i <= 4; i++) pages.push(i);
+          pages.push('...');
+          pages.push(totalPages);
+        } else if (currentPage >= totalPages - 2) {
+          pages.push(1);
+          pages.push('...');
+          for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+        } else {
+          pages.push(1);
+          pages.push('...');
+          pages.push(currentPage - 1);
+          pages.push(currentPage);
+          pages.push(currentPage + 1);
+          pages.push('...');
+          pages.push(totalPages);
+        }
+      }
+      return pages;
+    };
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-8">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-9 px-3 border-gray-300 hover:bg-purple-50 hover:border-purple-400 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+
+        <div className="flex items-center gap-1">
+          {getPageNumbers().map((page, index) => (
+            page === '...' ? (
+              <span key={`ellipsis-${index}`} className="px-2 text-gray-400">
+                ...
+              </span>
+            ) : (
+              <Button
+                key={page}
+                variant={currentPage === page ? "default" : "outline"}
+                size="sm"
+                onClick={() => handlePageChange(page as number)}
+                className={cn(
+                  "h-9 w-9 p-0 border-gray-300",
+                  currentPage === page
+                    ? "bg-purple-600 text-white hover:bg-purple-700 border-purple-600"
+                    : "hover:bg-purple-50 hover:border-purple-400"
+                )}
+              >
+                {page}
+              </Button>
+            )
+          ))}
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-9 px-3 border-gray-300 hover:bg-purple-50 hover:border-purple-400 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  };
+
   const EnhancedEventCard = ({
     event,
     isListView = false,
@@ -507,7 +620,12 @@ export default function EventsPage() {
     const isSaved = savedEvents.includes(event.id);
 
     return (
-      <Card className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-gray-200">
+      <Card className={cn(
+        "group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border-2",
+        event.isPrivate 
+          ? "border-amber-400 hover:border-amber-500" 
+          : "border-gray-200"
+      )}>
         <div className="relative h-48 overflow-hidden">
           <Image
             src={event.image || "/placeholder.svg"}
@@ -516,6 +634,16 @@ export default function EventsPage() {
             height={300}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
+
+          {/* Private Badge - Only show for private events */}
+          {event.isPrivate && (
+            <div className="absolute top-3 left-3">
+              <Badge className="bg-amber-500 hover:bg-amber-600 text-white border-0 flex items-center gap-1 shadow-md">
+                <Lock className="h-3 w-3" />
+                Members Only
+              </Badge>
+            </div>
+          )}
 
           {/* Save Button */}
           <Button
@@ -553,6 +681,20 @@ export default function EventsPage() {
           <p className="text-sm text-gray-600 line-clamp-2 mb-4">
             {event.description}
           </p>
+
+          {/* Private Event Info - with consistent height */}
+          <div className="mb-3 h-[42px]">
+            {event.isPrivate && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-3 w-3 text-amber-600 flex-shrink-0" />
+                  <p className="text-xs text-amber-700 font-medium">
+                    Join this community to attend event
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Event Info */}
           <div className="space-y-2 mb-4">
@@ -855,9 +997,9 @@ export default function EventsPage() {
                     variant="outline"
                     onClick={() => setShowFilters(!showFilters)}
                     className={cn(
-                      "h-10 px-4 rounded-lg border-gray-300 font-medium",
+                      "h-10 px-4 rounded-lg border-gray-300 font-medium transition-all",
                       getActiveFiltersCount() > 0 &&
-                        "border-purple-600 text-purple-600"
+                        "border-purple-600 text-purple-600 bg-purple-50"
                     )}
                   >
                     <Filter className="h-4 w-4 mr-2" />
@@ -869,73 +1011,106 @@ export default function EventsPage() {
                     )}
                   </Button>
                 </div>
+              </div>
 
-                {/* Collapsible Filters Panel */}
-                {showFilters && (
-                  <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-700">
-                          Location
-                        </label>
-                        <Select
-                          value={selectedLocation}
-                          onValueChange={setSelectedLocation}
-                        >
-                          <SelectTrigger className="w-[160px] h-9 text-sm bg-white border-gray-300 rounded-lg">
-                            <SelectValue placeholder="All Locations" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Locations</SelectItem>
-                            <SelectItem value="online">Online</SelectItem>
-                            <SelectItem value="san francisco">
-                              San Francisco
-                            </SelectItem>
-                            <SelectItem value="new york">New York</SelectItem>
-                            <SelectItem value="austin">Austin</SelectItem>
-                            <SelectItem value="miami">Miami</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+              {/* Collapsible Filters Panel - Smooth Animation */}
+              <div
+                className={cn(
+                  "overflow-hidden transition-all duration-300 ease-in-out",
+                  showFilters ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"
+                )}
+              >
+                <div className="px-6 py-6 border-t border-gray-200 bg-gradient-to-b from-gray-50 to-white">
+                  {/* Filter Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        Filter Events
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Refine your search to find the perfect event
+                      </p>
+                    </div>
+                    {getActiveFiltersCount() > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="h-8 text-sm text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Clear all ({getActiveFiltersCount()})
+                      </Button>
+                    )}
+                  </div>
 
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-700">
-                          Date
-                        </label>
-                        <Select value={dateRange} onValueChange={setDateRange}>
-                          <SelectTrigger className="w-[140px] h-9 text-sm bg-white border-gray-300 rounded-lg">
-                            <SelectValue placeholder="All Dates" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Dates</SelectItem>
-                            <SelectItem value="today">Today</SelectItem>
-                            <SelectItem value="week">This Week</SelectItem>
-                            <SelectItem value="month">This Month</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  {/* Filters Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Location Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        Location
+                      </label>
+                      <Select
+                        value={selectedLocation}
+                        onValueChange={setSelectedLocation}
+                      >
+                        <SelectTrigger className="w-full h-10 text-sm bg-white border-gray-300 rounded-lg hover:border-purple-400 transition-colors">
+                          <SelectValue placeholder="All Locations" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Locations</SelectItem>
+                          <SelectItem value="online">
+                            <div className="flex items-center gap-2">
+                              <Globe className="h-3 w-3" />
+                              Online
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="san francisco">
+                            San Francisco
+                          </SelectItem>
+                          <SelectItem value="new york">New York</SelectItem>
+                          <SelectItem value="austin">Austin</SelectItem>
+                          <SelectItem value="miami">Miami</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                      <div className="flex items-center gap-2 ml-auto">
-                        <span className="text-sm text-gray-600">
-                          <span className="font-semibold text-gray-900">
-                            {filteredEvents.length}
-                          </span>{" "}
-                          events
+                    {/* Date Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Date Range
+                      </label>
+                      <Select value={dateRange} onValueChange={setDateRange}>
+                        <SelectTrigger className="w-full h-10 text-sm bg-white border-gray-300 rounded-lg hover:border-purple-400 transition-colors">
+                          <SelectValue placeholder="All Dates" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Dates</SelectItem>
+                          <SelectItem value="today">Today</SelectItem>
+                          <SelectItem value="week">This Week</SelectItem>
+                          <SelectItem value="month">This Month</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Results Counter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                        <Check className="h-3 w-3" />
+                        Results
+                      </label>
+                      <div className="h-10 px-4 bg-purple-50 border border-purple-200 rounded-lg flex items-center justify-between">
+                        <span className="text-sm font-semibold text-purple-900">
+                          {filteredEvents.length} events found
                         </span>
-                        {getActiveFiltersCount() > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={clearFilters}
-                            className="h-9 text-sm text-gray-600 hover:text-gray-900"
-                          >
-                            Clear all
-                          </Button>
-                        )}
+                        <Sparkles className="h-4 w-4 text-purple-600" />
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
             {/* All Events Tab */}
@@ -947,17 +1122,25 @@ export default function EventsPage() {
                   </h2>
                   <p className="text-gray-600 mt-1">
                     Find your next amazing experience
+                    {totalPages > 1 && (
+                      <span className="ml-2 text-sm">
+                        • Page {currentPage} of {totalPages}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
 
               <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {filteredEvents.map((event, index) => (
+                {paginatedEvents.map((event, index) => (
                   <div key={event.id} className="stagger-item">
                     <EnhancedEventCard event={event} />
                   </div>
                 ))}
               </StaggerContainer>
+
+              {/* Pagination Controls */}
+              <PaginationControls />
 
               {filteredEvents.length === 0 && (
                 <SmoothReveal>
@@ -1013,13 +1196,19 @@ export default function EventsPage() {
 
               {/* Recommended Events Grid */}
               {filteredEvents.length > 0 ? (
+                <>
                 <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                  {filteredEvents.map((event, index) => {
+                  {paginatedEvents.map((event, index) => {
                     const isSaved = savedEvents.includes(event.id);
 
                     return (
                       <div key={event.id} className="stagger-item">
-                        <Card className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-purple-200">
+                        <Card className={cn(
+                          "group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border-2",
+                          event.isPrivate 
+                            ? "border-amber-400 hover:border-amber-500" 
+                            : "border-purple-200"
+                        )}>
                           <div className="relative h-48 overflow-hidden">
                             <Image
                               src={event.image || "/placeholder.svg"}
@@ -1029,12 +1218,21 @@ export default function EventsPage() {
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
 
-                            {/* AI Recommended Badge */}
-                            <div className="absolute top-3 left-3">
+                            {/* Badges Container */}
+                            <div className="absolute top-3 left-3 flex flex-col gap-2">
+                              {/* AI Recommended Badge */}
                               <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-0 flex items-center gap-1 shadow-md">
                                 <Brain className="h-3 w-3" />
                                 AI Recommended
                               </Badge>
+                              
+                              {/* Private Badge - Only show for private events */}
+                              {event.isPrivate && (
+                                <Badge className="bg-amber-500 hover:bg-amber-600 text-white border-0 flex items-center gap-1 shadow-md">
+                                  <Lock className="h-3 w-3" />
+                                  Members Only
+                                </Badge>
+                              )}
                             </div>
 
                             {/* Save Button */}
@@ -1075,6 +1273,20 @@ export default function EventsPage() {
                             <p className="text-sm text-gray-600 line-clamp-2 mb-3">
                               {event.description}
                             </p>
+
+                            {/* Private Event Info - with consistent height */}
+                            <div className="mb-3 h-[42px]">
+                              {event.isPrivate && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
+                                  <div className="flex items-center gap-2">
+                                    <Lock className="h-3 w-3 text-amber-600 flex-shrink-0" />
+                                    <p className="text-xs text-amber-700 font-medium">
+                                      Join this community to attend event
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
 
                             {/* AI Explanation */}
                             <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-2 mb-4">
@@ -1158,6 +1370,10 @@ export default function EventsPage() {
                     );
                   })}
                 </StaggerContainer>
+                
+                {/* Pagination Controls */}
+                <PaginationControls />
+                </>
               ) : (
                 <SmoothReveal>
                   <Card className="text-center py-16 border-dashed border-2 border-gray-200">
@@ -1195,7 +1411,7 @@ export default function EventsPage() {
               </div>
 
               <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {filteredEvents
+                {paginatedEvents
                   .filter((event) => event.trending)
                   .map((event, index) => (
                     <div key={event.id} className="stagger-item">
@@ -1203,6 +1419,9 @@ export default function EventsPage() {
                     </div>
                   ))}
               </StaggerContainer>
+              
+              {/* Pagination Controls */}
+              <PaginationControls />
             </TabsContent>
 
             {/* Saved Tab */}
@@ -1219,7 +1438,7 @@ export default function EventsPage() {
                   </div>
 
                   <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                    {filteredEvents
+                    {paginatedEvents
                       .filter((event) => savedEvents.includes(event.id))
                       .map((event, index) => (
                         <div key={event.id} className="stagger-item">
@@ -1227,6 +1446,9 @@ export default function EventsPage() {
                         </div>
                       ))}
                   </StaggerContainer>
+                  
+                  {/* Pagination Controls */}
+                  <PaginationControls />
                 </>
               ) : (
                 <SmoothReveal>

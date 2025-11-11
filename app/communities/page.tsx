@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,8 +48,16 @@ import { AnimatedCard } from "@/components/ui/animated-card";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { StaggerContainer } from "@/components/ui/stagger-container";
 import { SmartSearchBar } from "@/components/ai/smart-search-bar";
-import { LeafletCommunitiesMap } from "@/components/maps/leaflet-communities-map";
 import { useGeolocation } from "@/hooks/use-geolocation";
+
+// Dynamic import for Leaflet map to avoid SSR issues
+const LeafletCommunitiesMap = dynamic(
+  () => import("@/components/maps/leaflet-communities-map").then(mod => mod.LeafletCommunitiesMap),
+  { 
+    ssr: false,
+    loading: () => <div className="h-[70vh] flex items-center justify-center bg-gray-100 rounded-lg">Loading map...</div>
+  }
+);
 import { HoverScale } from "@/components/ui/micro-interactions";
 import { SlideTransition } from "@/components/ui/content-transitions";
 import { AnimatedCounter } from "@/components/ui/animated-counter";

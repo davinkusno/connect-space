@@ -90,6 +90,10 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   { path: "/store", allowedRoles: ["user", "community_admin", "super_admin"] },
+  {
+    path: "/communities",
+    allowedRoles: ["user", "community_admin", "super_admin"],
+  },
 
   // Community Admin routes (community admins and super admins)
   {
