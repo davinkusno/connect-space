@@ -1,0 +1,147 @@
+# ConnectSpace Project Intelligence
+
+## Project Overview
+
+ConnectSpace is a modern community-finding platform built with Next.js 15, React 19, and Supabase. It features AI-powered recommendations, real-time chat, event management, and comprehensive community tools.
+
+## Key Architecture Patterns
+
+### Component Organization
+
+- UI components in `/components/ui/` - reusable, accessible components using Radix UI
+- Feature components in `/components/[feature]/` - domain-specific components
+- Consistent naming: PascalCase for components, kebab-case for files
+- Always use TypeScript with proper type definitions
+
+### AI Integration Pattern
+
+- AI services centralized in `/lib/ai-services/`
+- Consistent API patterns: `/app/api/ai/[service]/route.ts`
+- Always include error handling and fallback mechanisms
+- Use both OpenAI and Anthropic for different use cases
+
+### Database & Auth
+
+- Supabase for all data operations with Row Level Security (RLS)
+- Server-side auth helpers in `/lib/supabase/server.ts`
+- Client-side auth helpers in `/lib/supabase/client.ts`
+- Always validate user permissions before data operations
+
+### Real-time Features
+
+- WebSocket connections for chat and notifications
+- Optimistic updates for better UX
+- Proper cleanup of subscriptions and connections
+
+## Development Preferences
+
+### Code Style
+
+- Use Tailwind CSS for all styling with custom design system
+- Prefer composition over inheritance
+- Use React hooks for state management
+- Implement proper error boundaries
+- Always include loading states and skeleton components
+
+### Performance
+
+- Use Next.js Image component for all images
+- Implement code splitting and lazy loading
+- Cache frequently accessed data with Redis
+- Optimize database queries with proper indexing
+
+### Security
+
+- Always validate input on both client and server
+- Use Supabase RLS for data access control
+- Implement rate limiting for API endpoints
+- Sanitize user-generated content
+
+## Common Patterns
+
+### API Routes
+
+```typescript
+// Standard API route pattern
+export async function POST(request: Request) {
+  try {
+    const data = await request.json();
+    // Validate input
+    // Check authentication
+    // Process request
+    // Return response
+  } catch (error) {
+    return NextResponse.json({ error: "Message" }, { status: 500 });
+  }
+}
+```
+
+### Component Structure
+
+```typescript
+// Standard component pattern
+interface ComponentProps {
+  // Define props with TypeScript
+}
+
+export function Component({ ...props }: ComponentProps) {
+  // Hooks
+  // State
+  // Effects
+  // Handlers
+  // Render
+}
+```
+
+### Database Operations
+
+```typescript
+// Standard database pattern
+const { data, error } = await supabase
+  .from("table")
+  .select("*")
+  .eq("column", value);
+
+if (error) {
+  // Handle error
+}
+```
+
+## File Naming Conventions
+
+- Components: PascalCase (e.g., `CommunityCard.tsx`)
+- Pages: lowercase with hyphens (e.g., `create-community/page.tsx`)
+- API routes: lowercase with hyphens (e.g., `ai/chatbot/route.ts`)
+- Utilities: camelCase (e.g., `formatDate.ts`)
+- Types: PascalCase (e.g., `Community.ts`)
+
+## Testing Strategy
+
+- Unit tests for utility functions
+- Integration tests for API routes
+- Component tests for UI components
+- E2E tests for critical user flows
+
+## Deployment Notes
+
+- Deploy to Vercel for optimal Next.js performance
+- Use Supabase for database and auth hosting
+- Configure environment variables for all services
+- Set up monitoring and error tracking
+
+## Common Gotchas
+
+- Always check authentication before database operations
+- Handle loading states for all async operations
+- Implement proper error boundaries
+- Clean up subscriptions and timers
+- Validate all user input
+- Use proper TypeScript types for all data
+
+## AI Service Patterns
+
+- Always include context and examples in prompts
+- Implement proper error handling and fallbacks
+- Use streaming for long responses
+- Cache expensive AI operations
+- Monitor usage and costs
