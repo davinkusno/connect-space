@@ -10,9 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Users, Crown, Check } from "lucide-react";
+import { Users, Crown, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { getClientSession } from "@/lib/supabase/client";
+import { getClientSession, getSupabaseBrowser } from "@/lib/supabase/client";
 import { PageTransition } from "@/components/ui/page-transition";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { FloatingElements } from "@/components/ui/floating-elements";
@@ -24,34 +24,98 @@ export default function RoleSelectionPage() {
   >(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState(true);
+  const [shouldAutoRedirect, setShouldAutoRedirect] = useState(false);
 
   useEffect(() => {
-    checkAuth();
+    checkAuthAndRole();
   }, []);
 
-  const checkAuth = async () => {
-    const session = await getClientSession();
+  const checkAuthAndRole = async () => {
+    setIsChecking(true);
+    try {
+      const session = await getClientSession();
 
-    if (!session || !session.user) {
-      toast.error("Please sign in first");
-      router.push("/auth/login");
-      return;
+      if (!session || !session.user) {
+        toast.error("Please sign in first");
+        router.push("/auth/login");
+        return;
+      }
+
+      const userId = session.user.id;
+      setUserId(userId);
+
+      // Check if user already has community_admin role
+      const supabase = getSupabaseBrowser();
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("user_type")
+        .eq("id", userId)
+        .single();
+
+      if (userError) {
+        console.error("Error fetching user data:", userError);
+        setIsChecking(false);
+        return;
+      }
+
+      // If user is already community_admin, check if they have a community
+      if (userData?.user_type === "community_admin") {
+        // Check if user has created a community (as creator)
+        const { data: createdCommunities, error: createdError } = await supabase
+          .from("communities")
+          .select("id")
+          .eq("creator_id", userId)
+          .limit(1);
+
+        // Also check if user is admin of any community
+        const { data: adminMemberships, error: adminError } = await supabase
+          .from("community_members")
+          .select("community_id")
+          .eq("user_id", userId)
+          .eq("role", "admin")
+          .limit(1);
+
+        // If user doesn't have a community, auto-select community_admin and redirect
+        const hasCommunity = 
+          (!createdError && createdCommunities && createdCommunities.length > 0) ||
+          (!adminError && adminMemberships && adminMemberships.length > 0);
+
+        if (!hasCommunity) {
+          setSelectedRole("community_admin");
+          setShouldAutoRedirect(true);
+          // Auto-submit after a short delay to show the selection
+          setTimeout(() => {
+            handleContinue("community_admin", userId);
+          }, 500);
+          return;
+        }
+      }
+
+      setIsChecking(false);
+    } catch (error) {
+      console.error("Error checking auth and role:", error);
+      setIsChecking(false);
     }
-
-    setUserId(session.user.id);
   };
 
   const handleRoleSelect = (role: "user" | "community_admin") => {
     setSelectedRole(role);
   };
 
-  const handleContinue = async () => {
-    if (!selectedRole) {
+  const handleContinue = async (
+    roleOverride?: "user" | "community_admin",
+    userIdOverride?: string
+  ) => {
+    const roleToUse = roleOverride || selectedRole;
+    const userIdToUse = userIdOverride || userId;
+
+    if (!roleToUse) {
       toast.error("Please select a role");
       return;
     }
 
-    if (!userId) {
+    if (!userIdToUse) {
       toast.error("Authentication error. Please try again.");
       return;
     }
@@ -64,26 +128,38 @@ export default function RoleSelectionPage() {
         throw new Error("No session found");
       }
 
-      // Save role to database
-      const response = await fetch("/api/user/role", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          userId,
-          role: selectedRole,
-        }),
-      });
+      // Save role to database (only if not already set)
+      const supabase = getSupabaseBrowser();
+      const { data: currentUser } = await supabase
+        .from("users")
+        .select("user_type, role_selected")
+        .eq("id", userIdToUse)
+        .single();
 
-      if (!response.ok) {
-        throw new Error("Failed to save role");
+      // Only update role if it's not already set or different
+      if (!currentUser?.role_selected || currentUser?.user_type !== roleToUse) {
+        const response = await fetch("/api/user/role", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            userId: userIdToUse,
+            role: roleToUse,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to save role");
+        }
       }
 
       // Redirect based on role
-      if (selectedRole === "community_admin") {
-        toast.success("Welcome! Let's set up your community.");
+      if (roleToUse === "community_admin") {
+        if (!shouldAutoRedirect) {
+          toast.success("Welcome! Let's set up your community.");
+        }
         router.push("/community-admin-registration");
       } else {
         toast.success("Welcome! Let's personalize your experience.");
@@ -92,10 +168,24 @@ export default function RoleSelectionPage() {
     } catch (error) {
       console.error("Role selection error:", error);
       toast.error("Failed to save role. Please try again.");
-    } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Show loading state while checking
+  if (isChecking) {
+    return (
+      <PageTransition>
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center p-6 relative overflow-hidden">
+          <FloatingElements />
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition>
@@ -254,14 +344,14 @@ export default function RoleSelectionPage() {
           <SmoothReveal delay={200}>
             <div className="flex flex-col items-center gap-4">
               <Button
-                onClick={handleContinue}
+                onClick={() => handleContinue()}
                 disabled={!selectedRole || isSubmitting}
                 className="bg-purple-600 hover:bg-purple-700 text-white px-12 py-6 text-lg h-auto"
                 size="lg"
               >
                 {isSubmitting ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
                     Processing...
                   </>
                 ) : (

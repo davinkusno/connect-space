@@ -108,6 +108,19 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
 
+    // Process interests - save as category (JSON array for multiple categories)
+    // If multiple interests, save as JSON array string
+    // If single interest, save as string
+    let categoryValue: string;
+    if (Array.isArray(interests) && interests.length > 0) {
+      // Save all interests as JSON array in category field
+      categoryValue = JSON.stringify(interests);
+    } else if (typeof interests === 'string') {
+      categoryValue = interests;
+    } else {
+      categoryValue = "General";
+    }
+
     // Create community in database
     const { data: community, error: communityError } = await supabase
       .from("communities")
@@ -120,6 +133,7 @@ export async function POST(request: NextRequest) {
         creator_id: user.id,
         is_private: false,
         member_count: 1,
+        category: categoryValue, // Save interests as category (can be JSON array for multiple)
       })
       .select()
       .single();

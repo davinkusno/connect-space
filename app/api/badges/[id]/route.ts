@@ -89,6 +89,7 @@ export async function PUT(
         name: body.name,
         description: body.description,
         icon: body.icon,
+        category: body.category,
         price: body.price,
         image_url: body.image_url || null,
         is_active: body.is_active,

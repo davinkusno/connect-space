@@ -32,6 +32,9 @@ import { PageTransition } from "@/components/ui/page-transition"
 import { FloatingElements } from "@/components/ui/floating-elements"
 import { CommunityAdminNav } from "@/components/navigation/community-admin-nav"
 import { format } from "date-fns"
+import { getSupabaseBrowser } from "@/lib/supabase/client"
+import { toast } from "sonner"
+import type { DateRange } from "react-day-picker"
 
 interface Event {
   id: string
@@ -64,83 +67,157 @@ export default function CommunityAdminEventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [uploadedImages, setUploadedImages] = useState<string[]>([])
   const [isUploading, setIsUploading] = useState(false)
+  const [communityId, setCommunityId] = useState<string | null>(null)
+  const [communityName, setCommunityName] = useState<string>("Community")
 
   useEffect(() => {
     loadEvents()
   }, [])
 
   const loadEvents = async () => {
-    // Mock events data
-    const mockEvents: Event[] = [
-      {
-        id: "1",
+    try {
+      const supabase = getSupabaseBrowser()
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        console.error("User not found")
+        // Use dummy data only if no user
+        loadDummyEventsOnly()
+        return
+      }
+
+      // Get community where user is creator or admin
+      let communityData = null
+      
+      // Try to get community where user is creator
+      let { data: communityDataAsCreator, error: communityError } = await supabase
+        .from("communities")
+        .select("id, name")
+        .eq("creator_id", user.id)
+        .limit(1)
+        .maybeSingle()
+
+      if (communityDataAsCreator && !communityError) {
+        communityData = communityDataAsCreator
+      } else {
+        // If not found as creator, try to get community where user is admin
+        const { data: memberData } = await supabase
+          .from("community_members")
+          .select("community_id")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .limit(1)
+          .maybeSingle()
+
+        if (memberData) {
+          const { data: commData } = await supabase
+            .from("communities")
+            .select("id, name")
+            .eq("id", memberData.community_id)
+            .single()
+
+          if (commData) {
+            communityData = commData
+          }
+        }
+      }
+
+      if (!communityData) {
+        console.error("Community not found")
+        loadDummyEventsOnly()
+        return
+      }
+
+      setCommunityId(communityData.id)
+      setCommunityName(communityData.name || "Community")
+
+      // Fetch real events from database
+      const { data: eventsData, error: eventsError } = await supabase
+        .from("events")
+        .select("*")
+        .eq("community_id", communityData.id)
+        .order("start_time", { ascending: true })
+
+      if (eventsError) {
+        console.error("Error fetching events:", eventsError)
+        loadDummyEventsOnly()
+        return
+      }
+
+      // Convert database events to Event interface format
+      const now = new Date()
+      const realEvents: Event[] = (eventsData || []).map((event: any) => {
+        const startTime = new Date(event.start_time)
+        const endTime = new Date(event.end_time)
+        const isUpcoming = startTime > now
+        
+        // Parse location
+        let locationStr = "Location TBD"
+        if (event.location) {
+          try {
+            const locationData = typeof event.location === 'string' 
+              ? JSON.parse(event.location) 
+              : event.location
+            
+            if (event.is_online && locationData.meetingLink) {
+              locationStr = locationData.meetingLink
+            } else if (locationData.address) {
+              locationStr = `${locationData.address}${locationData.city ? `, ${locationData.city}` : ''}`
+            } else if (typeof event.location === 'string') {
+              locationStr = event.location
+            }
+          } catch (e) {
+            locationStr = typeof event.location === 'string' ? event.location : "Location TBD"
+          }
+        }
+
+        // Get attendee count (you may need to query event_attendees table)
+        // For now, using max_attendees as placeholder
+        const attendeeCount = 0 // TODO: Fetch from event_attendees table
+
+        return {
+          id: event.id,
+          title: event.title,
+          description: event.description || "",
+          date: format(startTime, "yyyy-MM-dd"),
+          time: format(startTime, "HH:mm"),
+          location: locationStr,
+          attendeeCount: attendeeCount,
+          maxAttendees: event.max_attendees || 0,
+          image: event.image_url || "/placeholder.svg?height=200&width=300",
+          status: isUpcoming ? "upcoming" : "past",
+          category: event.category || "General",
+          price: 0, // Price not in events table
+          organizer: communityData.name || "Community",
+          organizerAvatar: "/placeholder-user.jpg"
+        }
+      })
+
+      // Create dummy events (1 for upcoming, 1 for past)
+      const dummyUpcomingEvent: Event = {
+        id: "dummy-upcoming",
         title: "AI & Machine Learning Workshop",
         description: "Learn the latest trends in AI and ML with hands-on projects and expert guidance.",
-        date: "2024-01-25",
+        date: format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"), // 7 days from now
         time: "14:00",
-        location: "Tech Hub NYC, 123 Innovation St",
+        location: "Tech Hub, 123 Innovation St",
         attendeeCount: 45,
         maxAttendees: 50,
         image: "/placeholder.svg?height=200&width=300",
         status: "upcoming",
         category: "Technology",
         price: 25,
-        organizer: "Tech Innovators NYC",
+        organizer: communityData.name || "Community",
         organizerAvatar: "/placeholder-user.jpg"
-      },
-      {
-        id: "2",
-        title: "Startup Pitch Night",
-        description: "Present your startup idea to investors and get valuable feedback.",
-        date: "2024-01-28",
-        time: "18:30",
-        location: "Innovation Center, 456 Startup Ave",
-        attendeeCount: 78,
-        maxAttendees: 100,
-        image: "/placeholder.svg?height=200&width=300",
-        status: "upcoming",
-        category: "Business",
-        price: 15,
-        organizer: "Tech Innovators NYC",
-        organizerAvatar: "/placeholder-user.jpg"
-      },
-      {
-        id: "5",
-        title: "Blockchain & Web3 Workshop",
-        description: "Learn about blockchain technology, smart contracts, and decentralized applications.",
-        date: "2024-02-05",
-        time: "10:00",
-        location: "Crypto Hub, 789 Blockchain Blvd",
-        attendeeCount: 62,
-        maxAttendees: 80,
-        image: "/placeholder.svg?height=200&width=300",
-        status: "upcoming",
-        category: "Technology",
-        price: 35,
-        organizer: "Tech Innovators NYC",
-        organizerAvatar: "/placeholder-user.jpg"
-      },
-      {
-        id: "3",
-        title: "React Best Practices Meetup",
-        description: "Discuss React patterns, performance optimization, and modern development practices.",
-        date: "2024-01-15",
-        time: "19:00",
-        location: "Coding Space, 789 Dev Blvd",
-        attendeeCount: 32,
-        maxAttendees: 40,
-        image: "/placeholder.svg?height=200&width=300",
-        status: "past",
-        category: "Technology",
-        price: 0,
-        organizer: "Tech Innovators NYC",
-        organizerAvatar: "/placeholder-user.jpg"
-      },
-      {
-        id: "4",
+      }
+
+      const dummyPastEvent: Event = {
+        id: "dummy-past",
         title: "Networking Mixer",
-        description: "Connect with fellow tech professionals and entrepreneurs.",
-        date: "2024-01-10",
+        description: "Connect with fellow professionals and entrepreneurs.",
+        date: format(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"), // 7 days ago
         time: "17:00",
         location: "Tech Bar, 321 Network St",
         attendeeCount: 89,
@@ -149,41 +226,119 @@ export default function CommunityAdminEventsPage() {
         status: "past",
         category: "Networking",
         price: 10,
-        organizer: "Tech Innovators NYC",
+        organizer: communityData.name || "Community",
         organizerAvatar: "/placeholder-user.jpg"
       }
-    ]
-    setEvents(mockEvents)
+
+      // Combine real events with dummy events
+      // Real events first, then dummy events at the end
+      const allEvents = [
+        ...realEvents,
+        dummyUpcomingEvent,
+        dummyPastEvent
+      ]
+
+      setEvents(allEvents)
+    } catch (error) {
+      console.error("Error loading events:", error)
+      loadDummyEventsOnly()
+    }
+  }
+
+  const loadDummyEventsOnly = () => {
+    // Fallback: only dummy events if no user/community found
+    const dummyUpcomingEvent: Event = {
+      id: "dummy-upcoming",
+      title: "AI & Machine Learning Workshop",
+      description: "Learn the latest trends in AI and ML with hands-on projects and expert guidance.",
+      date: format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"),
+      time: "14:00",
+      location: "Tech Hub, 123 Innovation St",
+      attendeeCount: 45,
+      maxAttendees: 50,
+      image: "/placeholder.svg?height=200&width=300",
+      status: "upcoming",
+      category: "Technology",
+      price: 25,
+      organizer: "Community",
+      organizerAvatar: "/placeholder-user.jpg"
+    }
+
+    const dummyPastEvent: Event = {
+      id: "dummy-past",
+      title: "Networking Mixer",
+      description: "Connect with fellow professionals and entrepreneurs.",
+      date: format(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"),
+      time: "17:00",
+      location: "Tech Bar, 321 Network St",
+      attendeeCount: 89,
+      maxAttendees: 120,
+      image: "/placeholder.svg?height=200&width=300",
+      status: "past",
+      category: "Networking",
+      price: 10,
+      organizer: "Community",
+      organizerAvatar: "/placeholder-user.jpg"
+    }
+
+    setEvents([dummyUpcomingEvent, dummyPastEvent])
   }
 
   const filteredEvents = useMemo(() => {
-    let result = events.filter(event => event.status === activeTab)
+    // Separate real events from dummy events
+    const realEvents = events.filter(event => !event.id.startsWith("dummy-"))
+    const dummyEvents = events.filter(event => event.id.startsWith("dummy-"))
+    
+    // Filter by status
+    let realFiltered = realEvents.filter(event => event.status === activeTab)
+    let dummyFiltered = dummyEvents.filter(event => event.status === activeTab)
 
-    // Apply search filter
+    // Apply search filter to real events
     if (searchQuery) {
-      result = result.filter(event =>
+      realFiltered = realFiltered.filter(event =>
         event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.category.toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
 
-    // Apply date filter
+    // Apply date filter to real events
     if (dateRange.from || dateRange.to) {
-      result = result.filter(event => {
+      realFiltered = realFiltered.filter(event => {
         const eventDate = new Date(event.date)
-        const fromDate = dateRange.from || new Date(0)
-        const toDate = dateRange.to || new Date()
-        return eventDate >= fromDate && eventDate <= toDate
+        eventDate.setHours(0, 0, 0, 0) // Reset time to compare dates only
+        
+        if (dateRange.from && dateRange.to) {
+          // Both dates selected - range filter
+          const fromDate = new Date(dateRange.from)
+          fromDate.setHours(0, 0, 0, 0)
+          const toDate = new Date(dateRange.to)
+          toDate.setHours(23, 59, 59, 999)
+          return eventDate >= fromDate && eventDate <= toDate
+        } else if (dateRange.from) {
+          // Only from date - filter events on or after this date
+          const fromDate = new Date(dateRange.from)
+          fromDate.setHours(0, 0, 0, 0)
+          return eventDate >= fromDate
+        } else if (dateRange.to) {
+          // Only to date - filter events on or before this date
+          const toDate = new Date(dateRange.to)
+          toDate.setHours(23, 59, 59, 999)
+          return eventDate <= toDate
+        }
+        return true
       })
     }
 
-    // Sort by date (most recent first)
-    return result.sort((a, b) => {
+    // Sort real events by date
+    realFiltered.sort((a, b) => {
       const dateA = new Date(a.date)
       const dateB = new Date(b.date)
       return activeTab === "upcoming" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
     })
+
+    // Real events first, then dummy events at the end
+    return [...realFiltered, ...dummyFiltered]
   }, [events, activeTab, searchQuery, dateRange])
 
   const formatEventDate = (dateString: string) => {
@@ -243,13 +398,35 @@ export default function CommunityAdminEventsPage() {
     setDeleteDialogOpen(true)
   }
 
-  const handleDeleteConfirm = () => {
-    if (eventToDelete) {
+  const handleDeleteConfirm = async () => {
+    if (!eventToDelete) return;
+
+    // Don't delete dummy events
+    if (eventToDelete.id.startsWith("dummy-")) {
+      setDeleteDialogOpen(false)
+      setEventToDelete(null)
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/events/${eventToDelete.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete event")
+      }
+
       // Remove event from the list
       setEvents(prevEvents => prevEvents.filter(e => e.id !== eventToDelete.id))
       setDeleteDialogOpen(false)
       setEventToDelete(null)
-      // Here you would typically make an API call to delete the event
+      
+      toast.success("Event deleted successfully!")
+    } catch (error: any) {
+      console.error("Error deleting event:", error)
+      toast.error(error.message || "Failed to delete event. Please try again.")
     }
   }
 
@@ -308,7 +485,7 @@ export default function CommunityAdminEventsPage() {
       <div className="bg-gradient-to-br from-slate-50 to-purple-50 min-h-screen relative">
         <CommunityAdminNav 
           communityProfilePicture="/placeholder-user.jpg"
-          communityName="Tech Innovators NYC"
+          communityName={communityName}
         />
         <FloatingElements />
         <div className="max-w-6xl mx-auto p-8 relative z-10">
@@ -388,9 +565,16 @@ export default function CommunityAdminEventsPage() {
                           <Calendar
                             mode="range"
                             selected={{from: dateRange.from, to: dateRange.to}}
-                            onSelect={(range) => {
-                              setDateRange(range || {from: undefined, to: undefined})
-                              setShowDatePicker(false)
+                            onSelect={(range: DateRange | undefined) => {
+                              const newRange = {
+                                from: range?.from,
+                                to: range?.to
+                              }
+                              setDateRange(newRange)
+                              // Close popover when both dates are selected
+                              if (newRange.from && newRange.to) {
+                                setShowDatePicker(false)
+                              }
                             }}
                             initialFocus
                             className="rounded-md border-0"

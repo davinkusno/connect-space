@@ -14,8 +14,6 @@ import {
   Trash2, 
   MessageSquare, 
   Pin, 
-  Eye,
-  Heart,
   ArrowLeft,
   Filter,
   SortAsc,
@@ -412,20 +410,8 @@ export default function CommunityDiscussionsPage() {
                           ))}
                         </div>
 
-                        {/* Stats */}
+                        {/* Posted Date */}
                         <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <Eye className="w-4 h-4" />
-                            <span>{discussion.views} views</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Heart className="w-4 h-4" />
-                            <span>{discussion.likes} likes</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <MessageSquare className="w-4 h-4" />
-                            <span>{discussion.replies} replies</span>
-                          </div>
                           <span>Posted {formatDate(discussion.createdAt)}</span>
                         </div>
                       </div>
@@ -518,27 +504,6 @@ export default function CommunityDiscussionsPage() {
                       <div>
                         <p className="font-medium text-gray-900">{editingDiscussion.eventTitle}</p>
                         <p className="text-sm text-gray-600">{formatEventDate(editingDiscussion.eventDate)}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Discussion Stats (Read-only) */}
-                {editingDiscussion && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Discussion Statistics</h3>
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <div className="text-2xl font-bold text-gray-900">{editingDiscussion.views}</div>
-                        <div className="text-sm text-gray-600">Views</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-gray-900">{editingDiscussion.likes}</div>
-                        <div className="text-sm text-gray-600">Likes</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-gray-900">{editingDiscussion.replies}</div>
-                        <div className="text-sm text-gray-600">Replies</div>
                       </div>
                     </div>
                   </div>

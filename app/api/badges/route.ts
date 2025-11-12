@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
           name: body.name,
           description: body.description,
           icon: body.icon || "Star",
+          category: body.category || "achievement",
           price: body.price,
           image_url: body.image_url || null,
           is_active: body.is_active ?? true,

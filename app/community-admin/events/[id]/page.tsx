@@ -13,8 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InteractiveLeafletMap } from "@/components/ui/interactive-leaflet-map";
-import { CalendarIntegration } from "@/components/ui/calendar-integration";
 import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
@@ -41,6 +47,7 @@ import {
   PenLine,
   Check,
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Event {
   id: string;
@@ -302,6 +309,270 @@ export default function EventDetailsPage({
   const [linkCopied, setLinkCopied] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [eventData, setEventData] = useState<Event | null>(null);
+  const [isLoadingEvent, setIsLoadingEvent] = useState(true);
+  const [communityId, setCommunityId] = useState<string | null>(null);
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+  const [postTitle, setPostTitle] = useState("");
+  const [postContent, setPostContent] = useState("");
+  const [isPinned, setIsPinned] = useState(false);
+  const [isCreatingPost, setIsCreatingPost] = useState(false);
+  const [communityCategories, setCommunityCategories] = useState<string[]>([]);
+  const [showAttendeesDialog, setShowAttendeesDialog] = useState(false);
+  const [attendees, setAttendees] = useState<any[]>([]);
+  const [isLoadingAttendees, setIsLoadingAttendees] = useState(false);
+
+  // Load event data and posts
+  useEffect(() => {
+    const loadEventData = async () => {
+      try {
+        const supabase = getSupabaseBrowser();
+        
+        // Check if event ID is a dummy event
+        if (id.startsWith("dummy-")) {
+          // Use dummy event data
+          setEventData(event);
+          setIsLoadingEvent(false);
+          setIsLoadingPosts(false);
+          return;
+        }
+
+        // Fetch real event data
+        const { data: eventRecord, error: eventError } = await supabase
+          .from("events")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (eventError || !eventRecord) {
+          console.error("Event not found, using dummy data:", eventError);
+          setEventData(event);
+          setIsLoadingEvent(false);
+          setIsLoadingPosts(false);
+          return;
+        }
+
+        // Parse location
+        let locationData: any = {
+          venue: "Location TBD",
+          address: "Location TBD",
+          city: "",
+          lat: 0,
+          lng: 0,
+          isOnline: eventRecord.is_online || false,
+        };
+
+        if (eventRecord.location) {
+          try {
+            const parsed = typeof eventRecord.location === 'string' 
+              ? JSON.parse(eventRecord.location) 
+              : eventRecord.location;
+            
+            if (eventRecord.is_online && parsed.meetingLink) {
+              locationData = {
+                venue: "Virtual Event",
+                address: "Online Platform",
+                city: "Online",
+                lat: 0,
+                lng: 0,
+                isOnline: true,
+                meetingLink: parsed.meetingLink,
+              };
+            } else if (parsed.venue || parsed.address) {
+              locationData = {
+                venue: parsed.venue || parsed.address || "Location TBD",
+                address: parsed.address || parsed.venue || "Location TBD",
+                city: parsed.city || "",
+                lat: parsed.lat || 0,
+                lng: parsed.lng || 0,
+                isOnline: false,
+              };
+            }
+          } catch (e) {
+            console.error("Error parsing location:", e);
+          }
+        }
+
+        // Get community_id
+        const communityIdValue = eventRecord.community_id;
+        setCommunityId(communityIdValue);
+
+        // Fetch community data to get category
+        const { data: communityData } = await supabase
+          .from("communities")
+          .select("category, creator_id")
+          .eq("id", communityIdValue)
+          .single();
+
+        // Parse community category
+        let categories: string[] = [];
+        if (communityData?.category) {
+          try {
+            // Try to parse as JSON array
+            const parsed = typeof communityData.category === 'string' 
+              ? JSON.parse(communityData.category) 
+              : communityData.category;
+            
+            if (Array.isArray(parsed)) {
+              categories = parsed;
+            } else if (typeof parsed === 'string') {
+              categories = [parsed];
+            }
+          } catch (e) {
+            // If not JSON, treat as single string
+            if (typeof communityData.category === 'string') {
+              categories = [communityData.category];
+            }
+          }
+        }
+        setCommunityCategories(categories);
+
+        // Get admin user_id for this community
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Check if user is admin
+          const { data: membership } = await supabase
+            .from("community_members")
+            .select("user_id")
+            .eq("community_id", communityIdValue)
+            .eq("user_id", user.id)
+            .eq("role", "admin")
+            .maybeSingle();
+
+          if (membership) {
+            setAdminUserId(user.id);
+          } else {
+            // Check if user is creator
+            if (communityData && communityData.creator_id === user.id) {
+              setAdminUserId(user.id);
+            }
+          }
+        }
+
+        // Format event data
+        const startTime = new Date(eventRecord.start_time);
+        const endTime = new Date(eventRecord.end_time);
+        
+        const formattedEvent: Event = {
+          id: eventRecord.id,
+          title: eventRecord.title,
+          description: eventRecord.description || "",
+          longDescription: eventRecord.description || "",
+          date: startTime.toISOString().split('T')[0],
+          time: startTime.toTimeString().slice(0, 5),
+          endTime: endTime.toTimeString().slice(0, 5),
+          location: locationData,
+          organizer: {
+            name: "Community Admin",
+            image: "/placeholder.svg?height=60&width=60",
+            verified: true,
+          },
+          category: eventRecord.category || "General",
+          price: {
+            type: "free",
+          },
+          capacity: eventRecord.max_attendees || 0,
+          registered: 0, // TODO: Fetch from event_attendees
+          image: eventRecord.image_url || "/placeholder.svg?height=600&width=1200",
+          images: eventRecord.image_url ? [eventRecord.image_url] : [],
+          tags: eventRecord.category ? [eventRecord.category] : [],
+        };
+
+        setEventData(formattedEvent);
+        setIsLoadingEvent(false);
+
+        // Load posts
+        await loadPosts(id);
+      } catch (error) {
+        console.error("Error loading event data:", error);
+        setEventData(event);
+        setIsLoadingEvent(false);
+        setIsLoadingPosts(false);
+      }
+    };
+
+    loadEventData();
+  }, [id]);
+
+  // Load posts for the event
+  const loadPosts = async (eventId: string) => {
+    try {
+      setIsLoadingPosts(true);
+      const response = await fetch(`/api/posts?event_id=${eventId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPosts(data.posts || []);
+      } else {
+        console.error("Failed to load posts");
+        setPosts([]);
+      }
+    } catch (error) {
+      console.error("Error loading posts:", error);
+      setPosts([]);
+    } finally {
+      setIsLoadingPosts(false);
+    }
+  };
+
+  // Load attendees for the event
+  const loadAttendees = async () => {
+    try {
+      setIsLoadingAttendees(true);
+      const supabase = getSupabaseBrowser();
+      
+      // Check if event ID is a dummy event
+      if (id.startsWith("dummy-")) {
+        setAttendees([]);
+        setIsLoadingAttendees(false);
+        return;
+      }
+
+      // Fetch attendees with status "going" (which means "Attending")
+      const { data: attendeesData, error: attendeesError } = await supabase
+        .from("event_attendees")
+        .select("id, user_id, registered_at")
+        .eq("event_id", id)
+        .eq("status", "going")
+        .order("registered_at", { ascending: false });
+
+      if (attendeesError) {
+        console.error("Error fetching attendees:", attendeesError);
+        setAttendees([]);
+      } else if (attendeesData && attendeesData.length > 0) {
+        // Fetch user details for each attendee
+        const userIds = attendeesData.map((a: any) => a.user_id);
+        const { data: usersData, error: usersError } = await supabase
+          .from("users")
+          .select("id, full_name, avatar_url, email")
+          .in("id", userIds);
+
+        if (usersError) {
+          console.error("Error fetching users:", usersError);
+          setAttendees([]);
+        } else {
+          // Combine attendees with user data
+          const userMap = new Map((usersData || []).map((u: any) => [u.id, u]));
+          const transformedAttendees = attendeesData.map((item: any) => ({
+            id: item.id,
+            user_id: item.user_id,
+            registered_at: item.registered_at,
+            user: userMap.get(item.user_id) || null,
+          }));
+          setAttendees(transformedAttendees);
+        }
+      } else {
+        setAttendees([]);
+      }
+    } catch (error) {
+      console.error("Error loading attendees:", error);
+      setAttendees([]);
+    } finally {
+      setIsLoadingAttendees(false);
+    }
+  };
 
   // Check authentication status on component mount
   useEffect(() => {
@@ -327,6 +598,54 @@ export default function EventDetailsPage({
     return () => subscription.unsubscribe();
   }, []);
 
+  // Handle create post
+  const handleCreatePost = async () => {
+    if (!postTitle.trim() || !postContent.trim()) {
+      return;
+    }
+
+    if (!communityId || !adminUserId) {
+      console.error("Missing community_id or admin_user_id");
+      return;
+    }
+
+    setIsCreatingPost(true);
+    try {
+      const response = await fetch("/api/posts/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: postTitle,
+          content: postContent,
+          community_id: communityId,
+          event_id: id,
+          is_pinned: isPinned,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Reload posts
+        await loadPosts(id);
+        // Reset form
+        setPostTitle("");
+        setPostContent("");
+        setIsPinned(false);
+        toast.success("Post created successfully!");
+      } else {
+        const error = await response.json();
+        console.error("Failed to create post:", error);
+        toast.error(error.error || "Failed to create post");
+      }
+    } catch (error) {
+      console.error("Error creating post:", error);
+    } finally {
+      setIsCreatingPost(false);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("en-US", {
       weekday: "long",
@@ -344,8 +663,8 @@ export default function EventDetailsPage({
   };
 
   const handleCopyLink = () => {
-    if (event.location.meetingLink) {
-      navigator.clipboard.writeText(event.location.meetingLink);
+    if (displayEvent.location.meetingLink) {
+      navigator.clipboard.writeText(displayEvent.location.meetingLink);
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
     }
@@ -355,14 +674,14 @@ export default function EventDetailsPage({
     // Check if user is logged in
     if (!isLoggedIn) {
       // Redirect to login/register page with return URL
-      router.push("/auth/login?redirect=/events/" + event.id);
+      router.push("/auth/login?redirect=/events/" + displayEvent.id);
       return;
     }
 
     // Directly set as registered (works for both online and onsite)
     setIsRegistered(true);
     // Optionally scroll to location tab for online events
-    if (event.location.isOnline) {
+    if (displayEvent.location.isOnline) {
       const locationTab = document.querySelector('[value="location"]');
       if (locationTab) {
         (locationTab as HTMLElement).click();
@@ -374,7 +693,7 @@ export default function EventDetailsPage({
     // Check if user is logged in
     if (!isLoggedIn) {
       // Redirect to login/register page with return URL
-      router.push("/auth/login?redirect=/events/" + event.id);
+      router.push("/auth/login?redirect=/events/" + displayEvent.id);
       return;
     }
 
@@ -383,11 +702,16 @@ export default function EventDetailsPage({
     console.log("Event saved/bookmarked");
   };
 
-  const availableSpots = event.capacity - event.registered;
-  const registrationPercentage = (event.registered / event.capacity) * 100;
+  // Use eventData if available, otherwise fallback to event (dummy)
+  const displayEvent = eventData || event;
+  
+  const availableSpots = displayEvent.capacity - displayEvent.registered;
+  const registrationPercentage = displayEvent.capacity > 0 
+    ? (displayEvent.registered / displayEvent.capacity) * 100 
+    : 0;
 
-  // Mock user role - replace with actual auth check
-  const isAdmin = true; // Set to true for community admin
+  // Check if user is admin
+  const isAdmin = !!adminUserId;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -406,70 +730,70 @@ export default function EventDetailsPage({
       </div>
 
       {/* Hero Section */}
-      <div className="relative h-[50vh] md:h-[60vh] lg:h-[70vh] overflow-hidden">
-        <img
-          src={event.image || "/placeholder.svg"}
-          alt={event.title}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+      {isLoadingEvent ? (
+        <div className="relative h-[50vh] md:h-[60vh] lg:h-[70vh] overflow-hidden bg-gray-200 animate-pulse" />
+      ) : (
+        <div className="relative h-[50vh] md:h-[60vh] lg:h-[70vh] overflow-hidden">
+          <img
+            src={displayEvent.image || "/placeholder.svg"}
+            alt={displayEvent.title}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
-        {/* Hero Content */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 lg:p-12">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-wrap items-center gap-3 mb-4">
-              <Badge
-                variant="secondary"
-                className="bg-white/20 text-white border-white/30"
-              >
-                {event.category}
-              </Badge>
+          {/* Floating Action Buttons */}
+          <div className="absolute top-6 right-6 flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30"
+              onClick={handleSaveEvent}
+              disabled={isCheckingAuth}
+            >
+              <Heart className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Hero Content */}
+          <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 lg:p-12">
+            <div className="max-w-6xl mx-auto">
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <Badge
+                  variant="secondary"
+                  className="bg-white/20 text-white border-white/30"
+                >
+                  {displayEvent.category}
+                </Badge>
+              </div>
+
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
+                {displayEvent.title}
+              </h1>
+
+              <div className="flex flex-wrap items-center gap-6 text-white/90">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  <span className="font-medium">{formatDate(displayEvent.date)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  <span>
+                    {formatTime(displayEvent.time)} - {formatTime(displayEvent.endTime)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  <span>{displayEvent.location.venue}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  <span>{displayEvent.registered} attending</span>
+                </div>
+              </div>
             </div>
-
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
-              {event.title}
-            </h1>
-
-            <div className="flex flex-wrap items-center gap-6 text-white/90 mb-6">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                <span className="font-medium">{formatDate(event.date)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                <span>
-                  {formatTime(event.time)} - {formatTime(event.endTime)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                <span>{event.location.venue}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                <span>{event.registered} attending</span>
-              </div>
-            </div>
-
-            <p className="text-lg text-white/90 mb-8 max-w-3xl leading-relaxed">
-              {event.description}
-            </p>
           </div>
         </div>
-
-        {/* Floating Action Buttons */}
-        <div className="absolute top-6 right-6 flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30"
-            onClick={handleSaveEvent}
-            disabled={isCheckingAuth}
-          >
-            <Heart className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      )}
 
       {/* Sticky Action Bar */}
       <div className="sticky top-0 z-50 bg-white shadow-md rounded-2xl overflow-hidden">
@@ -478,10 +802,10 @@ export default function EventDetailsPage({
             {/* Left: Date & Title */}
             <div className="hidden min-w-0 flex-1 flex-col gap-1 md:flex">
               <time className="text-xs uppercase leading-5 tracking-tight text-gray-500">
-                {formatDate(event.date)} · {formatTime(event.time)}
+                {formatDate(displayEvent.date)} · {formatTime(displayEvent.time)}
               </time>
               <h2 className="text-xl font-semibold text-gray-900 truncate">
-                {event.title}
+                {displayEvent.title}
               </h2>
             </div>
 
@@ -548,21 +872,11 @@ export default function EventDetailsPage({
         <div className="space-y-8">
           {/* Quick Actions */}
           <div className="flex flex-wrap gap-3">
-            <CalendarIntegration
-              event={{
-                title: event.title,
-                description: event.description,
-                startDate: `${event.date}T${event.time}`,
-                endDate: `${event.date}T${event.endTime}`,
-                location: event.location,
-                organizer: event.organizer.name,
-              }}
-              variant="default"
-            />
             <Button
               variant="outline"
-              onClick={() => {
-                /* View attendees coming soon */
+              onClick={async () => {
+                setShowAttendeesDialog(true);
+                await loadAttendees();
               }}
             >
               <Users className="h-4 w-4 mr-2" />
@@ -591,35 +905,15 @@ export default function EventDetailsPage({
                 <CardContent>
                   <div className="prose prose-gray max-w-none">
                     <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                      {event.longDescription}
+                      {displayEvent.longDescription}
                     </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Tags */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Topics & Tags</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {event.tags.map((tag, index) => (
-                      <Badge
-                        key={index}
-                        variant="outline"
-                        className="hover:bg-violet-50 cursor-pointer"
-                      >
-                        {tag}
-                      </Badge>
-                    ))}
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="location" className="space-y-6 mt-6">
-              {event.location.isOnline ? (
+              {displayEvent.location.isOnline ? (
                 <Card>
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -648,7 +942,7 @@ export default function EventDetailsPage({
                         <div className="space-y-3">
                           <div className="flex items-center gap-3 text-gray-700">
                             <Calendar className="h-5 w-5 text-gray-500" />
-                            <span>{formatDate(event.date)}</span>
+                            <span>{formatDate(displayEvent.date)}</span>
                           </div>
 
                           <div className="flex items-center gap-3 text-gray-700">
@@ -658,21 +952,17 @@ export default function EventDetailsPage({
                                 Online event
                               </span>
                               <a
-                                href={event.location.meetingLink}
+                                href={displayEvent.location.meetingLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="block text-blue-600 hover:text-blue-700 hover:underline mt-0.5"
                               >
-                                {event.location.meetingLink}
+                                {displayEvent.location.meetingLink}
                               </a>
                             </div>
                           </div>
                         </div>
 
-                        {/* Add to Calendar Button */}
-                        <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white rounded-full py-6 shadow-md hover:shadow-lg transition-all">
-                          Add to calendar
-                        </Button>
                       </>
                     ) : (
                       <>
@@ -726,13 +1016,13 @@ export default function EventDetailsPage({
                   <CardHeader>
                     <CardTitle>Event Location</CardTitle>
                     <CardDescription>
-                      {event.location.venue} • {event.location.address},{" "}
-                      {event.location.city}
+                      {displayEvent.location.venue} • {displayEvent.location.address},{" "}
+                      {displayEvent.location.city}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <InteractiveLeafletMap
-                      location={event.location}
+                      location={displayEvent.location}
                       height="500px"
                       showControls={true}
                       showDirections={true}
@@ -745,128 +1035,131 @@ export default function EventDetailsPage({
 
             <TabsContent value="discussion" className="mt-6">
               <div className="space-y-6">
-                {/* Admin Post Form */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <User2 className="h-5 w-5 text-violet-600" />
-                      Admin Post
-                    </CardTitle>
-                    <CardDescription>
-                      Share announcements and updates with event attendees
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
-                          Post Title
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Enter post title..."
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
-                          Post Content
-                        </label>
-                        <textarea
-                          placeholder="Share updates, announcements, or start a discussion..."
-                          rows={4}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <label className="flex items-center gap-2">
-                            <input type="checkbox" className="rounded" />
-                            <span className="text-sm text-gray-600">
-                              Pin this post
-                            </span>
+                {/* Admin Post Form - Only show if user is admin */}
+                {isAdmin && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <User2 className="h-5 w-5 text-violet-600" />
+                        Create Discussion Post
+                      </CardTitle>
+                      <CardDescription>
+                        Share announcements and updates with event attendees
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 mb-2 block">
+                            Post Title
                           </label>
-                          <label className="flex items-center gap-2">
-                            <input type="checkbox" className="rounded" />
-                            <span className="text-sm text-gray-600">
-                              Send notification
-                            </span>
-                          </label>
+                          <input
+                            type="text"
+                            placeholder="Enter post title..."
+                            value={postTitle}
+                            onChange={(e) => setPostTitle(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                          />
                         </div>
-                        <Button className="bg-violet-600 hover:bg-violet-700 text-white">
-                          Post Update
-                        </Button>
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 mb-2 block">
+                            Post Content
+                          </label>
+                          <textarea
+                            placeholder="Share updates, announcements, or start a discussion..."
+                            rows={4}
+                            value={postContent}
+                            onChange={(e) => setPostContent(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                className="rounded"
+                                checked={isPinned}
+                                onChange={(e) => setIsPinned(e.target.checked)}
+                              />
+                              <span className="text-sm text-gray-600">
+                                Pin this post
+                              </span>
+                            </label>
+                          </div>
+                          <Button
+                            className="bg-violet-600 hover:bg-violet-700 text-white"
+                            onClick={handleCreatePost}
+                            disabled={isCreatingPost || !postTitle.trim() || !postContent.trim()}
+                          >
+                            {isCreatingPost ? "Posting..." : "Post Update"}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Pinned Posts */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Award className="h-5 w-5 text-yellow-600" />
-                      Pinned Posts
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Sample Pinned Post */}
-                      <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src="/placeholder.svg" />
-                              <AvatarFallback>HA</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-sm">
-                                  HealthTech Admin
-                                </span>
-                                <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-                                  <Award className="h-3 w-3 mr-1" />
-                                  Pinned
-                                </Badge>
+                {posts.filter((post) => post.is_pinned).length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Award className="h-5 w-5 text-yellow-600" />
+                        Pinned Posts
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {posts
+                          .filter((post) => post.is_pinned)
+                          .map((post) => (
+                            <div
+                              key={post.id}
+                              className="border border-yellow-200 bg-yellow-50 rounded-lg p-4"
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarImage
+                                      src={post.author?.avatar_url || "/placeholder.svg"}
+                                    />
+                                    <AvatarFallback>
+                                      {post.author?.full_name
+                                        ?.split(" ")
+                                        .map((n: string) => n[0])
+                                        .join("")
+                                        .toUpperCase() || "A"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-sm">
+                                        {post.author?.full_name || "Admin"}
+                                      </span>
+                                      <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                                        <Award className="h-3 w-3 mr-1" />
+                                        Pinned
+                                      </Badge>
+                                    </div>
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(post.created_at).toLocaleString()}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
-                              <span className="text-xs text-gray-500">
-                                2 hours ago
-                              </span>
+                              <h3 className="font-semibold text-gray-900 mb-2">
+                                {post.title}
+                              </h3>
+                              <p className="text-gray-700 text-sm mb-3 whitespace-pre-line">
+                                {post.content}
+                              </p>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-yellow-600 hover:bg-yellow-100"
-                            >
-                              <Award className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-gray-500"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <h3 className="font-semibold text-gray-900 mb-2">
-                          Important: Event Schedule Update
-                        </h3>
-                        <p className="text-gray-700 text-sm mb-3">
-                          Due to technical requirements, we're moving the
-                          keynote presentation to 10:30 AM instead of 10:00 AM.
-                          All other sessions remain unchanged.
-                        </p>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span>📌 Pinned by Admin</span>
-                          <span>👀 47 views</span>
-                        </div>
+                          ))}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Recent Posts */}
                 <Card>
@@ -877,102 +1170,57 @@ export default function EventDetailsPage({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {/* Sample Post 1 */}
-                      <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src="/placeholder.svg" />
-                              <AvatarFallback>JD</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <span className="font-semibold text-sm">
-                                John Doe
-                              </span>
-                              <span className="text-xs text-gray-500 ml-2">
-                                1 hour ago
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-gray-500"
-                            >
-                              <Heart className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-gray-500"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <h3 className="font-semibold text-gray-900 mb-2">
-                          Excited for the AI workshop!
-                        </h3>
-                        <p className="text-gray-700 text-sm mb-3">
-                          Looking forward to learning about the latest
-                          developments in healthcare AI. Any specific topics we
-                          should prepare for?
-                        </p>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span>❤️ 12 likes</span>
-                          <span>💬 3 replies</span>
-                        </div>
+                    {isLoadingPosts ? (
+                      <div className="text-center py-8 text-gray-500">
+                        Loading posts...
                       </div>
-
-                      {/* Sample Post 2 */}
-                      <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src="/placeholder.svg" />
-                              <AvatarFallback>SM</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <span className="font-semibold text-sm">
-                                Sarah Miller
-                              </span>
-                              <span className="text-xs text-gray-500 ml-2">
-                                3 hours ago
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-gray-500"
-                            >
-                              <Heart className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-gray-500"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <h3 className="font-semibold text-gray-900 mb-2">
-                          Networking opportunities
-                        </h3>
-                        <p className="text-gray-700 text-sm mb-3">
-                          Would love to connect with other healthcare
-                          professionals attending. Feel free to reach out!
-                        </p>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span>❤️ 8 likes</span>
-                          <span>💬 1 reply</span>
-                        </div>
+                    ) : posts.filter((post) => !post.is_pinned).length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        No posts yet. Be the first to post!
                       </div>
-                    </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {posts
+                          .filter((post) => !post.is_pinned)
+                          .map((post) => (
+                            <div
+                              key={post.id}
+                              className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarImage
+                                      src={post.author?.avatar_url || "/placeholder.svg"}
+                                    />
+                                    <AvatarFallback>
+                                      {post.author?.full_name
+                                        ?.split(" ")
+                                        .map((n: string) => n[0])
+                                        .join("")
+                                        .toUpperCase() || "A"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <span className="font-semibold text-sm">
+                                      {post.author?.full_name || "Admin"}
+                                    </span>
+                                    <span className="text-xs text-gray-500 ml-2">
+                                      {new Date(post.created_at).toLocaleString()}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <h3 className="font-semibold text-gray-900 mb-2">
+                                {post.title}
+                              </h3>
+                              <p className="text-gray-700 text-sm mb-3 whitespace-pre-line">
+                                {post.content}
+                              </p>
+                            </div>
+                          ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -985,7 +1233,7 @@ export default function EventDetailsPage({
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {event.images.map((image, index) => (
+                    {displayEvent.images.map((image, index) => (
                       <div
                         key={index}
                         className="aspect-video rounded-lg overflow-hidden hover:scale-105 transition-transform cursor-pointer"
@@ -1004,6 +1252,67 @@ export default function EventDetailsPage({
           </Tabs>
         </div>
       </div>
+
+      {/* Attendees Dialog */}
+      <Dialog open={showAttendeesDialog} onOpenChange={setShowAttendeesDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Event Attendees
+            </DialogTitle>
+            <DialogDescription>
+              People who are attending this event
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            {isLoadingAttendees ? (
+              <div className="text-center py-8 text-gray-500">
+                Loading attendees...
+              </div>
+            ) : attendees.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg">No attendees yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {attendees.map((attendee) => (
+                  <div
+                    key={attendee.id}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage
+                        src={attendee.user?.avatar_url || "/placeholder.svg"}
+                        alt={attendee.user?.full_name || "User"}
+                      />
+                      <AvatarFallback>
+                        {attendee.user?.full_name
+                          ?.split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900">
+                        {attendee.user?.full_name || "Unknown User"}
+                      </p>
+                      <p className="text-sm text-gray-500 truncate">
+                        {attendee.user?.email || ""}
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {new Date(attendee.registered_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
