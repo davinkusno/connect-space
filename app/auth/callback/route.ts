@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
           return NextResponse.redirect(`${origin}/onboarding/role`);
         }
 
-        // Redirect based on user role and onboarding status
+        // Redirect based on user role
         switch (userRole) {
           case "super_admin":
             return NextResponse.redirect(`${origin}/superadmin`);

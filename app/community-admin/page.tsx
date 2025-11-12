@@ -14,7 +14,9 @@ import {
   ChevronRight,
   MoreHorizontal,
   UserPlus,
-  Calendar
+  Calendar,
+  Sparkles,
+  Loader2
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -22,6 +24,51 @@ import { cn } from "@/lib/utils"
 import { PageTransition } from "@/components/ui/page-transition"
 import { FloatingElements } from "@/components/ui/floating-elements"
 import { CommunityAdminNav } from "@/components/navigation/community-admin-nav"
+import { toast } from "sonner"
+import { getSupabaseBrowser } from "@/lib/supabase/client"
+
+// Component to fetch and display event count
+function EventCount({ communityId }: { communityId?: string }) {
+  const [eventCount, setEventCount] = useState<number>(0)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const loadEventCount = async () => {
+      if (!communityId) {
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        const supabase = getSupabaseBrowser()
+        const { count, error } = await supabase
+          .from("events")
+          .select("*", { count: "exact", head: true })
+          .eq("community_id", communityId)
+
+        if (error) {
+          console.error("Error fetching event count:", error)
+          setEventCount(0)
+        } else {
+          setEventCount(count || 0)
+        }
+      } catch (error) {
+        console.error("Error loading event count:", error)
+        setEventCount(0)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadEventCount()
+  }, [communityId])
+
+  if (isLoading) {
+    return <span>Loading...</span>
+  }
+
+  return <span>{eventCount} total events</span>
+}
 
 interface Community {
   id: string
@@ -58,6 +105,7 @@ export default function CommunityAdminPage() {
   const [recentJoinRequests, setRecentJoinRequests] = useState<JoinRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [discussionPage, setDiscussionPage] = useState(1)
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false)
 
   interface DiscussionTopic {
     id: string
@@ -79,135 +127,312 @@ export default function CommunityAdminPage() {
 
   const loadCommunityData = async () => {
     try {
-      // Mock data for now - replace with actual API calls
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const supabase = getSupabaseBrowser()
       
-      const mockCommunity: Community = {
-        id: "1",
-        name: "Tech Innovators NYC",
-        email: "techinnovators.nyc@gmail.com",
-        description: "Building the future through technology and innovation in New York City. Join us for cutting-edge discussions, networking events, and collaborative projects.",
-        profilePicture: "/placeholder.svg?height=200&width=300",
-        location: {
-          city: "New York",
-          country: "USA",
-          address: "123 Tech Street, Manhattan, NY"
-        },
-        memberCount: 1247,
-        category: "Technology",
-        tags: ["Tech", "Innovation", "Startups", "AI", "Web3"],
-        createdAt: "2023-01-15",
-        isVerified: true,
-        privacy: "public"
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        console.error("User not found")
+        // Use dummy data if no user
+        await loadDummyData()
+        return
       }
 
-      const mockJoinRequests: JoinRequest[] = [
-        {
-          id: "1",
-          userId: "user1",
-          userName: "Sarah Johnson",
-          userEmail: "sarah.johnson@email.com",
-          userAvatar: "/placeholder-user.jpg",
-          requestedAt: "2024-01-16T10:30:00Z",
-          status: "pending",
-          message: "I'm a software engineer with 5 years of experience in AI and machine learning. Excited to join this community!"
-        },
-        {
-          id: "2",
-          userId: "user2",
-          userName: "Michael Chen",
-          userEmail: "michael.chen@email.com",
-          userAvatar: "/placeholder-user.jpg",
-          requestedAt: "2024-01-16T09:15:00Z",
-          status: "pending",
-          message: "Looking forward to connecting with fellow tech enthusiasts and contributing to innovative projects."
-        },
-        {
-          id: "3",
-          userId: "user3",
-          userName: "Emily Rodriguez",
-          userEmail: "emily.rodriguez@email.com",
-          userAvatar: "/placeholder-user.jpg",
-          requestedAt: "2024-01-15T16:45:00Z",
-          status: "pending"
-        },
-        {
-          id: "4",
-          userId: "user4",
-          userName: "David Kim",
-          userEmail: "david.kim@email.com",
-          userAvatar: "/placeholder-user.jpg",
-          requestedAt: "2024-01-15T14:20:00Z",
-          status: "pending",
-          message: "Product manager passionate about emerging technologies. Would love to be part of this community."
-        },
-        {
-          id: "5",
-          userId: "user5",
-          userName: "Lisa Wang",
-          userEmail: "lisa.wang@email.com",
-          userAvatar: "/placeholder-user.jpg",
-          requestedAt: "2024-01-15T11:10:00Z",
-          status: "pending"
+      // Try to get community where user is creator
+      let { data: communityData, error: communityError } = await supabase
+        .from("communities")
+        .select("*")
+        .eq("creator_id", user.id)
+        .limit(1)
+        .maybeSingle()
+
+      // If not found as creator, try to get community where user is admin
+      if (!communityData || communityError) {
+        const { data: memberData } = await supabase
+          .from("community_members")
+          .select("community_id")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .limit(1)
+          .maybeSingle()
+
+        if (memberData) {
+          const { data: commData } = await supabase
+            .from("communities")
+            .select("*")
+            .eq("id", memberData.community_id)
+            .single()
+
+          if (commData) {
+            communityData = commData
+          }
         }
-      ]
+      }
 
-      setCommunity(mockCommunity)
+      // If we have real community data, use it directly
+      if (communityData) {
+        // Parse location from database
+        let locationData = {
+          city: "",
+          country: "",
+          address: ""
+        }
+        
+        if (communityData.location) {
+          try {
+            let parsed: any = null
+            
+            if (typeof communityData.location === 'string') {
+              // Try to parse as JSON first
+              try {
+                parsed = JSON.parse(communityData.location)
+              } catch (e) {
+                // If not JSON, use as plain string address
+                locationData.address = communityData.location
+                parsed = null
+              }
+            } else {
+              parsed = communityData.location
+            }
+            
+            // If parsed successfully and is an object
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              locationData = {
+                city: parsed.city || parsed.City || "",
+                country: parsed.country || parsed.Country || "",
+                address: parsed.address || parsed.Address || parsed.full_address || ""
+              }
+            }
+          } catch (e) {
+            console.error("Error parsing location:", e)
+            // If location is a plain string, use it as address
+            if (typeof communityData.location === 'string') {
+              locationData.address = communityData.location
+            }
+          }
+        }
 
-      const mockDiscussions: DiscussionTopic[] = [
-        {
-          id: "d1",
-          title: "How to get started with AI projects in 2024?",
-          author: "Sarah Johnson",
-          authorAvatar: "/placeholder-user.jpg",
-          createdAt: "2024-01-12T08:00:00Z",
-          replies: 24,
-          likes: 76,
-          excerpt: "Let's collect resources and roadmap for beginners who want to jump into AI...",
-          tags: ["AI", "Beginner", "Roadmap"],
-        },
-        {
-          id: "d2",
-          title: "Weekly project showcase - Share your progress!",
-          author: "Michael Chen",
-          authorAvatar: "/placeholder-user.jpg",
-          createdAt: "2024-01-14T10:15:00Z",
-          replies: 18,
-          likes: 54,
-          excerpt: "Post your demos, screenshots, and lessons learned this week so we can give feedback...",
-          tags: ["Showcase", "Projects", "Feedback"],
-        },
-        {
-          id: "d3",
-          title: "Recommended meetups in NYC for ML enthusiasts",
-          author: "Emily Rodriguez",
-          authorAvatar: "/placeholder-user.jpg",
-          createdAt: "2024-01-10T14:25:00Z",
-          replies: 12,
-          likes: 33,
-          excerpt: "Looking for recurring meetups with solid talks and hands-on sessions...",
-          tags: ["Meetup", "NYC", "ML"],
-        },
-        {
-          id: "d4",
-          title: "Hiring: Part-time mentor for startup MVP build",
-          author: "David Kim",
-          authorAvatar: "/placeholder-user.jpg",
-          createdAt: "2024-01-09T09:05:00Z",
-          replies: 7,
-          likes: 21,
-          excerpt: "We're bootstrapping and need a mentor for architecture and best practices...",
-          tags: ["Hiring", "Mentorship", "MVP"],
-        },
-      ]
-
-      setDiscussionTopics(mockDiscussions)
-      setRecentJoinRequests(mockJoinRequests)
+        // Get member count
+        const { count: memberCount } = await supabase
+          .from("community_members")
+          .select("*", { count: "exact", head: true })
+          .eq("community_id", communityData.id)
+        
+        // Get admin email from community_members
+        // First, get admin user_id from community_members
+        let adminEmail = ""
+        const { data: adminMember } = await supabase
+          .from("community_members")
+          .select("user_id")
+          .eq("community_id", communityData.id)
+          .eq("role", "admin")
+          .limit(1)
+          .maybeSingle()
+        
+        // Then, get email from users table
+        if (adminMember && adminMember.user_id) {
+          const { data: userData } = await supabase
+            .from("users")
+            .select("email")
+            .eq("id", adminMember.user_id)
+            .maybeSingle()
+          
+          if (userData && userData.email) {
+            adminEmail = userData.email
+          }
+        }
+        
+        // Parse category - can be JSON array (interests) or single string
+        let categoryValue = "General"
+        let tagsValue: string[] = []
+        
+        if (communityData.category) {
+          try {
+            // Try to parse as JSON array (if interests were saved as JSON)
+            const parsed = JSON.parse(communityData.category)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              // Category is JSON array of interests
+              categoryValue = parsed[0] // Use first as primary category
+              tagsValue = parsed // All interests as tags
+            } else {
+              // Single category value
+              categoryValue = communityData.category
+              tagsValue = [communityData.category]
+            }
+          } catch (e) {
+            // Not JSON, treat as single category string
+            categoryValue = communityData.category
+            tagsValue = [communityData.category]
+          }
+        }
+        
+        // Also check if there's a separate tags field (for backward compatibility)
+        if (communityData.tags) {
+          if (Array.isArray(communityData.tags)) {
+            tagsValue = communityData.tags
+          } else if (typeof communityData.tags === 'string') {
+            try {
+              tagsValue = JSON.parse(communityData.tags)
+            } catch (e) {
+              tagsValue = [communityData.tags]
+            }
+          }
+        }
+        
+        // Build community object with actual data from database
+        const actualCommunity: Community = {
+          id: communityData.id,
+          name: communityData.name || "Community",
+          email: adminEmail, // Use admin email from community_members
+          description: communityData.description || "",
+          profilePicture: communityData.logo_url || (communityData as any).profile_picture || "/placeholder.svg?height=200&width=300",
+          location: locationData, // Use actual location from database
+          memberCount: memberCount || 0,
+          category: categoryValue, // Primary category (first interest)
+          tags: tagsValue, // All interests as tags (can be multiple)
+          createdAt: communityData.created_at ? new Date(communityData.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          isVerified: (communityData as any).is_verified || false,
+          privacy: (communityData.is_private ? "private" : "public") as "public" | "private" | "invite-only"
+        }
+        
+        await loadDummyData(actualCommunity)
+      } else {
+        // No community found, use dummy data
+        await loadDummyData()
+      }
     } catch (error) {
       console.error("Failed to load community data:", error)
+      // On error, still load dummy data
+      await loadDummyData()
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const loadDummyData = async (communityOverride?: Community) => {
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    
+    const mockCommunity: Community = communityOverride || {
+      id: "1",
+      name: "Tech Innovators NYC",
+      email: "techinnovators.nyc@gmail.com",
+      description: "Building the future through technology and innovation in New York City. Join us for cutting-edge discussions, networking events, and collaborative projects.",
+      profilePicture: "/placeholder.svg?height=200&width=300",
+      location: {
+        city: "New York",
+        country: "USA",
+        address: "123 Tech Street, Manhattan, NY"
+      },
+      memberCount: 1247,
+      category: "Technology",
+      tags: ["Tech", "Innovation", "Startups", "AI", "Web3"],
+      createdAt: "2023-01-15",
+      isVerified: true,
+      privacy: "public"
+    }
+
+    const mockJoinRequests: JoinRequest[] = [
+      {
+        id: "1",
+        userId: "user1",
+        userName: "Sarah Johnson",
+        userEmail: "sarah.johnson@email.com",
+        userAvatar: "/placeholder-user.jpg",
+        requestedAt: "2024-01-16T10:30:00Z",
+        status: "pending",
+        message: "I'm a software engineer with 5 years of experience in AI and machine learning. Excited to join this community!"
+      },
+      {
+        id: "2",
+        userId: "user2",
+        userName: "Michael Chen",
+        userEmail: "michael.chen@email.com",
+        userAvatar: "/placeholder-user.jpg",
+        requestedAt: "2024-01-16T09:15:00Z",
+        status: "pending",
+        message: "Looking forward to connecting with fellow tech enthusiasts and contributing to innovative projects."
+      },
+      {
+        id: "3",
+        userId: "user3",
+        userName: "Emily Rodriguez",
+        userEmail: "emily.rodriguez@email.com",
+        userAvatar: "/placeholder-user.jpg",
+        requestedAt: "2024-01-15T16:45:00Z",
+        status: "pending"
+      },
+      {
+        id: "4",
+        userId: "user4",
+        userName: "David Kim",
+        userEmail: "david.kim@email.com",
+        userAvatar: "/placeholder-user.jpg",
+        requestedAt: "2024-01-15T14:20:00Z",
+        status: "pending",
+        message: "Product manager passionate about emerging technologies. Would love to be part of this community."
+      },
+      {
+        id: "5",
+        userId: "user5",
+        userName: "Lisa Wang",
+        userEmail: "lisa.wang@email.com",
+        userAvatar: "/placeholder-user.jpg",
+        requestedAt: "2024-01-15T11:10:00Z",
+        status: "pending"
+      }
+    ]
+
+    const mockDiscussions: DiscussionTopic[] = [
+      {
+        id: "d1",
+        title: "How to get started with AI projects in 2024?",
+        author: "Sarah Johnson",
+        authorAvatar: "/placeholder-user.jpg",
+        createdAt: "2024-01-12T08:00:00Z",
+        replies: 24,
+        likes: 76,
+        excerpt: "Let's collect resources and roadmap for beginners who want to jump into AI...",
+        tags: ["AI", "Beginner", "Roadmap"],
+      },
+      {
+        id: "d2",
+        title: "Weekly project showcase - Share your progress!",
+        author: "Michael Chen",
+        authorAvatar: "/placeholder-user.jpg",
+        createdAt: "2024-01-14T10:15:00Z",
+        replies: 18,
+        likes: 54,
+        excerpt: "Post your demos, screenshots, and lessons learned this week so we can give feedback...",
+        tags: ["Showcase", "Projects", "Feedback"],
+      },
+      {
+        id: "d3",
+        title: "Recommended meetups in NYC for ML enthusiasts",
+        author: "Emily Rodriguez",
+        authorAvatar: "/placeholder-user.jpg",
+        createdAt: "2024-01-10T14:25:00Z",
+        replies: 12,
+        likes: 33,
+        excerpt: "Looking for recurring meetups with solid talks and hands-on sessions...",
+        tags: ["Meetup", "NYC", "ML"],
+      },
+      {
+        id: "d4",
+        title: "Hiring: Part-time mentor for startup MVP build",
+        author: "David Kim",
+        authorAvatar: "/placeholder-user.jpg",
+        createdAt: "2024-01-09T09:05:00Z",
+        replies: 7,
+        likes: 21,
+        excerpt: "We're bootstrapping and need a mentor for architecture and best practices...",
+        tags: ["Hiring", "Mentorship", "MVP"],
+      },
+    ]
+
+    setCommunity(mockCommunity)
+    setDiscussionTopics(mockDiscussions)
+    setRecentJoinRequests(mockJoinRequests)
   }
 
   const formatDate = (dateString: string) => {
@@ -233,6 +458,60 @@ export default function CommunityAdminPage() {
 
   const handleApproveAll = () => {
     setRecentJoinRequests((prev) => prev.map((req) => ({ ...req, status: "approved" })))
+  }
+
+  const generateDescription = async () => {
+    if (!community?.name || !community?.tags || community.tags.length < 3) {
+      toast.error("Please ensure community has a name and at least 3 tags")
+      return
+    }
+
+    setIsGeneratingDescription(true)
+    try {
+      const response = await fetch("/api/ai/generate-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "community-description",
+          params: {
+            name: community.name,
+            category: community.category,
+            tags: community.tags.slice(0, 3).join(", "),
+            locationType: "physical",
+            location: `${community.location.city}, ${community.location.country}`,
+          },
+        }),
+      })
+
+      const data = await response.json()
+
+      // Check if response has error
+      if (!response.ok) {
+        const errorMessage = data.error || "Failed to generate description"
+        toast.error(errorMessage)
+        return
+      }
+
+      // Validate response has description
+      if (data && data.description && typeof data.description === 'string') {
+        setCommunity((prev) => prev ? { ...prev, description: data.description } : null)
+        toast.success("Description generated successfully!")
+      } else {
+        // If no description in response, use fallback
+        const fallbackDescription = `${community.name} is a ${community.category} community focused on ${community.tags.slice(0, 3).join(", ")}. Join us to connect with like-minded individuals, share knowledge, and participate in activities related to our community interests.`
+        setCommunity((prev) => prev ? { ...prev, description: fallbackDescription } : null)
+        toast.success("Description generated (using fallback)")
+      }
+    } catch (error: any) {
+      console.error("Failed to generate description:", error)
+      
+      // Provide fallback description even on error
+      const fallbackDescription = `${community?.name} is a ${community?.category} community focused on ${community?.tags.slice(0, 3).join(", ") || "various topics"}. Join us to connect with like-minded individuals, share knowledge, and participate in activities related to our community interests.`
+      setCommunity((prev) => prev ? { ...prev, description: fallbackDescription } : null)
+      toast.warning("Using fallback description. AI generation encountered an issue.")
+    } finally {
+      setIsGeneratingDescription(false)
+    }
   }
 
   if (isLoading) {
@@ -326,19 +605,29 @@ export default function CommunityAdminPage() {
                     </div>
 
                     {/* Community Email */}
-                    <div className="self-start text-left flex items-center space-x-2 text-gray-600">
-                      <Mail className="w-4 h-4" />
-                      <span className="text-sm font-medium">{community?.email}</span>
-                    </div>
+                    {community?.email && (
+                      <div className="self-start text-left flex items-center space-x-2 text-gray-600">
+                        <Mail className="w-4 h-4" />
+                        <span className="text-sm font-medium">{community.email}</span>
+                      </div>
+                    )}
 
                     {/* Location */}
-                    <div className="self-start text-left flex items-center space-x-2 text-gray-600">
-                      <MapPin className="w-4 h-4" />
-                      <div className="text-sm text-left">
-                        <div className="font-medium">{community?.location.city}, {community?.location.country}</div>
-                        <div className="text-xs text-gray-500">{community?.location.address}</div>
+                    {(community?.location.city || community?.location.country || community?.location.address) && (
+                      <div className="self-start text-left flex items-center space-x-2 text-gray-600">
+                        <MapPin className="w-4 h-4" />
+                        <div className="text-sm text-left">
+                          {(community.location.city || community.location.country) && (
+                            <div className="font-medium">
+                              {[community.location.city, community.location.country].filter(Boolean).join(", ") || "Location not set"}
+                            </div>
+                          )}
+                          {community.location.address && (
+                            <div className="text-xs text-gray-500">{community.location.address}</div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     
 
@@ -489,9 +778,20 @@ export default function CommunityAdminPage() {
                       <Button 
                         size="sm"
                         className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600"
+                        onClick={generateDescription}
+                        disabled={isGeneratingDescription || !community?.name || !community?.tags || community.tags.length < 3}
                       >
-                        <span className="mr-2">✨</span>
-                        Generate by AI
+                        {isGeneratingDescription ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Generate by AI
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -540,7 +840,7 @@ export default function CommunityAdminPage() {
                       </div>
                       <p className="text-sm text-gray-600">Manage and track your community events</p>
                       <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
-                        <span>{Math.floor(community?.memberCount ? community.memberCount / 100 : 10)} total events</span>
+                        <EventCount communityId={community?.id} />
                         <ChevronRight className="w-4 h-4 text-purple-600" />
                       </div>
                       </div>
@@ -621,9 +921,6 @@ export default function CommunityAdminPage() {
                                 by <span className="font-medium text-gray-700">{topic.author}</span> • {new Date(topic.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                               </div>
                               <p className="text-sm text-gray-700 line-clamp-2">{topic.excerpt}</p>
-                              <div className="mt-3 flex items-center justify-end text-xs text-gray-600">
-                                {topic.replies} replies • {topic.likes} likes
-                              </div>
                             </div>
                           </div>
                         </div>

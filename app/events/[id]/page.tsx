@@ -732,7 +732,7 @@ export default function EventDetailsPage({
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="about">About</TabsTrigger>
               <TabsTrigger value="location">Location</TabsTrigger>
-              <TabsTrigger value="discussion">Discussion</TabsTrigger>
+              <TabsTrigger value="discussion">Announcement</TabsTrigger>
               <TabsTrigger value="gallery">Gallery</TabsTrigger>
             </TabsList>
 

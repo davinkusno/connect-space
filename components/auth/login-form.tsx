@@ -41,7 +41,30 @@ export function LoginForm() {
       if (error) {
         setError(error.message);
       } else {
-        router.push("/");
+        // Get user and role, then redirect accordingly
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const { data: userData } = await supabase
+            .from("users")
+            .select("user_type")
+            .eq("id", user.id)
+            .single();
+
+          const userRole = userData?.user_type;
+
+          // Redirect based on role
+          if (userRole === "community_admin") {
+            router.push("/community-admin");
+          } else if (userRole === "super_admin") {
+            router.push("/superadmin");
+          } else {
+            router.push("/");
+          }
+        } else {
+          router.push("/");
+        }
+
         router.refresh();
         toast({
           title: "Signed in successfully!",

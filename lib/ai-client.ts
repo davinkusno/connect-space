@@ -146,6 +146,7 @@ class AIClient {
           messageToResponse: false,
           objectToString: false,
           nullToUndefined: false,
+          targetAudienceArrayToString: false,
         };
         
         // Helper function to convert null to undefined for optional fields
@@ -212,6 +213,35 @@ class AIClient {
             }
           }
           
+          // Fix: Convert array to string for targetAudience field (before validation)
+          if (parsed.targetAudience && Array.isArray(parsed.targetAudience)) {
+            parsed.targetAudience = parsed.targetAudience.join(", ");
+            hadFixes.targetAudienceArrayToString = true;
+            console.log("🔧 Auto-fix applied: Converted targetAudience array to string");
+          }
+          
+          // Fix: Ensure description is a string
+          if (parsed.description && typeof parsed.description !== 'string') {
+            parsed.description = String(parsed.description);
+            console.log("🔧 Auto-fix applied: Converted description to string");
+          }
+          
+          // Fix: Ensure alternativeDescriptions is an array of strings
+          if (parsed.alternativeDescriptions && !Array.isArray(parsed.alternativeDescriptions)) {
+            parsed.alternativeDescriptions = [];
+            console.log("🔧 Auto-fix applied: Fixed alternativeDescriptions to array");
+          }
+          
+          // Fix: Ensure suggestedTags is an array of strings
+          if (parsed.suggestedTags && !Array.isArray(parsed.suggestedTags)) {
+            if (typeof parsed.suggestedTags === 'string') {
+              parsed.suggestedTags = parsed.suggestedTags.split(",").map((t: string) => t.trim()).filter(Boolean);
+            } else {
+              parsed.suggestedTags = [];
+            }
+            console.log("🔧 Auto-fix applied: Fixed suggestedTags to array");
+          }
+          
           // Fix: Convert null values to undefined for optional fields
           if (hasNullValues(parsed)) {
             // Convert null to undefined recursively
@@ -235,12 +265,38 @@ class AIClient {
         }
         
         // Log parsed JSON after auto-fixes (if any were applied)
-        if (hadFixes.messageToResponse || hadFixes.objectToString || hadFixes.nullToUndefined) {
+        if (hadFixes.messageToResponse || hadFixes.objectToString || hadFixes.nullToUndefined || hadFixes.targetAudienceArrayToString) {
           console.log("📋 Parsed JSON (after auto-fixes):");
           console.log(JSON.stringify(parsed, null, 2));
         }
         
-        const validated = schema.parse(parsed);
+        // Try validation with better error handling
+        let validated;
+        try {
+          validated = schema.parse(parsed);
+        } catch (validationError) {
+          // If validation fails, try to fix common issues
+          if (validationError instanceof z.ZodError) {
+            console.warn("⚠️ Validation errors detected, attempting fixes...");
+            
+            // Fix missing required fields
+            if (!parsed.description || typeof parsed.description !== 'string') {
+              parsed.description = "A community for like-minded individuals to connect and share interests.";
+              console.log("🔧 Auto-fix applied: Added default description");
+            }
+            
+            // Try validation again
+            try {
+              validated = schema.parse(parsed);
+              console.log("✅ Validation successful after fixes");
+            } catch (retryError) {
+              // If still fails, throw with more context
+              throw validationError;
+            }
+          } else {
+            throw validationError;
+          }
+        }
         
         // Log successful validation
         console.log("✅ Validation successful!");
