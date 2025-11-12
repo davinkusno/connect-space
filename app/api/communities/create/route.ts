@@ -108,17 +108,27 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
 
-    // Process interests - save as category (JSON array for multiple categories)
-    // If multiple interests, save as JSON array string
-    // If single interest, save as string
-    let categoryValue: string;
+    // Get category_id from first interest
+    let categoryId: string | null = null;
+    
     if (Array.isArray(interests) && interests.length > 0) {
-      // Save all interests as JSON array in category field
-      categoryValue = JSON.stringify(interests);
+      // Get the first interest and find its category_id
+      const firstInterest = interests[0];
+      const { data: categoryData } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("name", firstInterest)
+        .single();
+      
+      categoryId = categoryData?.id || null;
     } else if (typeof interests === 'string') {
-      categoryValue = interests;
-    } else {
-      categoryValue = "General";
+      const { data: categoryData } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("name", interests)
+        .single();
+      
+      categoryId = categoryData?.id || null;
     }
 
     // Create community in database
@@ -133,7 +143,7 @@ export async function POST(request: NextRequest) {
         creator_id: user.id,
         is_private: false,
         member_count: 1,
-        category: categoryValue, // Save interests as category (can be JSON array for multiple)
+        category_id: categoryId, // Use category_id instead of category
       })
       .select()
       .single();
@@ -158,6 +168,33 @@ export async function POST(request: NextRequest) {
     if (memberError) {
       console.error("Error adding creator as member:", memberError);
       // Continue anyway, community is created
+    }
+
+    // Save all user interests to user_interests table
+    if (Array.isArray(interests) && interests.length > 0) {
+      // Get all category IDs for the interests
+      const { data: categoriesData } = await supabase
+        .from("categories")
+        .select("id, name")
+        .in("name", interests);
+
+      if (categoriesData && categoriesData.length > 0) {
+        // Create user_interests records
+        const userInterests = categoriesData.map((cat, index) => ({
+          user_id: user.id,
+          category_id: cat.id,
+          weight: 1.0 - (index * 0.1), // Decreasing weight for each interest
+        }));
+
+        const { error: interestsError } = await supabase
+          .from("user_interests")
+          .upsert(userInterests, { onConflict: "user_id,category_id" });
+
+        if (interestsError) {
+          console.error("Error saving user interests:", interestsError);
+          // Continue anyway, community is created
+        }
+      }
     }
 
     // Update user's user_type to community_admin and mark onboarding as completed
