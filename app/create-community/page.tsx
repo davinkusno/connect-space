@@ -145,6 +145,7 @@ export default function CreateCommunityPage() {
       }
 
       formDataToSend.append("location", locationValue)
+      formDataToSend.append("location_type", formData.locationType)
       formDataToSend.append("interests", JSON.stringify([formData.category]))
       formDataToSend.append("name", formData.name)
       formDataToSend.append("description", formData.description)
@@ -166,9 +167,9 @@ export default function CreateCommunityPage() {
 
       toast.success("Community created successfully!")
       
-      // Redirect to community admin dashboard
+      // Redirect to dashboard
       setTimeout(() => {
-        router.push(`/community-admin?community=${data.communityId}`)
+        router.push("/dashboard")
       }, 1000)
     } catch (error: any) {
       console.error("Error creating community:", error)

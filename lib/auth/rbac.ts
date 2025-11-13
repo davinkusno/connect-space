@@ -104,43 +104,8 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     path: "/community-admin-registration",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
-  
-  // Community admin routes (check dynamically if user is admin of any community)
-  // Note: Actual access control is handled at page level based on community membership
   {
-    path: "/community-admin",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
-  {
-    path: "/community-admin/edit",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
-  {
-    path: "/community-admin/members",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
-  {
-    path: "/community-admin/discussions",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
-  {
-    path: "/community-admin/events",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
-  {
-    path: "/community-admin/events/[id]",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
-  {
-    path: "/community-admin/events/[id]/edit",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
-  {
-    path: "/community-admin/notifications",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
-  {
-    path: "/community-admin/requests",
+    path: "/community/[id]/manage",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
@@ -173,7 +138,7 @@ export const ROLE_HIERARCHY: Record<UserRole, number> = {
 // Default redirect paths for each role after login
 export const DEFAULT_REDIRECT_PATHS: Record<UserRole, string> = {
   user: "/dashboard",
-  community_admin: "/community-admin",
+  community_admin: "/dashboard",
   super_admin: "/superadmin",
 };
 

@@ -180,7 +180,7 @@ export default function RoleSelectionPage() {
           (adminMemberships && adminMemberships.length > 0);
 
         if (hasCommunity) {
-          router.push("/community-admin");
+          router.push("/dashboard");
         } else {
           router.push("/community-admin-registration");
         }

@@ -1206,7 +1206,7 @@ export default function DashboardPage() {
                                 </Button>
                               </Link>
                               <Link
-                                href={`/community-admin?community=${community.id}`}
+                                href={`/community/${community.id}/manage`}
                                 className="flex-1"
                               >
                                 <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">

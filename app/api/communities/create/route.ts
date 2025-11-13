@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const locationInput = formData.get("location") as string;
+    const locationType = (formData.get("location_type") as string) || "physical";
     const interests = JSON.parse(formData.get("interests") as string);
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
@@ -46,22 +47,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Handle location - can be string or JSON with coordinates
-    let location: string;
+    // Handle location - parse and store as JSON for coordinates
+    let location: any;
     try {
       // Try to parse as JSON (for locations with coordinates)
       const locationJson = JSON.parse(locationInput);
-      if (locationJson.address) {
-        // Store the full JSON for future use, but use address as display value
-        location = locationJson.address;
-        // Optionally, you could store the full JSON in a separate field or parse it
-        // For now, we'll just use the address string
-      } else {
-        location = locationInput;
-      }
+      // Store the full JSON object with coordinates
+      location = locationJson;
     } catch {
-      // Not JSON, use as string
-      location = locationInput;
+      // Not JSON, use as string or create basic object
+      location = { address: locationInput };
     }
 
     let profileImageUrl = null;

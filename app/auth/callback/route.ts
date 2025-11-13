@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${origin}/community-admin-registration`);
           }
           
-          return NextResponse.redirect(`${origin}/community-admin`);
+          return NextResponse.redirect(`${origin}/dashboard`);
         }
 
         // Regular users: check onboarding

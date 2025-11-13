@@ -49,6 +49,8 @@ import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { StaggerContainer } from "@/components/ui/stagger-container";
 import { SmartSearchBar } from "@/components/ai/smart-search-bar";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 // Dynamic import for Leaflet map to avoid SSR issues
 const LeafletCommunitiesMap = dynamic(
@@ -455,276 +457,7 @@ export default function DiscoverPage() {
     timeout: 10000,
   });
 
-  // Enhanced mock communities data
-  const mockCommunities: Community[] = [
-    {
-      id: "1",
-      name: "Tech Innovators NYC",
-      description:
-        "Building the future through technology and innovation in New York City. Join us for cutting-edge discussions, networking events, and collaborative projects.",
-      category: "Hobbies",
-      tags: ["Tech", "Innovation", "Startups", "AI", "Web3", "Networking"],
-      memberCount: 1247,
-      averageRating: 4.8,
-      location: {
-        lat: 40.7589,
-        lng: -73.9851,
-        city: "New York",
-        country: "USA",
-        address: "123 Tech Street, Manhattan, NY",
-      },
-      activityLevel: "high",
-      image: "/placeholder.svg?height=200&width=300",
-      upcomingEvents: 3,
-      memberGrowth: "+12%",
-      gradient: "gradient-primary",
-      trending: true,
-      createdAt: "2023-01-15",
-      lastActivity: "2024-01-16",
-      engagementScore: 92,
-      isRecommended: true,
-      recommendationScore: 0.95,
-      recommendationReason: "Matches your interest in technology and AI",
-      recommendationMethod: "content_based",
-      isVerified: true,
-      isNew: false,
-      featured: true,
-      language: "English",
-      privacy: "public",
-    },
-    {
-      id: "2",
-      name: "SF Bay Area Entrepreneurs",
-      description:
-        "Connect with fellow entrepreneurs and startup founders in the San Francisco Bay Area. Share experiences, find co-founders, and build the next big thing.",
-      category: "Education",
-      tags: [
-        "Startups",
-        "Entrepreneurship",
-        "Networking",
-        "Funding",
-        "SaaS",
-        "Innovation",
-      ],
-      memberCount: 2341,
-      averageRating: 4.6,
-      location: {
-        lat: 37.7749,
-        lng: -122.4194,
-        city: "San Francisco",
-        country: "USA",
-        address: "456 Startup Ave, San Francisco, CA",
-      },
-      activityLevel: "high",
-      image:
-        "https://images.unsplash.com/photo-1543269865-cbf427effbad?w=800&q=80",
-      upcomingEvents: 5,
-      memberGrowth: "+25%",
-      gradient: "gradient-secondary",
-      trending: true,
-      createdAt: "2023-03-20",
-      lastActivity: "2024-01-15",
-      engagementScore: 88,
-      isRecommended: true,
-      recommendationScore: 0.87,
-      recommendationReason: "Similar users also joined this community",
-      recommendationMethod: "collaborative_filtering",
-      isVerified: true,
-      isNew: false,
-      featured: true,
-      language: "English",
-      privacy: "public",
-    },
-    {
-      id: "3",
-      name: "Creative Writers Guild",
-      description:
-        "A supportive space for writers of all levels and genres to grow together. Share your work, get feedback, and improve your craft.",
-      category: "Art",
-      tags: [
-        "Writing",
-        "Literature",
-        "Creative",
-        "Publishing",
-        "Poetry",
-        "Fiction",
-      ],
-      memberCount: 634,
-      averageRating: 4.7,
-      location: {
-        lat: 40.7505,
-        lng: -73.9934,
-        city: "New York",
-        country: "USA",
-        address: "789 Literary Lane, Brooklyn, NY",
-      },
-      activityLevel: "medium",
-      image:
-        "https://images.unsplash.com/photo-1517411032315-54ef2cb483c2?w=800&q=80",
-      upcomingEvents: 2,
-      memberGrowth: "+15%",
-      gradient: "gradient-tertiary",
-      trending: false,
-      createdAt: "2023-06-10",
-      lastActivity: "2024-01-14",
-      engagementScore: 75,
-      isVerified: false,
-      isNew: false,
-      featured: false,
-      language: "English",
-      privacy: "public",
-    },
-    {
-      id: "4",
-      name: "LA Fitness Community",
-      description:
-        "Group workouts and healthy lifestyle discussions for Los Angeles fitness enthusiasts. Transform your health journey with like-minded individuals.",
-      category: "Sports",
-      tags: [
-        "Fitness",
-        "Health",
-        "Workouts",
-        "Nutrition",
-        "Wellness",
-        "Lifestyle",
-      ],
-      memberCount: 1156,
-      averageRating: 4.5,
-      location: {
-        lat: 34.0522,
-        lng: -118.2437,
-        city: "Los Angeles",
-        country: "USA",
-        address: "101 Fitness Blvd, Los Angeles, CA",
-      },
-      activityLevel: "high",
-      image:
-        "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80",
-      upcomingEvents: 7,
-      memberGrowth: "+20%",
-      gradient: "gradient-quaternary",
-      trending: true,
-      createdAt: "2023-02-28",
-      lastActivity: "2024-01-16",
-      engagementScore: 85,
-      isVerified: true,
-      isNew: false,
-      featured: false,
-      language: "English",
-      privacy: "public",
-    },
-    {
-      id: "5",
-      name: "Chicago Food Enthusiasts",
-      description:
-        "Culinary experiences and food culture exploration in the Windy City. Discover hidden gems, share recipes, and enjoy group dining experiences.",
-      category: "Hobbies",
-      tags: ["Food", "Culinary", "Restaurants", "Cooking", "Local", "Culture"],
-      memberCount: 789,
-      averageRating: 4.4,
-      location: {
-        lat: 41.8781,
-        lng: -87.6298,
-        city: "Chicago",
-        country: "USA",
-        address: "654 Culinary Court, Chicago, IL",
-      },
-      activityLevel: "medium",
-      image: "/placeholder.svg?height=200&width=300",
-      upcomingEvents: 4,
-      memberGrowth: "+5%",
-      gradient: "gradient-primary",
-      trending: false,
-      createdAt: "2023-04-12",
-      lastActivity: "2024-01-13",
-      engagementScore: 70,
-      isVerified: false,
-      isNew: false,
-      featured: false,
-      language: "English",
-      privacy: "public",
-    },
-    {
-      id: "6",
-      name: "Global Digital Nomads",
-      description:
-        "Remote workers and digital nomads connecting from around the world. Share travel tips, find co-working spaces, and build a location-independent lifestyle.",
-      category: "Hobbies",
-      tags: [
-        "Remote",
-        "Travel",
-        "Digital Nomad",
-        "Freelance",
-        "Location Independent",
-        "Community",
-      ],
-      memberCount: 3421,
-      averageRating: 4.9,
-      location: {
-        lat: 40.7282,
-        lng: -74.0776,
-        city: "Global",
-        country: "Worldwide",
-        address: "Online Community",
-      },
-      activityLevel: "high",
-      image: "/placeholder.svg?height=200&width=300",
-      upcomingEvents: 8,
-      memberGrowth: "+35%",
-      gradient: "gradient-secondary",
-      trending: true,
-      createdAt: "2022-11-05",
-      lastActivity: "2024-01-16",
-      engagementScore: 95,
-      isRecommended: true,
-      recommendationScore: 0.82,
-      recommendationReason: "Popular among users with similar interests",
-      recommendationMethod: "popularity_based",
-      isVerified: true,
-      isNew: false,
-      featured: true,
-      language: "English",
-      privacy: "public",
-    },
-    {
-      id: "7",
-      name: "Austin Music Makers",
-      description:
-        "Musicians, producers, and music lovers in Austin. Collaborate on projects, share your music, and discover the local music scene.",
-      category: "Music",
-      tags: [
-        "Music",
-        "Musicians",
-        "Production",
-        "Collaboration",
-        "Local Scene",
-        "Austin",
-      ],
-      memberCount: 892,
-      averageRating: 4.6,
-      location: {
-        lat: 30.2672,
-        lng: -97.7431,
-        city: "Austin",
-        country: "USA",
-        address: "456 Music Row, Austin, TX",
-      },
-      activityLevel: "medium",
-      image: "/placeholder.svg?height=200&width=300",
-      upcomingEvents: 3,
-      memberGrowth: "+18%",
-      gradient: "gradient-tertiary",
-      trending: false,
-      createdAt: "2023-05-20",
-      lastActivity: "2024-01-15",
-      engagementScore: 78,
-      isVerified: false,
-      isNew: true,
-      featured: false,
-      language: "English",
-      privacy: "public",
-    },
-  ];
+  // Data will be loaded from database
 
   const categories = [
     { value: "all", label: "All Categories", icon: "🎯", color: "bg-gray-100" },
@@ -753,11 +486,113 @@ export default function DiscoverPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // Simulate API calls
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setCommunities(mockCommunities);
+      const supabase = getSupabaseBrowser();
+      
+      // Fetch communities from database with category relationship
+      const { data: communitiesData, error } = await supabase
+        .from("communities")
+        .select(`
+          id,
+          name,
+          description,
+          category_id,
+          categories (
+            id,
+            name
+          ),
+          logo_url,
+          banner_url,
+          member_count,
+          created_at,
+          location,
+          is_private
+        `)
+        .eq("is_private", false) // Only show public communities
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching communities:", error);
+        toast.error("Failed to load communities");
+        return;
+      }
+
+      // Transform database data to match Community interface
+      const transformedCommunities: Community[] = (communitiesData || []).map((comm) => {
+        // Parse location - it could be a string or a JSON object
+        let location: any = {};
+        if (typeof comm.location === 'string') {
+          try {
+            location = JSON.parse(comm.location);
+          } catch {
+            // If not JSON, treat as address string
+            location = { address: comm.location };
+          }
+        } else {
+          location = comm.location || {};
+        }
+        
+        // Get category name from relationship or fallback to "General"
+        const categoryName = (comm.categories as any)?.name || "General";
+        
+        return {
+          id: comm.id,
+          name: comm.name,
+          description: comm.description || "No description available",
+          category: categoryName,
+          tags: [], // Tags column doesn't exist in database yet
+          memberCount: comm.member_count || 0,
+          averageRating: 4.5, // Default rating (can be calculated from reviews if you have them)
+          location: {
+            lat: location.lat || 0,
+            lng: location.lng || 0,
+            city: location.city || "Unknown",
+            country: location.country || "Unknown",
+            address: location.address || comm.location || "",
+          },
+          activityLevel: "medium", // Can be calculated based on recent activity
+          image: comm.banner_url || comm.logo_url || "/placeholder.svg?height=200&width=300",
+          upcomingEvents: 0, // Will be updated with actual event count
+          memberGrowth: "+0%", // Can be calculated if you track historical data
+          gradient: "gradient-primary",
+          trending: false, // Can be calculated based on recent growth/activity
+          createdAt: comm.created_at,
+          lastActivity: comm.created_at, // Can be updated with actual last activity
+          engagementScore: 70, // Can be calculated based on various metrics
+          isRecommended: false,
+          recommendationScore: 0,
+          isVerified: false, // Add verification field to database if needed
+          isNew: new Date(comm.created_at).getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000, // Created within last 30 days
+          featured: false,
+          language: "English",
+          privacy: comm.is_private ? "private" : "public",
+        };
+      });
+
+      // Fetch event counts for each community
+      const communityIds = transformedCommunities.map(c => c.id);
+      if (communityIds.length > 0) {
+        const { data: eventsData } = await supabase
+          .from("events")
+          .select("community_id")
+          .in("community_id", communityIds)
+          .gte("start_time", new Date().toISOString());
+
+        // Count events per community
+        const eventCounts: Record<string, number> = {};
+        (eventsData || []).forEach((event: any) => {
+          eventCounts[event.community_id] = (eventCounts[event.community_id] || 0) + 1;
+        });
+
+        // Update event counts
+        transformedCommunities.forEach((comm) => {
+          comm.upcomingEvents = eventCounts[comm.id] || 0;
+        });
+      }
+
+      setCommunities(transformedCommunities);
     } catch (error) {
       console.error("Failed to load data:", error);
+      toast.error("Failed to load communities");
     } finally {
       setIsLoading(false);
     }
@@ -882,16 +717,16 @@ export default function DiscoverPage() {
   ]);
 
   const allCategories = useMemo(
-    () => [...new Set(mockCommunities.map((c) => c.category))],
-    [mockCommunities]
+    () => [...new Set(communities.map((c) => c.category))],
+    [communities]
   );
   const allLocations = useMemo(
-    () => [...new Set(mockCommunities.map((c) => c.location.city))],
-    [mockCommunities]
+    () => [...new Set(communities.map((c) => c.location.city))].filter(city => city !== "Unknown"),
+    [communities]
   );
   const allActivityLevels = useMemo(
-    () => [...new Set(mockCommunities.map((c) => c.activityLevel))],
-    [mockCommunities]
+    () => ["high", "medium", "low"],
+    []
   );
 
   const calculateDistance = (

@@ -32,8 +32,6 @@ export default async function LoginPage() {
     // Redirect based on role
     if (userType === "super_admin") {
       redirect("/superadmin")
-    } else if (isAdminOfAnyCommunity) {
-      redirect("/community-admin")
     } else {
       redirect("/dashboard")
     }

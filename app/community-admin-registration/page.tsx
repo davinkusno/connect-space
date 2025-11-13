@@ -259,9 +259,9 @@ export default function CommunityAdminRegistrationPage() {
 
       toast.success("Community created successfully!");
 
-      // Redirect to community admin dashboard
+      // Redirect to dashboard
       setTimeout(() => {
-        router.push("/community-admin");
+        router.push("/dashboard");
       }, 500);
     } catch (error: any) {
       console.error("Error creating community:", error);

@@ -66,10 +66,8 @@ export function LoginForm() {
           // Redirect based on role
           if (userType === "super_admin") {
             router.push("/superadmin");
-          } else if (isAdminOfAnyCommunity) {
-            router.push("/community-admin");
           } else {
-            router.push("/");
+            router.push("/dashboard");
           }
         } else {
           router.push("/");
