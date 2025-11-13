@@ -51,13 +51,23 @@ export function LoginForm() {
             .eq("id", user.id)
             .single();
 
-          const userRole = userData?.user_type;
+          const userType = userData?.user_type;
+
+          // Check if user is admin of any community
+          const { data: adminCommunities } = await supabase
+            .from("community_members")
+            .select("community_id")
+            .eq("user_id", user.id)
+            .eq("role", "admin")
+            .limit(1);
+
+          const isAdminOfAnyCommunity = adminCommunities && adminCommunities.length > 0;
 
           // Redirect based on role
-          if (userRole === "community_admin") {
-            router.push("/community-admin");
-          } else if (userRole === "super_admin") {
+          if (userType === "super_admin") {
             router.push("/superadmin");
+          } else if (isAdminOfAnyCommunity) {
+            router.push("/community-admin");
           } else {
             router.push("/");
           }

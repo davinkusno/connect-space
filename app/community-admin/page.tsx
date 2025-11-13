@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -120,12 +121,16 @@ export default function CommunityAdminPage() {
   }
 
   const [discussionTopics, setDiscussionTopics] = useState<DiscussionTopic[]>([])
+  const searchParams = useSearchParams()
+  const currentCommunityId = searchParams?.get("community") || null
 
   useEffect(() => {
-    loadCommunityData()
-  }, [])
+    // Load community data based on URL param
+    const communityIdFromUrl = searchParams?.get("community")
+    loadCommunityData(communityIdFromUrl || undefined)
+  }, [searchParams])
 
-  const loadCommunityData = async () => {
+  const loadCommunityData = async (specificCommunityId?: string) => {
     try {
       const supabase = getSupabaseBrowser()
       
@@ -139,35 +144,72 @@ export default function CommunityAdminPage() {
         return
       }
 
-      // Try to get community where user is creator
-      let { data: communityData, error: communityError } = await supabase
-        .from("communities")
-        .select("*")
-        .eq("creator_id", user.id)
-        .limit(1)
-        .maybeSingle()
+      let communityData = null
 
-      // If not found as creator, try to get community where user is admin
-      if (!communityData || communityError) {
-        const { data: memberData } = await supabase
-          .from("community_members")
-          .select("community_id")
-          .eq("user_id", user.id)
-          .eq("role", "admin")
+      // If specific community ID provided, load that one
+      if (specificCommunityId) {
+        // Verify user has access (is creator or admin)
+        const { data: commData } = await supabase
+          .from("communities")
+          .select("*")
+          .eq("id", specificCommunityId)
+          .single()
+
+        if (commData) {
+          // Check if user is creator
+          if (commData.creator_id === user.id) {
+            communityData = commData
+          } else {
+            // Check if user is admin
+            const { data: memberData } = await supabase
+              .from("community_members")
+              .select("role")
+              .eq("community_id", specificCommunityId)
+              .eq("user_id", user.id)
+              .eq("role", "admin")
+              .maybeSingle()
+
+            if (memberData) {
+              communityData = commData
+            }
+          }
+        }
+      }
+
+      // If no specific community or access denied, get first available
+      if (!communityData) {
+        // Try to get community where user is creator
+        let { data: commData, error: communityError } = await supabase
+          .from("communities")
+          .select("*")
+          .eq("creator_id", user.id)
           .limit(1)
           .maybeSingle()
 
-        if (memberData) {
-          const { data: commData } = await supabase
-            .from("communities")
-            .select("*")
-            .eq("id", memberData.community_id)
-            .single()
+        // If not found as creator, try to get community where user is admin
+        if (!commData || communityError) {
+          const { data: memberData } = await supabase
+            .from("community_members")
+            .select("community_id")
+            .eq("user_id", user.id)
+            .eq("role", "admin")
+            .limit(1)
+            .maybeSingle()
 
-          if (commData) {
-            communityData = commData
+          if (memberData) {
+            const { data: comm } = await supabase
+              .from("communities")
+              .select("*")
+              .eq("id", memberData.community_id)
+              .single()
+
+            if (comm) {
+              commData = comm
+            }
           }
         }
+
+        communityData = commData
       }
 
       // If we have real community data, use it directly
@@ -562,6 +604,11 @@ export default function CommunityAdminPage() {
         <CommunityAdminNav 
           communityProfilePicture={community?.profilePicture}
           communityName={community?.name}
+          currentCommunityId={currentCommunityId || undefined}
+          onCommunityChange={(communityId) => {
+            setCurrentCommunityId(communityId)
+            loadCommunityData(communityId)
+          }}
         />
         <FloatingElements />
         <div className="max-w-7xl mx-auto p-8 relative z-10">

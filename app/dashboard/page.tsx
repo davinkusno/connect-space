@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { RecommendationPanel } from "@/components/ai/recommendation-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createClient } from "@/lib/supabase/client";
+import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
 import {
   CalendarIcon,
   Users,
@@ -37,6 +37,9 @@ import {
   Bookmark,
   Clock,
   MapPin,
+  Building2,
+  Crown,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
@@ -48,6 +51,18 @@ import { EnhancedQuickActions } from "@/components/dashboard/enhanced-quick-acti
 import { EnhancedActivityFeed } from "@/components/dashboard/enhanced-activity-feed";
 import { EnhancedEventCard } from "@/components/dashboard/enhanced-event-card";
 
+interface Community {
+  id: string;
+  name: string;
+  description?: string;
+  logo_url?: string;
+  banner_url?: string;
+  created_at?: string;
+  role?: "admin" | "moderator" | "member";
+  member_count?: number;
+  isCreator?: boolean;
+}
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("home");
   const [username, setUsername] = useState<string>("there");
@@ -57,11 +72,16 @@ export default function DashboardPage() {
   const eventsPerPage = 4;
   const [userBadges, setUserBadges] = useState<any[]>([]);
   const [isLoadingBadges, setIsLoadingBadges] = useState(false);
+  const [createdCommunities, setCreatedCommunities] = useState<Community[]>([]);
+  const [joinedCommunities, setJoinedCommunities] = useState<Community[]>([]);
+  const [isLoadingCommunities, setIsLoadingCommunities] = useState(true);
+  const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const supabase = createClient();
+        const supabase = getSupabaseBrowser();
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -89,6 +109,164 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    const fetchCommunities = async () => {
+      setIsLoadingCommunities(true);
+      try {
+        const session = await getClientSession();
+        if (!session?.user) {
+          setIsLoadingCommunities(false);
+          return;
+        }
+
+        const supabase = getSupabaseBrowser();
+
+        // Fetch communities created by user
+        const { data: createdData, error: createdError } = await supabase
+          .from("communities")
+          .select(`
+            id,
+            name,
+            description,
+            logo_url,
+            banner_url,
+            created_at,
+            member_count
+          `)
+          .eq("creator_id", session.user.id)
+          .order("created_at", { ascending: false });
+
+        if (!createdError && createdData) {
+          setCreatedCommunities(
+            createdData.map((comm) => ({ ...comm, isCreator: true }))
+          );
+        }
+
+        // Fetch communities where user is a member (but not creator)
+        const { data: memberData, error: memberError } = await supabase
+          .from("community_members")
+          .select(`
+            community_id,
+            role,
+            communities (
+              id,
+              name,
+              description,
+              logo_url,
+              banner_url,
+              created_at,
+              member_count
+            )
+          `)
+          .eq("user_id", session.user.id)
+          .order("joined_at", { ascending: false });
+
+        if (!memberError && memberData) {
+          // Filter out communities where user is creator (already in createdCommunities)
+          const createdIds = new Set(createdData?.map((c) => c.id) || []);
+          const joined = memberData
+            .filter((m: any) => m.communities && !createdIds.has(m.communities.id))
+            .map((m: any) => ({
+              ...m.communities,
+              role: m.role,
+            }));
+          setJoinedCommunities(joined);
+        }
+      } catch (error) {
+        console.error("Error fetching communities:", error);
+      } finally {
+        setIsLoadingCommunities(false);
+      }
+    };
+
+    // Fetch communities when dashboard loads
+    fetchCommunities();
+  }, []);
+
+  useEffect(() => {
+    const fetchJoinedEvents = async () => {
+      setIsLoadingEvents(true);
+      try {
+        const session = await getClientSession();
+        if (!session?.user) {
+          setIsLoadingEvents(false);
+          return;
+        }
+
+        const supabase = getSupabaseBrowser();
+
+        // Fetch events where user has RSVP'd (going or maybe)
+        const { data: attendeeData, error: attendeeError } = await supabase
+          .from("event_attendees")
+          .select(`
+            event_id,
+            status,
+            registered_at,
+            events (
+              id,
+              title,
+              description,
+              start_time,
+              end_time,
+              location,
+              image_url,
+              category,
+              community_id,
+              communities (
+                id,
+                name,
+                logo_url
+              )
+            )
+          `)
+          .eq("user_id", session.user.id)
+          .in("status", ["going", "maybe"])
+          .order("registered_at", { ascending: false });
+
+        if (!attendeeError && attendeeData) {
+          // Filter to only upcoming events
+          const now = new Date();
+          const upcomingEvents = attendeeData
+            .filter((item: any) => {
+              if (!item.events || !item.events.start_time) return false;
+              const eventStart = new Date(item.events.start_time);
+              return eventStart >= now;
+            })
+            .map((item: any) => ({
+              id: item.events.id,
+              title: item.events.title,
+              description: item.events.description,
+              date: item.events.start_time,
+              time: new Date(item.events.start_time).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              location: item.events.location,
+              image: item.events.image_url,
+              category: item.events.category,
+              community: item.events.communities?.name || "Community",
+              communityId: item.events.community_id,
+              communityLogo: item.events.communities?.logo_url,
+              status: item.status, // 'going' or 'maybe'
+              registeredAt: item.registered_at,
+            }))
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .slice(0, 5); // Limit to 5 most recent
+
+          setJoinedEvents(upcomingEvents);
+        }
+      } catch (error) {
+        console.error("Error fetching joined events:", error);
+      } finally {
+        setIsLoadingEvents(false);
+      }
+    };
+
+    if (activeTab === "home" || activeTab === "events") {
+      fetchJoinedEvents();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
     const fetchUserBadges = async () => {
       if (activeTab !== "achievements") return;
 
@@ -109,59 +287,8 @@ export default function DashboardPage() {
     fetchUserBadges();
   }, [activeTab]);
 
-  const userCommunities = [
-    {
-      id: 1,
-      name: "Tech Innovators",
-      role: "Member",
-      members: 1247,
-      unreadMessages: 5,
-      lastActivity: "2 hours ago",
-      image: "/placeholder.svg?height=60&width=60",
-      gradient: "from-blue-500 to-purple-600",
-      bgColor: "bg-blue-50",
-      textColor: "text-blue-700",
-      description:
-        "A community for technology enthusiasts and innovators to share ideas and collaborate on cutting-edge projects.",
-      engagement: 87,
-      upcomingEvents: 3,
-      newMembers: 12,
-    },
-    {
-      id: 2,
-      name: "Outdoor Adventures",
-      role: "Moderator",
-      members: 892,
-      unreadMessages: 12,
-      lastActivity: "1 hour ago",
-      image: "/placeholder.svg?height=60&width=60",
-      gradient: "from-green-500 to-teal-600",
-      bgColor: "bg-green-50",
-      textColor: "text-green-700",
-      description:
-        "Join fellow outdoor enthusiasts for hiking, camping, and adventure activities in beautiful locations.",
-      engagement: 92,
-      upcomingEvents: 5,
-      newMembers: 8,
-    },
-    {
-      id: 3,
-      name: "Creative Writers",
-      role: "Admin",
-      members: 634,
-      unreadMessages: 3,
-      lastActivity: "30 minutes ago",
-      image: "/placeholder.svg?height=60&width=60",
-      gradient: "from-pink-500 to-rose-600",
-      bgColor: "bg-pink-50",
-      textColor: "text-pink-700",
-      description:
-        "A supportive community for writers of all levels to share their work and improve their craft.",
-      engagement: 78,
-      upcomingEvents: 2,
-      newMembers: 5,
-    },
-  ];
+  // Calculate total communities count
+  const totalCommunities = createdCommunities.length + joinedCommunities.length;
 
   const upcomingEvents = [
     {
@@ -337,7 +464,7 @@ export default function DashboardPage() {
   const stats = [
     {
       title: "Communities",
-      value: "3",
+      value: totalCommunities.toString(),
       icon: Users,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
@@ -345,12 +472,12 @@ export default function DashboardPage() {
       trend: "up" as const,
     },
     {
-      title: "Events Attended",
-      value: "12",
-      icon: CalendarIcon,
-      color: "text-green-600",
-      bgColor: "bg-green-50",
-      gradient: "from-green-500 to-green-600",
+      title: "Created",
+      value: createdCommunities.length.toString(),
+      icon: Building2,
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
+      gradient: "from-purple-500 to-purple-600",
       trend: "up" as const,
     },
     {
@@ -366,10 +493,17 @@ export default function DashboardPage() {
 
   const quickActions = [
     {
+      title: "Create Community",
+      description: "Start your own community",
+      icon: Plus,
+      href: "/create-community",
+      color: "bg-purple-500 hover:bg-purple-600",
+    },
+    {
       title: "Join Community",
       description: "Discover and join new communities",
       icon: Users,
-      href: "/discover",
+      href: "/communities",
       color: "bg-green-500 hover:bg-green-600",
     },
     {
@@ -377,7 +511,7 @@ export default function DashboardPage() {
       description: "Find interesting events to attend",
       icon: Search,
       href: "/events",
-      color: "bg-purple-500 hover:bg-purple-600",
+      color: "bg-blue-500 hover:bg-blue-600",
     },
     {
       title: "Saved Events",
@@ -458,46 +592,251 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Third Row: Enhanced Activity Feed */}
+            {/* Third Row: Recent Communities + Upcoming Events */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Recent Communities Preview */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <div className="p-1.5 bg-purple-100 rounded-lg">
+                        <Users className="h-4 w-4 text-purple-600" />
+                      </div>
+                      My Communities
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => setActiveTab("communities")}
+                    >
+                      View All
+                      <ChevronRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  {isLoadingCommunities ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+                    </div>
+                  ) : totalCommunities === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Users className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Start by creating or joining a community
+                      </p>
+                      <Link href="/create-community">
+                        <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
+                          <Plus className="h-4 w-4 mr-1" />
+                          Create Community
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Show created communities first */}
+                      {createdCommunities.slice(0, 2).map((community) => (
+                        <Link
+                          key={community.id}
+                          href={`/community/${community.id}`}
+                          className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50/50 transition-all group"
+                        >
+                          <Avatar className="h-10 w-10 ring-2 ring-purple-200">
+                            <AvatarImage src={community.logo_url || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-gradient-to-r from-purple-500 to-blue-600 text-white text-sm">
+                              {community.name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors truncate">
+                                {community.name}
+                              </h4>
+                              <Badge variant="secondary" className="text-xs">
+                                <Crown className="h-3 w-3 mr-1" />
+                                Creator
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-gray-500 truncate">
+                              {community.member_count || 0} members
+                            </p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-purple-600 transition-colors" />
+                        </Link>
+                      ))}
+                      {/* Show joined communities */}
+                      {joinedCommunities.slice(0, 2 - createdCommunities.slice(0, 2).length).map((community) => (
+                        <Link
+                          key={community.id}
+                          href={`/community/${community.id}`}
+                          className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all group"
+                        >
+                          <Avatar className="h-10 w-10 ring-2 ring-blue-200">
+                            <AvatarImage src={community.logo_url || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm">
+                              {community.name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
+                                {community.name}
+                              </h4>
+                              <Badge variant="secondary" className="text-xs">
+                                {community.role === "admin" ? (
+                                  <>
+                                    <Crown className="h-3 w-3 mr-1" />
+                                    Admin
+                                  </>
+                                ) : community.role === "moderator" ? (
+                                  "Mod"
+                                ) : (
+                                  "Member"
+                                )}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-gray-500 truncate">
+                              {community.member_count || 0} members
+                            </p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                        </Link>
+                      ))}
+                      {totalCommunities > 3 && (
+                        <Button
+                          variant="ghost"
+                          className="w-full text-sm text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                          onClick={() => setActiveTab("communities")}
+                        >
+                          View {totalCommunities - 2} more communities
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Events I'm Attending Preview */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <div className="p-1.5 bg-green-100 rounded-lg">
+                        <CalendarIcon className="h-4 w-4 text-green-600" />
+                      </div>
+                      Events I'm Attending
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => setActiveTab("events")}
+                    >
+                      View All
+                      <ChevronRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  {isLoadingEvents ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-8 h-8 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"></div>
+                    </div>
+                  ) : joinedEvents.length > 0 ? (
+                    <div className="space-y-3">
+                      {joinedEvents.slice(0, 3).map((event) => (
+                        <Link
+                          key={event.id}
+                          href={`/events/${event.id}`}
+                          className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50/50 transition-all group"
+                        >
+                          <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <CalendarIcon className="h-6 w-6 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="text-sm font-semibold text-gray-900 group-hover:text-green-600 transition-colors line-clamp-1">
+                                {event.title}
+                              </h4>
+                              {event.status === "maybe" && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Maybe
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <CalendarIcon className="h-3 w-3" />
+                              <span>
+                                {new Date(event.date).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </span>
+                              <span>•</span>
+                              <Clock className="h-3 w-3" />
+                              <span>{event.time}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {event.communityLogo && (
+                                <Avatar className="h-4 w-4">
+                                  <AvatarImage src={event.communityLogo} />
+                                  <AvatarFallback className="text-xs">
+                                    {event.community.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+                              <p className="text-xs text-gray-600 line-clamp-1">
+                                {event.community}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-green-600 transition-colors mt-1" />
+                        </Link>
+                      ))}
+                      {joinedEvents.length > 3 && (
+                        <Button
+                          variant="ghost"
+                          className="w-full text-sm text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={() => setActiveTab("events")}
+                        >
+                          View {joinedEvents.length - 3} more events
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <CalendarIcon className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">
+                        No events you're attending yet
+                      </p>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Join events from your communities to see them here
+                      </p>
+                      <Link href="/events">
+                        <Button size="sm" variant="outline">
+                          <Compass className="h-4 w-4 mr-1" />
+                          Discover Events
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Fourth Row: Enhanced Activity Feed */}
             <EnhancedActivityFeed
               activities={recentActivity}
               showFilters={false}
               maxHeight="h-64"
             />
-
-            {/* Fourth Row: Upcoming Events Preview */}
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <div className="p-1.5 bg-green-100 rounded-lg">
-                      <CalendarIcon className="h-4 w-4 text-green-600" />
-                    </div>
-                    Upcoming Events
-                  </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => setActiveTab("events")}
-                  >
-                    View All
-                    <ChevronRight className="h-3 w-3 ml-1" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {upcomingEvents.slice(0, 3).map((event) => (
-                    <EnhancedEventCard
-                      key={event.id}
-                      event={event}
-                      variant="compact"
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Events Tab - Enhanced event cards with calendar */}
@@ -746,47 +1085,82 @@ export default function DashboardPage() {
             <WishlistSummary />
           </TabsContent>
 
-          {/* Communities Tab - Enhanced community cards */}
+          {/* Communities Tab - Enhanced community cards with Created and Joined sections */}
           <TabsContent value="communities" className="space-y-6">
+            {/* Create Community CTA */}
+            <Card className="border-2 border-dashed border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-purple-100 rounded-lg">
+                      <Building2 className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                        Start Your Own Community
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Create a space for like-minded people to connect and grow together
+                      </p>
+                    </div>
+                  </div>
+                  <Link href="/create-community">
+                    <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Community
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Communities Created Section */}
+            {createdCommunities.length > 0 && (
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <div className="p-1.5 bg-blue-100 rounded-lg">
-                        <Users className="h-4 w-4 text-blue-600" />
+                        <div className="p-1.5 bg-purple-100 rounded-lg">
+                          <Crown className="h-4 w-4 text-purple-600" />
                       </div>
-                      My Communities
+                        Communities I Created ({createdCommunities.length})
                     </CardTitle>
                     <CardDescription className="text-sm text-gray-500 mt-1">
-                      Communities you've joined
+                        Communities you created and manage
                     </CardDescription>
                   </div>
-                  <Link href="/discover">
+                    <Link href="/create-community">
                     <Button variant="outline" size="sm">
                       <Plus className="h-3 w-3 mr-1" />
-                      Join More
+                        Create Another
                     </Button>
                   </Link>
                 </div>
               </CardHeader>
               <CardContent className="p-4 pt-0">
+                  {isLoadingCommunities ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center">
+                        <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-sm text-gray-500">Loading communities...</p>
+                      </div>
+                    </div>
+                  ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {userCommunities.map((community) => (
+                      {createdCommunities.map((community) => (
                     <Card
                       key={community.id}
-                      className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-gray-200"
+                          className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-purple-200 bg-purple-50/30"
                     >
                       <CardContent className="p-5">
                         {/* Community Avatar and Info */}
                         <div className="flex items-start gap-3 mb-4">
-                          <Avatar className="h-14 w-14 ring-2 ring-purple-100">
+                              <Avatar className="h-14 w-14 ring-2 ring-purple-200">
                             <AvatarImage
-                              src={community.image || "/placeholder.svg"}
+                                  src={community.logo_url || "/placeholder.svg"}
                             />
-                            <AvatarFallback
-                              className={`bg-gradient-to-r ${community.gradient} text-white font-bold`}
-                            >
+                                <AvatarFallback className="bg-gradient-to-r from-purple-500 to-blue-600 text-white font-bold">
                               {community.name.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
@@ -797,21 +1171,158 @@ export default function DashboardPage() {
                                 {community.name}
                               </h3>
                             </Link>
+                                <Badge variant="secondary" className="mt-1 text-xs">
+                                  <Crown className="h-3 w-3 mr-1" />
+                                  Creator
+                                </Badge>
                           </div>
                         </div>
+
+                            {/* Description */}
+                            {community.description && (
+                              <p className="text-sm text-gray-600 line-clamp-2 mb-4">
+                                {community.description}
+                              </p>
+                            )}
 
                         {/* Stats */}
                         <div className="space-y-2 mb-4">
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Users className="h-4 w-4" />
                             <span>
-                              {community.members.toLocaleString()} members
+                                  {community.member_count || 0} members
                             </span>
                           </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2">
+                              <Link
+                                href={`/community/${community.id}`}
+                                className="flex-1"
+                              >
+                                <Button variant="outline" className="w-full">
+                                  View
+                                </Button>
+                              </Link>
+                              <Link
+                                href={`/community-admin?community=${community.id}`}
+                                className="flex-1"
+                              >
+                                <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                                  Manage
+                                </Button>
+                              </Link>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Communities Joined Section */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <div className="p-1.5 bg-blue-100 rounded-lg">
+                        <UserPlus className="h-4 w-4 text-blue-600" />
+                      </div>
+                      My Communities ({joinedCommunities.length})
+                    </CardTitle>
+                    <CardDescription className="text-sm text-gray-500 mt-1">
+                      Communities you're part of
+                    </CardDescription>
+                  </div>
+                  <Link href="/communities">
+                    <Button variant="outline" size="sm">
+                      <Plus className="h-3 w-3 mr-1" />
+                      Join More
+                    </Button>
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                {isLoadingCommunities ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-sm text-gray-500">Loading communities...</p>
+                    </div>
+                  </div>
+                ) : joinedCommunities.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Users className="h-10 w-10 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      No communities yet
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-6">
+                      Join communities to connect with like-minded people
+                    </p>
+                    <Link href="/communities">
+                      <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                        <Compass className="h-4 w-4 mr-2" />
+                        Discover Communities
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {joinedCommunities.map((community) => (
+                      <Card
+                        key={community.id}
+                        className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-gray-200"
+                      >
+                        <CardContent className="p-5">
+                          {/* Community Avatar and Info */}
+                          <div className="flex items-start gap-3 mb-4">
+                            <Avatar className="h-14 w-14 ring-2 ring-blue-100">
+                              <AvatarImage
+                                src={community.logo_url || "/placeholder.svg"}
+                              />
+                              <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold">
+                                {community.name.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+
+                            <div className="flex-1 min-w-0">
+                              <Link href={`/community/${community.id}`}>
+                                <h3 className="text-base font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2">
+                                  {community.name}
+                                </h3>
+                              </Link>
+                              <Badge variant="secondary" className="mt-1 text-xs">
+                                {community.role === "admin" && (
+                                  <Crown className="h-3 w-3 mr-1" />
+                                )}
+                                {community.role === "admin"
+                                  ? "Admin"
+                                  : community.role === "moderator"
+                                  ? "Moderator"
+                                  : "Member"}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {/* Description */}
+                          {community.description && (
+                            <p className="text-sm text-gray-600 line-clamp-2 mb-4">
+                              {community.description}
+                            </p>
+                          )}
+
+                          {/* Stats */}
+                          <div className="space-y-2 mb-4">
                           <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <CalendarIcon className="h-4 w-4" />
+                              <Users className="h-4 w-4" />
                             <span>
-                              {community.upcomingEvents || 0} upcoming events
+                                {community.member_count || 0} members
                             </span>
                           </div>
                         </div>
@@ -829,6 +1340,7 @@ export default function DashboardPage() {
                     </Card>
                   ))}
                 </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

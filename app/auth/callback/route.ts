@@ -54,43 +54,67 @@ export async function GET(request: NextRequest) {
           return NextResponse.redirect(`${origin}/`);
         }
 
-        // Redirect based on user role and onboarding status
+        // Check user status and determine effective role
         const { data: userStatus } = await supabase
           .from("users")
           .select("user_type, onboarding_completed, role_selected")
           .eq("id", data.user.id)
           .single();
 
-        const userRole = userStatus?.user_type;
+        const userType = userStatus?.user_type;
         const onboardingCompleted = userStatus?.onboarding_completed;
         const roleSelected = userStatus?.role_selected;
 
-        // Check if role is selected (for OAuth users)
-        if (!roleSelected) {
-          return NextResponse.redirect(`${origin}/onboarding/role`);
+        // Check if user is admin of any community (new way)
+        const { data: adminCommunities } = await supabase
+          .from("community_members")
+          .select("community_id")
+          .eq("user_id", data.user.id)
+          .eq("role", "admin")
+          .limit(1);
+
+        const isAdminOfAnyCommunity = adminCommunities && adminCommunities.length > 0;
+
+        // Determine effective role
+        let effectiveRole = userType || "user";
+        if (effectiveRole !== "super_admin" && isAdminOfAnyCommunity) {
+          effectiveRole = "community_admin";
         }
 
-        // Redirect based on user role
-        switch (userRole) {
-          case "super_admin":
-            return NextResponse.redirect(`${origin}/superadmin`);
-          case "community_admin":
-            // If onboarding not completed, go to registration
-            if (!onboardingCompleted) {
-              return NextResponse.redirect(
-                `${origin}/community-admin-registration`
-              );
-            }
-            // Otherwise go to dashboard
-            return NextResponse.redirect(`${origin}/community-admin`);
-          case "user":
-          default:
-            // If onboarding not completed, go to onboarding
-            if (!onboardingCompleted) {
-              return NextResponse.redirect(`${origin}/onboarding`);
-            }
-            return NextResponse.redirect(`${origin}/`);
+        // Super admin always goes to superadmin
+        if (effectiveRole === "super_admin") {
+          return NextResponse.redirect(`${origin}/superadmin`);
         }
+
+        // If user is admin of any community, check onboarding
+        if (isAdminOfAnyCommunity) {
+          // Check if they have completed community registration
+          const { data: communities } = await supabase
+            .from("communities")
+            .select("id")
+            .eq("creator_id", data.user.id)
+            .limit(1);
+
+          const hasCreatedCommunity = communities && communities.length > 0;
+          
+          if (!hasCreatedCommunity && !onboardingCompleted) {
+            return NextResponse.redirect(`${origin}/community-admin-registration`);
+          }
+          
+          return NextResponse.redirect(`${origin}/community-admin`);
+        }
+
+        // Regular users: check onboarding
+        if (!onboardingCompleted) {
+          // If role not selected, show role selection (optional now)
+          if (!roleSelected) {
+            return NextResponse.redirect(`${origin}/onboarding/role`);
+          }
+          return NextResponse.redirect(`${origin}/onboarding`);
+        }
+
+        // Default to dashboard
+        return NextResponse.redirect(`${origin}/`);
       }
     } catch (error) {
       console.error("Unexpected auth callback error:", error);

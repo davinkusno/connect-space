@@ -28,36 +28,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User ID mismatch" }, { status: 403 });
     }
 
-    // Validate role
-    if (!role || !["user", "community_admin"].includes(role)) {
+    // Validate role (optional preference, not required)
+    if (role && !["user", "community_admin"].includes(role)) {
       return NextResponse.json(
         { error: "Invalid role. Must be 'user' or 'community_admin'" },
         { status: 400 }
       );
     }
 
-    // Update user role
+    // Update user role preference (optional)
+    // Note: Actual community admin access is determined by community_members table
+    const updateData: any = {
+      role_selected: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Only update user_type if role is provided (for preference/backward compatibility)
+    if (role) {
+      updateData.user_type = role;
+    }
+
     const { error: updateError } = await supabase
       .from("users")
-      .update({
-        user_type: role,
-        role_selected: true,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", userId);
 
     if (updateError) {
       console.error("Error updating user role:", updateError);
       return NextResponse.json(
-        { error: "Failed to save role" },
+        { error: "Failed to save role preference" },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: "Role saved successfully",
-      role: role,
+      message: "Role preference saved successfully",
+      role: role || "user",
     });
   } catch (error) {
     console.error("Save role error:", error);

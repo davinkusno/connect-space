@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -20,23 +20,41 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  Building2,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 interface CommunityAdminNavProps {
   communityProfilePicture?: string;
   communityName?: string;
+  currentCommunityId?: string;
+  onCommunityChange?: (communityId: string) => void;
+}
+
+interface Community {
+  id: string;
+  name: string;
+  logo_url?: string;
 }
 
 export function CommunityAdminNav({
   communityProfilePicture = "/placeholder-user.jpg",
   communityName = "Community",
+  currentCommunityId,
+  onCommunityChange,
 }: CommunityAdminNavProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [isLoadingCommunities, setIsLoadingCommunities] = useState(true);
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(
+    currentCommunityId || null
+  );
 
   // Determine active tab based on pathname
   const getActiveTab = () => {
@@ -54,12 +72,92 @@ export function CommunityAdminNav({
 
   const activeTab = getActiveTab();
 
+  // Load user's admin communities
+  useEffect(() => {
+    const loadCommunities = async () => {
+      try {
+        const session = await getClientSession();
+        if (!session?.user) return;
+
+        const supabase = getSupabaseBrowser();
+        
+        // Get communities where user is creator
+        const { data: createdCommunities } = await supabase
+          .from("communities")
+          .select("id, name, logo_url")
+          .eq("creator_id", session.user.id)
+          .order("created_at", { ascending: false });
+
+        // Get communities where user is admin
+        const { data: adminMemberships } = await supabase
+          .from("community_members")
+          .select(`
+            community_id,
+            communities (
+              id,
+              name,
+              logo_url
+            )
+          `)
+          .eq("user_id", session.user.id)
+          .eq("role", "admin")
+          .order("joined_at", { ascending: false });
+
+        const allCommunities: Community[] = [];
+
+        // Add created communities
+        if (createdCommunities) {
+          allCommunities.push(...createdCommunities);
+        }
+
+        // Add admin communities (avoid duplicates)
+        if (adminMemberships) {
+          adminMemberships.forEach((membership: any) => {
+            if (membership.communities && !allCommunities.find(c => c.id === membership.communities.id)) {
+              allCommunities.push(membership.communities);
+            }
+          });
+        }
+
+        setCommunities(allCommunities);
+
+        // Set default selected community if not already set
+        if (!selectedCommunityId && allCommunities.length > 0) {
+          const defaultId = currentCommunityId || allCommunities[0].id;
+          setSelectedCommunityId(defaultId);
+          if (onCommunityChange) {
+            onCommunityChange(defaultId);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading communities:", error);
+      } finally {
+        setIsLoadingCommunities(false);
+      }
+    };
+
+    loadCommunities();
+  }, [currentCommunityId, onCommunityChange, selectedCommunityId]);
+
+  const handleCommunitySelect = (communityId: string) => {
+    setSelectedCommunityId(communityId);
+    if (onCommunityChange) {
+      onCommunityChange(communityId);
+    }
+    // Update URL with community ID if on community admin pages
+    if (pathname?.startsWith("/community-admin")) {
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set("community", communityId);
+      router.push(newUrl.pathname + newUrl.search);
+    }
+  };
+
   const handleLogout = async () => {
     if (isLoggingOut) return;
 
     setIsLoggingOut(true);
     try {
-      const supabase = createClient();
+      const supabase = getSupabaseBrowser();
       const { error } = await supabase.auth.signOut();
 
       if (error) {
@@ -129,9 +227,12 @@ export function CommunityAdminNav({
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
+              const href = selectedCommunityId 
+                ? `${item.href}${item.href.includes('?') ? '&' : '?'}community=${selectedCommunityId}`
+                : item.href;
 
               return (
-                <Link key={item.id} href={item.href}>
+                <Link key={item.id} href={href}>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -151,8 +252,59 @@ export function CommunityAdminNav({
             })}
           </div>
 
-          {/* Community Profile Dropdown */}
+          {/* Community Selector & Profile Dropdown */}
           <div className="flex items-center space-x-4">
+            {/* Community Selector - Only show if user has multiple communities */}
+            {communities.length > 1 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="flex items-center space-x-2"
+                  >
+                    <Building2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">
+                      {communities.find(c => c.id === selectedCommunityId)?.name || "Select Community"}
+                    </span>
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {communities.map((community) => (
+                    <DropdownMenuItem
+                      key={community.id}
+                      onClick={() => handleCommunitySelect(community.id)}
+                      className={cn(
+                        "cursor-pointer",
+                        selectedCommunityId === community.id && "bg-purple-50"
+                      )}
+                    >
+                      <div className="flex items-center space-x-2 w-full">
+                        <Avatar className="w-6 h-6">
+                          <AvatarImage src={community.logo_url || "/placeholder-user.jpg"} />
+                          <AvatarFallback className="text-xs">
+                            {community.name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="flex-1">{community.name}</span>
+                        {selectedCommunityId === community.id && (
+                          <span className="text-purple-600">✓</span>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/create-community" className="flex items-center space-x-2">
+                      <Plus className="w-4 h-4" />
+                      <span>Create New Community</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Community Profile Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

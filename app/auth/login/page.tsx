@@ -10,20 +10,30 @@ export default async function LoginPage() {
   } = await supabase.auth.getSession()
 
   if (session) {
-    // Get user role and redirect accordingly
+    // Get user role and check if they're admin of any community
     const { data: userData } = await supabase
       .from("users")
       .select("user_type")
       .eq("id", session.user.id)
       .single()
 
-    const userRole = userData?.user_type
+    const userType = userData?.user_type
+
+    // Check if user is admin of any community
+    const { data: adminCommunities } = await supabase
+      .from("community_members")
+      .select("community_id")
+      .eq("user_id", session.user.id)
+      .eq("role", "admin")
+      .limit(1)
+
+    const isAdminOfAnyCommunity = adminCommunities && adminCommunities.length > 0
 
     // Redirect based on role
-    if (userRole === "community_admin") {
-      redirect("/community-admin")
-    } else if (userRole === "super_admin") {
+    if (userType === "super_admin") {
       redirect("/superadmin")
+    } else if (isAdminOfAnyCommunity) {
+      redirect("/community-admin")
     } else {
       redirect("/dashboard")
     }

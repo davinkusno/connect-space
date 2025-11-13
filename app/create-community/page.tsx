@@ -10,12 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import {
-  Upload,
-  X,
-  Plus,
-  MapPin,
   Users,
   Globe,
   Wand2,
@@ -23,31 +18,37 @@ import {
   RefreshCw,
   Copy,
   Lightbulb,
-  Hash,
-  CheckCircle,
+  MapPin,
 } from "lucide-react"
 import Link from "next/link"
 import { EnhanceContentButton } from "@/components/ai/enhance-content-button"
+import { LocationPicker } from "@/components/ui/location-picker"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+
+interface LocationData {
+  address: string
+  lat: number | null
+  lng: number | null
+  city?: string
+  country?: string
+}
 
 export default function CreateCommunityPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     category: "",
-    location: "",
-    locationType: "physical",
-    privacy: "public",
-    tags: [] as string[],
-    rules: [""],
-    coverImage: null as File | null,
+    location: null as LocationData | null,
+    locationType: "physical" as "physical" | "online" | "hybrid",
+    privacy: "public" as "public" | "private",
     profileImage: null as File | null,
   })
 
-  const [newTag, setNewTag] = useState("")
   const [currentStep, setCurrentStep] = useState(1)
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false)
-  const [isGeneratingTags, setIsGeneratingTags] = useState(false)
-  const [isGeneratingRules, setIsGeneratingRules] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [aiSuggestions, setAiSuggestions] = useState<any>(null)
 
   const categories = [
@@ -88,7 +89,7 @@ export default function CreateCommunityPage() {
             name: formData.name,
             category: formData.category,
             locationType: formData.locationType,
-            location: formData.location,
+            location: formData.location?.address || "",
           },
         }),
       })
@@ -105,118 +106,82 @@ export default function CreateCommunityPage() {
     }
   }
 
-  const generateTags = async () => {
-    if (!formData.name || !formData.category) {
-      alert("Please enter a community name and select a category first")
-      return
-    }
-
-    setIsGeneratingTags(true)
-    try {
-      const response = await fetch("/api/ai/generate-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "community-tags",
-          params: {
-            name: formData.name,
-            category: formData.category,
-            description: formData.description,
-          },
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setFormData((prev) => ({ ...prev, tags: [...prev.tags, ...data.tags] }))
-      }
-    } catch (error) {
-      console.error("Failed to generate tags:", error)
-    } finally {
-      setIsGeneratingTags(false)
-    }
-  }
-
-  const generateRules = async () => {
-    if (!formData.name || !formData.category) {
-      alert("Please enter a community name and select a category first")
-      return
-    }
-
-    setIsGeneratingRules(true)
-    try {
-      const response = await fetch("/api/ai/generate-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "community-rules",
-          params: {
-            name: formData.name,
-            category: formData.category,
-            privacy: formData.privacy,
-          },
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setFormData((prev) => ({ ...prev, rules: data.rules }))
-      }
-    } catch (error) {
-      console.error("Failed to generate rules:", error)
-    } finally {
-      setIsGeneratingRules(false)
-    }
-  }
-
-  const addTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      setFormData((prev) => ({
-        ...prev,
-        tags: [...prev.tags, newTag.trim()],
-      }))
-      setNewTag("")
-    }
-  }
-
-  const removeTag = (tagToRemove: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      tags: prev.tags.filter((tag) => tag !== tagToRemove),
-    }))
-  }
-
-  const addRule = () => {
-    setFormData((prev) => ({
-      ...prev,
-      rules: [...prev.rules, ""],
-    }))
-  }
-
-  const updateRule = (index: number, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      rules: prev.rules.map((rule, i) => (i === index ? value : rule)),
-    }))
-  }
-
-  const removeRule = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      rules: prev.rules.filter((_, i) => i !== index),
-    }))
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Creating community:", formData)
+    
+    if (isSubmitting) return
+    
+    // Validation
+    if (!formData.name || !formData.description || !formData.category) {
+      toast.error("Please fill in all required fields")
+      return
+    }
+
+    if (formData.locationType !== "online" && !formData.location?.address) {
+      toast.error("Please select a location")
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      const formDataToSend = new FormData()
+      
+      // Prepare location - can be string or JSON with coordinates
+      let locationValue: string
+      if (formData.locationType === "online") {
+        locationValue = formData.location?.address || "Online"
+      } else if (formData.location?.lat && formData.location?.lng) {
+        // Store as JSON with coordinates for better location handling
+        locationValue = JSON.stringify({
+          address: formData.location.address,
+          lat: formData.location.lat,
+          lng: formData.location.lng,
+          city: formData.location.city,
+          country: formData.location.country,
+        })
+      } else {
+        locationValue = formData.location?.address || ""
+      }
+
+      formDataToSend.append("location", locationValue)
+      formDataToSend.append("interests", JSON.stringify([formData.category]))
+      formDataToSend.append("name", formData.name)
+      formDataToSend.append("description", formData.description)
+      
+      if (formData.profileImage) {
+        formDataToSend.append("profileImage", formData.profileImage)
+      }
+
+      const response = await fetch("/api/communities/create", {
+        method: "POST",
+        body: formDataToSend,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create community")
+      }
+
+      toast.success("Community created successfully!")
+      
+      // Redirect to community admin dashboard
+      setTimeout(() => {
+        router.push(`/community-admin?community=${data.communityId}`)
+      }, 1000)
+    } catch (error: any) {
+      console.error("Error creating community:", error)
+      toast.error(error.message || "Failed to create community. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const steps = [
     { number: 1, title: "Basic Information", description: "Name, description, and category" },
     { number: 2, title: "Location & Privacy", description: "Where and how your community meets" },
-    { number: 3, title: "Customization", description: "Images, tags, and rules" },
-    { number: 4, title: "Review & Create", description: "Final review before creating" },
+    { number: 3, title: "Review & Create", description: "Final review before creating" },
   ]
 
   return (
@@ -477,20 +442,17 @@ export default function CreateCommunityPage() {
                   </div>
                 </div>
 
-                {formData.locationType !== "online" && (
-                  <div className="space-y-3">
-                    <Label htmlFor="location" className="text-gray-700">
-                      Location
-                    </Label>
-                    <Input
-                      id="location"
-                      placeholder="e.g., New York, NY or San Francisco Bay Area"
-                      value={formData.location}
-                      onChange={(e) => handleInputChange("location", e.target.value)}
-                      className="border-gray-200 focus:border-violet-300 focus:ring-violet-200 transition-colors duration-200"
-                    />
-                  </div>
-                )}
+                <div className="space-y-3">
+                  <Label className="text-gray-700">
+                    Location {formData.locationType !== "online" && "*"}
+                  </Label>
+                  <LocationPicker
+                    value={formData.location || undefined}
+                    onChange={(location) => handleInputChange("location", location)}
+                    locationType={formData.locationType}
+                    required={formData.locationType !== "online"}
+                  />
+                </div>
 
                 <div className="space-y-4">
                   <Label className="text-gray-700">Privacy Settings *</Label>
@@ -523,191 +485,8 @@ export default function CreateCommunityPage() {
             </Card>
           )}
 
-          {/* Step 3: Customization with AI Integration */}
+          {/* Step 3: Review & Create */}
           {currentStep === 3 && (
-            <Card className="border-gray-100">
-              <CardHeader>
-                <CardTitle className="text-xl font-medium text-gray-900 flex items-center gap-2">
-                  Customization
-                  <Badge variant="secondary" className="ml-2">
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    AI-Enhanced
-                  </Badge>
-                </CardTitle>
-                <p className="text-gray-600">Add images, tags, and rules with AI assistance</p>
-              </CardHeader>
-              <CardContent className="space-y-8">
-                {/* Images */}
-                <div className="space-y-4">
-                  <Label className="text-gray-700">Community Images</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <Label className="text-sm text-gray-600">Cover Image</Label>
-                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-violet-300 transition-colors duration-200">
-                        <Upload className="h-8 w-8 mx-auto text-violet-400 mb-3" />
-                        <p className="text-sm text-gray-600">Upload cover image</p>
-                        <p className="text-xs text-gray-500">Recommended: 800x300px</p>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <Label className="text-sm text-gray-600">Profile Image</Label>
-                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-violet-300 transition-colors duration-200">
-                        <Upload className="h-8 w-8 mx-auto text-violet-400 mb-3" />
-                        <p className="text-sm text-gray-600">Upload profile image</p>
-                        <p className="text-xs text-gray-500">Recommended: 200x200px</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator className="bg-gray-200" />
-
-                {/* AI-Enhanced Tags */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-gray-700">Tags</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={generateTags}
-                      disabled={!formData.name || !formData.category || isGeneratingTags}
-                      className="border-violet-200 text-violet-600 hover:bg-violet-50"
-                    >
-                      {isGeneratingTags ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Hash className="h-4 w-4 mr-2" />
-                          Generate Tags
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <div className="flex gap-3">
-                    <Input
-                      placeholder="Add a tag..."
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
-                      className="border-gray-200 focus:border-violet-300 focus:ring-violet-200 transition-colors duration-200"
-                    />
-                    <Button
-                      type="button"
-                      onClick={addTag}
-                      variant="outline"
-                      className="border-gray-200 hover:border-violet-300 hover:bg-violet-50"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {formData.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {formData.tags.map((tag, index) => (
-                        <Badge
-                          key={index}
-                          variant="secondary"
-                          className="flex items-center gap-2 border-gray-200 text-gray-700"
-                        >
-                          {tag}
-                          <button type="button" onClick={() => removeTag(tag)} className="ml-1 hover:text-red-600">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <Separator className="bg-gray-200" />
-
-                {/* AI-Enhanced Rules */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-gray-700">Community Rules</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={generateRules}
-                        disabled={!formData.name || !formData.category || isGeneratingRules}
-                        className="border-violet-200 text-violet-600 hover:bg-violet-50"
-                      >
-                        {isGeneratingRules ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Generate Rules
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Set clear guidelines to help maintain a positive community environment
-                  </p>
-                  {formData.rules.map((rule, index) => (
-                    <div key={index} className="flex gap-3">
-                      <Input
-                        placeholder={`Rule ${index + 1}...`}
-                        value={rule}
-                        onChange={(e) => updateRule(index, e.target.value)}
-                        className="border-gray-200 focus:border-violet-300 focus:ring-violet-200 transition-colors duration-200"
-                      />
-                      <div className="flex gap-2">
-                        {rule && (
-                          <EnhanceContentButton
-                            content={rule}
-                            contentType="rules"
-                            onEnhanced={(enhanced) => updateRule(index, enhanced)}
-                            context={{
-                              name: formData.name,
-                              category: formData.category,
-                            }}
-                            size="icon"
-                            className="flex-shrink-0"
-                          >
-                            <Sparkles className="h-4 w-4" />
-                          </EnhanceContentButton>
-                        )}
-                        {formData.rules.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => removeRule(index)}
-                            className="border-gray-200 hover:border-violet-300 hover:bg-violet-50"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addRule}
-                    className="border-gray-200 hover:border-violet-300 hover:bg-violet-50"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Rule
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 4: Review & Create */}
-          {currentStep === 4 && (
             <Card className="border-gray-100">
               <CardHeader>
                 <CardTitle className="text-xl font-medium text-gray-900">Review & Create</CardTitle>
@@ -728,10 +507,13 @@ export default function CreateCommunityPage() {
                       <Label className="text-sm text-gray-500">Meeting Type</Label>
                       <p className="font-medium text-gray-900 capitalize">{formData.locationType}</p>
                     </div>
-                    {formData.location && (
+                    {formData.location?.address && (
                       <div>
                         <Label className="text-sm text-gray-500">Location</Label>
-                        <p className="font-medium text-gray-900">{formData.location}</p>
+                        <p className="font-medium text-gray-900">{formData.location.address}</p>
+                        {formData.location.city && (
+                          <p className="text-sm text-gray-600">{formData.location.city}</p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -739,20 +521,6 @@ export default function CreateCommunityPage() {
                     <div>
                       <Label className="text-sm text-gray-500">Privacy</Label>
                       <p className="font-medium text-gray-900 capitalize">{formData.privacy}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-gray-500">Tags</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {formData.tags.length > 0 ? (
-                          formData.tags.map((tag, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs border-gray-200 text-gray-600">
-                              {tag}
-                            </Badge>
-                          ))
-                        ) : (
-                          <p className="text-gray-500">No tags added</p>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -763,22 +531,6 @@ export default function CreateCommunityPage() {
                     {formData.description || "No description provided"}
                   </p>
                 </div>
-
-                {formData.rules.some((rule) => rule.trim()) && (
-                  <div>
-                    <Label className="text-sm text-gray-500">Community Rules</Label>
-                    <ul className="mt-2 space-y-2">
-                      {formData.rules
-                        .filter((rule) => rule.trim())
-                        .map((rule, index) => (
-                          <li key={index} className="flex items-start gap-3">
-                            <span className="text-violet-700 font-medium">{index + 1}.</span>
-                            <span className="text-gray-900">{rule}</span>
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
-                )}
 
                 <div className="flex items-center space-x-3">
                   <Checkbox id="terms" required className="text-violet-700 border-gray-300 focus:ring-violet-200" />
@@ -809,21 +561,32 @@ export default function CreateCommunityPage() {
               Previous
             </Button>
 
-            {currentStep < 4 ? (
+            {currentStep < 3 ? (
               <Button
                 type="button"
-                onClick={() => setCurrentStep(Math.min(4, currentStep + 1))}
+                onClick={() => setCurrentStep(Math.min(3, currentStep + 1))}
                 disabled={
                   (currentStep === 1 && (!formData.name || !formData.description || !formData.category)) ||
-                  (currentStep === 2 && (!formData.locationType || !formData.privacy))
+                  (currentStep === 2 && (!formData.locationType || !formData.privacy || (formData.locationType !== "online" && !formData.location?.address)))
                 }
                 className="bg-violet-700 hover:bg-violet-800 text-white"
               >
                 Next
               </Button>
             ) : (
-              <Button type="submit" className="bg-violet-700 hover:bg-violet-800 text-white">
-                Create Community
+              <Button 
+                type="submit" 
+                className="bg-violet-700 hover:bg-violet-800 text-white"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Community"
+                )}
               </Button>
             )}
           </div>

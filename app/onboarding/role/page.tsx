@@ -136,8 +136,8 @@ export default function RoleSelectionPage() {
         .eq("id", userIdToUse)
         .single();
 
-      // Only update role if it's not already set or different
-      if (!currentUser?.role_selected || currentUser?.user_type !== roleToUse) {
+      // Mark role as selected (optional preference, not required)
+      if (!currentUser?.role_selected) {
         const response = await fetch("/api/user/role", {
           method: "POST",
           headers: {
@@ -151,16 +151,39 @@ export default function RoleSelectionPage() {
         });
 
         if (!response.ok) {
-          throw new Error("Failed to save role");
+          // Don't fail if role save fails - it's optional now
+          console.warn("Failed to save role preference:", response.statusText);
         }
       }
 
-      // Redirect based on role
+      // Redirect based on role preference
       if (roleToUse === "community_admin") {
         if (!shouldAutoRedirect) {
-          toast.success("Welcome! Let's set up your community.");
+          toast.success("Welcome! You can create your community anytime.");
         }
-        router.push("/community-admin-registration");
+        // Check if user already has a community
+        const { data: communities } = await supabase
+          .from("communities")
+          .select("id")
+          .eq("creator_id", userIdToUse)
+          .limit(1);
+
+        const { data: adminMemberships } = await supabase
+          .from("community_members")
+          .select("community_id")
+          .eq("user_id", userIdToUse)
+          .eq("role", "admin")
+          .limit(1);
+
+        const hasCommunity = 
+          (communities && communities.length > 0) ||
+          (adminMemberships && adminMemberships.length > 0);
+
+        if (hasCommunity) {
+          router.push("/community-admin");
+        } else {
+          router.push("/community-admin-registration");
+        }
       } else {
         toast.success("Welcome! Let's personalize your experience.");
         router.push("/onboarding");
@@ -359,8 +382,8 @@ export default function RoleSelectionPage() {
                 )}
               </Button>
 
-              <div className="text-sm text-amber-700 font-medium bg-amber-50 border border-amber-200 rounded-lg py-3 px-6">
-                ⚠️ Please choose carefully. Your role cannot be changed later.
+              <div className="text-sm text-blue-700 font-medium bg-blue-50 border border-blue-200 rounded-lg py-3 px-6">
+                💡 You can create communities and join others regardless of your selection. This just helps us personalize your experience.
               </div>
             </div>
           </SmoothReveal>

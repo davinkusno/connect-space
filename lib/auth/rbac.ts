@@ -95,52 +95,58 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
 
-  // Community Admin routes (community admins and super admins)
+  // Community creation and management (all authenticated users can create)
+  {
+    path: "/create-community",
+    allowedRoles: ["user", "community_admin", "super_admin"],
+  },
   {
     path: "/community-admin-registration",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
+  
+  // Community admin routes (check dynamically if user is admin of any community)
+  // Note: Actual access control is handled at page level based on community membership
   {
     path: "/community-admin",
-    allowedRoles: ["community_admin", "super_admin"],
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
     path: "/community-admin/edit",
-    allowedRoles: ["community_admin", "super_admin"],
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
     path: "/community-admin/members",
-    allowedRoles: ["community_admin", "super_admin"],
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
     path: "/community-admin/discussions",
-    allowedRoles: ["community_admin", "super_admin"],
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
     path: "/community-admin/events",
-    allowedRoles: ["community_admin", "super_admin"],
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
     path: "/community-admin/events/[id]",
-    allowedRoles: ["community_admin", "super_admin"],
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
     path: "/community-admin/events/[id]/edit",
-    allowedRoles: ["community_admin", "super_admin"],
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
     path: "/community-admin/notifications",
-    allowedRoles: ["community_admin", "super_admin"],
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
     path: "/community-admin/requests",
-    allowedRoles: ["community_admin", "super_admin"],
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/create-community",
-    allowedRoles: ["community_admin", "super_admin"],
+    path: "/events/create",
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
-  { path: "/events/create", allowedRoles: ["community_admin", "super_admin"] },
 
   // Super Admin routes (super admins only)
   { path: "/superadmin", allowedRoles: ["super_admin"] },
@@ -173,6 +179,11 @@ export const DEFAULT_REDIRECT_PATHS: Record<UserRole, string> = {
 
 // Check if a user role has access to a specific path
 export function hasAccess(userRole: UserRole, path: string): boolean {
+  // Super admin routes are always restricted
+  if (path.startsWith("/superadmin")) {
+    return userRole === "super_admin";
+  }
+
   // Find matching route rule
   const rule = ROUTE_ACCESS_RULES.find((rule) => {
     if (rule.path === path) return true;
@@ -188,8 +199,9 @@ export function hasAccess(userRole: UserRole, path: string): boolean {
   });
 
   if (!rule) {
-    // If no specific rule found, deny access by default
-    return false;
+    // If no specific rule found, allow access by default (only restrict superadmin)
+    // This allows new routes to work without explicit configuration
+    return true;
   }
 
   return rule.allowedRoles.includes(userRole);

@@ -65,27 +65,17 @@ export async function updateSession(request: NextRequest) {
       .eq("id", user.id)
       .single()
 
-    if (error || !userData) {
-      console.error("Error fetching user role:", error)
-      // If we can't get user role, allow access but default to user role
-      console.log("Defaulting to user role for:", user.email)
-      const userRole = "user" as UserRole
-      
-      // Check if user has access to the current path
-      if (!hasAccess(userRole, currentPath)) {
-        console.log(`Access denied for user ${user.email} (${userRole}) to ${currentPath}`)
-        const redirectPath = getRedirectPath(userRole, currentPath)
-        const url = request.nextUrl.clone()
-        url.pathname = redirectPath
-        return NextResponse.redirect(url)
-      }
-      
-      supabaseResponse.headers.set("x-user-role", userRole)
-      return supabaseResponse
+    // Default to "user" role if no user data or user_type is null/undefined
+    let userRole: UserRole = "user"
+    
+    if (userData && userData.user_type) {
+      userRole = userData.user_type as UserRole
+    } else {
+      // If user_type is null/undefined, default to "user" (all authenticated users)
+      userRole = "user"
     }
 
-    const userRole = userData.user_type as UserRole
-
+    // Only restrict superadmin routes - everything else is allowed for authenticated users
     // Check if user has access to the current path
     if (!hasAccess(userRole, currentPath)) {
       console.log(`Access denied for user ${user.email} (${userRole}) to ${currentPath}`)
@@ -102,10 +92,10 @@ export async function updateSession(request: NextRequest) {
 
   } catch (error) {
     console.error("Error in RBAC middleware:", error)
-    // On error, allow access but default to user role
-    console.log("Error in RBAC, defaulting to user role for:", user.email)
+    // On error, default to user role and allow access (only superadmin is restricted)
     const userRole = "user" as UserRole
     
+    // Only restrict superadmin routes
     if (!hasAccess(userRole, currentPath)) {
       const redirectPath = getRedirectPath(userRole, currentPath)
       const url = request.nextUrl.clone()

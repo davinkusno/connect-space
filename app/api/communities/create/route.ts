@@ -33,17 +33,35 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const location = formData.get("location") as string;
+    const locationInput = formData.get("location") as string;
     const interests = JSON.parse(formData.get("interests") as string);
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
     const profileImage = formData.get("profileImage") as File | null;
 
-    if (!location || !interests || !name || !description) {
+    if (!locationInput || !interests || !name || !description) {
       return NextResponse.json(
         { error: "All required fields must be provided" },
         { status: 400 }
       );
+    }
+
+    // Handle location - can be string or JSON with coordinates
+    let location: string;
+    try {
+      // Try to parse as JSON (for locations with coordinates)
+      const locationJson = JSON.parse(locationInput);
+      if (locationJson.address) {
+        // Store the full JSON for future use, but use address as display value
+        location = locationJson.address;
+        // Optionally, you could store the full JSON in a separate field or parse it
+        // For now, we'll just use the address string
+      } else {
+        location = locationInput;
+      }
+    } catch {
+      // Not JSON, use as string
+      location = locationInput;
     }
 
     let profileImageUrl = null;
@@ -197,11 +215,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update user's user_type to community_admin and mark onboarding as completed
+    // Mark onboarding as completed (no need to set user_type anymore)
+    // User is now admin of this community via community_members table
     const { error: userUpdateError } = await supabase
       .from("users")
       .update({
-        user_type: "community_admin",
         onboarding_completed: true,
         role_selected: true,
         updated_at: new Date().toISOString(),
@@ -209,7 +227,7 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id);
 
     if (userUpdateError) {
-      console.error("Error updating user type:", userUpdateError);
+      console.error("Error updating user:", userUpdateError);
       // Continue anyway, community is created
     }
 

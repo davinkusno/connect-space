@@ -568,6 +568,11 @@
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
 /* Custom slider styles */
 .slider {
   background: linear-gradient(
