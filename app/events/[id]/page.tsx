@@ -99,127 +99,6 @@ interface Event {
   }>;
 }
 
-const DUMMY_EVENT: Event = {
-  id: "1",
-  title: "AI in Healthcare Summit 2024",
-  description:
-    "Join industry leaders for an insightful exploration of AI's transformative potential in healthcare.",
-  longDescription: `Join us for a comprehensive summit exploring the cutting-edge applications of artificial intelligence in healthcare. This full-day event brings together leading researchers, healthcare professionals, and tech innovators to discuss the latest breakthroughs, challenges, and opportunities in AI-powered healthcare solutions.
-
-  The summit will feature keynote presentations from renowned experts, interactive workshops, panel discussions, and networking sessions. Topics will include machine learning applications in diagnostics, AI-powered drug discovery, ethical considerations in healthcare AI, and future trends in digital health.
-
-  This is an unmissable opportunity for healthcare professionals, researchers, data scientists, and entrepreneurs to stay at the forefront of this rapidly evolving field.`,
-  date: "2024-03-15",
-  time: "09:00",
-  endTime: "17:00",
-  location: {
-    venue: "Virtual Event",
-    address: "Online Platform",
-    city: "Online",
-    lat: 0,
-    lng: 0,
-    isOnline: true,
-    meetingLink: "https://zoom.us/j/123456789?pwd=abc123xyz",
-  },
-  organizer: {
-    name: "HealthTech Innovations",
-    image: "/placeholder.svg?height=60&width=60",
-    verified: true,
-  },
-  category: "Technology",
-  price: {
-    type: "paid",
-    amount: 299,
-    currency: "USD",
-  },
-  capacity: 500,
-  registered: 347,
-  image: "/placeholder.svg?height=600&width=1200",
-  images: [
-    "/placeholder.svg?height=400&width=600",
-    "/placeholder.svg?height=400&width=600",
-    "/placeholder.svg?height=400&width=600",
-  ],
-  tags: ["AI", "Healthcare", "Technology", "Innovation", "Networking"],
-  website: "https://healthtechinnovations.com",
-  relatedEvents: [
-    {
-      id: "2",
-      title: "Machine Learning Workshop",
-      date: "2024-03-22",
-      image: "/placeholder.svg?height=120&width=160",
-      category: "Technology",
-      tags: ["AI", "Machine Learning", "Tech", "Workshop"],
-      price: 199,
-    },
-    {
-      id: "3",
-      title: "Digital Health Conference",
-      date: "2024-04-05",
-      image: "/placeholder.svg?height=120&width=160",
-      category: "Healthcare",
-      tags: ["Healthcare", "Technology", "Innovation", "Networking"],
-      price: 349,
-    },
-    {
-      id: "4",
-      title: "AI Ethics Symposium",
-      date: "2024-04-18",
-      image: "/placeholder.svg?height=120&width=160",
-      category: "Technology",
-      tags: ["AI", "Ethics", "Innovation"],
-      price: 0,
-    },
-    {
-      id: "5",
-      title: "Healthcare Innovation Forum",
-      date: "2024-04-25",
-      image: "/placeholder.svg?height=120&width=160",
-      category: "Healthcare",
-      tags: ["Healthcare", "Innovation", "Technology"],
-      price: 299,
-    },
-    {
-      id: "6",
-      title: "AI Networking Meetup",
-      date: "2024-05-02",
-      image: "/placeholder.svg?height=120&width=160",
-      category: "Technology",
-      tags: ["AI", "Networking", "Technology"],
-      price: 0,
-    },
-  ],
-  organizerEvents: [
-    {
-      id: "7",
-      title: "Digital Health Transformation Summit",
-      date: "2024-04-10",
-      image: "/placeholder.svg?height=200&width=350",
-      category: "Healthcare",
-      price: 249,
-      attendees: 432,
-    },
-    {
-      id: "8",
-      title: "Medical AI Workshop Series",
-      date: "2024-03-28",
-      image: "/placeholder.svg?height=200&width=350",
-      category: "Technology",
-      price: 199,
-      attendees: 287,
-    },
-    {
-      id: "9",
-      title: "HealthTech Networking Event",
-      date: "2024-04-15",
-      image: "/placeholder.svg?height=200&width=350",
-      category: "Healthcare",
-      price: 0,
-      attendees: 156,
-    },
-  ],
-};
-
 export default function EventDetailsPage({
   params,
 }: {
@@ -228,79 +107,10 @@ export default function EventDetailsPage({
   // Unwrap params Promise (Next.js 15+)
   const { id } = use(params);
 
-  // Create a copy of DUMMY_EVENT with the correct ID from params
-  // TODO: Fetch actual event data from Supabase based on id
-  const baseEvent = { ...DUMMY_EVENT, id: id };
-
-  // Customize event data based on ID for demo purposes
-  const eventTitles: Record<string, string> = {
-    "1": "AI & Machine Learning Summit 2024",
-    "2": "Digital Marketing Masterclass",
-    "3": "Startup Funding Workshop",
-    "4": "Web Development Bootcamp",
-    "5": "Blockchain & Cryptocurrency Forum",
-    "6": "AI in Healthcare Summit 2024",
-  };
-
-  const eventLocations: Record<string, typeof baseEvent.location> = {
-    "1": {
-      venue: "Moscone Convention Center",
-      address: "747 Howard Street",
-      city: "San Francisco",
-      lat: 37.7749,
-      lng: -122.4194,
-      isOnline: false,
-    },
-    "2": {
-      venue: "WeWork Pacific Design Center",
-      address: "8687 Melrose Ave",
-      city: "West Hollywood",
-      lat: 34.0839,
-      lng: -118.3847,
-      isOnline: false,
-    },
-    "3": {
-      venue: "TechHub Boston",
-      address: "1 Broadway",
-      city: "Cambridge",
-      lat: 42.3626,
-      lng: -71.0843,
-      isOnline: false,
-    },
-    "4": {
-      venue: "General Assembly",
-      address: "315 W 36th St",
-      city: "New York",
-      lat: 40.7549,
-      lng: -73.9925,
-      isOnline: false,
-    },
-    "5": {
-      venue: "Convention Center",
-      address: "800 W Katella Ave",
-      city: "Anaheim",
-      lat: 33.8031,
-      lng: -117.9239,
-      isOnline: false,
-    },
-    "6": {
-      venue: "Virtual Event",
-      address: "Online Platform",
-      city: "Online",
-      lat: 0,
-      lng: 0,
-      isOnline: true,
-      meetingLink: "https://zoom.us/j/123456789?pwd=abc123xyz",
-    },
-  };
-
-  const event = {
-    ...baseEvent,
-    title: eventTitles[id] || baseEvent.title,
-    location: eventLocations[id] || baseEvent.location,
-  };
-
   const router = useRouter();
+  const [event, setEvent] = useState<Event | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isRegistered, setIsRegistered] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -308,6 +118,204 @@ export default function EventDetailsPage({
   const [isAttendeesOpen, setIsAttendeesOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Fetch event data from Supabase
+  useEffect(() => {
+    const fetchEvent = async () => {
+      if (!id) return;
+      
+      try {
+        setIsLoading(true);
+        setError(null);
+        const supabase = getSupabaseBrowser();
+        
+        // Fetch event with community and creator info
+        const { data: eventData, error: eventError } = await supabase
+          .from("events")
+          .select(`
+            *,
+            communities (
+              id,
+              name,
+              logo_url
+            ),
+            creator:creator_id (
+              id,
+              username,
+              full_name,
+              avatar_url
+            )
+          `)
+          .eq("id", id)
+          .single();
+
+        if (eventError) {
+          console.error("Error fetching event:", eventError);
+          setError("Event not found");
+          setIsLoading(false);
+          return;
+        }
+
+        if (!eventData) {
+          setError("Event not found");
+          setIsLoading(false);
+          return;
+        }
+
+        // Fetch additional data in parallel
+        const [attendeesResult, relatedEventsResult, organizerEventsResult] = await Promise.all([
+          // Get registered attendee count
+          supabase
+            .from("event_attendees")
+            .select("id", { count: "exact", head: true })
+            .eq("event_id", id)
+            .eq("status", "going"),
+          
+          // Get related events from the same community
+          eventData.community_id
+            ? supabase
+                .from("events")
+                .select("id, title, start_time, image_url, category")
+                .eq("community_id", eventData.community_id)
+                .neq("id", id)
+                .gte("start_time", new Date().toISOString())
+                .order("start_time", { ascending: true })
+                .limit(5)
+            : Promise.resolve({ data: [], error: null }),
+          
+          // Get other events by the same organizer
+          supabase
+            .from("events")
+            .select("id, title, start_time, image_url, category, max_attendees")
+            .eq("creator_id", eventData.creator_id)
+            .neq("id", id)
+            .gte("start_time", new Date().toISOString())
+            .order("start_time", { ascending: true })
+            .limit(3)
+        ]);
+
+        const registeredCount = attendeesResult.count || 0;
+        const relatedEvents = (relatedEventsResult.data || []).map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          date: new Date(e.start_time).toISOString().split('T')[0],
+          image: e.image_url || "",
+          category: e.category || "General",
+          tags: e.category ? [e.category] : [],
+          price: 0, // Default to free
+        }));
+
+        const organizerEvents = (organizerEventsResult.data || []).map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          date: new Date(e.start_time).toISOString().split('T')[0],
+          image: e.image_url || "",
+          category: e.category || "General",
+          price: 0, // Default to free
+          attendees: 0, // Could fetch if needed
+        }));
+
+        // Parse location - it's stored as a string address
+        const locationString = eventData.location || "";
+        let parsedLocation = {
+          venue: locationString,
+          address: locationString,
+          city: "",
+      lat: 0,
+      lng: 0,
+          isOnline: eventData.is_online || false,
+          meetingLink: eventData.is_online ? locationString : undefined,
+        };
+
+        // For physical locations, try to geocode the address to get coordinates
+        if (locationString && !eventData.is_online) {
+          try {
+            // Try to extract city from address (simple parsing)
+            const parts = locationString.split(',').map(p => p.trim());
+            if (parts.length > 1) {
+              parsedLocation.city = parts[parts.length - 1];
+              parsedLocation.address = locationString;
+              parsedLocation.venue = parts[0];
+            }
+
+            // Geocode the address using Nominatim (OpenStreetMap)
+            const geocodeResponse = await fetch(
+              `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationString)}&limit=1&addressdetails=1`,
+              {
+                headers: {
+                  'User-Agent': 'ConnectSpace/1.0' // Required by Nominatim
+                }
+              }
+            );
+            
+            if (geocodeResponse.ok) {
+              const geocodeData = await geocodeResponse.json();
+              if (geocodeData && geocodeData.length > 0) {
+                const result = geocodeData[0];
+                parsedLocation.lat = parseFloat(result.lat);
+                parsedLocation.lng = parseFloat(result.lon);
+                
+                // Update address details if geocoding found better info
+                if (result.address) {
+                  const addr = result.address;
+                  parsedLocation.city = addr.city || addr.town || addr.village || addr.municipality || parsedLocation.city;
+                  if (result.display_name) {
+                    parsedLocation.address = result.display_name;
+                  }
+                }
+              }
+            }
+          } catch (geocodeError) {
+            console.warn("Geocoding failed, using address string:", geocodeError);
+            // Continue with address string if geocoding fails
+          }
+        }
+
+        // Transform database event to component Event format
+        const transformedEvent: Event = {
+          id: eventData.id,
+          title: eventData.title,
+          description: eventData.description,
+          longDescription: eventData.description,
+          date: new Date(eventData.start_time).toISOString().split('T')[0],
+          time: new Date(eventData.start_time).toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          endTime: new Date(eventData.end_time).toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          location: parsedLocation,
+          organizer: {
+            name: (eventData.creator as any)?.full_name || (eventData.creator as any)?.username || "Organizer",
+            image: (eventData.creator as any)?.avatar_url || "",
+            verified: true,
+          },
+          category: eventData.category || "General",
+          price: {
+            type: "free",
+          },
+          capacity: eventData.max_attendees || 100,
+          registered: registeredCount,
+          image: eventData.image_url || "",
+          images: eventData.image_url ? [eventData.image_url] : [],
+          tags: eventData.category ? [eventData.category] : [],
+          relatedEvents: relatedEvents,
+          organizerEvents: organizerEvents,
+        };
+
+        setEvent(transformedEvent);
+      } catch (err: any) {
+        console.error("Error fetching event:", err);
+        setError(err.message || "Failed to load event");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEvent();
+  }, [id]);
 
   // Check authentication status on component mount
   useEffect(() => {
@@ -350,7 +358,7 @@ export default function EventDetailsPage({
   };
 
   const handleCopyLink = () => {
-    if (event.location.meetingLink) {
+    if (event?.location.meetingLink) {
       navigator.clipboard.writeText(event.location.meetingLink);
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
@@ -358,6 +366,8 @@ export default function EventDetailsPage({
   };
 
   const handleAttendClick = () => {
+    if (!event) return;
+    
     // Check if user is logged in
     if (!isLoggedIn) {
       // Redirect to login/register page with return URL
@@ -383,6 +393,8 @@ export default function EventDetailsPage({
   };
 
   const handleSaveEvent = () => {
+    if (!event) return;
+    
     // Check if user is logged in
     if (!isLoggedIn) {
       // Redirect to login/register page with return URL
@@ -396,10 +408,10 @@ export default function EventDetailsPage({
   };
 
   // Filter related events based on matching tags
-  const relatedEventsByTags = event.relatedEvents
+  const relatedEventsByTags = (event?.relatedEvents || [])
     .map((relatedEvent) => {
       const matchingTags = relatedEvent.tags.filter((tag) =>
-        event.tags.includes(tag)
+        event?.tags.includes(tag)
       );
       return {
         ...relatedEvent,
@@ -422,12 +434,39 @@ export default function EventDetailsPage({
     );
   };
 
-  const availableSpots = event.capacity - event.registered;
-  const registrationPercentage = (event.registered / event.capacity) * 100;
+  const availableSpots = event ? event.capacity - event.registered : 0;
+  const registrationPercentage = event ? (event.registered / event.capacity) * 100 : 0;
 
   // Mock user role - replace with actual auth check
   const isAdmin = false; // Set to true if user is community admin
   const [showBanner, setShowBanner] = useState(true);
+
+  // Show loading state
+  if (isLoading || isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading event...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error || !event) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Event Not Found</h1>
+          <p className="text-gray-600 mb-6">{error || "The event you're looking for doesn't exist."}</p>
+          <Button onClick={() => router.push("/events")}>
+            Browse Events
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -803,8 +842,7 @@ export default function EventDetailsPage({
                         )}
                       </div>
                       <p className="text-gray-600 mb-4">
-                        Leading organization in healthcare technology innovation
-                        with over 1,250 successful events.
+                        Event organizer and community member
                       </p>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm">
@@ -1123,13 +1161,39 @@ export default function EventDetailsPage({
               ) : (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Event Location</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5 text-violet-600" />
+                      Event Location
+                    </CardTitle>
                     <CardDescription>
-                      {event.location.venue} • {event.location.address},{" "}
-                      {event.location.city}
+                      {event.location.venue && event.location.venue !== event.location.address
+                        ? `${event.location.venue} • ${event.location.address}${event.location.city ? `, ${event.location.city}` : ''}`
+                        : event.location.address || "Location information"}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4">
+                    {/* Location Details */}
+                    <div className="space-y-2 text-sm">
+                      {event.location.venue && event.location.venue !== event.location.address && (
+                        <div className="flex items-start gap-2">
+                          <span className="font-medium text-gray-700 min-w-[80px]">Venue:</span>
+                          <span className="text-gray-600">{event.location.venue}</span>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-2">
+                        <span className="font-medium text-gray-700 min-w-[80px]">Address:</span>
+                        <span className="text-gray-600">{event.location.address}</span>
+                      </div>
+                      {event.location.city && (
+                        <div className="flex items-start gap-2">
+                          <span className="font-medium text-gray-700 min-w-[80px]">City:</span>
+                          <span className="text-gray-600">{event.location.city}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Map - Only show if we have coordinates */}
+                    {event.location.lat !== 0 && event.location.lng !== 0 ? (
                     <InteractiveLeafletMap
                       location={event.location}
                       height="500px"
@@ -1137,6 +1201,28 @@ export default function EventDetailsPage({
                       showDirections={true}
                       zoom={15}
                     />
+                    ) : (
+                      <div className="h-[500px] bg-gray-100 rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-gray-300">
+                        <MapPin className="h-12 w-12 text-gray-400 mb-4" />
+                        <p className="text-gray-600 font-medium mb-2">Map unavailable</p>
+                        <p className="text-sm text-gray-500 text-center max-w-md px-4">
+                          {event.location.address || "Location information is available above"}
+                        </p>
+                        {event.location.address && (
+                          <Button
+                            variant="outline"
+                            className="mt-4"
+                            onClick={() => {
+                              const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location.address)}`;
+                              window.open(mapsUrl, "_blank");
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Open in Google Maps
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}

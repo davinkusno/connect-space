@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 import {
   MapPin,
   Users,
@@ -34,13 +35,23 @@ import {
   Star,
   TrendingUp,
   Clock,
-  MoreVertical,
+  X,
+  Edit,
+  Trash2,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
+import dynamic from "next/dynamic";
+
+// Dynamic import for Leaflet map
+const LeafletMap = dynamic(
+  () => import("@/components/ui/interactive-leaflet-map").then(mod => mod.InteractiveLeafletMap),
+  { ssr: false, loading: () => <div className="h-[400px] bg-gray-100 rounded-lg flex items-center justify-center">Loading map...</div> }
+);
 
 export default function CommunityPage({
   params,
@@ -49,13 +60,14 @@ export default function CommunityPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [community, setCommunity] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<"creator" | "admin" | "moderator" | "member" | null>(null);
   const [isMember, setIsMember] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const [activeTab, setActiveTab] = useState("discussions");
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "discussions");
   
   // Tab-specific data
   const [discussions, setDiscussions] = useState<any[]>([]);
@@ -67,11 +79,23 @@ export default function CommunityPage({
   // Post creation
   const [newPost, setNewPost] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState("");
+  const [showReplies, setShowReplies] = useState<Record<string, boolean>>({});
+
 
   // Load community data and user role
   useEffect(() => {
     loadCommunityData();
   }, [id]);
+
+  // Update active tab when URL parameter changes
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams, activeTab]);
 
   // Load tab-specific data when tab changes
   useEffect(() => {
@@ -96,6 +120,10 @@ export default function CommunityPage({
             username,
             full_name,
             avatar_url
+          ),
+          categories (
+            id,
+            name
           )
         `)
         .eq("id", id)
@@ -106,6 +134,21 @@ export default function CommunityPage({
         toast.error("Failed to load community");
         router.push("/communities");
         return;
+      }
+
+      // Parse location if it's a string
+      if (communityData.location && typeof communityData.location === 'string') {
+        try {
+          communityData.location = JSON.parse(communityData.location);
+        } catch {
+          // If not JSON, treat as address string
+          communityData.location = { address: communityData.location };
+        }
+      }
+
+      // Set category name from relationship
+      if (communityData.categories) {
+        communityData.category = (communityData.categories as any).name || communityData.category;
       }
 
       setCommunity(communityData);
@@ -121,13 +164,13 @@ export default function CommunityPage({
           // Check membership and role
           const { data: membershipData } = await supabase
             .from("community_members")
-            .select("role, status")
+            .select("role")
             .eq("community_id", id)
             .eq("user_id", session.user.id)
             .maybeSingle();
 
           if (membershipData) {
-            setIsMember(membershipData.status === "active");
+            setIsMember(true);
             setUserRole(membershipData.role as any);
           }
         }
@@ -137,8 +180,7 @@ export default function CommunityPage({
       const { count } = await supabase
         .from("community_members")
         .select("*", { count: "exact", head: true })
-        .eq("community_id", id)
-        .eq("status", "active");
+        .eq("community_id", id);
 
       setMemberCount((count || 0) + 1); // +1 for creator
     } catch (error) {
@@ -158,22 +200,142 @@ export default function CommunityPage({
 
       switch (tab) {
         case "discussions":
-          // Load discussions (if you have a discussions table)
-          // For now, showing placeholder
-          setDiscussions([]);
+          // Load discussions from messages table (top-level messages only)
+          const { data: messagesData } = await supabase
+            .from("messages")
+            .select(`
+              id,
+              content,
+              created_at,
+              updated_at,
+              is_edited,
+              sender_id
+            `)
+            .eq("community_id", id)
+            .is("parent_id", null)
+            .order("created_at", { ascending: false })
+            .limit(20);
+
+          if (messagesData && messagesData.length > 0) {
+            // Load user data for each message
+            const messagesWithUsers = await Promise.all(
+              messagesData.map(async (message) => {
+                const { data: userData } = await supabase
+                  .from("users")
+                  .select("id, username, full_name, avatar_url")
+                  .eq("id", message.sender_id)
+                  .single();
+
+                // Load replies for each message
+                const { data: replies } = await supabase
+                  .from("messages")
+                  .select(`
+                    id,
+                    content,
+                    created_at,
+                    updated_at,
+                    is_edited,
+                    sender_id
+                  `)
+                  .eq("parent_id", message.id)
+                  .order("created_at", { ascending: true })
+                  .limit(5);
+
+                // Load user data for replies
+                const repliesWithUsers = await Promise.all(
+                  (replies || []).map(async (reply: any) => {
+                    const { data: replyUserData } = await supabase
+                      .from("users")
+                      .select("id, username, full_name, avatar_url")
+                      .eq("id", reply.sender_id)
+                      .single();
+
+                    return {
+                      ...reply,
+                      users: replyUserData,
+                    };
+                  })
+                );
+
+                return {
+                  ...message,
+                  users: userData,
+                  replies: repliesWithUsers,
+                };
+              })
+            );
+
+            setDiscussions(messagesWithUsers);
+          } else {
+            setDiscussions([]);
+          }
           break;
 
         case "events":
-          // Load events for this community
-          const { data: eventsData } = await supabase
+          // Load events for this community (both upcoming and recent past events)
+          // Show upcoming events first, then recent past events
+          const now = new Date().toISOString();
+          const { data: upcomingEvents } = await supabase
             .from("events")
             .select("*")
             .eq("community_id", id)
-            .gte("start_time", new Date().toISOString())
+            .gte("start_time", now)
             .order("start_time", { ascending: true })
-            .limit(10);
+            .limit(20);
           
-          setEvents(eventsData || []);
+          // Also load recent past events (last 30 days) for context
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          
+          const { data: recentPastEvents } = await supabase
+            .from("events")
+            .select("*")
+            .eq("community_id", id)
+            .gte("start_time", thirtyDaysAgo.toISOString())
+            .lt("start_time", now)
+            .order("start_time", { ascending: false })
+            .limit(5);
+          
+          // Combine: upcoming first, then recent past
+          // Use a Map to ensure unique events by ID (in case of duplicates)
+          const eventsMap = new Map();
+          
+          // Add upcoming events first
+          (upcomingEvents || []).forEach((event: any) => {
+            if (event?.id) {
+              eventsMap.set(String(event.id), event);
+            }
+          });
+          
+          // Add recent past events (won't overwrite if duplicate)
+          (recentPastEvents || []).forEach((event: any) => {
+            if (event?.id && !eventsMap.has(String(event.id))) {
+              eventsMap.set(String(event.id), event);
+            }
+          });
+          
+          // Convert back to array: upcoming first, then recent past
+          const allEvents = Array.from(eventsMap.values());
+          
+          // Sort: upcoming events first (by start_time ascending), then past events (by start_time descending)
+          allEvents.sort((a, b) => {
+            const aTime = new Date(a.start_time).getTime();
+            const bTime = new Date(b.start_time).getTime();
+            const now = Date.now();
+            
+            const aIsUpcoming = aTime >= now;
+            const bIsUpcoming = bTime >= now;
+            
+            // If both are upcoming or both are past, sort by time
+            if (aIsUpcoming === bIsUpcoming) {
+              return aIsUpcoming ? aTime - bTime : bTime - aTime;
+            }
+            
+            // Upcoming events come first
+            return aIsUpcoming ? -1 : 1;
+          });
+          
+          setEvents(allEvents);
           break;
 
         case "members":
@@ -192,7 +354,6 @@ export default function CommunityPage({
               )
             `)
             .eq("community_id", id)
-            .eq("status", "active")
             .order("joined_at", { ascending: false })
             .limit(20);
 
@@ -228,6 +389,35 @@ export default function CommunityPage({
       setIsJoining(true);
       const supabase = getSupabaseBrowser();
 
+      // Ensure user exists in users table before joining
+      const { data: existingUser, error: userCheckError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id", currentUser.id)
+        .maybeSingle();
+
+      if (userCheckError && userCheckError.code !== "PGRST116") {
+        throw new Error("Failed to verify user account");
+      }
+
+      // If user doesn't exist in users table, create it
+      if (!existingUser) {
+        const { error: createUserError } = await supabase
+          .from("users")
+          .insert({
+            id: currentUser.id,
+            email: currentUser.email || "",
+            username: currentUser.user_metadata?.username || currentUser.email?.split("@")[0] || null,
+            full_name: currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || null,
+            avatar_url: currentUser.user_metadata?.avatar_url || currentUser.user_metadata?.picture || null,
+          });
+
+        if (createUserError) {
+          console.error("Error creating user record:", createUserError);
+          // Continue anyway - might be a duplicate key error
+        }
+      }
+
       if (isMember) {
         // Leave community
         const { error } = await supabase
@@ -242,10 +432,12 @@ export default function CommunityPage({
         setUserRole(null);
         setMemberCount(prev => prev - 1);
         toast.success("You've left the community");
+        loadTabData(activeTab); // Reload tab data
     } else {
         // Join community (check if private)
         if (community.is_private) {
-          // Create join request
+          // For private communities, try to create join request
+          // If table doesn't exist, show message to contact admin
           const { error } = await supabase
             .from("community_join_requests")
             .insert({
@@ -254,39 +446,136 @@ export default function CommunityPage({
               status: "pending"
             });
 
-          if (error) throw error;
-          toast.info("Join request sent! Wait for admin approval.");
+          if (error) {
+            // Table might not exist, show helpful message
+            toast.info("This is a private community. Please contact the community admin to request access.");
+          } else {
+            toast.info("Join request sent! Wait for admin approval.");
+          }
         } else {
+          // Check if already a member (to avoid duplicate key error)
+          const { data: existingMember } = await supabase
+            .from("community_members")
+            .select("id")
+            .eq("community_id", id)
+            .eq("user_id", currentUser.id)
+            .maybeSingle();
+
+          if (existingMember) {
+            toast.info("You are already a member of this community");
+            setIsMember(true);
+            setUserRole("member");
+            return;
+          }
+
           // Join directly
           const { error } = await supabase
             .from("community_members")
             .insert({
               community_id: id,
               user_id: currentUser.id,
-              role: "member",
-              status: "active"
+              role: "member"
             });
 
-          if (error) throw error;
+          if (error) {
+            // Handle specific error codes
+            if (error.code === "23503") {
+              throw new Error("User account not found. Please try logging out and back in.");
+            } else if (error.code === "23505") {
+              // Unique constraint violation - already a member
+              toast.info("You are already a member of this community");
+              setIsMember(true);
+              setUserRole("member");
+              return;
+            }
+            throw error;
+          }
 
           setIsMember(true);
           setUserRole("member");
           setMemberCount(prev => prev + 1);
           toast.success("Welcome to the community!");
+          loadTabData(activeTab); // Reload tab data
         }
       }
     } catch (error: any) {
       console.error("Error joining/leaving community:", error);
-      toast.error(error.message || "Failed to update membership");
+      if (error.code === "23503") {
+        toast.error("User account issue. Please try logging out and back in.");
+      } else {
+        toast.error(error.message || "Failed to update membership");
+      }
     } finally {
       setIsJoining(false);
     }
   };
 
+  const handlePostDiscussion = async () => {
+    if (!newPost.trim() || !isMember || !currentUser) return;
+
+    try {
+      setIsSubmitting(true);
+      const supabase = getSupabaseBrowser();
+
+      const { error } = await supabase
+        .from("messages")
+        .insert({
+          content: newPost.trim(),
+          community_id: id,
+          sender_id: currentUser.id,
+          parent_id: null,
+        });
+
+      if (error) throw error;
+
+      toast.success("Discussion posted!");
+      setNewPost("");
+      // Reload discussions
+      loadTabData("discussions");
+    } catch (error: any) {
+      console.error("Error posting discussion:", error);
+      toast.error(error.message || "Failed to post discussion");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReply = async (parentId: string) => {
+    if (!replyContent.trim() || !isMember || !currentUser) return;
+
+    try {
+      setIsSubmitting(true);
+      const supabase = getSupabaseBrowser();
+
+      const { error } = await supabase
+        .from("messages")
+        .insert({
+          content: replyContent.trim(),
+          community_id: id,
+          sender_id: currentUser.id,
+          parent_id: parentId,
+        });
+
+      if (error) throw error;
+
+      toast.success("Reply posted!");
+      setReplyContent("");
+      setReplyingTo(null);
+      // Reload discussions
+      loadTabData("discussions");
+    } catch (error: any) {
+      console.error("Error posting reply:", error);
+      toast.error(error.message || "Failed to post reply");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+
   const canManage = userRole === "creator" || userRole === "admin";
 
   if (isLoading) {
-    return (
+  return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-violet-600 mx-auto mb-4" />
@@ -297,7 +586,7 @@ export default function CommunityPage({
   }
 
   if (!community) {
-  return (
+    return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
         <Card className="max-w-md w-full mx-4">
           <CardContent className="p-8 text-center">
@@ -369,10 +658,10 @@ export default function CommunityPage({
                   <Users className="h-4 w-4" />
                     <span>{memberCount.toLocaleString()} members</span>
                 </div>
-                  {community.location?.city && (
+                  {community.location && (community.location.city || community.location.address) && (
                     <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
-                      <span>{community.location.city}</span>
+                      <span>{community.location.city || community.location.address?.split(',')[0] || "Location"}</span>
                     </div>
                   )}
                   {community.category && (
@@ -424,23 +713,41 @@ export default function CommunityPage({
                 {userRole === "creator" ? "Your Community" : isMember ? "Leave" : "Join Community"}
                 </Button>
               
-              {isMember && (
-                <>
-                  <Button variant="outline" className="border-gray-200">
-                  <Bell className="h-4 w-4 mr-2" />
-                  Follow
-                </Button>
-                  <Button variant="outline" className="border-gray-200">
-                    <Hash className="h-4 w-4 mr-2" />
-                    Chat
-                  </Button>
-                </>
-              )}
-              
-              <Button variant="outline" className="border-gray-200">
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share
-                </Button>
+              <Button 
+                variant="outline" 
+                className="border-gray-200 hover:bg-gray-50"
+                onClick={async () => {
+                  const url = window.location.href;
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({
+                        title: community.name,
+                        text: `Check out ${community.name} on ConnectSpace!`,
+                        url: url,
+                      });
+                      toast.success("Shared successfully!");
+                    } else {
+                      // Fallback: Copy to clipboard
+                      await navigator.clipboard.writeText(url);
+                      toast.success("Link copied to clipboard!");
+                    }
+                  } catch (error: any) {
+                    // User cancelled or error occurred
+                    if (error.name !== "AbortError") {
+                      // Fallback: Copy to clipboard
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        toast.success("Link copied to clipboard!");
+                      } catch (clipboardError) {
+                        toast.error("Failed to share. Please copy the URL manually.");
+                      }
+                    }
+                  }
+                }}
+              >
+                <Share2 className="h-4 w-4 mr-2" />
+                Share
+              </Button>
             </div>
 
             {canManage && (
@@ -461,28 +768,28 @@ export default function CommunityPage({
           <div className="lg:col-span-2 space-y-6">
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 bg-white border border-gray-200">
+              <TabsList className="grid w-full grid-cols-4 bg-white border border-gray-200 rounded-lg p-1 h-auto">
                 <TabsTrigger
                   value="discussions"
-                  className="data-[state=active]:bg-violet-50 data-[state=active]:text-violet-700"
+                  className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
                 >
                   Discussions
                 </TabsTrigger>
                 <TabsTrigger
                   value="events"
-                  className="data-[state=active]:bg-violet-50 data-[state=active]:text-violet-700"
+                  className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
                 >
                   Events
                 </TabsTrigger>
                 <TabsTrigger
                   value="members"
-                  className="data-[state=active]:bg-violet-50 data-[state=active]:text-violet-700"
+                  className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
                 >
                   Members
                 </TabsTrigger>
                 <TabsTrigger
                   value="about"
-                  className="data-[state=active]:bg-violet-50 data-[state=active]:text-violet-700"
+                  className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
                 >
                   About
                 </TabsTrigger>
@@ -515,10 +822,7 @@ export default function CommunityPage({
                               </Button>
                                 <Button
                                   disabled={!newPost.trim() || isSubmitting}
-                              onClick={() => {
-                                // Handle post submission
-                                toast.info("Discussion posting coming soon!");
-                              }}
+                              onClick={handlePostDiscussion}
                               className="bg-violet-600 hover:bg-violet-700 text-white"
                                 >
                                   {isSubmitting ? (
@@ -544,30 +848,241 @@ export default function CommunityPage({
                 {isLoadingTab ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-                              </div>
+                  </div>
                 ) : discussions.length === 0 ? (
                   <Card className="border-gray-200">
                     <CardContent className="p-12 text-center">
                       <MessageCircle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">
                         No discussions yet
-                              </h3>
+                      </h3>
                       <p className="text-gray-600 mb-6">
                         Be the first to start a conversation in this community!
                       </p>
                       {isMember && (
-                        <Button className="bg-violet-600 hover:bg-violet-700 text-white">
+                        <Button 
+                          className="bg-violet-600 hover:bg-violet-700 text-white"
+                          onClick={() => {
+                            const textarea = document.querySelector('textarea');
+                            textarea?.focus();
+                          }}
+                        >
                           Start a Discussion
                         </Button>
                       )}
-                        </CardContent>
-                      </Card>
+                    </CardContent>
+                  </Card>
                 ) : (
                   <div className="space-y-4">
-                    {discussions.map((post) => (
-                      <Card key={post.id} className="border-gray-200 hover:shadow-md transition-shadow">
+                    {discussions.map((discussion) => (
+                      <Card key={discussion.id} className="border-gray-200 hover:shadow-md transition-shadow">
                         <CardContent className="p-6">
-                          {/* Discussion content here */}
+                          <div className="flex gap-4">
+                            <Avatar>
+                              <AvatarImage src={discussion.users?.avatar_url} />
+                              <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
+                                {(discussion.users?.username || discussion.users?.full_name || "U").charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className="font-semibold text-gray-900">
+                                  {discussion.users?.full_name || discussion.users?.username || "Anonymous"}
+                                </h4>
+                                <span className="text-sm text-gray-500">
+                                  {new Date(discussion.created_at).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                                {discussion.is_edited && (
+                                  <Badge variant="outline" className="text-xs">Edited</Badge>
+                                )}
+                              </div>
+                              <p className="text-gray-700 mb-4 whitespace-pre-wrap">
+                                {discussion.content}
+                              </p>
+                              
+                              {/* Replies Count and Toggle */}
+                              {discussion.replies && discussion.replies.length > 0 && (
+                                <div className="mb-4">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-gray-600 hover:text-violet-600 mb-3"
+                                    onClick={() => setShowReplies(prev => ({
+                                      ...prev,
+                                      [discussion.id]: !prev[discussion.id]
+                                    }))}
+                                  >
+                                    <Reply className="h-4 w-4 mr-1" />
+                                    {showReplies[discussion.id] 
+                                      ? `Hide ${discussion.replies.length} ${discussion.replies.length === 1 ? 'reply' : 'replies'}`
+                                      : `Show ${discussion.replies.length} ${discussion.replies.length === 1 ? 'reply' : 'replies'}`
+                                    }
+                                  </Button>
+                                  
+                                  {/* Replies - Only show when toggled */}
+                                  {showReplies[discussion.id] && (
+                                    <div className="ml-4 pl-4 border-l-2 border-violet-200 space-y-3 mt-2">
+                                      {discussion.replies.map((reply: any) => (
+                                        <div key={reply.id} className="flex gap-3 group">
+                                          <Avatar className="h-8 w-8">
+                                            <AvatarImage src={reply.users?.avatar_url} />
+                                            <AvatarFallback className="bg-gray-200 text-xs">
+                                              {(reply.users?.username || reply.users?.full_name || "U").charAt(0)}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <span className="text-sm font-medium text-gray-900">
+                                                {reply.users?.full_name || reply.users?.username || "Anonymous"}
+                                              </span>
+                                              <span className="text-xs text-gray-500">
+                                                {new Date(reply.created_at).toLocaleDateString("en-US", {
+                                                  month: "short",
+                                                  day: "numeric",
+                                                  hour: "numeric",
+                                                  minute: "2-digit",
+                                                })}
+                                              </span>
+                                              {/* Delete button for reply owner */}
+                                              {currentUser && reply.sender_id === currentUser.id && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                  onClick={async () => {
+                                                    if (confirm("Are you sure you want to delete this reply?")) {
+                                                      const supabase = getSupabaseBrowser();
+                                                      const { error } = await supabase
+                                                        .from("messages")
+                                                        .delete()
+                                                        .eq("id", reply.id);
+                                                      
+                                                      if (error) {
+                                                        toast.error("Failed to delete reply");
+                                                      } else {
+                                                        toast.success("Reply deleted");
+                                                        loadTabData("discussions");
+                                                      }
+                                                    }
+                                                  }}
+                                                >
+                                                  <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                              )}
+                                            </div>
+                                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                              {reply.content}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Actions */}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4 text-sm">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-gray-600 hover:text-violet-600"
+                                    onClick={() => setReplyingTo(replyingTo === discussion.id ? null : discussion.id)}
+                                  >
+                                    <Reply className="h-4 w-4 mr-1" />
+                                    Reply
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-gray-600 hover:text-violet-600"
+                                  >
+                                    <ThumbsUp className="h-4 w-4 mr-1" />
+                                    Like
+                                  </Button>
+                                </div>
+                                {/* Delete button for discussion owner */}
+                                {currentUser && discussion.sender_id === currentUser.id && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                    onClick={async () => {
+                                      if (confirm("Are you sure you want to delete this discussion?")) {
+                                        const supabase = getSupabaseBrowser();
+                                        const { error } = await supabase
+                                          .from("messages")
+                                          .delete()
+                                          .eq("id", discussion.id);
+                                        
+                                        if (error) {
+                                          toast.error("Failed to delete discussion");
+                                        } else {
+                                          toast.success("Discussion deleted");
+                                          loadTabData("discussions");
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Delete
+                                  </Button>
+                                )}
+                              </div>
+
+                              {/* Reply Form */}
+                              {replyingTo === discussion.id && (
+                                <div className="mt-4 pt-4 border-t border-gray-200">
+                                  <div className="flex gap-3">
+                                    <Avatar className="h-8 w-8">
+                                      <AvatarImage src={currentUser?.user_metadata?.avatar_url} />
+                                      <AvatarFallback>
+                                        {currentUser?.email?.charAt(0).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 space-y-2">
+                                      <Textarea
+                                        placeholder="Write a reply..."
+                                        value={replyContent}
+                                        onChange={(e) => setReplyContent(e.target.value)}
+                                        className="min-h-[80px] border-gray-200 focus:border-violet-300 resize-none"
+                                      />
+                                      <div className="flex justify-end gap-2">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setReplyingTo(null);
+                                            setReplyContent("");
+                                          }}
+                                        >
+                                          Cancel
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          disabled={!replyContent.trim() || isSubmitting}
+                                          onClick={() => handleReply(discussion.id)}
+                                          className="bg-violet-600 hover:bg-violet-700 text-white"
+                                        >
+                                          {isSubmitting ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            "Reply"
+                                          )}
+                                        </Button>
+                              </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </CardContent>
                       </Card>
                   ))}
@@ -585,11 +1100,13 @@ export default function CommunityPage({
                     </p>
                   </div>
                   {canManage && (
-                    <Link href={`/events/create?community=${id}`}>
-                      <Button className="bg-violet-600 hover:bg-violet-700 text-white">
-                          <Calendar className="h-4 w-4 mr-2" />
-                          Create Event
-                        </Button>
+                    <Link href={`/events/create?community_id=${id}`}>
+                      <Button 
+                        className="bg-violet-600 hover:bg-violet-700 text-white"
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Create Event
+                      </Button>
                     </Link>
                     )}
                   </div>
@@ -611,8 +1128,10 @@ export default function CommunityPage({
                           : "Check back later for upcoming events."}
                       </p>
                       {canManage && (
-                        <Link href={`/events/create?community=${id}`}>
-                          <Button className="bg-violet-600 hover:bg-violet-700 text-white">
+                        <Link href={`/events/create?community_id=${id}`}>
+                          <Button 
+                            className="bg-violet-600 hover:bg-violet-700 text-white"
+                          >
                             <Calendar className="h-4 w-4 mr-2" />
                             Create Event
                           </Button>
@@ -621,53 +1140,132 @@ export default function CommunityPage({
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="space-y-4">
-                    {events.map((event) => (
-                      <Link key={event.id} href={`/events/${event.id}`}>
-                        <Card className="border-gray-200 hover:shadow-md hover:border-violet-300 transition-all cursor-pointer">
-                          <CardContent className="p-6">
-                            <div className="flex gap-6">
-                              {event.image_url && (
-                                <div className="relative h-24 w-32 flex-shrink-0 rounded-lg overflow-hidden">
-                              <Image
-                                    src={event.image_url}
-                                alt={event.title}
-                                    fill
-                                    className="object-cover"
-                                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {events.map((event) => {
+                      // Ensure event has a valid ID
+                      if (!event?.id) {
+                        console.warn("Event missing ID:", event);
+                        return null;
+                      }
+                      
+                      const eventId = String(event.id);
+                      const isUpcoming = new Date(event.start_time) >= new Date();
+                      const startDate = new Date(event.start_time);
+                      const endDate = new Date(event.end_time);
+                      
+                      return (
+                        <Link 
+                          key={eventId} 
+                          href={`/events/${eventId}`}
+                          className="block group"
+                        >
+                          <Card className="border-gray-200 hover:shadow-xl hover:border-violet-400 transition-all duration-300 cursor-pointer overflow-hidden h-full bg-gradient-to-br from-white to-violet-50/30">
+                            {event.image_url && (
+                              <div className="relative h-48 w-full overflow-hidden">
+                                <Image
+                                  src={event.image_url}
+                                  alt={event.title || "Event image"}
+                                  fill
+                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                                <div className="absolute top-3 right-3">
+                                  {isUpcoming ? (
+                                    <Badge className="bg-violet-600 text-white border-0">
+                                      <Calendar className="h-3 w-3 mr-1" />
+                                      Upcoming
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="bg-gray-500 text-white border-0">
+                                      Past Event
+                                    </Badge>
+                                  )}
                                 </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-lg font-semibold text-gray-900 mb-2 truncate">
-                                {event.title}
-                              </h4>
-                                <div className="space-y-2 text-sm text-gray-600">
-                                  <div className="flex items-center gap-2">
-                                    <Clock className="h-4 w-4" />
-                                    <span>
-                                      {new Date(event.start_time).toLocaleDateString("en-US", {
-                                        weekday: "short",
+                              </div>
+                            )}
+                            <CardContent className="p-6">
+                              <div className="space-y-4">
+                                <div>
+                                  <h4 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-violet-600 transition-colors">
+                                    {event.title}
+                                  </h4>
+                                  {event.description && (
+                                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                                      {event.description}
+                                    </p>
+                                  )}
+                                </div>
+                                
+                                <div className="space-y-2 text-sm">
+                                  <div className="flex items-center gap-2 text-gray-700">
+                                    <div className="p-1.5 rounded-lg bg-violet-100 text-violet-600">
+                                      <Clock className="h-4 w-4" />
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="font-medium">
+                                        {startDate.toLocaleDateString("en-US", {
+                                          weekday: "long",
+                                          month: "long",
+                                          day: "numeric",
+                                        })}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        {startDate.toLocaleTimeString("en-US", {
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                        })} - {endDate.toLocaleTimeString("en-US", {
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                        })}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {event.location && (
+                                    <div className="flex items-center gap-2 text-gray-700">
+                                      <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
+                                        <MapPin className="h-4 w-4" />
+                                      </div>
+                                      <span className="flex-1 truncate">{event.location}</span>
+                                    </div>
+                                  )}
+                                  
+                                  {event.is_online && (
+                                    <div className="flex items-center gap-2 text-gray-700">
+                                      <div className="p-1.5 rounded-lg bg-green-100 text-green-600">
+                                        <Globe className="h-4 w-4" />
+                                      </div>
+                                      <span className="flex-1">Online Event</span>
+                                    </div>
+                                  )}
+                                  
+                                  {event.max_attendees && (
+                                    <div className="flex items-center gap-2 text-gray-700">
+                                      <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
+                                        <Users className="h-4 w-4" />
+                                      </div>
+                                      <span className="flex-1">Max {event.max_attendees} attendees</span>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                <div className="pt-3 border-t border-gray-200">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                      {isUpcoming ? "Starts" : "Started"} {startDate.toLocaleDateString("en-US", {
                                         month: "short",
                                         day: "numeric",
-                                        hour: "numeric",
-                                        minute: "2-digit",
                                       })}
                                     </span>
+                                    <ChevronRight className="h-4 w-4 text-violet-600 group-hover:translate-x-1 transition-transform" />
+                                  </div>
                                 </div>
-                                  {event.location && (
-                                    <div className="flex items-center gap-2">
-                                    <MapPin className="h-4 w-4" />
-                                      <span className="truncate">{event.location}</span>
-                                </div>
-                                  )}
                               </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      </Link>
-                  ))}
-                </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 )}
               </TabsContent>
 
@@ -806,49 +1404,61 @@ export default function CommunityPage({
                               Public
                             </>
                           )}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-sm text-gray-500">Location Type</span>
-                        <p className="font-medium text-gray-900">
-                          {community.location_type || "Physical"}
                           </p>
                         </div>
                       </div>
 
-                    {community.location && (
+                    {/* Location with Map */}
+                    {community.location && (community.location.lat && community.location.lng) && (
                       <>
                         <Separator />
                       <div>
-                          <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                           <MapPin className="h-4 w-4 text-violet-600" />
                           Location
                         </h4>
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <p className="text-gray-800">
-                              {community.location.address || 
-                               `${community.location.city}, ${community.location.country}`}
-                            </p>
-                        </div>
-                      </div>
-                      </>
-                    )}
-
-                    {community.tags && community.tags.length > 0 && (
-                      <>
-                        <Separator />
-                      <div>
-                          <h4 className="font-semibold text-gray-900 mb-3">Tags</h4>
-                        <div className="flex flex-wrap gap-2">
-                            {community.tags.map((tag: string, index: number) => (
-                              <Badge
-                                key={index}
-                                variant="outline"
-                                className="border-gray-200 text-gray-700"
-                              >
-                                {tag}
-                              </Badge>
-                          ))}
+                          <div className="space-y-4">
+                            <div className="bg-gray-50 rounded-lg p-4">
+                              <p className="text-gray-800 font-medium mb-1">
+                                {community.location.address || 
+                                 (community.location.city && community.location.country 
+                                   ? `${community.location.city}, ${community.location.country}`
+                                   : community.location.city || community.location.country || "Location")}
+                              </p>
+                              {(community.location.lat && community.location.lng) && (
+                                <p className="text-sm text-gray-600">
+                                  Coordinates: {community.location.lat.toFixed(6)}, {community.location.lng.toFixed(6)}
+                                </p>
+                              )}
+                            </div>
+                            {/* Map Display */}
+                            <div className="rounded-lg overflow-hidden border border-gray-200">
+                              <LeafletMap
+                                location={{
+                                  lat: community.location.lat,
+                                  lng: community.location.lng,
+                                  address: community.location.address || "",
+                                  city: community.location.city || "",
+                                  venue: community.name,
+                                }}
+                                height="400px"
+                                showControls={true}
+                                showDirections={true}
+                              />
+                            </div>
+                            {community.location.address && (
+                            <Button
+                              variant="outline"
+                                className="w-full"
+                                onClick={() => {
+                                  const url = `https://www.google.com/maps/dir/?api=1&destination=${community.location.lat},${community.location.lng}`;
+                                  window.open(url, '_blank');
+                                }}
+                            >
+                              <Navigation className="h-4 w-4 mr-2" />
+                                Get Directions
+                            </Button>
+                            )}
                         </div>
                       </div>
                       </>
@@ -942,14 +1552,14 @@ export default function CommunityPage({
                       Start Discussion
                     </Button>
                   {canManage && (
-                    <Link href={`/events/create?community=${id}`}>
-                    <Button
-                      variant="outline"
+                    <Link href={`/events/create?community_id=${id}`} className="w-full">
+                      <Button
+                        variant="outline"
                         className="w-full justify-start border-gray-200"
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Create Event
-                    </Button>
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Create Event
+                      </Button>
                     </Link>
                   )}
                     <Button
@@ -962,9 +1572,9 @@ export default function CommunityPage({
                 </CardContent>
               </Card>
             )}
-                      </div>
-                    </div>
           </div>
+        </div>
+      </div>
     </div>
   );
 }

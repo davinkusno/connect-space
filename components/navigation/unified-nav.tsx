@@ -111,168 +111,142 @@ export function UnifiedNav() {
   const [isNotificationModalOpen, setNotificationModalOpen] = useState(false);
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
 
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "1",
-      type: "message",
-      title: "New Reply",
-      content:
-        "Sarah Chen replied to your post in Tech Innovators about React best practices",
-      timestamp: "2 minutes ago",
-      isRead: false,
-      community: "Tech Innovators",
-      actionUrl: "/community/1",
-    },
-    {
-      id: "2",
-      type: "event",
-      title: "Event Reminder",
-      content:
-        "AI & Machine Learning Workshop starts in 1 hour. Don't forget to bring your laptop!",
-      timestamp: "1 hour ago",
-      isRead: false,
-      community: "Tech Innovators",
-      actionUrl: "/events/1",
-    },
-    {
-      id: "3",
-      type: "achievement",
-      title: "Badge Unlocked",
-      content:
-        "You've earned the 'Community Contributor' badge for your active participation!",
-      timestamp: "3 hours ago",
-      isRead: true,
-      actionUrl: "/achievements",
-    },
-    {
-      id: "4",
-      type: "community",
-      title: "New Members",
-      content:
-        "3 new members joined Outdoor Adventures. Welcome them to the community!",
-      timestamp: "5 hours ago",
-      isRead: true,
-      community: "Outdoor Adventures",
-      actionUrl: "/community/2",
-    },
-    {
-      id: "5",
-      type: "system",
-      title: "System Update",
-      content:
-        "New features have been added to the platform including enhanced search and better notifications",
-      timestamp: "1 day ago",
-      isRead: true,
-      actionUrl: "/updates",
-    },
-    {
-      id: "6",
-      type: "message",
-      title: "Mention",
-      content:
-        "You were mentioned in a discussion about React best practices by Alex Johnson",
-      timestamp: "2 days ago",
-      isRead: false,
-      community: "Tech Innovators",
-      actionUrl: "/community/1/discussion/123",
-    },
-    {
-      id: "7",
-      type: "event",
-      title: "Event Created",
-      content:
-        "New event: Poetry Reading Night has been scheduled for next Friday evening",
-      timestamp: "3 days ago",
-      isRead: true,
-      community: "Creative Writers",
-      actionUrl: "/events/3",
-    },
-    {
-      id: "8",
-      type: "achievement",
-      title: "Milestone Reached",
-      content:
-        "Congratulations! You've attended 10 community events this month",
-      timestamp: "4 days ago",
-      isRead: false,
-      actionUrl: "/achievements",
-    },
-    {
-      id: "9",
-      type: "message",
-      title: "Direct Message",
-      content:
-        "Maria Garcia sent you a direct message about the upcoming hiking trip",
-      timestamp: "5 days ago",
-      isRead: true,
-      community: "Outdoor Adventures",
-      actionUrl: "/messages/maria",
-    },
-    {
-      id: "10",
-      type: "community",
-      title: "Community Update",
-      content:
-        "Tech Innovators community has reached 1,500 members! Thank you for being part of our growth",
-      timestamp: "1 week ago",
-      isRead: true,
-      community: "Tech Innovators",
-      actionUrl: "/community/1",
-    },
-    {
-      id: "11",
-      type: "event",
-      title: "Event Cancelled",
-      content:
-        "Unfortunately, the Weekend Coding Bootcamp has been cancelled due to low enrollment",
-      timestamp: "1 week ago",
-      isRead: false,
-      community: "Tech Innovators",
-      actionUrl: "/events/cancelled",
-    },
-    {
-      id: "12",
-      type: "system",
-      title: "Maintenance Notice",
-      content:
-        "Scheduled maintenance will occur this Sunday from 2-4 AM EST. Some features may be unavailable",
-      timestamp: "2 weeks ago",
-      isRead: true,
-      actionUrl: "/maintenance",
-    },
-    {
-      id: "13",
-      type: "achievement",
-      title: "First Post",
-      content:
-        "Welcome to the community! You've made your first post in Creative Writers",
-      timestamp: "2 weeks ago",
-      isRead: true,
-      community: "Creative Writers",
-      actionUrl: "/achievements",
-    },
-    {
-      id: "14",
-      type: "message",
-      title: "Welcome Message",
-      content:
-        "Welcome to ConnectSpace! We're excited to have you join our growing community",
-      timestamp: "3 weeks ago",
-      isRead: true,
-      actionUrl: "/welcome",
-    },
-    {
-      id: "15",
-      type: "community",
-      title: "New Community",
-      content:
-        "You've successfully joined the Creative Writers community. Start exploring and connecting!",
-      timestamp: "3 weeks ago",
-      isRead: true,
-      community: "Creative Writers",
-      actionUrl: "/community/3",
-    },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+
+  // Fetch notifications from database
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!user) {
+        setNotifications([]);
+        return;
+      }
+
+      try {
+        setIsLoadingNotifications(true);
+        const supabase = getSupabaseBrowser();
+        
+        // Fetch notifications from database
+        const { data: notificationsData, error } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (error) {
+          console.error("Error fetching notifications:", error);
+          return;
+        }
+
+        // Transform database notifications to UI format
+        const transformedNotifications: Notification[] = (notificationsData || []).map((notif: any) => {
+          // Map database types to UI types
+          let uiType: "message" | "event" | "achievement" | "system" | "community" = "system";
+          let title = "";
+          let actionUrl = "";
+
+          switch (notif.type) {
+            case "new_message":
+              uiType = "message";
+              title = "New Message";
+              if (notif.reference_type === "message" && notif.reference_id) {
+                actionUrl = `/messages`;
+              } else if (notif.reference_type === "community" && notif.reference_id) {
+                actionUrl = `/community/${notif.reference_id}`;
+              }
+              break;
+            case "event_reminder":
+              uiType = "event";
+              title = "Event Reminder";
+              if (notif.reference_type === "event" && notif.reference_id) {
+                actionUrl = `/events/${notif.reference_id}`;
+              }
+              break;
+            case "community_invite":
+              uiType = "community";
+              title = "Community Invitation";
+              if (notif.reference_type === "community" && notif.reference_id) {
+                actionUrl = `/community/${notif.reference_id}`;
+              }
+              break;
+            case "community_update":
+              uiType = "community";
+              title = "Community Update";
+              if (notif.reference_type === "community" && notif.reference_id) {
+                actionUrl = `/community/${notif.reference_id}`;
+              }
+              break;
+            default:
+              uiType = "system";
+              title = "Notification";
+          }
+
+          // Format timestamp
+          const timestamp = formatNotificationTime(notif.created_at);
+
+          return {
+            id: notif.id,
+            type: uiType,
+            title: title,
+            content: notif.content,
+            timestamp: timestamp,
+            isRead: notif.is_read || false,
+            actionUrl: actionUrl,
+          };
+        });
+
+        setNotifications(transformedNotifications);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+      } finally {
+        setIsLoadingNotifications(false);
+      }
+    };
+
+    fetchNotifications();
+
+    // Set up real-time subscription for new notifications
+    if (user) {
+      const supabase = getSupabaseBrowser();
+      const channel = supabase
+        .channel("notifications")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            // Reload notifications when new one is added
+            fetchNotifications();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user]);
+
+  // Format notification timestamp
+  const formatNotificationTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -280,7 +254,19 @@ export function UnifiedNav() {
     ? navigationLinks
     : navigationLinks.filter((link) => link.href !== "/messages");
 
-  const handleMarkAsRead = (id: string) => {
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      const supabase = getSupabaseBrowser();
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error marking notification as read:", error);
+        return;
+      }
+
     setNotifications((prev) =>
       prev.map((notification) =>
         notification.id === id
@@ -288,9 +274,24 @@ export function UnifiedNav() {
           : notification
       )
     );
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
   };
 
-  const handleMarkAsUnread = (id: string) => {
+  const handleMarkAsUnread = async (id: string) => {
+    try {
+      const supabase = getSupabaseBrowser();
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: false })
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error marking notification as unread:", error);
+        return;
+      }
+
     setNotifications((prev) =>
       prev.map((notification) =>
         notification.id === id
@@ -298,24 +299,78 @@ export function UnifiedNav() {
           : notification
       )
     );
+    } catch (error) {
+      console.error("Error marking notification as unread:", error);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    try {
+      const supabase = getSupabaseBrowser();
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error deleting notification:", error);
+        return;
+      }
+
     setNotifications((prev) =>
       prev.filter((notification) => notification.id !== id)
     );
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+    }
   };
 
-  const handleMarkAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
+    if (!user) return;
+    
+    try {
+      const supabase = getSupabaseBrowser();
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("user_id", user.id)
+        .eq("is_read", false);
+
+      if (error) {
+        console.error("Error marking all as read:", error);
+        return;
+      }
+
     setNotifications((prev) =>
       prev.map((notification) => ({ ...notification, isRead: true }))
     );
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+    }
   };
 
-  const handleDeleteAllRead = () => {
+  const handleDeleteAllRead = async () => {
+    if (!user) return;
+    
+    try {
+      const supabase = getSupabaseBrowser();
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("is_read", true);
+
+      if (error) {
+        console.error("Error deleting all read notifications:", error);
+        return;
+      }
+
     setNotifications((prev) =>
       prev.filter((notification) => !notification.isRead)
     );
+    } catch (error) {
+      console.error("Error deleting all read notifications:", error);
+    }
   };
 
   const router = useRouter();

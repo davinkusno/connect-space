@@ -48,7 +48,6 @@ export async function POST(request: NextRequest) {
       image_url,
       community_id,
       is_online,
-      is_public,
       max_attendees,
     } = body;
 
@@ -126,27 +125,24 @@ export async function POST(request: NextRequest) {
     });
 
     // Prepare insert data
-    // Note: category column may not exist in the database schema
-    // If you need category, add it to the events table first
+    // Note: Only include fields that exist in the database schema
     const insertData: any = {
       title,
       description,
-      location,
+      location: location || null,
       start_time,
       end_time,
       image_url: image_url || null,
       community_id,
       creator_id: user.id,
       is_online: is_online || false,
-      is_public: is_public !== undefined ? is_public : true, // Default to true if not provided
       max_attendees: max_attendees ? parseInt(max_attendees.toString()) : null,
     }
 
-    // Category column is not available in the database schema
-    // Uncomment below if you add the category column to the events table:
-    // if (category) {
-    //   insertData.category = category
-    // }
+    // Add category if provided (column exists in schema)
+    if (category) {
+      insertData.category = category
+    }
 
     // Create event
     console.log("Attempting to insert event with data:", insertData);
@@ -189,11 +185,8 @@ export async function POST(request: NextRequest) {
       creator_id: event.creator_id
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Event created successfully",
-      data: event,
-    }, { status: 200 });
+    // Return event directly for easier frontend handling
+    return NextResponse.json(event, { status: 200 });
   } catch (error: any) {
     console.error("Error creating event:", error);
     return NextResponse.json(

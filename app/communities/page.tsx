@@ -520,15 +520,17 @@ export default function DiscoverPage() {
       const transformedCommunities: Community[] = (communitiesData || []).map((comm) => {
         // Parse location - it could be a string or a JSON object
         let location: any = {};
-        if (typeof comm.location === 'string') {
-          try {
-            location = JSON.parse(comm.location);
-          } catch {
-            // If not JSON, treat as address string
-            location = { address: comm.location };
+        if (comm.location) {
+          if (typeof comm.location === 'string') {
+            try {
+              location = JSON.parse(comm.location);
+            } catch {
+              // If not JSON, treat as address string
+              location = { address: comm.location };
+            }
+          } else if (typeof comm.location === 'object') {
+            location = comm.location;
           }
-        } else {
-          location = comm.location || {};
         }
         
         // Get category name from relationship or fallback to "General"
@@ -545,9 +547,9 @@ export default function DiscoverPage() {
           location: {
             lat: location.lat || 0,
             lng: location.lng || 0,
-            city: location.city || "Unknown",
-            country: location.country || "Unknown",
-            address: location.address || comm.location || "",
+            city: location.city || location.town || location.village || location.municipality || "",
+            country: location.country || "",
+            address: location.address || location.display_name || (typeof comm.location === 'string' ? comm.location : "") || "",
           },
           activityLevel: "medium", // Can be calculated based on recent activity
           image: comm.banner_url || comm.logo_url || "/placeholder.svg?height=200&width=300",
@@ -644,9 +646,10 @@ export default function DiscoverPage() {
       );
     }
     if (activeFilters.locations.length > 0) {
-      result = result.filter((community) =>
-        activeFilters.locations.includes(community.location.city)
-      );
+      result = result.filter((community) => {
+        const city = community.location.city;
+        return city && activeFilters.locations.includes(city);
+      });
     }
     if (activeFilters.privacy.length > 0) {
       result = result.filter((community) =>
