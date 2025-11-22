@@ -79,3 +79,9 @@ WHERE tc.table_name = 'posts'
     AND tc.constraint_type = 'FOREIGN KEY';
 
 
+
+
+
+
+
+

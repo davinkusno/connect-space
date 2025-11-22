@@ -287,11 +287,11 @@ async function generateEventDescription(params: any) {
   Also identify the target audience and expected outcomes.`
 
     try {
-      const result = await aiClient.generateObject(prompt, EventDescriptionSchema, {
-        systemPrompt:
-          "You are an expert event organizer who creates compelling event descriptions that drive registrations.",
-      })
-      return NextResponse.json(result)
+    const result = await aiClient.generateObject(prompt, EventDescriptionSchema, {
+      systemPrompt:
+        "You are an expert event organizer who creates compelling event descriptions that drive registrations.",
+    })
+    return NextResponse.json(result)
     } catch (aiError: any) {
       // If AI generation fails, return fallback immediately without throwing
       console.warn("AI generation failed, using fallback:", aiError?.message || aiError)

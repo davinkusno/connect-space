@@ -112,6 +112,46 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     path: "/events/create",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
+<<<<<<< Updated upstream
+=======
+  {
+    path: "/community-admin/members",
+    allowedRoles: ["community_admin", "super_admin"],
+  },
+  {
+    path: "/community-admin/discussions",
+    allowedRoles: ["community_admin", "super_admin"],
+  },
+  {
+    path: "/community-admin/events",
+    allowedRoles: ["community_admin", "super_admin"],
+  },
+  {
+    path: "/community-admin/create",
+    allowedRoles: ["community_admin", "super_admin"],
+  },
+  {
+    path: "/community-admin/events/[id]",
+    allowedRoles: ["community_admin", "super_admin"],
+  },
+  {
+    path: "/community-admin/events/[id]/edit",
+    allowedRoles: ["community_admin", "super_admin"],
+  },
+  {
+    path: "/community-admin/notifications",
+    allowedRoles: ["community_admin", "super_admin"],
+  },
+  {
+    path: "/community-admin/requests",
+    allowedRoles: ["community_admin", "super_admin"],
+  },
+  {
+    path: "/create-community",
+    allowedRoles: ["community_admin", "super_admin"],
+  },
+  { path: "/events/create", allowedRoles: ["community_admin", "super_admin"] },
+>>>>>>> Stashed changes
 
   // Super Admin routes (super admins only)
   { path: "/superadmin", allowedRoles: ["super_admin"] },

@@ -10,3 +10,9 @@ COMMENT ON COLUMN events.category IS 'Event category (e.g., Technology, Business
 
 
 
+
+
+
+
+
+

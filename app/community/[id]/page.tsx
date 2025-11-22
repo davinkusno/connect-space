@@ -1,6 +1,10 @@
 "use client";
 
+<<<<<<< Updated upstream
 import { use, useState, useEffect, useRef } from "react";
+=======
+import { use, useState, useEffect } from "react";
+>>>>>>> Stashed changes
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +29,7 @@ import {
   ImageIcon,
   Navigation,
   Hash,
+<<<<<<< Updated upstream
   Settings,
   Globe,
   Lock,
@@ -52,6 +57,19 @@ const LeafletMap = dynamic(
   () => import("@/components/ui/interactive-leaflet-map").then(mod => mod.InteractiveLeafletMap),
   { ssr: false, loading: () => <div className="h-[400px] bg-gray-100 rounded-lg flex items-center justify-center">Loading map...</div> }
 );
+=======
+  Edit,
+  Save,
+  X,
+  Sparkles,
+  Loader2,
+} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { FloatingChat } from "@/components/chat/floating-chat";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { toast } from "sonner";
+>>>>>>> Stashed changes
 
 export default function CommunityPage({
   params,
@@ -78,16 +96,212 @@ export default function CommunityPage({
 
   // Post creation
   const [newPost, setNewPost] = useState("");
+<<<<<<< Updated upstream
+=======
+  const [activeTab, setActiveTab] = useState("about");
+>>>>>>> Stashed changes
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [showReplies, setShowReplies] = useState<Record<string, boolean>>({});
 
 
+<<<<<<< Updated upstream
   // Load community data and user role
   useEffect(() => {
     loadCommunityData();
   }, [id]);
+=======
+  // Check if user is owner/creator of the community
+  const [isOwner, setIsOwner] = useState(false);
+  
+  // Community data state
+  const [communityData, setCommunityData] = useState<any>(null);
+  const [isLoadingCommunity, setIsLoadingCommunity] = useState(true);
+  const [memberCount, setMemberCount] = useState(0);
+  const [eventCount, setEventCount] = useState(0);
+
+  // Description edit state
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState("");
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+
+  // Load community data from database
+  useEffect(() => {
+    const loadCommunityData = async () => {
+      setIsLoadingCommunity(true);
+      try {
+        const supabase = getSupabaseBrowser();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        // Fetch community data
+        const { data: commData, error: commError } = await supabase
+          .from("communities")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (commError || !commData) {
+          console.error("Error fetching community:", commError);
+          setIsLoadingCommunity(false);
+          return;
+        }
+
+        // Check ownership
+        if (user && commData.creator_id === user.id) {
+          setIsOwner(true);
+        } else {
+          setIsOwner(false);
+        }
+
+        // Get member count
+        const { count: memCount } = await supabase
+          .from("community_members")
+          .select("*", { count: "exact", head: true })
+          .eq("community_id", id);
+        
+        setMemberCount(memCount || 0);
+
+        // Get event count
+        const { count: evtCount } = await supabase
+          .from("events")
+          .select("*", { count: "exact", head: true })
+          .eq("community_id", id);
+        
+        setEventCount(evtCount || 0);
+
+        // Parse location
+        let locationData = {
+          lat: 0,
+          lng: 0,
+          address: "",
+          city: "",
+        };
+
+        if (commData.location) {
+          try {
+            let parsed: any = null;
+            
+            if (typeof commData.location === 'string') {
+              try {
+                parsed = JSON.parse(commData.location);
+              } catch (e) {
+                locationData.address = commData.location;
+                parsed = null;
+              }
+            } else {
+              parsed = commData.location;
+            }
+            
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              locationData = {
+                lat: parsed.lat || 0,
+                lng: parsed.lng || 0,
+                address: parsed.address || parsed.Address || parsed.full_address || "",
+                city: parsed.city || parsed.City || "",
+              };
+            }
+          } catch (e) {
+            console.error("Error parsing location:", e);
+            if (typeof commData.location === 'string') {
+              locationData.address = commData.location;
+            }
+          }
+        }
+
+        // Parse category and tags
+        let categoryValue = "General";
+        let tagsValue: string[] = [];
+        
+        if (commData.category) {
+          try {
+            const parsed = JSON.parse(commData.category);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              categoryValue = parsed[0];
+              tagsValue = parsed;
+            } else {
+              categoryValue = commData.category;
+              tagsValue = [commData.category];
+            }
+          } catch (e) {
+            categoryValue = commData.category;
+            tagsValue = [commData.category];
+          }
+        }
+
+        // Also check if there's a separate tags field
+        if (commData.tags) {
+          if (Array.isArray(commData.tags)) {
+            tagsValue = commData.tags;
+          } else if (typeof commData.tags === 'string') {
+            try {
+              tagsValue = JSON.parse(commData.tags);
+            } catch (e) {
+              tagsValue = [commData.tags];
+            }
+          }
+        }
+
+        // Format community data
+        const formattedCommunity = {
+          id: commData.id,
+          name: commData.name || "Community",
+          description: commData.description || "",
+          members: memCount || 0,
+          location: locationData,
+          category: categoryValue,
+          coverImage: commData.banner_url || "/placeholder.svg?height=300&width=800",
+          profileImage: commData.logo_url || "/placeholder.svg?height=120&width=120",
+          tags: tagsValue.length > 0 ? tagsValue : ["General"],
+          upcomingEvents: evtCount || 0,
+          founded: commData.created_at 
+            ? new Date(commData.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+            : "Unknown",
+          gradient: "gradient-primary",
+          rules: [
+            "Be respectful and professional",
+            "No spam or self-promotion",
+            "Stay on topic",
+            "Help others and share knowledge",
+          ],
+          moderators: [], // Can be fetched separately if needed
+        };
+
+        setCommunityData(formattedCommunity);
+      } catch (error) {
+        console.error("Error loading community data:", error);
+      } finally {
+        setIsLoadingCommunity(false);
+      }
+    };
+
+    loadCommunityData();
+  }, [id]);
+
+  // Use real data or fallback to dummy data while loading
+  const community = communityData || {
+    id: id,
+    name: "Loading...",
+    description: "",
+    members: 0,
+    location: {
+      lat: 0,
+      lng: 0,
+      address: "",
+      city: "",
+    },
+    category: "General",
+    coverImage: "/placeholder.svg?height=300&width=800",
+    profileImage: "/placeholder.svg?height=120&width=120",
+    tags: [],
+    upcomingEvents: 0,
+    founded: "Unknown",
+    gradient: "gradient-primary",
+    rules: [],
+    moderators: [],
+  };
+>>>>>>> Stashed changes
 
   // Update active tab when URL parameter changes
   useEffect(() => {
@@ -571,6 +785,7 @@ export default function CommunityPage({
     }
   };
 
+<<<<<<< Updated upstream
 
   const canManage = userRole === "creator" || userRole === "admin";
 
@@ -580,11 +795,141 @@ export default function CommunityPage({
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-violet-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading community...</p>
+=======
+  const handleEditDescription = () => {
+    setEditedDescription(communityData?.description || "");
+    setIsEditingDescription(true);
+  };
+
+  const handleCancelEditDescription = () => {
+    setIsEditingDescription(false);
+    setEditedDescription("");
+  };
+
+  const handleSaveDescription = async () => {
+    if (!communityData?.id) {
+      toast.error("Community not found");
+      return;
+    }
+
+    if (!editedDescription.trim()) {
+      toast.error("Description cannot be empty");
+      return;
+    }
+
+    if (editedDescription.length < 10) {
+      toast.error("Description must be at least 10 characters");
+      return;
+    }
+
+    if (editedDescription.length > 1000) {
+      toast.error("Description must be less than 1000 characters");
+      return;
+    }
+
+    setIsSavingDescription(true);
+    try {
+      const response = await fetch(`/api/communities/${communityData.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: editedDescription.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = data.error || "Failed to save description";
+        toast.error(errorMessage);
+        return;
+      }
+
+      setCommunityData((prev: any) => prev ? { ...prev, description: editedDescription.trim() } : null);
+      setIsEditingDescription(false);
+      toast.success("Description updated successfully!");
+    } catch (error: any) {
+      console.error("Failed to save description:", error);
+      toast.error("Failed to save description. Please try again.");
+    } finally {
+      setIsSavingDescription(false);
+    }
+  };
+
+  const generateDescription = async () => {
+    if (!communityData?.name) {
+      toast.error("Please ensure community has a name");
+      return;
+    }
+
+    setIsGeneratingDescription(true);
+    try {
+      const tagsText = communityData.tags && communityData.tags.length > 0 
+        ? communityData.tags.slice(0, 3).join(", ")
+        : "General";
+      
+      const response = await fetch("/api/ai/generate-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "community-description",
+          params: {
+            name: communityData.name,
+            category: communityData.category || "General",
+            tags: tagsText,
+            locationType: "physical",
+            location: `${communityData.location.city || ""}, ${communityData.location.address || ""}`,
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = data.error || "Failed to generate description";
+        toast.error(errorMessage);
+        return;
+      }
+
+      if (data && data.description && typeof data.description === 'string') {
+        const generatedDescription = data.description;
+        setEditedDescription(generatedDescription);
+        toast.success("Description generated successfully!");
+      } else {
+        const tagsText = communityData.tags && communityData.tags.length > 0 
+          ? communityData.tags.slice(0, 3).join(", ")
+          : "various topics";
+        const fallbackDescription = `${communityData.name} is a ${communityData.category || "community"} focused on ${tagsText}. Join us to connect with like-minded individuals, share knowledge, and participate in activities related to our community interests.`;
+        setEditedDescription(fallbackDescription);
+        toast.success("Description generated (using fallback)");
+      }
+    } catch (error: any) {
+      console.error("Failed to generate description:", error);
+      const tagsText = communityData?.tags && communityData.tags.length > 0 
+        ? communityData.tags.slice(0, 3).join(", ")
+        : "various topics";
+      const fallbackDescription = `${communityData?.name || "This community"} is a ${communityData?.category || "community"} focused on ${tagsText}. Join us to connect with like-minded individuals, share knowledge, and participate in activities related to our community interests.`;
+      setEditedDescription(fallbackDescription);
+      toast.warning("Using fallback description. AI generation encountered an issue.");
+    } finally {
+      setIsGeneratingDescription(false);
+    }
+  };
+
+  // Show loading state
+  if (isLoadingCommunity) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <Spinner size="lg" />
+          <p className="mt-4 text-gray-600">Loading community...</p>
+>>>>>>> Stashed changes
         </div>
       </div>
     );
   }
 
+<<<<<<< Updated upstream
   if (!community) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
@@ -604,14 +949,36 @@ export default function CommunityPage({
           </CardContent>
         </Card>
             </div>
+=======
+  // Show error state if community not found
+  if (!communityData) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Community Not Found</h1>
+          <p className="text-gray-600 mb-4">The community you're looking for doesn't exist.</p>
+          <Link href="/discover">
+            <Button className="bg-violet-700 hover:bg-violet-800 text-white">
+              Browse Communities
+            </Button>
+          </Link>
+        </div>
+      </div>
+>>>>>>> Stashed changes
     );
   }
 
   return (
+<<<<<<< Updated upstream
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
       {/* Hero Section with Cover Image */}
       <div className="relative h-72 overflow-hidden bg-gradient-to-br from-violet-600 to-blue-600">
         {community.banner_url && (
+=======
+    <div className="min-h-screen bg-white">
+      {/* Cover Image */}
+      <div className="relative h-64 md:h-80 overflow-hidden">
+>>>>>>> Stashed changes
         <Image
             src={community.banner_url}
           alt={community.name}
@@ -750,11 +1117,103 @@ export default function CommunityPage({
               </Button>
             </div>
 
+<<<<<<< Updated upstream
             {canManage && (
               <Link href={`/community/${id}/manage`}>
                 <Button variant="default" className="bg-purple-600 hover:bg-purple-700">
                   <Settings className="h-4 w-4 mr-2" />
                   Manage Community
+=======
+      <div className="max-w-6xl mx-auto px-6 py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          {/* Main Content */}
+          <div className="lg:col-span-2">
+            {/* Action Buttons */}
+            <InViewTransition
+              effect="slide-up"
+              className="flex items-center gap-4 mb-8"
+            >
+              {!isOwner && (
+                <>
+                  <ButtonPulse
+                    onClick={handleJoinCommunity}
+                    className={
+                      isJoined
+                        ? "bg-gray-100 text-gray-900 hover:bg-gray-200"
+                        : "bg-violet-700 hover:bg-violet-800 text-white"
+                    }
+                    pulseColor={
+                      isJoined
+                        ? "rgba(229, 231, 235, 0.5)"
+                        : "rgba(124, 58, 237, 0.3)"
+                    }
+                  >
+                    <Button
+                      size="lg"
+                      className={
+                        isJoined
+                          ? "bg-gray-100 text-gray-900 hover:bg-gray-200"
+                          : "bg-violet-700 hover:bg-violet-800 text-white"
+                      }
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      {isJoined ? "Joined" : "Join Community"}
+                    </Button>
+                  </ButtonPulse>
+                  <HoverScale>
+                    <Button
+                      variant="outline"
+                      className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
+                    >
+                      <Bell className="h-4 w-4 mr-2" />
+                      Follow
+                    </Button>
+                  </HoverScale>
+                </>
+              )}
+              <HoverScale>
+                <Button
+                  variant="outline"
+                  className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
+                  onClick={() => setShowShareOptions(!showShareOptions)}
+                >
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share
+                </Button>
+              </HoverScale>
+              {!isOwner && (
+                <HoverScale>
+                  <Button
+                    variant="outline"
+                    className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
+                    onClick={() => setIsChatOpen(true)}
+                  >
+                    <Hash className="h-4 w-4 mr-2" />
+                    Join Chat
+                  </Button>
+                </HoverScale>
+              )}
+            </InViewTransition>
+
+            {/* Share Options Dropdown */}
+            <FadeTransition show={showShareOptions} className="mb-4">
+              <Card className="p-4 border-gray-100">
+                <div className="flex gap-2">
+                  {[
+                    "Twitter",
+                    "Facebook",
+                    "LinkedIn",
+                    "Email",
+                    "Copy Link",
+                  ].map((option) => (
+                    <Button
+                      key={option}
+                      variant="outline"
+                      size="sm"
+                      className="text-sm"
+                    >
+                      {option}
+>>>>>>> Stashed changes
                     </Button>
               </Link>
             )}
@@ -762,6 +1221,7 @@ export default function CommunityPage({
         </div>
       </div>
 
+<<<<<<< Updated upstream
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
@@ -772,8 +1232,26 @@ export default function CommunityPage({
                 <TabsTrigger
                   value="discussions"
                   className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
+=======
+            {/* Community Tabs */}
+            <Tabs
+              defaultValue="about"
+              className="w-full"
+              onValueChange={handleTabChange}
+            >
+              <TabsList className="grid w-full grid-cols-4 bg-gray-50 border-gray-200">
+                <TabsTrigger
+                  value="about"
+                  className="data-[state=active]:bg-white data-[state=active]:text-violet-700"
+>>>>>>> Stashed changes
                 >
-                  Discussions
+                  About
+                </TabsTrigger>
+                <TabsTrigger
+                  value="announcements"
+                  className="data-[state=active]:bg-white data-[state=active]:text-violet-700"
+                >
+                  Announcements
                 </TabsTrigger>
                 <TabsTrigger
                   value="events"
@@ -787,6 +1265,7 @@ export default function CommunityPage({
                 >
                   Members
                 </TabsTrigger>
+<<<<<<< Updated upstream
                 <TabsTrigger
                   value="about"
                   className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
@@ -807,19 +1286,206 @@ export default function CommunityPage({
                           <AvatarFallback>
                             {currentUser?.email?.charAt(0).toUpperCase()}
                           </AvatarFallback>
+=======
+              </TabsList>
+
+              {/* About Tab */}
+              <TabsContent value="about" className="space-y-8 mt-8">
+                <SlideTransition show={activeTab === "about"} direction="up">
+                  <Card className="border-gray-100">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-xl font-medium text-gray-900">
+                          About This Community
+                        </CardTitle>
+                        {isOwner && !isEditingDescription && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleEditDescription}
+                            className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Description
+                          </Button>
+                        )}
+                        {isOwner && isEditingDescription && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleCancelEditDescription}
+                              disabled={isSavingDescription}
+                              className="border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleSaveDescription}
+                              disabled={isSavingDescription}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              {isSavingDescription ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Saving...
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="w-4 h-4 mr-2" />
+                                  Save
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={generateDescription}
+                              disabled={isGeneratingDescription}
+                              className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg"
+                            >
+                              {isGeneratingDescription ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Generating...
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-4 h-4 mr-2" />
+                                  Generate with AI
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-8">
+                      {isEditingDescription ? (
+                        <div className="space-y-4">
+                          <Textarea
+                            value={editedDescription}
+                            onChange={(e) => setEditedDescription(e.target.value)}
+                            placeholder="Enter community description..."
+                            className="min-h-[150px] text-base leading-relaxed resize-none"
+                            disabled={isSavingDescription}
+                          />
+                          <div className="flex items-center justify-between text-sm text-gray-500">
+                            <div className="flex items-center space-x-4">
+                              <span>Character count: {editedDescription.length}</span>
+                              <span className={editedDescription.length < 10 || editedDescription.length > 1000 ? "text-red-500" : ""}>
+                                {editedDescription.length < 10 
+                                  ? "Minimum 10 characters required" 
+                                  : editedDescription.length > 1000 
+                                  ? "Maximum 1000 characters" 
+                                  : `${1000 - editedDescription.length} characters remaining`}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-700 leading-relaxed">
+                          {community.description}
+                        </p>
+                      )}
+
+                      <div className="py-6">
+                        <div>
+                          <span className="text-sm text-gray-500">Founded</span>
+                          <p className="font-medium text-gray-900">
+                            {community.founded}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Separator className="bg-gray-200" />
+
+                      <div>
+                        <h4 className="font-medium mb-4 text-gray-900 flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-violet-600" />
+                          Location
+                        </h4>
+                        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                          <p className="text-gray-800 mb-2">
+                            {community.location.address}
+                          </p>
+                          <HoverScale>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowLocationMap(true)}
+                              className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
+                            >
+                              <Navigation className="h-4 w-4 mr-2" />
+                              View on Map
+                            </Button>
+                          </HoverScale>
+                        </div>
+                      </div>
+
+                      <Separator className="bg-gray-200" />
+
+                      <div>
+                        <h4 className="font-medium mb-4 text-gray-900">
+                          Community Tags
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {community.tags.map((tag, index) => (
+                            <HoverScale key={index}>
+                              <Badge
+                                variant="outline"
+                                className="border-gray-200 text-gray-600"
+                              >
+                                {tag}
+                              </Badge>
+                            </HoverScale>
+                          ))}
+                        </div>
+                      </div>
+
+                    </CardContent>
+                  </Card>
+                </SlideTransition>
+              </TabsContent>
+
+              {/* Announcements Tab */}
+              <TabsContent value="announcements" className="space-y-8 mt-8">
+                {/* New Announcement - Only for Admin/Owner */}
+                {isOwner && (
+                  <SlideTransition
+                    show={activeTab === "announcements"}
+                    direction="up"
+                  >
+                    <Card className="border-gray-100">
+                      <CardContent className="p-6">
+                        <div className="flex gap-4">
+                          <Avatar>
+                            <AvatarImage src="/placeholder.svg?height=40&width=40" />
+                            <AvatarFallback>Admin</AvatarFallback>
+>>>>>>> Stashed changes
                           </Avatar>
                           <div className="flex-1 space-y-4">
                             <Textarea
-                              placeholder="Share something with the community..."
+                              placeholder="Create an announcement for the community..."
                               value={newPost}
                               onChange={(e) => setNewPost(e.target.value)}
                             className="min-h-[100px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none"
                             />
+<<<<<<< Updated upstream
                             <div className="flex justify-between items-center">
                             <Button variant="outline" size="sm" className="border-gray-200">
                                 <ImageIcon className="h-4 w-4 mr-2" />
                                 Add Image
                               </Button>
+=======
+                            <div className="flex justify-end items-center">
+                              <ButtonPulse
+                                disabled={!newPost.trim() || isSubmitting}
+                                onClick={handleSubmitPost}
+                                pulseColor="rgba(124, 58, 237, 0.3)"
+                              >
+>>>>>>> Stashed changes
                                 <Button
                                   disabled={!newPost.trim() || isSubmitting}
                               onClick={handlePostDiscussion}
@@ -832,8 +1498,12 @@ export default function CommunityPage({
                                     </>
                                   ) : (
                                     <>
+<<<<<<< Updated upstream
                                   <Send className="h-4 w-4 mr-2" />
                                   Post
+=======
+                                      <Send className="h-4 w-4 mr-2" /> Post Announcement
+>>>>>>> Stashed changes
                                     </>
                                   )}
                                 </Button>
@@ -844,6 +1514,7 @@ export default function CommunityPage({
                     </Card>
                 )}
 
+<<<<<<< Updated upstream
                 {/* Discussions List */}
                 {isLoadingTab ? (
                   <div className="flex items-center justify-center py-12">
@@ -877,6 +1548,18 @@ export default function CommunityPage({
                     {discussions.map((discussion) => (
                       <Card key={discussion.id} className="border-gray-200 hover:shadow-md transition-shadow">
                         <CardContent className="p-6">
+=======
+                {/* Announcement Posts */}
+                <div className="space-y-6">
+                  {discussions.map((post, index) => (
+                    <InViewTransition
+                      key={post.id}
+                      effect="fade"
+                      delay={index * 100}
+                    >
+                      <Card className="hover:shadow-md transition-shadow duration-300 border-gray-100 hover:border-violet-200">
+                        <CardContent className="p-8">
+>>>>>>> Stashed changes
                           <div className="flex gap-4">
                             <Avatar>
                               <AvatarImage src={discussion.users?.avatar_url} />
@@ -885,6 +1568,7 @@ export default function CommunityPage({
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
+<<<<<<< Updated upstream
                               <div className="flex items-center gap-2 mb-2">
                                 <h4 className="font-semibold text-gray-900">
                                   {discussion.users?.full_name || discussion.users?.username || "Anonymous"}
@@ -896,11 +1580,23 @@ export default function CommunityPage({
                                     hour: "numeric",
                                     minute: "2-digit",
                                   })}
+=======
+                              <div className="flex items-center gap-3 mb-3">
+                                <span className="font-medium text-gray-900">
+                                  {post.author}
+                                </span>
+                                <Badge variant="secondary" className="bg-violet-100 text-violet-700">
+                                  Admin
+                                </Badge>
+                                <span className="text-gray-500 text-sm">
+                                  {post.timestamp}
+>>>>>>> Stashed changes
                                 </span>
                                 {discussion.is_edited && (
                                   <Badge variant="outline" className="text-xs">Edited</Badge>
                                 )}
                               </div>
+<<<<<<< Updated upstream
                               <p className="text-gray-700 mb-4 whitespace-pre-wrap">
                                 {discussion.content}
                               </p>
@@ -1081,6 +1777,14 @@ export default function CommunityPage({
                                   </div>
                                 </div>
                               )}
+=======
+                              <h3 className="font-medium text-lg mb-3 text-gray-900">
+                                {post.title}
+                              </h3>
+                              <p className="text-gray-700 leading-relaxed">
+                                {post.content}
+                              </p>
+>>>>>>> Stashed changes
                             </div>
                           </div>
                         </CardContent>
@@ -1260,6 +1964,7 @@ export default function CommunityPage({
                                   </div>
                                 </div>
                               </div>
+<<<<<<< Updated upstream
                             </CardContent>
                           </Card>
                         </Link>
@@ -1268,6 +1973,17 @@ export default function CommunityPage({
                   </div>
                 )}
               </TabsContent>
+=======
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </InViewTransition>
+                  ))}
+                </div>
+              </TabsContent>
+
+>>>>>>> Stashed changes
 
               {/* Members Tab */}
               <TabsContent value="members" className="space-y-6 mt-6">
@@ -1336,7 +2052,9 @@ export default function CommunityPage({
                                   })}
                                 </p>
                               </div>
+                              </div>
                             </div>
+<<<<<<< Updated upstream
                             {isMember && member.user_id !== currentUser?.id && (
                                 <Button
                                   variant="outline"
@@ -1351,12 +2069,15 @@ export default function CommunityPage({
                                 </Button>
                             )}
                           </div>
+=======
+>>>>>>> Stashed changes
                         </CardContent>
                       </Card>
                   ))}
                 </div>
                 )}
               </TabsContent>
+<<<<<<< Updated upstream
 
               {/* About Tab */}
               <TabsContent value="about" className="space-y-6 mt-6">
@@ -1466,6 +2187,8 @@ export default function CommunityPage({
                     </CardContent>
                   </Card>
               </TabsContent>
+=======
+>>>>>>> Stashed changes
             </Tabs>
           </div>
 
@@ -1489,6 +2212,7 @@ export default function CommunityPage({
                     {memberCount.toLocaleString()}
                     </span>
                   </div>
+<<<<<<< Updated upstream
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
@@ -1508,6 +2232,18 @@ export default function CommunityPage({
                       month: "short",
                       year: "numeric",
                     })}
+=======
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Upcoming Events</span>
+                    <span className="font-medium text-gray-900">
+                      {community.upcomingEvents}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Founded</span>
+                    <span className="font-medium text-gray-900">
+                      {community.founded}
+>>>>>>> Stashed changes
                     </span>
                   </div>
                 </CardContent>
@@ -1536,6 +2272,7 @@ export default function CommunityPage({
               </CardContent>
             </Card>
 
+<<<<<<< Updated upstream
             {/* Quick Actions */}
             {isMember && (
               <Card className="border-gray-200">
@@ -1572,6 +2309,35 @@ export default function CommunityPage({
                 </CardContent>
               </Card>
             )}
+=======
+
+            {/* Moderators */}
+            <InViewTransition effect="slide-left" delay={100}>
+              <Card className="border-gray-100">
+                <CardHeader>
+                  <CardTitle className="text-lg font-medium text-gray-900">
+                    Moderators
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {community.moderators.map((mod, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={mod.avatar || "/placeholder.svg"} />
+                        <AvatarFallback>{mod.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-sm text-gray-900">
+                          {mod.name}
+                        </p>
+                        <p className="text-violet-700 text-xs">{mod.role}</p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </InViewTransition>
+>>>>>>> Stashed changes
           </div>
         </div>
       </div>

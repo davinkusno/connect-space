@@ -72,11 +72,16 @@ export default function DashboardPage() {
   const eventsPerPage = 4;
   const [userBadges, setUserBadges] = useState<any[]>([]);
   const [isLoadingBadges, setIsLoadingBadges] = useState(false);
+<<<<<<< Updated upstream
   const [createdCommunities, setCreatedCommunities] = useState<Community[]>([]);
   const [joinedCommunities, setJoinedCommunities] = useState<Community[]>([]);
   const [isLoadingCommunities, setIsLoadingCommunities] = useState(true);
   const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+=======
+  const [adminCommunities, setAdminCommunities] = useState<any[]>([]);
+  const [isLoadingCommunities, setIsLoadingCommunities] = useState(false);
+>>>>>>> Stashed changes
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -287,8 +292,162 @@ export default function DashboardPage() {
     fetchUserBadges();
   }, [activeTab]);
 
+<<<<<<< Updated upstream
   // Calculate total communities count
   const totalCommunities = createdCommunities.length + joinedCommunities.length;
+=======
+  // Fetch communities where user is admin
+  useEffect(() => {
+    const fetchAdminCommunities = async () => {
+      setIsLoadingCommunities(true);
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+          setIsLoadingCommunities(false);
+          return;
+        }
+
+        // Get communities where user is creator
+        let { data: creatorCommunities } = await supabase
+          .from("communities")
+          .select("id, name, logo_url, banner_url, description, created_at")
+          .eq("creator_id", user.id);
+
+        // Get communities where user is admin
+        const { data: adminMemberships } = await supabase
+          .from("community_members")
+          .select("community_id, communities(id, name, logo_url, banner_url, description, created_at)")
+          .eq("user_id", user.id)
+          .eq("role", "admin");
+
+        const communities: any[] = [];
+
+        // Add creator communities
+        if (creatorCommunities) {
+          for (const comm of creatorCommunities) {
+            // Get member count
+            const { count: memberCount } = await supabase
+              .from("community_members")
+              .select("*", { count: "exact", head: true })
+              .eq("community_id", comm.id);
+
+            // Get event count
+            const { count: eventCount } = await supabase
+              .from("events")
+              .select("*", { count: "exact", head: true })
+              .eq("community_id", comm.id);
+
+            communities.push({
+              id: comm.id,
+              name: comm.name,
+              image: comm.logo_url || "/placeholder.svg?height=60&width=60",
+              members: memberCount || 0,
+              upcomingEvents: eventCount || 0,
+              description: comm.description || "",
+              role: "Admin",
+            });
+          }
+        }
+
+        // Add admin communities (avoid duplicates)
+        if (adminMemberships) {
+          for (const membership of adminMemberships) {
+            const comm = membership.communities;
+            if (comm && !communities.find(c => c.id === comm.id)) {
+              // Get member count
+              const { count: memberCount } = await supabase
+                .from("community_members")
+                .select("*", { count: "exact", head: true })
+                .eq("community_id", comm.id);
+
+              // Get event count
+              const { count: eventCount } = await supabase
+                .from("events")
+                .select("*", { count: "exact", head: true })
+                .eq("community_id", comm.id);
+
+              communities.push({
+                id: comm.id,
+                name: comm.name,
+                image: comm.logo_url || "/placeholder.svg?height=60&width=60",
+                members: memberCount || 0,
+                upcomingEvents: eventCount || 0,
+                description: comm.description || "",
+                role: "Admin",
+              });
+            }
+          }
+        }
+
+        setAdminCommunities(communities);
+      } catch (error) {
+        console.error("Error fetching admin communities:", error);
+      } finally {
+        setIsLoadingCommunities(false);
+      }
+    };
+
+    if (activeTab === "communities") {
+      fetchAdminCommunities();
+    }
+  }, [activeTab]);
+
+  const userCommunities = [
+    {
+      id: 1,
+      name: "Tech Innovators",
+      role: "Member",
+      members: 1247,
+      unreadMessages: 5,
+      lastActivity: "2 hours ago",
+      image: "/placeholder.svg?height=60&width=60",
+      gradient: "from-blue-500 to-purple-600",
+      bgColor: "bg-blue-50",
+      textColor: "text-blue-700",
+      description:
+        "A community for technology enthusiasts and innovators to share ideas and collaborate on cutting-edge projects.",
+      engagement: 87,
+      upcomingEvents: 3,
+      newMembers: 12,
+    },
+    {
+      id: 2,
+      name: "Outdoor Adventures",
+      role: "Moderator",
+      members: 892,
+      unreadMessages: 12,
+      lastActivity: "1 hour ago",
+      image: "/placeholder.svg?height=60&width=60",
+      gradient: "from-green-500 to-teal-600",
+      bgColor: "bg-green-50",
+      textColor: "text-green-700",
+      description:
+        "Join fellow outdoor enthusiasts for hiking, camping, and adventure activities in beautiful locations.",
+      engagement: 92,
+      upcomingEvents: 5,
+      newMembers: 8,
+    },
+    {
+      id: 3,
+      name: "Creative Writers",
+      role: "Admin",
+      members: 634,
+      unreadMessages: 3,
+      lastActivity: "30 minutes ago",
+      image: "/placeholder.svg?height=60&width=60",
+      gradient: "from-pink-500 to-rose-600",
+      bgColor: "bg-pink-50",
+      textColor: "text-pink-700",
+      description:
+        "A supportive community for writers of all levels to share their work and improve their craft.",
+      engagement: 78,
+      upcomingEvents: 2,
+      newMembers: 5,
+    },
+  ];
+>>>>>>> Stashed changes
 
   const upcomingEvents = [
     {
@@ -1139,6 +1298,7 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-4 pt-0">
+<<<<<<< Updated upstream
                   {isLoadingCommunities ? (
                     <div className="flex items-center justify-center py-12">
                       <div className="text-center">
@@ -1175,9 +1335,59 @@ export default function DashboardPage() {
                                   <Crown className="h-3 w-3 mr-1" />
                                   Creator
                                 </Badge>
-                          </div>
-                        </div>
+=======
+                {isLoadingCommunities ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-sm text-gray-500">Loading communities...</p>
+                    </div>
+                  </div>
+                ) : adminCommunities.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Users className="h-10 w-10 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      No communities yet
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-6">
+                      You don't have any communities where you're an admin.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {adminCommunities.map((community) => (
+                      <Card
+                        key={community.id}
+                        className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-gray-200"
+                      >
+                        <CardContent className="p-5">
+                          {/* Community Avatar and Info */}
+                          <div className="flex items-start gap-3 mb-4">
+                            <Avatar className="h-14 w-14 ring-2 ring-purple-100">
+                              <AvatarImage
+                                src={community.image || "/placeholder.svg"}
+                              />
+                              <AvatarFallback className="bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold">
+                                {community.name.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
 
+                            <div className="flex-1 min-w-0">
+                              <Link href="/community-admin">
+                                <h3 className="text-base font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2">
+                                  {community.name}
+                                </h3>
+                              </Link>
+                              <Badge variant="secondary" className="mt-1 text-xs">
+                                {community.role}
+                              </Badge>
+                            </div>
+>>>>>>> Stashed changes
+                          </div>
+
+<<<<<<< Updated upstream
                             {/* Description */}
                             {community.description && (
                               <p className="text-sm text-gray-600 line-clamp-2 mb-4">
@@ -1340,6 +1550,37 @@ export default function DashboardPage() {
                     </Card>
                   ))}
                 </div>
+=======
+                          {/* Stats */}
+                          <div className="space-y-2 mb-4">
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Users className="h-4 w-4" />
+                              <span>
+                                {community.members.toLocaleString()} members
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <CalendarIcon className="h-4 w-4" />
+                              <span>
+                                {community.upcomingEvents || 0} upcoming events
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Action Button */}
+                          <Link
+                            href="/community-admin"
+                            className="block"
+                          >
+                            <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                              Manage Community
+                            </Button>
+                          </Link>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+>>>>>>> Stashed changes
                 )}
               </CardContent>
             </Card>
