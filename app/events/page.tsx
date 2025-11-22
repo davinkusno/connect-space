@@ -54,7 +54,7 @@ import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
 
 interface Event {
-  id: number;
+  id: string | number;
   title: string;
   description: string;
   category: string;
@@ -72,7 +72,7 @@ interface Event {
   };
   organizer: string;
   attendees: number;
-  maxAttendees: number;
+  maxAttendees: number | null;
   rating: number;
   reviewCount: number;
   image: string;
@@ -85,9 +85,17 @@ interface Event {
   language?: string;
   certificates?: boolean;
   isPrivate?: boolean;
+  community?: {
+    id: string;
+    name: string;
+    logo?: string | null;
+  } | null;
 }
 
 export default function EventsPage() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
@@ -98,237 +106,65 @@ export default function EventsPage() {
   } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState("all");
-  const [dateRange, setDateRange] = useState("all");
+  const [dateRange, setDateRange] = useState("upcoming");
   const [searchFilter, setSearchFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [savedEvents, setSavedEvents] = useState<number[]>([]);
+  const [savedEvents, setSavedEvents] = useState<(string | number)[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6);
+  const [totalPages, setTotalPages] = useState(1);
 
-  // Enhanced mock events data
-  const mockEvents: Event[] = [
-    {
-      id: 1,
-      title: "AI & Machine Learning Summit 2024",
-      description:
-        "Join industry leaders for cutting-edge discussions on artificial intelligence, machine learning, and the future of technology. Network with experts and discover breakthrough innovations.",
-      category: "Technology",
-      tags: [
-        "AI",
-        "Machine Learning",
-        "Tech",
-        "Innovation",
-        "Networking",
-        "Future Tech",
-      ],
-      date: "2024-02-15",
-      time: "09:00",
-      endTime: "18:00",
-      location: {
-        latitude: 37.7749,
-        longitude: -122.4194,
-        address: "747 Howard Street",
-        venue: "Moscone Convention Center",
-        city: "San Francisco",
-      },
-      organizer: "TechEvents Global",
-      attendees: 847,
-      maxAttendees: 1000,
-      rating: 4.8,
-      reviewCount: 156,
-      image: "/placeholder.svg?height=300&width=500",
-      gallery: [
-        "/placeholder.svg?height=200&width=300",
-        "/placeholder.svg?height=200&width=300",
-      ],
-      trending: true,
-      featured: true,
-      isNew: false,
-      difficulty: "Intermediate",
-      duration: "9 hours",
-      language: "English",
-      certificates: true,
-      isPrivate: false,
-    },
-    {
-      id: 2,
-      title: "Digital Marketing Masterclass",
-      description:
-        "Master the latest digital marketing strategies, SEO techniques, and social media marketing. Learn from industry experts and transform your marketing approach.",
-      category: "Marketing",
-      tags: [
-        "Marketing",
-        "Digital",
-        "SEO",
-        "Social Media",
-        "Strategy",
-        "Growth",
-      ],
-      date: "2024-02-20",
-      time: "14:00",
-      endTime: "17:00",
-      location: {
-        latitude: 40.7128,
-        longitude: -74.006,
-        address: "456 Marketing Avenue",
-        venue: "Marketing Hub NYC",
-        city: "New York",
-      },
-      organizer: "Digital Marketing Pros",
-      attendees: 234,
-      maxAttendees: 300,
-      rating: 4.6,
-      reviewCount: 89,
-      image: "/placeholder.svg?height=300&width=500",
-      trending: false,
-      featured: false,
-      isNew: true,
-      difficulty: "Beginner",
-      duration: "3 hours",
-      language: "English",
-      certificates: false,
-      isPrivate: true,
-    },
-    {
-      id: 3,
-      title: "Startup Pitch Competition",
-      description:
-        "Watch innovative startups pitch their groundbreaking ideas to top-tier investors. Network with entrepreneurs and discover the next big thing in tech.",
-      category: "Business",
-      tags: [
-        "Startups",
-        "Pitch",
-        "Investment",
-        "Entrepreneurship",
-        "Innovation",
-        "Funding",
-      ],
-      date: "2024-02-25",
-      time: "18:00",
-      endTime: "21:00",
-      location: {
-        latitude: 30.2672,
-        longitude: -97.7431,
-        address: "789 Startup Boulevard",
-        venue: "Innovation Center Austin",
-        city: "Austin",
-      },
-      organizer: "Startup Austin Community",
-      attendees: 156,
-      maxAttendees: 200,
-      rating: 4.7,
-      reviewCount: 67,
-      image: "/placeholder.svg?height=300&width=500",
-      trending: true,
-      featured: false,
-      isNew: false,
-      difficulty: "Intermediate",
-      duration: "3 hours",
-      language: "English",
-      certificates: false,
-      isPrivate: false,
-    },
-    {
-      id: 4,
-      title: "Virtual UX/UI Design Workshop",
-      description:
-        "Learn modern design principles, user research methodologies, and prototyping tools from industry experts. Perfect for designers at any level.",
-      category: "Design",
-      tags: ["UX", "UI", "Design", "Prototyping", "User Research", "Figma"],
-      date: "2024-03-01",
-      time: "10:00",
-      endTime: "16:00",
-      location: {
-        latitude: 0,
-        longitude: 0,
-        address: "Virtual Platform",
-        venue: "Online Event",
-        city: "Online",
-        isOnline: true,
-      },
-      organizer: "Design Academy",
-      attendees: 445,
-      maxAttendees: 500,
-      rating: 4.9,
-      reviewCount: 203,
-      image: "/placeholder.svg?height=300&width=500",
-      trending: false,
-      featured: true,
-      isNew: true,
-      difficulty: "Beginner",
-      duration: "6 hours",
-      language: "English",
-      certificates: true,
-      isPrivate: true,
-    },
-    {
-      id: 5,
-      title: "Blockchain & Web3 Conference",
-      description:
-        "Explore the future of decentralized technology, cryptocurrency, NFTs, and DeFi. Connect with blockchain pioneers and learn about emerging opportunities.",
-      category: "Technology",
-      tags: ["Blockchain", "Web3", "Cryptocurrency", "NFT", "DeFi", "Crypto"],
-      date: "2024-03-05",
-      time: "09:30",
-      endTime: "17:30",
-      location: {
-        latitude: 25.7617,
-        longitude: -80.1918,
-        address: "1901 Convention Center Drive",
-        venue: "Miami Convention Center",
-        city: "Miami",
-      },
-      organizer: "Blockchain Society",
-      attendees: 567,
-      maxAttendees: 800,
-      rating: 4.7,
-      reviewCount: 134,
-      image: "/placeholder.svg?height=300&width=500",
-      trending: true,
-      featured: true,
-      isNew: false,
-      difficulty: "Advanced",
-      duration: "8 hours",
-      language: "English",
-      certificates: true,
-      isPrivate: false,
-    },
-    {
-      id: 6,
-      title: "AI in Healthcare Summit 2024",
-      description:
-        "Join industry leaders for an insightful exploration of AI's transformative potential in healthcare.",
-      category: "Technology",
-      tags: ["AI", "Healthcare", "Technology", "Innovation", "Networking"],
-      date: "2024-03-15",
-      time: "09:00",
-      endTime: "17:00",
-      location: {
-        latitude: 0,
-        longitude: 0,
-        address: "Online Platform",
-        venue: "Virtual Event",
-        city: "Online",
-        isOnline: true,
-      },
-      organizer: "HealthTech Innovations",
-      attendees: 347,
-      maxAttendees: 500,
-      rating: 4.8,
-      reviewCount: 127,
-      image: "/placeholder.svg?height=300&width=500",
-      trending: false,
-      featured: true,
-      isNew: true,
-      difficulty: "Intermediate",
-      duration: "8 hours",
-      language: "English",
-      certificates: true,
-      isPrivate: true,
-    },
-  ];
+  // Fetch events from API
+  useEffect(() => {
+    const fetchEvents = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          pageSize: itemsPerPage.toString(),
+          dateRange: dateRange,
+          sortBy: "start_time",
+          sortOrder: "asc",
+        });
+
+        if (searchQuery) {
+          params.append("search", searchQuery);
+        }
+
+        if (selectedCategory !== "all") {
+          params.append("category", selectedCategory);
+        }
+
+        if (selectedLocation === "online") {
+          params.append("location", "online");
+        } else if (selectedLocation !== "all" && locationQuery) {
+          params.append("location", locationQuery);
+        }
+
+        const response = await fetch(`/api/events?${params.toString()}`);
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch events");
+        }
+
+        const data = await response.json();
+        setEvents(data.events || []);
+        setTotalPages(data.pagination?.totalPages || 1);
+      } catch (err: any) {
+        console.error("Error fetching events:", err);
+        setError(err.message || "Failed to load events");
+        setEvents([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, [currentPage, itemsPerPage, searchQuery, selectedCategory, selectedLocation, dateRange, locationQuery]);
 
   const categories = [
     { value: "all", label: "All Categories", icon: "🎯" },
@@ -341,7 +177,7 @@ export default function EventsPage() {
   ];
 
   const filteredEvents = useMemo(() => {
-    let filtered = mockEvents;
+    let filtered = events;
 
     // Location filter
     if (locationQuery) {
@@ -401,8 +237,15 @@ export default function EventsPage() {
       }
     }
 
-    // Date filter
-    if (dateRange !== "all") {
+    // Date filter (client-side filtering is minimal since API handles most of it)
+    // This is mainly for consistency and any edge cases
+    if (dateRange === "upcoming") {
+      const now = new Date();
+      filtered = filtered.filter((event) => {
+        const eventDate = new Date(event.date);
+        return eventDate >= now;
+      });
+    } else if (dateRange !== "all") {
       const now = new Date();
       switch (dateRange) {
         case "today":
@@ -434,6 +277,7 @@ export default function EventsPage() {
 
     return filtered;
   }, [
+    events,
     searchQuery,
     locationQuery,
     selectedCategory,
@@ -441,11 +285,8 @@ export default function EventsPage() {
     dateRange,
   ]);
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredEvents.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
+  // Use events directly from API (already paginated)
+  const paginatedEvents = filteredEvents;
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -458,7 +299,7 @@ export default function EventsPage() {
     window.scrollTo({ top: 400, behavior: 'smooth' });
   };
 
-  const toggleSaveEvent = (eventId: number) => {
+  const toggleSaveEvent = (eventId: string | number) => {
     setSavedEvents((prev) =>
       prev.includes(eventId)
         ? prev.filter((id) => id !== eventId)
@@ -1088,10 +929,11 @@ export default function EventsPage() {
                           <SelectValue placeholder="All Dates" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Dates</SelectItem>
+                          <SelectItem value="upcoming">Upcoming Events</SelectItem>
                           <SelectItem value="today">Today</SelectItem>
                           <SelectItem value="week">This Week</SelectItem>
                           <SelectItem value="month">This Month</SelectItem>
+                          <SelectItem value="all">All Dates</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
