@@ -14,12 +14,9 @@ import {
   MapPin,
   Users,
   Calendar,
-  MessageCircle,
-  Share2,
   Bell,
   UserPlus,
   UserMinus,
-  ThumbsUp,
   Reply,
   Send,
   ImageIcon,
@@ -39,6 +36,8 @@ import {
   Edit,
   Trash2,
   ChevronRight,
+  AlertTriangle,
+  MoreVertical,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -47,6 +46,21 @@ import { toast } from "sonner";
 import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
 import dynamic from "next/dynamic";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import { ReportDialog } from "@/components/community/report-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Dynamic import for Leaflet map
 const LeafletMap = dynamic(
@@ -80,6 +94,15 @@ export default function CommunityPage({
   const eventsPerPage = 6;
   const [membersPage, setMembersPage] = useState(1);
   const membersPerPage = 12;
+
+  // Report dialog state
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportType, setReportType] = useState<"community" | "post" | "member" | "event">("community");
+  const [reportTargetId, setReportTargetId] = useState<string>("");
+  const [reportTargetName, setReportTargetName] = useState<string>("");
+
+  // Join/Leave modal state
+  const [joinLeaveModalOpen, setJoinLeaveModalOpen] = useState(false);
 
   // Post creation
   const [newPost, setNewPost] = useState("");
@@ -383,15 +406,29 @@ export default function CommunityPage({
     }
   };
 
-  const handleJoinCommunity = async () => {
+  const handleJoinCommunity = () => {
     if (!currentUser) {
       toast.error("Please log in to join this community");
       router.push("/auth/login");
       return;
     }
 
+    if (userRole === "creator") {
+      return; // Creator cannot leave their own community
+    }
+
+    // Open confirmation modal
+    setJoinLeaveModalOpen(true);
+  };
+
+  const confirmJoinLeave = async () => {
+    if (!currentUser) {
+      return;
+    }
+
     try {
       setIsJoining(true);
+      setJoinLeaveModalOpen(false);
       const supabase = getSupabaseBrowser();
 
       // Ensure user exists in users table before joining
@@ -718,41 +755,21 @@ export default function CommunityPage({
                 {userRole === "creator" ? "Your Community" : isMember ? "Leave" : "Join Community"}
                 </Button>
               
-              <Button 
-                variant="outline" 
-                className="border-gray-200 hover:bg-gray-50"
-                onClick={async () => {
-                  const url = window.location.href;
-                  try {
-                    if (navigator.share) {
-                      await navigator.share({
-                        title: community.name,
-                        text: `Check out ${community.name} on ConnectSpace!`,
-                        url: url,
-                      });
-                      toast.success("Shared successfully!");
-                    } else {
-                      // Fallback: Copy to clipboard
-                      await navigator.clipboard.writeText(url);
-                      toast.success("Link copied to clipboard!");
-                    }
-                  } catch (error: any) {
-                    // User cancelled or error occurred
-                    if (error.name !== "AbortError") {
-                      // Fallback: Copy to clipboard
-                      try {
-                        await navigator.clipboard.writeText(url);
-                        toast.success("Link copied to clipboard!");
-                      } catch (clipboardError) {
-                        toast.error("Failed to share. Please copy the URL manually.");
-                      }
-                    }
-                  }
-                }}
-              >
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </Button>
+              {currentUser && (
+                <Button
+                  variant="outline"
+                  className="border-gray-200 hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+                  onClick={() => {
+                    setReportType("community");
+                    setReportTargetId(id);
+                    setReportTargetName(community.name);
+                    setReportDialogOpen(true);
+                  }}
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Report
+                </Button>
+              )}
             </div>
 
             {canManage && (
@@ -857,7 +874,7 @@ export default function CommunityPage({
                 ) : discussions.length === 0 ? (
                   <Card className="border-gray-200">
                     <CardContent className="p-12 text-center">
-                      <MessageCircle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                      <Hash className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">
                         No discussions yet
                       </h3>
@@ -913,21 +930,32 @@ export default function CommunityPage({
                               {/* Replies Count and Toggle */}
                               {discussion.replies && discussion.replies.length > 0 && (
                                 <div className="mb-4">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-gray-600 hover:text-violet-600 mb-3"
-                                    onClick={() => setShowReplies(prev => ({
-                                      ...prev,
-                                      [discussion.id]: !prev[discussion.id]
-                                    }))}
-                                  >
-                                    <Reply className="h-4 w-4 mr-1" />
-                                    {showReplies[discussion.id] 
-                                      ? `Hide ${discussion.replies.length} ${discussion.replies.length === 1 ? 'reply' : 'replies'}`
-                                      : `Show ${discussion.replies.length} ${discussion.replies.length === 1 ? 'reply' : 'replies'}`
-                                    }
-                                  </Button>
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-gray-600 hover:text-violet-600"
+                                      onClick={() => setShowReplies(prev => ({
+                                        ...prev,
+                                        [discussion.id]: !prev[discussion.id]
+                                      }))}
+                                    >
+                                      <Reply className="h-4 w-4 mr-1" />
+                                      {showReplies[discussion.id] 
+                                        ? `Hide ${discussion.replies.length} ${discussion.replies.length === 1 ? 'reply' : 'replies'}`
+                                        : `Show ${discussion.replies.length} ${discussion.replies.length === 1 ? 'reply' : 'replies'}`
+                                      }
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-gray-600 hover:text-violet-600"
+                                      onClick={() => setReplyingTo(replyingTo === discussion.id ? null : discussion.id)}
+                                    >
+                                      <Reply className="h-4 w-4 mr-1" />
+                                      Reply
+                                    </Button>
+                                  </div>
                                   
                                   {/* Replies - Only show when toggled */}
                                   {showReplies[discussion.id] && (
@@ -953,32 +981,62 @@ export default function CommunityPage({
                                                   minute: "2-digit",
                                                 })}
                                               </span>
-                                              {/* Delete button for reply owner */}
-                                              {currentUser && reply.sender_id === currentUser.id && (
-                                                <Button
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                  onClick={async () => {
-                                                    if (confirm("Are you sure you want to delete this reply?")) {
-                                                      const supabase = getSupabaseBrowser();
-                                                      const { error } = await supabase
-                                                        .from("messages")
-                                                        .delete()
-                                                        .eq("id", reply.id);
-                                                      
-                                                      if (error) {
-                                                        toast.error("Failed to delete reply");
-                                                      } else {
-                                                        toast.success("Reply deleted");
-                                                        loadTabData("discussions");
+                                              <div className="flex items-center gap-1">
+                                                {/* Report button for non-owners */}
+                                                {currentUser && reply.sender_id !== currentUser.id && (
+                                                  <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                      >
+                                                        <MoreVertical className="h-3 w-3" />
+                                                      </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                      <DropdownMenuItem
+                                                        className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                                        onClick={() => {
+                                                          setReportType("post");
+                                                          setReportTargetId(reply.id);
+                                                          setReportTargetName(reply.content.substring(0, 50) + "...");
+                                                          setReportDialogOpen(true);
+                                                        }}
+                                                      >
+                                                        <AlertTriangle className="h-3 w-3 mr-2" />
+                                                        Report Reply
+                                                      </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                  </DropdownMenu>
+                                                )}
+                                                {/* Delete button for reply owner */}
+                                                {currentUser && reply.sender_id === currentUser.id && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                    onClick={async () => {
+                                                      if (confirm("Are you sure you want to delete this reply?")) {
+                                                        const supabase = getSupabaseBrowser();
+                                                        const { error } = await supabase
+                                                          .from("messages")
+                                                          .delete()
+                                                          .eq("id", reply.id);
+                                                        
+                                                        if (error) {
+                                                          toast.error("Failed to delete reply");
+                                                        } else {
+                                                          toast.success("Reply deleted");
+                                                          loadTabData("discussions");
+                                                        }
                                                       }
-                                                    }
-                                                  }}
-                                                >
-                                                  <Trash2 className="h-3 w-3" />
-                                                </Button>
-                                              )}
+                                                    }}
+                                                  >
+                                                    <Trash2 className="h-3 w-3" />
+                                                  </Button>
+                                                )}
+                                              </div>
                                             </div>
                                             <p className="text-sm text-gray-700 whitespace-pre-wrap">
                                               {reply.content}
@@ -992,53 +1050,64 @@ export default function CommunityPage({
                               )}
 
                               {/* Actions */}
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4 text-sm">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-gray-600 hover:text-violet-600"
-                                    onClick={() => setReplyingTo(replyingTo === discussion.id ? null : discussion.id)}
-                                  >
-                                    <Reply className="h-4 w-4 mr-1" />
-                                    Reply
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-gray-600 hover:text-violet-600"
-                                  >
-                                    <ThumbsUp className="h-4 w-4 mr-1" />
-                                    Like
-                                  </Button>
-                                </div>
-                                {/* Delete button for discussion owner */}
-                                {currentUser && discussion.sender_id === currentUser.id && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                    onClick={async () => {
-                                      if (confirm("Are you sure you want to delete this discussion?")) {
-                                        const supabase = getSupabaseBrowser();
-                                        const { error } = await supabase
-                                          .from("messages")
-                                          .delete()
-                                          .eq("id", discussion.id);
-                                        
-                                        if (error) {
-                                          toast.error("Failed to delete discussion");
-                                        } else {
-                                          toast.success("Discussion deleted");
-                                          loadTabData("discussions");
+                              <div className="flex items-center justify-end">
+                                <div className="flex items-center gap-2">
+                                  {/* Report button for non-owners */}
+                                  {currentUser && discussion.sender_id !== currentUser.id && (
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-gray-600 hover:text-gray-900"
+                                        >
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                          onClick={() => {
+                                            setReportType("post");
+                                            setReportTargetId(discussion.id);
+                                            setReportTargetName(discussion.content.substring(0, 50) + "...");
+                                            setReportDialogOpen(true);
+                                          }}
+                                        >
+                                          <AlertTriangle className="h-4 w-4 mr-2" />
+                                          Report Post
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  )}
+                                  {/* Delete button for discussion owner */}
+                                  {currentUser && discussion.sender_id === currentUser.id && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                      onClick={async () => {
+                                        if (confirm("Are you sure you want to delete this discussion?")) {
+                                          const supabase = getSupabaseBrowser();
+                                          const { error } = await supabase
+                                            .from("messages")
+                                            .delete()
+                                            .eq("id", discussion.id);
+                                          
+                                          if (error) {
+                                            toast.error("Failed to delete discussion");
+                                          } else {
+                                            toast.success("Discussion deleted");
+                                            loadTabData("discussions");
+                                          }
                                         }
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-1" />
-                                    Delete
-                                  </Button>
-                                )}
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-1" />
+                                      Delete
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Reply Form */}
@@ -1146,7 +1215,7 @@ export default function CommunityPage({
                   </Card>
                 ) : (
                   <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
                     {events
                       .slice(
                         (eventsPage - 1) * eventsPerPage,
@@ -1164,116 +1233,149 @@ export default function CommunityPage({
                       const startDate = new Date(event.start_time);
                       const endDate = new Date(event.end_time);
                       
+                      // Format date for display
+                      const dayOfMonth = startDate.getDate();
+                      const monthShort = startDate.toLocaleDateString("en-US", { month: "short" });
+                      const weekday = startDate.toLocaleDateString("en-US", { weekday: "short" });
+                      const year = startDate.getFullYear();
+                      const timeRange = `${startDate.toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })} - ${endDate.toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}`;
+                      
                       return (
+                        <div key={eventId} className="relative group">
                         <Link 
-                          key={eventId} 
                           href={`/events/${eventId}`}
-                          className="block group"
+                          className="block"
                         >
-                          <Card className="border-gray-200 hover:shadow-xl hover:border-violet-400 transition-all duration-300 cursor-pointer overflow-hidden h-full bg-gradient-to-br from-white to-violet-50/30">
-                            {event.image_url && (
-                              <div className="relative h-48 w-full overflow-hidden">
-                                <Image
-                                  src={event.image_url}
-                                  alt={event.title || "Event image"}
-                                  fill
-                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                />
-                                <div className="absolute top-3 right-3">
-                                  {isUpcoming ? (
-                                    <Badge className="bg-violet-600 text-white border-0">
-                                      <Calendar className="h-3 w-3 mr-1" />
-                                      Upcoming
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="secondary" className="bg-gray-500 text-white border-0">
-                                      Past Event
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                            <CardContent className="p-6">
-                              <div className="space-y-4">
-                                <div>
-                                  <h4 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-violet-600 transition-colors">
-                                    {event.title}
-                                  </h4>
-                                  {event.description && (
-                                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                                      {event.description}
-                                    </p>
-                                  )}
-                                </div>
-                                
-                                <div className="space-y-2 text-sm">
-                                  <div className="flex items-center gap-2 text-gray-700">
-                                    <div className="p-1.5 rounded-lg bg-violet-100 text-violet-600">
-                                      <Clock className="h-4 w-4" />
+                          <Card className="border-gray-200 hover:shadow-lg hover:border-violet-400 transition-all duration-300 cursor-pointer">
+                            <CardContent className="p-4">
+                              <div className="flex gap-4">
+                                {/* Date Display - Prominent on Left */}
+                                <div className="flex-shrink-0 w-20 text-center">
+                                  <div className={`rounded-lg p-3 ${
+                                    isUpcoming 
+                                      ? "bg-violet-100 border-2 border-violet-300" 
+                                      : "bg-gray-100 border-2 border-gray-300"
+                                  }`}>
+                                    <div className={`text-2xl font-bold ${
+                                      isUpcoming ? "text-violet-700" : "text-gray-700"
+                                    }`}>
+                                      {dayOfMonth}
                                     </div>
-                                    <div className="flex-1">
-                                      <div className="font-medium">
-                                        {startDate.toLocaleDateString("en-US", {
-                                          weekday: "long",
-                                          month: "long",
-                                          day: "numeric",
-                                        })}
-                                      </div>
-                                      <div className="text-xs text-gray-500">
-                                        {startDate.toLocaleTimeString("en-US", {
-                                          hour: "numeric",
-                                          minute: "2-digit",
-                                        })} - {endDate.toLocaleTimeString("en-US", {
-                                          hour: "numeric",
-                                          minute: "2-digit",
-                                        })}
-                                      </div>
+                                    <div className={`text-xs font-semibold uppercase mt-1 ${
+                                      isUpcoming ? "text-violet-600" : "text-gray-600"
+                                    }`}>
+                                      {monthShort}
+                                    </div>
+                                    <div className={`text-xs mt-1 ${
+                                      isUpcoming ? "text-violet-500" : "text-gray-500"
+                                    }`}>
+                                      {weekday}
                                     </div>
                                   </div>
-                                  
-                                  {event.location && (
-                                    <div className="flex items-center gap-2 text-gray-700">
-                                      <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
-                                        <MapPin className="h-4 w-4" />
-                                      </div>
-                                      <span className="flex-1 truncate">{event.location}</span>
-                                    </div>
-                                  )}
-                                  
-                                  {event.is_online && (
-                                    <div className="flex items-center gap-2 text-gray-700">
-                                      <div className="p-1.5 rounded-lg bg-green-100 text-green-600">
-                                        <Globe className="h-4 w-4" />
-                                      </div>
-                                      <span className="flex-1">Online Event</span>
-                                    </div>
-                                  )}
-                                  
-                                  {event.max_attendees && (
-                                    <div className="flex items-center gap-2 text-gray-700">
-                                      <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
-                                        <Users className="h-4 w-4" />
-                                      </div>
-                                      <span className="flex-1">Max {event.max_attendees} attendees</span>
-                                    </div>
+                                  {!isUpcoming && (
+                                    <div className="text-xs text-gray-500 mt-1">{year}</div>
                                   )}
                                 </div>
-                                
-                                <div className="pt-3 border-t border-gray-200">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">
-                                      {isUpcoming ? "Starts" : "Started"} {startDate.toLocaleDateString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                      })}
-                                    </span>
-                                    <ChevronRight className="h-4 w-4 text-violet-600 group-hover:translate-x-1 transition-transform" />
+
+                                {/* Event Details */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-3 mb-2">
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="text-lg font-bold text-gray-900 group-hover:text-violet-600 transition-colors line-clamp-1">
+                                        {event.title}
+                                      </h4>
+                                      {event.description && (
+                                        <p className="text-sm text-gray-600 line-clamp-1 mt-1">
+                                          {event.description}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      {isUpcoming ? (
+                                        <Badge className="bg-violet-600 text-white border-0 text-xs">
+                                          Upcoming
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="secondary" className="bg-gray-500 text-white border-0 text-xs">
+                                          Past
+                                        </Badge>
+                                      )}
+                                      <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-violet-600 group-hover:translate-x-1 transition-all" />
+                                    </div>
+                                  </div>
+
+                                  {/* Event Info */}
+                                  <div className="space-y-1.5 text-sm">
+                                    <div className="flex items-center gap-2 text-gray-700">
+                                      <Clock className="h-4 w-4 text-violet-600 flex-shrink-0" />
+                                      <span className="font-medium">{timeRange}</span>
+                                    </div>
+                                    
+                                    {event.location && (
+                                      <div className="flex items-center gap-2 text-gray-700">
+                                        <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                                        <span className="truncate">{event.location}</span>
+                                      </div>
+                                    )}
+                                    
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                      {event.is_online && (
+                                        <div className="flex items-center gap-1.5 text-gray-600">
+                                          <Globe className="h-3.5 w-3.5 text-green-600" />
+                                          <span className="text-xs">Online</span>
+                                        </div>
+                                      )}
+                                      {event.max_attendees && (
+                                        <div className="flex items-center gap-1.5 text-gray-600">
+                                          <Users className="h-3.5 w-3.5 text-amber-600" />
+                                          <span className="text-xs">Max {event.max_attendees}</span>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             </CardContent>
                           </Card>
                         </Link>
+                        {currentUser && (
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 bg-white/90 hover:bg-white shadow-md"
+                                  onClick={(e) => e.preventDefault()}
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setReportType("event");
+                                    setReportTargetId(eventId);
+                                    setReportTargetName(event.title);
+                                    setReportDialogOpen(true);
+                                  }}
+                                >
+                                  <AlertTriangle className="h-4 w-4 mr-2" />
+                                  Report Event
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        )}
+                        </div>
                       );
                     })}
                   </div>
@@ -1301,14 +1403,6 @@ export default function CommunityPage({
                       {memberCount} total members
                     </p>
                   </div>
-                  {isMember && (
-                    <div className="w-64">
-                      <Input
-                        placeholder="Search members..."
-                        className="border-gray-200"
-                      />
-                    </div>
-                  )}
                   </div>
 
                 {isLoadingTab ? (
@@ -1367,17 +1461,33 @@ export default function CommunityPage({
                               </div>
                             </div>
                             {isMember && member.user_id !== currentUser?.id && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                className="border-gray-200"
-                                onClick={() => {
-                                  router.push(`/messages?user=${member.user_id}`);
-                                }}
-                                >
-                                  <MessageCircle className="h-4 w-4 mr-2" />
-                                  Message
-                                </Button>
+                              <div className="flex items-center gap-2">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-9 w-9 p-0"
+                                    >
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                      onClick={() => {
+                                        setReportType("member");
+                                        setReportTargetId(member.user_id);
+                                        setReportTargetName(member.users?.full_name || member.users?.username || "Member");
+                                        setReportDialogOpen(true);
+                                      }}
+                                    >
+                                      <AlertTriangle className="h-4 w-4 mr-2" />
+                                      Report Member
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
                             )}
                           </div>
                         </CardContent>
@@ -1416,15 +1526,6 @@ export default function CommunityPage({
                     <Separator />
 
                     <div className="grid grid-cols-2 gap-6">
-                        <div>
-                          <span className="text-sm text-gray-500">Founded</span>
-                          <p className="font-medium text-gray-900">
-                          {new Date(community.created_at).toLocaleDateString("en-US", {
-                            month: "long",
-                            year: "numeric",
-                          })}
-                          </p>
-                        </div>
                         <div>
                         <span className="text-sm text-gray-500">Category</span>
                         <p className="font-medium text-gray-900">
@@ -1539,18 +1640,6 @@ export default function CommunityPage({
                     {events.length}
                     </span>
                   </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Founded
-                  </span>
-                  <span className="font-semibold text-gray-900">
-                    {new Date(community.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      year: "numeric",
-                    })}
-                    </span>
-                  </div>
                 </CardContent>
               </Card>
 
@@ -1577,45 +1666,74 @@ export default function CommunityPage({
               </CardContent>
             </Card>
 
-            {/* Quick Actions */}
-            {isMember && (
-              <Card className="border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    <Button
-                      variant="outline"
-                    className="w-full justify-start border-gray-200"
-                    onClick={() => setActiveTab("discussions")}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Start Discussion
-                    </Button>
-                  {canManage && (
-                    <Link href={`/events/create?community_id=${id}`} className="w-full">
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start border-gray-200"
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Create Event
-                      </Button>
-                    </Link>
-                  )}
-                    <Button
-                      variant="outline"
-                    className="w-full justify-start border-gray-200"
-                    >
-                      <Users className="h-4 w-4 mr-2" />
-                      Invite Friends
-                    </Button>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </div>
+
+      {/* Report Dialog */}
+      <ReportDialog
+        isOpen={reportDialogOpen}
+        onClose={() => setReportDialogOpen(false)}
+        reportType={reportType}
+        reportTargetId={reportTargetId}
+        reportTargetName={reportTargetName}
+      />
+
+      {/* Join/Leave Confirmation Modal */}
+      <Dialog open={joinLeaveModalOpen} onOpenChange={setJoinLeaveModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">
+              {isMember ? "Leave Community" : "Join Community"}
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              {isMember
+                ? `Are you sure you want to leave "${community?.name}"? You'll need to join again to access member-only features.`
+                : `Are you sure you want to join "${community?.name}"? You'll be able to participate in discussions, attend events, and connect with other members.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setJoinLeaveModalOpen(false)}
+              disabled={isJoining}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmJoinLeave}
+              disabled={isJoining}
+              className={
+                isMember
+                  ? "w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
+                  : "w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white"
+              }
+            >
+              {isJoining ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {isMember ? "Leaving..." : "Joining..."}
+                </>
+              ) : (
+                <>
+                  {isMember ? (
+                    <>
+                      <UserMinus className="h-4 w-4 mr-2" />
+                      Leave Community
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Join Community
+                    </>
+                  )}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

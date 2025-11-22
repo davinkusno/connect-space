@@ -120,18 +120,11 @@ export function UnifiedNav() {
         // Transform database notifications to UI format
         const transformedNotifications: Notification[] = (notificationsData || []).map((notif: any) => {
           // Map database types to UI types
-          let uiType: "message" | "event" | "achievement" | "system" | "community" = "system";
+          let uiType: "event" | "achievement" | "system" | "community" = "system";
           let title = "";
           let actionUrl = "";
 
           switch (notif.type) {
-            case "new_message":
-              uiType = "message";
-              title = "New Message";
-              if (notif.reference_type === "community" && notif.reference_id) {
-                actionUrl = `/community/${notif.reference_id}`;
-              }
-              break;
             case "event_reminder":
               uiType = "event";
               title = "Event Reminder";
