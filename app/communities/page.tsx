@@ -66,6 +66,7 @@ import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   Accordion,
   AccordionContent,
@@ -446,6 +447,8 @@ export default function DiscoverPage() {
   const [savedCommunities, setSavedCommunities] = useState<string[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterState>(defaultFilters);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(12);
 
   const {
     location: userLocation,
@@ -806,6 +809,17 @@ export default function DiscoverPage() {
     (c) => c.isRecommended
   );
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAndSortedCommunities.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCommunities = filteredAndSortedCommunities.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filters, sortBy, activeTab, savedCommunities]);
+
   const EnhancedCommunityCard = ({
     community,
     isListView = false,
@@ -1130,26 +1144,52 @@ export default function DiscoverPage() {
 
       {/* Content Display */}
       {viewMode === "grid" && (
-        <StaggerContainer
-          delay={50}
-          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
-        >
-          {filteredAndSortedCommunities.map((community) => (
-            <SmoothReveal key={community.id}>
-              <EnhancedCommunityCard community={community} />
-            </SmoothReveal>
-          ))}
-        </StaggerContainer>
+        <>
+          <StaggerContainer
+            delay={50}
+            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+          >
+            {paginatedCommunities.map((community) => (
+              <SmoothReveal key={community.id}>
+                <EnhancedCommunityCard community={community} />
+              </SmoothReveal>
+            ))}
+          </StaggerContainer>
+          {filteredAndSortedCommunities.length > itemsPerPage && (
+            <div className="mt-8">
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={itemsPerPage}
+                totalItems={filteredAndSortedCommunities.length}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {viewMode === "list" && (
-        <StaggerContainer delay={50} className="space-y-4">
-          {filteredAndSortedCommunities.map((community) => (
-            <SmoothReveal key={community.id}>
-              <CommunityListItem community={community} />
-            </SmoothReveal>
-          ))}
-        </StaggerContainer>
+        <>
+          <StaggerContainer delay={50} className="space-y-4">
+            {paginatedCommunities.map((community) => (
+              <SmoothReveal key={community.id}>
+                <CommunityListItem community={community} />
+              </SmoothReveal>
+            ))}
+          </StaggerContainer>
+          {filteredAndSortedCommunities.length > itemsPerPage && (
+            <div className="mt-8">
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={itemsPerPage}
+                totalItems={filteredAndSortedCommunities.length}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {viewMode === "map" && (

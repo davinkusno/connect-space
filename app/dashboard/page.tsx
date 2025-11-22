@@ -44,6 +44,7 @@ import {
 import Link from "next/link";
 import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { DailySummaryWidget } from "@/components/daily-summary/daily-summary-widget";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 
 // Import new enhanced components
 import { EnhancedStatsWidget } from "@/components/dashboard/enhanced-stats-widget";
@@ -77,6 +78,11 @@ export default function DashboardPage() {
   const [isLoadingCommunities, setIsLoadingCommunities] = useState(true);
   const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [createdCommunitiesPage, setCreatedCommunitiesPage] = useState(1);
+  const [joinedCommunitiesPage, setJoinedCommunitiesPage] = useState(1);
+  const [badgesPage, setBadgesPage] = useState(1);
+  const communitiesPerPage = 6;
+  const badgesPerPage = 10;
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -1147,8 +1153,14 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   ) : (
+                    <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {createdCommunities.map((community) => (
+                      {createdCommunities
+                        .slice(
+                          (createdCommunitiesPage - 1) * communitiesPerPage,
+                          createdCommunitiesPage * communitiesPerPage
+                        )
+                        .map((community) => (
                     <Card
                       key={community.id}
                           className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-purple-200 bg-purple-50/30"
@@ -1218,6 +1230,18 @@ export default function DashboardPage() {
                         </Card>
                       ))}
                     </div>
+                    {createdCommunities.length > communitiesPerPage && (
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <PaginationControls
+                          currentPage={createdCommunitiesPage}
+                          totalPages={Math.ceil(createdCommunities.length / communitiesPerPage)}
+                          onPageChange={setCreatedCommunitiesPage}
+                          itemsPerPage={communitiesPerPage}
+                          totalItems={createdCommunities.length}
+                        />
+                      </div>
+                    )}
+                    </>
                   )}
                 </CardContent>
               </Card>
@@ -1273,8 +1297,14 @@ export default function DashboardPage() {
                     </Link>
                   </div>
                 ) : (
+                  <>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {joinedCommunities.map((community) => (
+                    {joinedCommunities
+                      .slice(
+                        (joinedCommunitiesPage - 1) * communitiesPerPage,
+                        joinedCommunitiesPage * communitiesPerPage
+                      )
+                      .map((community) => (
                       <Card
                         key={community.id}
                         className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-gray-200"
@@ -1340,6 +1370,18 @@ export default function DashboardPage() {
                     </Card>
                   ))}
                 </div>
+                {joinedCommunities.length > communitiesPerPage && (
+                  <div className="mt-6 pt-4 border-t border-gray-200">
+                    <PaginationControls
+                      currentPage={joinedCommunitiesPage}
+                      totalPages={Math.ceil(joinedCommunities.length / communitiesPerPage)}
+                      onPageChange={setJoinedCommunitiesPage}
+                      itemsPerPage={communitiesPerPage}
+                      totalItems={joinedCommunities.length}
+                    />
+                  </div>
+                )}
+                </>
                 )}
               </CardContent>
             </Card>
@@ -1396,8 +1438,14 @@ export default function DashboardPage() {
                     </Link>
                   </div>
                 ) : (
+                  <>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {userBadges.map((userBadge) => (
+                    {userBadges
+                      .slice(
+                        (badgesPage - 1) * badgesPerPage,
+                        badgesPage * badgesPerPage
+                      )
+                      .map((userBadge) => (
                       <Card
                         key={userBadge.id}
                         className="group cursor-pointer overflow-hidden hover:shadow-lg transition-all duration-300 border border-gray-200"
@@ -1445,6 +1493,18 @@ export default function DashboardPage() {
                       </Card>
                     ))}
                   </div>
+                  {userBadges.length > badgesPerPage && (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <PaginationControls
+                        currentPage={badgesPage}
+                        totalPages={Math.ceil(userBadges.length / badgesPerPage)}
+                        onPageChange={setBadgesPage}
+                        itemsPerPage={badgesPerPage}
+                        totalItems={userBadges.length}
+                      />
+                    </div>
+                  )}
+                  </>
                 )}
               </CardContent>
             </Card>

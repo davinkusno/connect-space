@@ -46,6 +46,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
 import dynamic from "next/dynamic";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 
 // Dynamic import for Leaflet map
 const LeafletMap = dynamic(
@@ -75,6 +76,10 @@ export default function CommunityPage({
   const [members, setMembers] = useState<any[]>([]);
   const [memberCount, setMemberCount] = useState(0);
   const [isLoadingTab, setIsLoadingTab] = useState(false);
+  const [eventsPage, setEventsPage] = useState(1);
+  const eventsPerPage = 6;
+  const [membersPage, setMembersPage] = useState(1);
+  const membersPerPage = 12;
 
   // Post creation
   const [newPost, setNewPost] = useState("");
@@ -1140,8 +1145,14 @@ export default function CommunityPage({
                     </CardContent>
                   </Card>
                 ) : (
+                  <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {events.map((event) => {
+                    {events
+                      .slice(
+                        (eventsPage - 1) * eventsPerPage,
+                        eventsPage * eventsPerPage
+                      )
+                      .map((event) => {
                       // Ensure event has a valid ID
                       if (!event?.id) {
                         console.warn("Event missing ID:", event);
@@ -1266,6 +1277,18 @@ export default function CommunityPage({
                       );
                     })}
                   </div>
+                  {events.length > eventsPerPage && (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <PaginationControls
+                        currentPage={eventsPage}
+                        totalPages={Math.ceil(events.length / eventsPerPage)}
+                        onPageChange={setEventsPage}
+                        itemsPerPage={eventsPerPage}
+                        totalItems={events.length}
+                      />
+                    </div>
+                  )}
+                  </>
                 )}
               </TabsContent>
 
@@ -1293,8 +1316,14 @@ export default function CommunityPage({
                     <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
                   </div>
                 ) : (
+                  <>
                   <div className="grid gap-4">
-                    {members.map((member: any) => (
+                    {members
+                      .slice(
+                        (membersPage - 1) * membersPerPage,
+                        membersPage * membersPerPage
+                      )
+                      .map((member: any) => (
                       <Card key={member.user_id} className="border-gray-200">
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between">
@@ -1355,6 +1384,18 @@ export default function CommunityPage({
                       </Card>
                   ))}
                 </div>
+                {members.length > membersPerPage && (
+                  <div className="mt-6 pt-4 border-t border-gray-200">
+                    <PaginationControls
+                      currentPage={membersPage}
+                      totalPages={Math.ceil(members.length / membersPerPage)}
+                      onPageChange={setMembersPage}
+                      itemsPerPage={membersPerPage}
+                      totalItems={members.length}
+                    />
+                  </div>
+                )}
+                </>
                 )}
               </TabsContent>
 

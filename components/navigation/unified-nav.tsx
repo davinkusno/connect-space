@@ -38,8 +38,6 @@ import {
   Search,
   Calendar,
   Users,
-  Trophy,
-  ShoppingBag,
   HelpCircle,
   Zap,
   X,
@@ -74,18 +72,6 @@ const navigationLinks = [
     label: "Events",
     icon: Calendar,
     hoverClasses: "hover:bg-green-50 hover:text-green-600",
-  },
-  {
-    href: "/leaderboard",
-    label: "Leaderboard",
-    icon: Trophy,
-    hoverClasses: "hover:bg-yellow-50 hover:text-yellow-600",
-  },
-  {
-    href: "/store",
-    label: "Store",
-    icon: ShoppingBag,
-    hoverClasses: "hover:bg-pink-50 hover:text-pink-600",
   },
   {
     href: "/help-center",
