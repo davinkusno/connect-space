@@ -10,7 +10,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { PageTransition } from "@/components/ui/page-transition";
 import { FloatingElements } from "@/components/ui/floating-elements";
@@ -18,15 +17,34 @@ import {
   User,
   Mail,
   MapPin,
-  Globe,
   Calendar,
   Edit3,
   Save,
   X,
   Camera,
-  CheckCircle,
+  Award,
+  Crown,
+  Plus,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+
+interface Province {
+  id: string;
+  name: string;
+}
+
+interface City {
+  id: string;
+  id_provinsi: string;
+  name: string;
+}
 
 interface UserProfile {
   id: string;
@@ -36,9 +54,12 @@ interface UserProfile {
     avatar_url?: string;
     name?: string;
     username?: string;
-    bio?: string;
     location?: string;
-    website?: string;
+    location_province?: string;
+    location_city?: string;
+    interests?: string[];
+    points?: number;
+    is_community_admin?: boolean;
   };
 }
 
@@ -52,10 +73,19 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState({
     fullName: "",
     username: "",
-    bio: "",
-    location: "",
-    website: "",
+    interests: [] as string[],
   });
+  const [points, setPoints] = useState(0);
+  const [isCommunityAdmin, setIsCommunityAdmin] = useState(false);
+  const [newInterest, setNewInterest] = useState("");
+  
+  // Location data
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  const [selectedProvince, setSelectedProvince] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
 
   const router = useRouter();
   const supabase = getSupabaseBrowser();
@@ -81,10 +111,12 @@ export default function ProfilePage() {
           fullName: metadata.full_name || metadata.name || "",
           username:
             metadata.username || session.user.email?.split("@")[0] || "",
-          bio: metadata.bio || "",
-          location: metadata.location || "",
-          website: metadata.website || "",
+          interests: metadata.interests || ["Technology", "Community", "Networking"],
         });
+        setPoints(metadata.points || 1250);
+        setIsCommunityAdmin(metadata.is_community_admin || false);
+        setSelectedProvince(metadata.location_province || "");
+        setSelectedCity(metadata.location_city || "");
       } catch (error) {
         console.error("Error getting user:", error);
         toast({
@@ -98,7 +130,67 @@ export default function ProfilePage() {
     };
 
     getUser();
+    fetchProvinces();
   }, [supabase.auth, router, toast]);
+
+  // Fetch cities when province changes
+  useEffect(() => {
+    if (selectedProvince) {
+      fetchCities(selectedProvince);
+    } else {
+      setCities([]);
+      setSelectedCity("");
+    }
+  }, [selectedProvince]);
+
+  const fetchProvinces = async () => {
+    setLoadingProvinces(true);
+    try {
+      const response = await fetch(
+        "https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json"
+      );
+      const data = await response.json();
+      setProvinces(data);
+    } catch (error) {
+      console.error("Error fetching provinces:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load provinces",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingProvinces(false);
+    }
+  };
+
+  const fetchCities = async (provinceId: string) => {
+    setLoadingCities(true);
+    try {
+      const response = await fetch(
+        `https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${provinceId}.json`
+      );
+      const data = await response.json();
+      setCities(data);
+    } catch (error) {
+      console.error("Error fetching cities:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load cities",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingCities(false);
+    }
+  };
+
+  // Convert city name from CAPSLOCK to Title Case
+  const toTitleCase = (str: string) => {
+    return str
+      .toLowerCase()
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -114,11 +206,15 @@ export default function ProfilePage() {
         return;
       }
 
-      if (formData.website && !formData.website.startsWith("http")) {
-        setFormData((prev) => ({
-          ...prev,
-          website: `https://${prev.website}`,
-        }));
+      // Validate interests minimum
+      if (formData.interests.length < 3) {
+        toast({
+          title: "Validation Error",
+          description: "Please add at least 3 interests.",
+          variant: "destructive",
+        });
+        setIsSaving(false);
+        return;
       }
 
       // Update user metadata in Supabase
@@ -126,9 +222,11 @@ export default function ProfilePage() {
         data: {
           full_name: formData.fullName,
           username: formData.username,
-          bio: formData.bio,
-          location: formData.location,
-          website: formData.website,
+          location_province: selectedProvince,
+          location_city: selectedCity,
+          interests: formData.interests,
+          points: points,
+          is_community_admin: isCommunityAdmin,
         },
       });
 
@@ -145,9 +243,11 @@ export default function ProfilePage() {
                 ...prev.user_metadata,
                 full_name: formData.fullName,
                 username: formData.username,
-                bio: formData.bio,
-                location: formData.location,
-                website: formData.website,
+                location_province: selectedProvince,
+                location_city: selectedCity,
+                interests: formData.interests,
+                points: points,
+                is_community_admin: isCommunityAdmin,
               },
             }
           : null
@@ -172,6 +272,7 @@ export default function ProfilePage() {
 
   const handleCancel = () => {
     setIsEditing(false);
+    setNewInterest("");
     // Reset form data to original values
     if (user) {
       setFormData({
@@ -179,11 +280,63 @@ export default function ProfilePage() {
           user.user_metadata?.full_name || user.user_metadata?.name || "",
         username:
           user.user_metadata?.username || user.email?.split("@")[0] || "",
-        bio: user.user_metadata?.bio || "",
-        location: user.user_metadata?.location || "",
-        website: user.user_metadata?.website || "",
+        interests: user.user_metadata?.interests || ["Technology", "Community", "Networking"],
       });
+      setPoints(user.user_metadata?.points || 1250);
+      setIsCommunityAdmin(user.user_metadata?.is_community_admin || false);
+      setSelectedProvince(user.user_metadata?.location_province || "");
+      setSelectedCity(user.user_metadata?.location_city || "");
     }
+  };
+
+  const handleAddInterest = () => {
+    if (!newInterest.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an interest.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.interests.includes(newInterest.trim())) {
+      toast({
+        title: "Error",
+        description: "This interest already exists.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setFormData({
+      ...formData,
+      interests: [...formData.interests, newInterest.trim()],
+    });
+    setNewInterest("");
+    toast({
+      title: "Interest added",
+      description: "Your interest has been added successfully.",
+    });
+  };
+
+  const handleRemoveInterest = (interestToRemove: string) => {
+    if (formData.interests.length <= 3) {
+      toast({
+        title: "Cannot remove",
+        description: "You must have at least 3 interests.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setFormData({
+      ...formData,
+      interests: formData.interests.filter((i) => i !== interestToRemove),
+    });
+    toast({
+      title: "Interest removed",
+      description: "Your interest has been removed.",
+    });
   };
 
   const getUserDisplayName = () => {
@@ -539,15 +692,35 @@ export default function ProfilePage() {
                   </p>
                   <p className="text-sm text-gray-500 mb-6">{user.email}</p>
 
-                  {/* Badges */}
-                  <div className="flex justify-center gap-2 mb-6">
-                    <Badge className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-300 px-3 py-1">
-                      Community Member
-                    </Badge>
-                    <Badge className="bg-gradient-to-r from-green-100 to-green-200 text-green-800 border-green-300 px-3 py-1 flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3" />
-                      Verified
-                    </Badge>
+                  {/* Status Badge */}
+                  <div className="flex flex-wrap justify-center gap-2 mb-6">
+                    {isCommunityAdmin ? (
+                      <Badge className="bg-gradient-to-r from-amber-100 to-amber-200 text-amber-800 border-amber-300 px-3 py-1 flex items-center gap-1">
+                        <Crown className="h-3 w-3" />
+                        Community Admin
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-300 px-3 py-1">
+                        Community Member
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Points */}
+                  <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200">
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+                        <Award className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-purple-900">
+                          {points.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-purple-600 font-medium">
+                          Total Points
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Member Since */}
@@ -713,97 +886,195 @@ export default function ProfilePage() {
                       Additional Information
                     </h4>
                     <div className="space-y-6">
+                      {/* Location - Province */}
                       <div className="space-y-2">
                         <Label
-                          htmlFor="bio"
+                          htmlFor="province"
                           className="text-sm font-semibold text-gray-700"
                         >
-                          Bio
+                          Province
                         </Label>
                         {isEditing ? (
-                          <Textarea
-                            id="bio"
-                            value={formData.bio}
-                            onChange={(e) =>
-                              setFormData({ ...formData, bio: e.target.value })
-                            }
-                            placeholder="Tell us about yourself..."
-                            className="border-gray-200 focus:border-purple-500 focus:ring-purple-500 min-h-[100px]"
-                            rows={4}
-                          />
+                          <Select
+                            value={selectedProvince}
+                            onValueChange={(value) => {
+                              setSelectedProvince(value);
+                              setSelectedCity(""); // Reset city when province changes
+                            }}
+                          >
+                            <SelectTrigger className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500">
+                              <SelectValue placeholder="Select province" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {loadingProvinces ? (
+                                <SelectItem value="loading" disabled>
+                                  Loading provinces...
+                                </SelectItem>
+                              ) : (
+                                provinces.map((province) => (
+                                  <SelectItem key={province.id} value={province.id}>
+                                    {province.name}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
                         ) : (
-                          <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                            <p className="text-gray-900 leading-relaxed">
-                              {formData.bio || "No bio provided yet."}
-                            </p>
+                          <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                              <MapPin className="h-5 w-5 text-orange-600" />
+                            </div>
+                            <span className="text-gray-900 font-medium">
+                              {provinces.find((p) => p.id === selectedProvince)
+                                ?.name || "Not provided"}
+                            </span>
                           </div>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="location"
-                            className="text-sm font-semibold text-gray-700"
+                      {/* Location - City */}
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="city"
+                          className="text-sm font-semibold text-gray-700"
+                        >
+                          City / Regency
+                        </Label>
+                        {isEditing ? (
+                          <Select
+                            value={selectedCity}
+                            onValueChange={setSelectedCity}
+                            disabled={!selectedProvince}
                           >
-                            Location
-                          </Label>
-                          {isEditing ? (
-                            <Input
-                              id="location"
-                              value={formData.location}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  location: e.target.value,
-                                })
-                              }
-                              placeholder="City, Country"
-                              className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
-                            />
-                          ) : (
-                            <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                                <MapPin className="h-5 w-5 text-orange-600" />
-                              </div>
-                              <span className="text-gray-900 font-medium">
-                                {formData.location || "Not provided"}
-                              </span>
+                            <SelectTrigger className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500">
+                              <SelectValue
+                                placeholder={
+                                  selectedProvince
+                                    ? "Select city"
+                                    : "Select province first"
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {loadingCities ? (
+                                <SelectItem value="loading" disabled>
+                                  Loading cities...
+                                </SelectItem>
+                              ) : (
+                                cities.map((city) => (
+                                  <SelectItem key={city.id} value={city.id}>
+                                    {toTitleCase(city.name)}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <MapPin className="h-5 w-5 text-blue-600" />
                             </div>
-                          )}
-                        </div>
+                            <span className="text-gray-900 font-medium">
+                              {selectedCity
+                                ? toTitleCase(
+                                    cities.find((c) => c.id === selectedCity)
+                                      ?.name || "Not provided"
+                                  )
+                                : "Not provided"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
 
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="website"
-                            className="text-sm font-semibold text-gray-700"
-                          >
-                            Website
-                          </Label>
-                          {isEditing ? (
-                            <Input
-                              id="website"
-                              value={formData.website}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  website: e.target.value,
-                                })
-                              }
-                              placeholder="https://yourwebsite.com"
-                              className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
-                            />
-                          ) : (
-                            <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                                <Globe className="h-5 w-5 text-indigo-600" />
-                              </div>
-                              <span className="text-gray-900 font-medium">
-                                {formData.website || "Not provided"}
-                              </span>
+                      {/* Interests Section */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          Interests
+                          <span className="text-xs text-gray-500 font-normal">
+                            (Minimum 3 required)
+                          </span>
+                        </Label>
+                        {isEditing ? (
+                          <div className="space-y-3">
+                            {/* Add Interest Input */}
+                            <div className="flex gap-2">
+                              <Input
+                                value={newInterest}
+                                onChange={(e) => setNewInterest(e.target.value)}
+                                onKeyPress={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleAddInterest();
+                                  }
+                                }}
+                                placeholder="Add an interest (e.g., Photography, Hiking)"
+                                className="h-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
+                              />
+                              <AnimatedButton
+                                variant="gradient"
+                                size="sm"
+                                onClick={handleAddInterest}
+                                className="px-4"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </AnimatedButton>
                             </div>
-                          )}
-                        </div>
+
+                            {/* Interests List */}
+                            <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-xl border border-gray-200 min-h-[80px]">
+                              {formData.interests.length === 0 ? (
+                                <p className="text-sm text-gray-500 w-full text-center py-4">
+                                  No interests added yet. Add at least 3.
+                                </p>
+                              ) : (
+                                formData.interests.map((interest, index) => (
+                                  <Badge
+                                    key={index}
+                                    variant="secondary"
+                                    className="px-3 py-1.5 text-sm flex items-center gap-2 bg-purple-100 text-purple-800 border-purple-300"
+                                  >
+                                    {interest}
+                                    <button
+                                      onClick={() => handleRemoveInterest(interest)}
+                                      className="hover:text-red-600 transition-colors"
+                                      disabled={formData.interests.length <= 3}
+                                      title={
+                                        formData.interests.length <= 3
+                                          ? "Minimum 3 interests required"
+                                          : "Remove interest"
+                                      }
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </Badge>
+                                ))
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              {formData.interests.length}/∞ interests added (min: 3)
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                            <div className="flex flex-wrap gap-2">
+                              {formData.interests.length === 0 ? (
+                                <p className="text-sm text-gray-500">
+                                  No interests added yet.
+                                </p>
+                              ) : (
+                                formData.interests.map((interest, index) => (
+                                  <Badge
+                                    key={index}
+                                    variant="secondary"
+                                    className="px-3 py-1.5 text-sm bg-purple-100 text-purple-800 border-purple-300"
+                                  >
+                                    {interest}
+                                  </Badge>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
