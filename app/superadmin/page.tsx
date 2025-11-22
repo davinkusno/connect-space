@@ -38,26 +38,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/loading-indicators";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import {
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-} from "recharts";
-import {
   Sparkles,
   Shield,
   Activity,
@@ -84,6 +64,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
+  RefreshCcw,
   MessageSquare,
   Star,
   Edit,
@@ -96,21 +77,11 @@ import {
   Heart,
   Target,
   Flame,
-  BarChart3,
-  Globe,
-  RefreshCw,
-  ArrowUpRight,
-  ArrowDownRight,
-  UserPlus,
   MessageCircle,
   CalendarDays,
 } from "lucide-react";
 import Link from "next/link";
-import { ActivityLogsTable } from "@/components/superadmin/activity-logs-table";
-import { RecentActivities } from "@/components/superadmin/recent-activities";
-import { BadgeForm } from "@/components/superadmin/badge-form";
 import { SuperAdminNav } from "@/components/navigation/superadmin-nav";
-import { format, subMonths } from "date-fns";
 
 // Badge data types
 export interface StoreBadge {
@@ -130,214 +101,6 @@ export interface StoreBadge {
   purchaseCount?: number;
   revenue?: number;
 }
-
-// Analytics data types
-interface AnalyticsData {
-  date: string;
-  communities: number;
-  users: number;
-  posts: number;
-  events: number;
-  engagement: number;
-}
-
-interface CommunityPerformance {
-  id: string;
-  name: string;
-  members: number;
-  growth: number;
-  engagement: number;
-  events: number;
-  category: string;
-}
-
-interface GeographicData {
-  country: string;
-  users: number;
-  communities: number;
-  percentage: number;
-  [key: string]: string | number;
-}
-
-interface ContentMetrics {
-  type: string;
-  count: number;
-  engagement: number;
-  growth: number;
-}
-
-// Mock analytics data
-const mockAnalyticsData: AnalyticsData[] = [
-  {
-    date: "2024-01",
-    communities: 45,
-    users: 1200,
-    posts: 890,
-    events: 23,
-    engagement: 72,
-  },
-  {
-    date: "2024-02",
-    communities: 52,
-    users: 1450,
-    posts: 1120,
-    events: 31,
-    engagement: 75,
-  },
-  {
-    date: "2024-03",
-    communities: 61,
-    users: 1680,
-    posts: 1340,
-    events: 28,
-    engagement: 78,
-  },
-  {
-    date: "2024-04",
-    communities: 58,
-    users: 1590,
-    posts: 1180,
-    events: 25,
-    engagement: 74,
-  },
-  {
-    date: "2024-05",
-    communities: 67,
-    users: 1820,
-    posts: 1520,
-    events: 35,
-    engagement: 81,
-  },
-  {
-    date: "2024-06",
-    communities: 73,
-    users: 2100,
-    posts: 1780,
-    events: 42,
-    engagement: 84,
-  },
-  {
-    date: "2024-07",
-    communities: 79,
-    users: 2350,
-    posts: 1950,
-    events: 38,
-    engagement: 82,
-  },
-  {
-    date: "2024-08",
-    communities: 85,
-    users: 2580,
-    posts: 2140,
-    events: 45,
-    engagement: 85,
-  },
-  {
-    date: "2024-09",
-    communities: 91,
-    users: 2820,
-    posts: 2380,
-    events: 52,
-    engagement: 87,
-  },
-  {
-    date: "2024-10",
-    communities: 98,
-    users: 3100,
-    posts: 2650,
-    events: 48,
-    engagement: 89,
-  },
-  {
-    date: "2024-11",
-    communities: 105,
-    users: 3420,
-    posts: 2890,
-    events: 55,
-    engagement: 91,
-  },
-  {
-    date: "2024-12",
-    communities: 112,
-    users: 3750,
-    posts: 3120,
-    events: 62,
-    engagement: 93,
-  },
-];
-
-const mockCommunityPerformance: CommunityPerformance[] = [
-  {
-    id: "1",
-    name: "Tech Innovators Hub",
-    members: 450,
-    growth: 15.2,
-    engagement: 89,
-    events: 45,
-    category: "Technology",
-  },
-  {
-    id: "2",
-    name: "Fitness & Wellness",
-    members: 320,
-    growth: 12.8,
-    engagement: 82,
-    events: 35,
-    category: "Health",
-  },
-  {
-    id: "3",
-    name: "Global Writers Circle",
-    members: 230,
-    growth: 8.7,
-    engagement: 65,
-    events: 22,
-    category: "Writing",
-  },
-  {
-    id: "4",
-    name: "Travel Adventures",
-    members: 180,
-    growth: 10.3,
-    engagement: 71,
-    events: 18,
-    category: "Travel",
-  },
-  {
-    id: "5",
-    name: "Sustainable Living",
-    members: 120,
-    growth: -2.1,
-    engagement: 26,
-    events: 8,
-    category: "Environment",
-  },
-];
-
-const mockGeographicData: GeographicData[] = [
-  { country: "Jakarta", users: 1250, communities: 35, percentage: 33.3 },
-  { country: "Surabaya", users: 680, communities: 18, percentage: 18.1 },
-  { country: "Bali", users: 520, communities: 15, percentage: 13.9 },
-  { country: "Medan", users: 380, communities: 12, percentage: 10.1 },
-  { country: "IKN", users: 290, communities: 8, percentage: 7.7 },
-  { country: "Others", users: 1130, communities: 32, percentage: 16.9 },
-];
-
-const mockContentMetrics: ContentMetrics[] = [
-  { type: "Discussion Posts", count: 2840, engagement: 78, growth: 12.5 },
-  { type: "Events", count: 156, engagement: 85, growth: 18.2 },
-  { type: "Resources", count: 420, engagement: 65, growth: 8.7 },
-  { type: "Announcements", count: 89, engagement: 92, growth: 15.3 },
-];
-
-const chartColors = {
-  primary: "#8b5cf6",
-  secondary: "#06b6d4",
-  tertiary: "#10b981",
-  quaternary: "#f59e0b",
-  danger: "#ef4444",
-  success: "#22c55e",
-};
 
 // Mock data for community requests with more detailed information
 const mockCommunityRequests = [
@@ -882,34 +645,536 @@ const mockCommunities = [
   },
 ];
 
+// Mock data for activity logs
+const mockActivityLogs = [
+  {
+    id: "log-001",
+    action: "approved",
+    communityName: "Tech Enthusiasts Network",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-22T10:30:00Z",
+    details: "Community creation request approved",
+  },
+  {
+    id: "log-002",
+    action: "rejected",
+    communityName: "Spam Community",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-22T09:15:00Z",
+    details: "Community creation request rejected due to policy violation",
+  },
+  {
+    id: "log-003",
+    action: "suspend",
+    communityName: "Gaming Hub",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-21T16:45:00Z",
+    details: "Community suspended for inappropriate content",
+  },
+  {
+    id: "log-004",
+    action: "reactive",
+    communityName: "Fitness Community",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-21T14:20:00Z",
+    details: "Community reactivated after policy compliance",
+  },
+  {
+    id: "log-005",
+    action: "approved",
+    communityName: "Book Lovers Club",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-21T11:30:00Z",
+    details: "Community creation request approved",
+  },
+  {
+    id: "log-006",
+    action: "suspend",
+    communityName: "Crypto Traders",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-20T18:00:00Z",
+    details: "Community suspended for suspicious activity",
+  },
+  {
+    id: "log-007",
+    action: "approved",
+    communityName: "Photography Enthusiasts",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-20T15:30:00Z",
+    details: "Community creation request approved",
+  },
+  {
+    id: "log-008",
+    action: "rejected",
+    communityName: "Duplicate Community",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-20T13:45:00Z",
+    details: "Community creation request rejected - duplicate",
+  },
+  {
+    id: "log-009",
+    action: "reactive",
+    communityName: "Music Lovers",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-19T10:15:00Z",
+    details: "Community reactivated after review",
+  },
+  {
+    id: "log-010",
+    action: "approved",
+    communityName: "Startup Founders",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-19T09:00:00Z",
+    details: "Community creation request approved",
+  },
+  {
+    id: "log-011",
+    action: "suspend",
+    communityName: "Meme Lords",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-18T17:30:00Z",
+    details: "Community suspended for violating content guidelines",
+  },
+  {
+    id: "log-012",
+    action: "rejected",
+    communityName: "Test Community",
+    performedBy: {
+      name: "Super Admin",
+      email: "admin@connectspace.com",
+    },
+    timestamp: "2025-11-18T14:00:00Z",
+    details: "Community creation request rejected - incomplete information",
+  },
+];
+
+// Mock data for reported communities
+const mockReportedCommunities = [
+  {
+    id: "rep-001",
+    communityId: "comm-015",
+    communityName: "Spam Central",
+    category: "Technology",
+    reportCount: 4,
+    lastReportDate: "2025-11-22T08:30:00Z",
+    status: "pending",
+    reports: [
+      {
+        reportedBy: "user-045",
+        reporterName: "John Doe",
+        reason: "Spam",
+        description: "Community is full of spam and promotional links",
+        reportDate: "2025-11-22T08:30:00Z",
+      },
+      {
+        reportedBy: "user-046",
+        reporterName: "Jane Smith",
+        reason: "Inappropriate Content",
+        description: "Contains offensive material",
+        reportDate: "2025-11-21T15:20:00Z",
+      },
+      {
+        reportedBy: "user-048",
+        reporterName: "Bob Miller",
+        reason: "Spam",
+        description: "Too many promotional posts",
+        reportDate: "2025-11-20T14:15:00Z",
+      },
+      {
+        reportedBy: "user-049",
+        reporterName: "Carol White",
+        reason: "Spam",
+        description: "Constant advertising",
+        reportDate: "2025-11-19T09:30:00Z",
+      },
+    ],
+    communityDetails: {
+      memberCount: 150,
+      createdAt: "2025-10-15T10:00:00Z",
+      lastActivity: "2025-11-22T07:00:00Z",
+      admin: {
+        name: "Spammer User",
+        email: "spammer@example.com",
+      },
+    },
+  },
+  {
+    id: "rep-002",
+    communityId: "comm-016",
+    communityName: "Fake News Hub",
+    category: "News",
+    reportCount: 3,
+    lastReportDate: "2025-11-21T18:45:00Z",
+    status: "pending",
+    reports: [
+      {
+        reportedBy: "user-047",
+        reporterName: "Alice Johnson",
+        reason: "Misinformation",
+        description: "Spreading false information and conspiracy theories",
+        reportDate: "2025-11-21T18:45:00Z",
+      },
+      {
+        reportedBy: "user-050",
+        reporterName: "David Lee",
+        reason: "Misinformation",
+        description: "Fake news articles being shared",
+        reportDate: "2025-11-20T16:20:00Z",
+      },
+      {
+        reportedBy: "user-051",
+        reporterName: "Emma Wilson",
+        reason: "Harassment",
+        description: "Users being bullied in comments",
+        reportDate: "2025-11-19T11:45:00Z",
+      },
+    ],
+    communityDetails: {
+      memberCount: 320,
+      createdAt: "2025-09-20T14:30:00Z",
+      lastActivity: "2025-11-21T17:00:00Z",
+      admin: {
+        name: "News Faker",
+        email: "fakenews@example.com",
+      },
+    },
+  },
+  {
+    id: "rep-003",
+    communityId: "comm-017",
+    communityName: "Scam Alert Group",
+    category: "Finance",
+    reportCount: 3,
+    lastReportDate: "2025-11-20T12:15:00Z",
+    status: "pending",
+    reports: [
+      {
+        reportedBy: "user-048",
+        reporterName: "Bob Wilson",
+        reason: "Scam/Fraud",
+        description: "Promoting investment scams and pyramid schemes",
+        reportDate: "2025-11-20T12:15:00Z",
+      },
+      {
+        reportedBy: "user-052",
+        reporterName: "Frank Johnson",
+        reason: "Scam/Fraud",
+        description: "Asking for money transfers",
+        reportDate: "2025-11-19T14:30:00Z",
+      },
+      {
+        reportedBy: "user-053",
+        reporterName: "Grace Chen",
+        reason: "Spam",
+        description: "Too many promotional messages",
+        reportDate: "2025-11-18T10:15:00Z",
+      },
+    ],
+    communityDetails: {
+      memberCount: 89,
+      createdAt: "2025-11-01T09:00:00Z",
+      lastActivity: "2025-11-20T11:00:00Z",
+      admin: {
+        name: "Scammer Admin",
+        email: "scam@example.com",
+      },
+    },
+  },
+  {
+    id: "rep-004",
+    communityId: "comm-018",
+    communityName: "Hate Speech Forum",
+    category: "Social",
+    reportCount: 4,
+    lastReportDate: "2025-11-19T16:30:00Z",
+    status: "pending",
+    reports: [
+      {
+        reportedBy: "user-049",
+        reporterName: "Sarah Brown",
+        reason: "Hate Speech",
+        description: "Contains discriminatory and hateful content",
+        reportDate: "2025-11-19T16:30:00Z",
+      },
+      {
+        reportedBy: "user-054",
+        reporterName: "Henry Martinez",
+        reason: "Hate Speech",
+        description: "Racist comments in posts",
+        reportDate: "2025-11-18T13:45:00Z",
+      },
+      {
+        reportedBy: "user-055",
+        reporterName: "Ivy Anderson",
+        reason: "Harassment",
+        description: "Targeting specific users",
+        reportDate: "2025-11-17T09:20:00Z",
+      },
+      {
+        reportedBy: "user-056",
+        reporterName: "Jack Thompson",
+        reason: "Hate Speech",
+        description: "Offensive language towards minorities",
+        reportDate: "2025-11-16T15:10:00Z",
+      },
+    ],
+    communityDetails: {
+      memberCount: 67,
+      createdAt: "2025-10-25T11:20:00Z",
+      lastActivity: "2025-11-19T15:00:00Z",
+      admin: {
+        name: "Toxic User",
+        email: "toxic@example.com",
+      },
+    },
+  },
+  {
+    id: "rep-005",
+    communityId: "comm-019",
+    communityName: "Copyright Violators",
+    category: "Entertainment",
+    reportCount: 3,
+    lastReportDate: "2025-11-18T10:00:00Z",
+    status: "pending",
+    reports: [
+      {
+        reportedBy: "user-050",
+        reporterName: "Mike Davis",
+        reason: "Copyright Violation",
+        description: "Sharing pirated content and copyrighted materials",
+        reportDate: "2025-11-18T10:00:00Z",
+      },
+      {
+        reportedBy: "user-057",
+        reporterName: "Kelly Brown",
+        reason: "Copyright Violation",
+        description: "Unauthorized music sharing",
+        reportDate: "2025-11-17T14:30:00Z",
+      },
+      {
+        reportedBy: "user-058",
+        reporterName: "Leo Garcia",
+        reason: "Inappropriate Content",
+        description: "Adult content being shared",
+        reportDate: "2025-11-16T11:15:00Z",
+      },
+    ],
+    communityDetails: {
+      memberCount: 234,
+      createdAt: "2025-09-10T08:45:00Z",
+      lastActivity: "2025-11-18T09:00:00Z",
+      admin: {
+        name: "Pirate Admin",
+        email: "pirate@example.com",
+      },
+    },
+  },
+];
+
+// Mock data for inactive communities (no activity for 1+ months)
+const mockInactiveCommunities = [
+  {
+    id: "inactive-001",
+    communityId: "comm-020",
+    communityName: "Abandoned Tech Forum",
+    category: "Technology",
+    memberCount: 45,
+    lastActivity: "2025-09-15T14:30:00Z",
+    lastActivityType: "event",
+    inactiveDays: 68,
+    createdAt: "2025-06-01T10:00:00Z",
+    status: "suspended",
+    reactivationRequested: true,
+    requestedAt: "2025-11-20T10:00:00Z",
+    admin: {
+      name: "Inactive Admin",
+      email: "inactive1@example.com",
+    },
+    lastEvent: {
+      title: "Tech Talk: AI Future",
+      date: "2025-09-15T14:30:00Z",
+    },
+    lastAnnouncement: {
+      title: "Community Update",
+      date: "2025-09-10T10:00:00Z",
+    },
+  },
+  {
+    id: "inactive-002",
+    communityId: "comm-021",
+    communityName: "Dead Gaming Community",
+    category: "Gaming",
+    memberCount: 128,
+    lastActivity: "2025-10-10T09:20:00Z",
+    lastActivityType: "announcement",
+    inactiveDays: 43,
+    createdAt: "2025-05-20T15:45:00Z",
+    status: "suspended",
+    reactivationRequested: false,
+    admin: {
+      name: "Game Master",
+      email: "gamemaster@example.com",
+    },
+    lastEvent: {
+      title: "Gaming Tournament",
+      date: "2025-10-05T18:00:00Z",
+    },
+    lastAnnouncement: {
+      title: "Server maintenance notice",
+      date: "2025-10-10T09:20:00Z",
+    },
+  },
+  {
+    id: "inactive-003",
+    communityId: "comm-022",
+    communityName: "Silent Book Club",
+    category: "Literature",
+    memberCount: 67,
+    lastActivity: "2025-09-20T11:15:00Z",
+    lastActivityType: "event",
+    inactiveDays: 63,
+    createdAt: "2025-04-15T12:30:00Z",
+    status: "suspended",
+    reactivationRequested: true,
+    requestedAt: "2025-11-21T14:30:00Z",
+    admin: {
+      name: "Book Lover",
+      email: "booklover@example.com",
+    },
+    lastEvent: {
+      title: "Book Discussion: 1984",
+      date: "2025-09-20T11:15:00Z",
+    },
+    lastAnnouncement: {
+      title: "New reading list",
+      date: "2025-09-15T09:00:00Z",
+    },
+  },
+  {
+    id: "inactive-004",
+    communityId: "comm-023",
+    communityName: "Forgotten Fitness Group",
+    category: "Health",
+    memberCount: 93,
+    lastActivity: "2025-10-01T07:45:00Z",
+    lastActivityType: "announcement",
+    inactiveDays: 52,
+    createdAt: "2025-07-10T08:00:00Z",
+    status: "suspended",
+    reactivationRequested: false,
+    admin: {
+      name: "Fitness Coach",
+      email: "coach@example.com",
+    },
+    lastEvent: {
+      title: "Morning Yoga Session",
+      date: "2025-09-28T06:00:00Z",
+    },
+    lastAnnouncement: {
+      title: "Workout tips for beginners",
+      date: "2025-10-01T07:45:00Z",
+    },
+  },
+  {
+    id: "inactive-005",
+    communityId: "comm-024",
+    communityName: "Dormant Music Lovers",
+    category: "Music",
+    memberCount: 156,
+    lastActivity: "2025-09-25T16:00:00Z",
+    lastActivityType: "event",
+    inactiveDays: 58,
+    createdAt: "2025-03-05T14:20:00Z",
+    status: "suspended",
+    reactivationRequested: true,
+    requestedAt: "2025-11-19T16:45:00Z",
+    admin: {
+      name: "Music Director",
+      email: "music@example.com",
+    },
+    lastEvent: {
+      title: "Live Music Showcase",
+      date: "2025-09-25T16:00:00Z",
+    },
+    lastAnnouncement: {
+      title: "New playlist recommendations",
+      date: "2025-09-22T12:00:00Z",
+    },
+  },
+  {
+    id: "inactive-006",
+    communityId: "comm-025",
+    communityName: "Stale Photography Hub",
+    category: "Photography",
+    memberCount: 201,
+    lastActivity: "2025-10-05T13:30:00Z",
+    inactiveDays: 48,
+    createdAt: "2025-02-14T10:15:00Z",
+    status: "inactive",
+    admin: {
+      name: "Photo Pro",
+      email: "photopro@example.com",
+    },
+    lastPost: {
+      title: "Photo challenge results",
+      date: "2025-10-05T13:30:00Z",
+    },
+  },
+];
+
 export default function SuperadminPage() {
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Analytics state
-  const [analyticsDateRange, setAnalyticsDateRange] = useState({
-    from: subMonths(new Date(), 6),
-    to: new Date(),
-  });
-  const [analyticsFilter, setAnalyticsFilter] = useState("all");
-  const [analyticsMetric, setAnalyticsMetric] = useState("communities");
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  // Reports management state
+  const [reportSearchQuery, setReportSearchQuery] = useState("");
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [isReportDetailOpen, setIsReportDetailOpen] = useState(false);
+  const [currentReportPage, setCurrentReportPage] = useState(1);
+  const [reportItemsPerPage] = useState(5);
+  const [inactiveSearchQuery, setInactiveSearchQuery] = useState("");
+  const [currentInactivePage, setCurrentInactivePage] = useState(1);
+  const [inactiveItemsPerPage] = useState(5);
 
-  // Badge management state
-  const [badgeSearchQuery, setBadgeSearchQuery] = useState("");
-  const [selectedBadge, setSelectedBadge] = useState<StoreBadge | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [sortBy, setSortBy] = useState("newest");
-  const [currentBadgePage, setCurrentBadgePage] = useState(1);
-  const [badgeItemsPerPage] = useState(8);
+  // Report detail dialog state
+  const [reportDetailPage, setReportDetailPage] = useState(1);
+  const [reportDetailItemsPerPage] = useState(5);
 
   // Community requests state
   const [requestSearchQuery, setRequestSearchQuery] = useState("");
   const [requestSortBy, setRequestSortBy] = useState("newest");
-  const [requestFilterCategory, setRequestFilterCategory] = useState("all");
 
   // Community management state
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
@@ -920,144 +1185,13 @@ export default function SuperadminPage() {
   const [selectedCommunity, setSelectedCommunity] = useState<any>(null);
   const [isCommunityDetailOpen, setIsCommunityDetailOpen] = useState(false);
   const [communityDetailTab, setCommunityDetailTab] = useState("overview");
-  const [isAllCommunitiesDialogOpen, setIsAllCommunitiesDialogOpen] = useState(false);
+  const [isAllCommunitiesDialogOpen, setIsAllCommunitiesDialogOpen] =
+    useState(false);
 
-  // Badges state
-  const [badges, setBadges] = useState<StoreBadge[]>([]);
-  const [isBadgesLoading, setIsBadgesLoading] = useState(true);
-  const [badgesError, setBadgesError] = useState<string | null>(null);
-
-  // Fetch badges on mount
-  useEffect(() => {
-    fetchBadges();
-  }, []);
-
-  // Helper function to get auth headers
-  const getAuthHeaders = async () => {
-    const session = await getClientSession();
-    if (!session?.access_token) {
-      throw new Error("No authentication token available");
-    }
-    return {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-    };
-  };
-
-  const fetchBadges = async () => {
-    try {
-      setIsBadgesLoading(true);
-      setBadgesError(null);
-      const response = await fetch("/api/badges");
-      if (!response.ok) throw new Error("Failed to fetch badges");
-      const data = await response.json();
-
-      // Transform snake_case from API to camelCase for frontend
-      const transformedData = data.map((badge: any) => ({
-        id: badge.id,
-        name: badge.name,
-        description: badge.description,
-        icon: badge.icon,
-        price: badge.price,
-        image: badge.image_url,
-        isActive: badge.is_active,
-        createdAt: badge.created_at,
-        updatedAt: badge.updated_at,
-        purchaseCount: badge.purchase_count,
-      }));
-
-      setBadges(transformedData);
-    } catch (error) {
-      setBadgesError(
-        error instanceof Error ? error.message : "Failed to load badges"
-      );
-      console.error("Error fetching badges:", error);
-    } finally {
-      setIsBadgesLoading(false);
-    }
-  };
-
-  // Mock badges data with enhanced information (backup)
-  const [mockBadges] = useState<StoreBadge[]>([
-    // {
-    //   id: "1",
-    //   name: "Tech Guru",
-    //   description:
-    //     "Awarded to members who consistently provide valuable technical insights and help others solve complex problems.",
-    //   icon: "Trophy",
-    //   price: 1000,
-    //   image: "/placeholder.svg?height=200&width=200",
-    //   isActive: true,
-    //   createdAt: "2023-05-15T10:30:00Z",
-    //   updatedAt: "2023-05-15T10:30:00Z",
-    //   purchaseCount: 145,
-    // },
-    // {
-    //   id: "2",
-    //   name: "Event Master",
-    //   description:
-    //     "For those who have attended at least 20 community events and actively participate in discussions.",
-    //   icon: "Star",
-    //   price: 500,
-    //   image: "/placeholder.svg?height=200&width=200",
-    //   isActive: true,
-    //   createdAt: "2023-06-20T14:15:00Z",
-    //   updatedAt: "2023-06-20T14:15:00Z",
-    //   purchaseCount: 289,
-    // },
-    // {
-    //   id: "3",
-    //   name: "Community Champion",
-    //   description:
-    //     "Reserved for members who have made exceptional contributions to the community and helped it grow.",
-    //   icon: "Award",
-    //   price: 2000,
-    //   image: "/placeholder.svg?height=200&width=200",
-    //   isActive: true,
-    //   createdAt: "2023-04-10T09:45:00Z",
-    //   updatedAt: "2023-07-05T11:20:00Z",
-    //   purchaseCount: 67,
-    // },
-    // {
-    //   id: "4",
-    //   name: "Holiday Special 2023",
-    //   description:
-    //     "Limited edition badge available only during the holiday season. Features exclusive winter-themed design.",
-    //   icon: "Gift",
-    //   price: 1200,
-    //   image: "/placeholder.svg?height=200&width=200",
-    //   isActive: true,
-    //   createdAt: "2023-11-25T08:30:00Z",
-    //   updatedAt: "2023-11-25T08:30:00Z",
-    //   purchaseCount: 38,
-    // },
-    // {
-    //   id: "5",
-    //   name: "Founding Member",
-    //   description:
-    //     "Exclusive badge for the first 100 members who joined the platform. A mark of true community pioneers.",
-    //   icon: "Crown",
-    //   price: 3000,
-    //   image: "/placeholder.svg?height=200&width=200",
-    //   isActive: false,
-    //   createdAt: "2023-01-05T12:00:00Z",
-    //   updatedAt: "2023-03-10T15:45:00Z",
-    //   purchaseCount: 100,
-    // },
-    // {
-    //   id: "6",
-    //   name: "Creative Spark",
-    //   description:
-    //     "For members who consistently share creative content and inspire others with their artistic vision.",
-    //   icon: "Sparkles",
-    //   price: 750,
-    //   image: "/placeholder.svg?height=200&width=200",
-    //   isActive: true,
-    //   createdAt: "2023-08-12T16:20:00Z",
-    //   updatedAt: "2023-08-12T16:20:00Z",
-    //   purchaseCount: 212,
-    // },
-  ]);
+  // Activity logs state
+  const [activityFilterStatus, setActivityFilterStatus] = useState("all");
+  const [currentActivityPage, setCurrentActivityPage] = useState(1);
+  const [activityItemsPerPage] = useState(10);
 
   // Calculate request statistics
   const pendingRequests = mockCommunityRequests.filter(
@@ -1083,11 +1217,7 @@ export default function SuperadminPage() {
           .toLowerCase()
           .includes(requestSearchQuery.toLowerCase());
 
-      const matchesCategory =
-        requestFilterCategory === "all" ||
-        req.category === requestFilterCategory;
-
-      return matchesSearch && matchesCategory;
+      return matchesSearch;
     })
     .sort((a, b) => {
       switch (requestSortBy) {
@@ -1149,235 +1279,79 @@ export default function SuperadminPage() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedCommunities = filteredCommunities.slice(startIndex, endIndex);
 
-  // Filter badges based on search query
-  const filteredBadges = badges.filter((badge) => {
-    const matchesSearch =
-      badgeSearchQuery === "" ||
-      badge.name.toLowerCase().includes(badgeSearchQuery.toLowerCase()) ||
-      badge.description.toLowerCase().includes(badgeSearchQuery.toLowerCase());
-
-    return matchesSearch;
+  // Filter activity logs based on status
+  const filteredActivityLogs = mockActivityLogs.filter((log) => {
+    if (activityFilterStatus === "all") return true;
+    return log.action === activityFilterStatus;
   });
 
-  // Sort badges
-  const sortedBadges = [...filteredBadges].sort((a, b) => {
-    switch (sortBy) {
-      case "newest":
-        return (
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      case "oldest":
-        return (
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-      case "name-asc":
-        return a.name.localeCompare(b.name);
-      case "name-desc":
-        return b.name.localeCompare(a.name);
-      case "price-high":
-        return b.price - a.price;
-      case "price-low":
-        return a.price - b.price;
-      case "popularity":
-        return (b.purchaseCount || 0) - (a.purchaseCount || 0);
-      default:
-        return 0;
+  // Pagination for activity logs
+  const totalActivityPages = Math.ceil(
+    filteredActivityLogs.length / activityItemsPerPage
+  );
+  const activityStartIndex = (currentActivityPage - 1) * activityItemsPerPage;
+  const activityEndIndex = activityStartIndex + activityItemsPerPage;
+  const paginatedActivityLogs = filteredActivityLogs.slice(
+    activityStartIndex,
+    activityEndIndex
+  );
+
+  // Filter reported communities based on search query
+  const filteredReportedCommunities = mockReportedCommunities.filter(
+    (report) => {
+      const matchesSearch =
+        reportSearchQuery === "" ||
+        report.communityName
+          .toLowerCase()
+          .includes(reportSearchQuery.toLowerCase()) ||
+        report.category.toLowerCase().includes(reportSearchQuery.toLowerCase());
+
+      return matchesSearch;
     }
-  });
+  );
 
-  // Badge pagination logic
-  const totalBadgePages = Math.ceil(sortedBadges.length / badgeItemsPerPage);
-  const badgeStartIndex = (currentBadgePage - 1) * badgeItemsPerPage;
-  const badgeEndIndex = badgeStartIndex + badgeItemsPerPage;
-  const paginatedBadges = sortedBadges.slice(badgeStartIndex, badgeEndIndex);
+  // Sort reported communities by report count (highest first)
+  const sortedReportedCommunities = [...filteredReportedCommunities].sort(
+    (a, b) => b.reportCount - a.reportCount
+  );
 
-  // Analytics calculations
-  const totalCommunities =
-    mockAnalyticsData[mockAnalyticsData.length - 1]?.communities || 0;
-  const totalUsers =
-    mockAnalyticsData[mockAnalyticsData.length - 1]?.users || 0;
-  const avgEngagement =
-    mockAnalyticsData[mockAnalyticsData.length - 1]?.engagement || 0;
+  // Pagination for reported communities
+  const totalReportPages = Math.ceil(
+    sortedReportedCommunities.length / reportItemsPerPage
+  );
+  const reportStartIndex = (currentReportPage - 1) * reportItemsPerPage;
+  const reportEndIndex = reportStartIndex + reportItemsPerPage;
+  const paginatedReportedCommunities = sortedReportedCommunities.slice(
+    reportStartIndex,
+    reportEndIndex
+  );
 
-  const previousMonth =
-    mockAnalyticsData[mockAnalyticsData.length - 2] ||
-    mockAnalyticsData[mockAnalyticsData.length - 1];
-  const communityGrowth = previousMonth
-    ? ((totalCommunities - previousMonth.communities) /
-        previousMonth.communities) *
-      100
-    : 0;
-  const userGrowth = previousMonth
-    ? ((totalUsers - previousMonth.users) / previousMonth.users) * 100
-    : 0;
+  // Sort inactive communities by inactive days (longest first)
+  // Filter and sort inactive communities
+  const filteredInactiveCommunities = mockInactiveCommunities.filter(
+    (community) =>
+      community.communityName
+        .toLowerCase()
+        .includes(inactiveSearchQuery.toLowerCase()) ||
+      community.admin.name
+        .toLowerCase()
+        .includes(inactiveSearchQuery.toLowerCase())
+  );
 
-  // CRUD operations for badges
-  const handleCreateBadge = async (
-    badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">
-  ) => {
-    try {
-      setIsLoading(true);
-      const headers = await getAuthHeaders();
+  const sortedInactiveCommunities = [...filteredInactiveCommunities].sort(
+    (a, b) => b.inactiveDays - a.inactiveDays
+  );
 
-      // Transform camelCase to snake_case for API
-      const apiPayload = {
-        name: badge.name,
-        description: badge.description,
-        icon: badge.icon,
-        price: badge.price,
-        image_url: badge.image,
-        is_active: badge.isActive,
-      };
-
-      const response = await fetch("/api/badges", {
-        method: "POST",
-        headers,
-        body: JSON.stringify(apiPayload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create badge");
-      }
-
-      const apiResponse = await response.json();
-
-      // Transform response from snake_case to camelCase
-      const newBadge = {
-        id: apiResponse.id,
-        name: apiResponse.name,
-        description: apiResponse.description,
-        icon: apiResponse.icon,
-        category: apiResponse.category,
-        price: apiResponse.price,
-        image: apiResponse.image_url,
-        isActive: apiResponse.is_active,
-        createdAt: apiResponse.created_at,
-        updatedAt: apiResponse.updated_at,
-        purchaseCount: apiResponse.purchase_count,
-      };
-
-      setBadges([...badges, newBadge]);
-      setIsCreateDialogOpen(false);
-    } catch (error) {
-      console.error("Error creating badge:", error);
-      alert(error instanceof Error ? error.message : "Failed to create badge");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUpdateBadge = async (
-    badge: Omit<StoreBadge, "id" | "createdAt" | "updatedAt">
-  ) => {
-    if (!selectedBadge) return;
-    try {
-      setIsLoading(true);
-      const headers = await getAuthHeaders();
-
-      // Transform camelCase to snake_case for API
-      const apiPayload = {
-        name: badge.name,
-        description: badge.description,
-        icon: badge.icon,
-        price: badge.price,
-        image_url: badge.image,
-        is_active: badge.isActive,
-      };
-
-      const response = await fetch(`/api/badges/${selectedBadge.id}`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify(apiPayload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update badge");
-      }
-
-      const apiResponse = await response.json();
-
-      // Transform response from snake_case to camelCase
-      const updatedBadge = {
-        id: apiResponse.id,
-        name: apiResponse.name,
-        description: apiResponse.description,
-        icon: apiResponse.icon,
-        category: apiResponse.category,
-        price: apiResponse.price,
-        image: apiResponse.image_url,
-        isActive: apiResponse.is_active,
-        createdAt: apiResponse.created_at,
-        updatedAt: apiResponse.updated_at,
-        purchaseCount: apiResponse.purchase_count,
-      };
-
-      const updatedBadges = badges.map((b) =>
-        b.id === selectedBadge.id ? updatedBadge : b
-      );
-      setBadges(updatedBadges);
-      setIsEditDialogOpen(false);
-    } catch (error) {
-      console.error("Error updating badge:", error);
-      alert(error instanceof Error ? error.message : "Failed to update badge");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDeleteBadge = async () => {
-    if (!selectedBadge) return;
-    try {
-      setIsLoading(true);
-      const headers = await getAuthHeaders();
-      const response = await fetch(`/api/badges/${selectedBadge.id}`, {
-        method: "DELETE",
-        headers,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete badge");
-      }
-
-      const updatedBadges = badges.filter((b) => b.id !== selectedBadge.id);
-      setBadges(updatedBadges);
-      setIsDeleteDialogOpen(false);
-      setSelectedBadge(null);
-    } catch (error) {
-      console.error("Error deleting badge:", error);
-      alert(error instanceof Error ? error.message : "Failed to delete badge");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleViewBadge = (badge: StoreBadge) => {
-    setSelectedBadge(badge);
-    setIsViewDialogOpen(true);
-  };
-
-  const handleEditBadge = (badge: StoreBadge) => {
-    setSelectedBadge(badge);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleDeleteConfirmation = (badge: StoreBadge) => {
-    setSelectedBadge(badge);
-    setIsDeleteDialogOpen(true);
-  };
-
-  // Badge pagination handlers
-  const handleBadgeSearchChange = (value: string) => {
-    setBadgeSearchQuery(value);
-    setCurrentBadgePage(1); // Reset to page 1 on search
-  };
-
-  const handleBadgeSortChange = (value: string) => {
-    setSortBy(value);
-    setCurrentBadgePage(1); // Reset to page 1 on sort
-  };
+  // Pagination for inactive communities
+  const totalInactivePages = Math.ceil(
+    sortedInactiveCommunities.length / inactiveItemsPerPage
+  );
+  const inactiveStartIndex = (currentInactivePage - 1) * inactiveItemsPerPage;
+  const inactiveEndIndex = inactiveStartIndex + inactiveItemsPerPage;
+  const paginatedInactiveCommunities = sortedInactiveCommunities.slice(
+    inactiveStartIndex,
+    inactiveEndIndex
+  );
 
   const handleViewCommunity = (community: any) => {
     setSelectedCommunity(community);
@@ -1413,10 +1387,6 @@ export default function SuperadminPage() {
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat("en-US").format(num);
-  };
-
-  const formatPercentage = (num: number) => {
-    return `${num > 0 ? "+" : ""}${num.toFixed(1)}%`;
   };
 
   const getStatusBadge = (status: string) => {
@@ -1461,6 +1431,89 @@ export default function SuperadminPage() {
     return <IconComponent className="h-6 w-6" />;
   };
 
+  const getActionBadge = (action: string) => {
+    switch (action) {
+      case "approved":
+        return (
+          <Badge className="bg-green-500 hover:bg-green-600 text-white border-0 flex items-center gap-1 w-fit text-xs px-2 py-1">
+            <CheckCircle2 className="h-3 w-3" />
+            Approved
+          </Badge>
+        );
+      case "rejected":
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600 text-white border-0 flex items-center gap-1 w-fit text-xs px-2 py-1">
+            <XCircle className="h-3 w-3" />
+            Rejected
+          </Badge>
+        );
+      case "suspend":
+        return (
+          <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-0 flex items-center gap-1 w-fit text-xs px-2 py-1">
+            <Ban className="h-3 w-3" />
+            Suspended
+          </Badge>
+        );
+      case "reactive":
+        return (
+          <Badge className="bg-blue-500 hover:bg-blue-600 text-white border-0 flex items-center gap-1 w-fit text-xs px-2 py-1">
+            <RefreshCcw className="h-3 w-3" />
+            Reactivated
+          </Badge>
+        );
+      default:
+        return <Badge>{action}</Badge>;
+    }
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return `${days} day${days > 1 ? "s" : ""} ago`;
+    } else if (hours > 0) {
+      return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+    } else {
+      const minutes = Math.floor(diff / (1000 * 60));
+      return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+    }
+  };
+
+  const getCommunityStatusBadge = (status: string) => {
+    switch (status) {
+      case "active":
+        return (
+          <Badge className="bg-green-500 hover:bg-green-600 text-white border-0">
+            Active
+          </Badge>
+        );
+      case "pending":
+        return (
+          <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white border-0">
+            Pending
+          </Badge>
+        );
+      case "suspended":
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600 text-white border-0">
+            Suspended
+          </Badge>
+        );
+      case "inactive":
+        return (
+          <Badge className="bg-gray-500 hover:bg-gray-600 text-white border-0">
+            Inactive
+          </Badge>
+        );
+      default:
+        return <Badge>{status}</Badge>;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 relative overflow-hidden">
       <FloatingElements />
@@ -1491,20 +1544,13 @@ export default function SuperadminPage() {
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-5 glass-effect border-0 p-2 rounded-2xl mb-8 h-14">
+            <TabsList className="grid w-full grid-cols-4 glass-effect border-0 p-2 rounded-2xl mb-8 h-14">
               <TabsTrigger
                 value="overview"
                 className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
               >
                 <Shield className="h-4 w-4 flex-shrink-0" />
                 <span className="font-medium">Overview</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="analytics"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
-              >
-                <BarChart3 className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium">Analytics</span>
               </TabsTrigger>
               <TabsTrigger
                 value="requests"
@@ -1526,11 +1572,11 @@ export default function SuperadminPage() {
                 <span className="font-medium">Activity</span>
               </TabsTrigger>
               <TabsTrigger
-                value="badges"
+                value="reports"
                 className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
               >
-                <ShoppingBag className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium">Badges</span>
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <span className="font-medium">Reports</span>
               </TabsTrigger>
             </TabsList>
 
@@ -1564,12 +1610,12 @@ export default function SuperadminPage() {
                         onChange={(e) =>
                           setCommunityFilterStatus(e.target.value)
                         }
-                        className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
+                        className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200 bg-white"
                       >
                         <option value="all">All Status</option>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
-                        <option value="under review">Under Review</option>
+                        <option value="suspended">Suspended</option>
                       </select>
                       <select
                         value={communitySortBy}
@@ -1708,377 +1754,12 @@ export default function SuperadminPage() {
               </div>
             </TabsContent>
 
-            {/* Analytics Tab - New Comprehensive Dashboard */}
-            <TabsContent value="analytics" className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-purple-600" />
-                  Community Analytics Dashboard
-                </h3>
-                <div className="flex gap-2">
-                  <Popover
-                    open={isDatePickerOpen}
-                    onOpenChange={setIsDatePickerOpen}
-                  >
-                    <PopoverTrigger asChild>
-                      <AnimatedButton variant="glass" size="sm">
-                        <CalendarIcon className="h-4 w-4 mr-2" />
-                        {analyticsDateRange.from && analyticsDateRange.to
-                          ? `${format(
-                              analyticsDateRange.from,
-                              "MMM dd"
-                            )} - ${format(analyticsDateRange.to, "MMM dd")}`
-                          : "Select Date Range"}
-                      </AnimatedButton>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0 bg-white border border-gray-200 shadow-lg"
-                      align="end"
-                    >
-                      <Calendar
-                        mode="range"
-                        selected={analyticsDateRange}
-                        onSelect={(range) => {
-                          if (range?.from && range?.to) {
-                            setAnalyticsDateRange({
-                              from: range.from,
-                              to: range.to,
-                            });
-                            setIsDatePickerOpen(false);
-                          }
-                        }}
-                        numberOfMonths={2}
-                        className="rounded-md"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <select
-                    value={analyticsFilter}
-                    onChange={(e) => setAnalyticsFilter(e.target.value)}
-                    className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
-                  >
-                    <option value="all">🎯 All Categories</option>
-                    <option value="environmental">🌱 Environmental</option>
-                    <option value="music">🎵 Music</option>
-                    <option value="sports">⚽ Sports</option>
-                    <option value="hobbies">🎨 Hobbies</option>
-                    <option value="education">📚 Education</option>
-                    <option value="art">🎭 Art</option>
-                  </select>
-                  <AnimatedButton variant="glass" size="sm">
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Refresh
-                  </AnimatedButton>
-                  <AnimatedButton variant="glass" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </AnimatedButton>
-                </div>
-              </div>
-
-              {/* Key Performance Indicators */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <AnimatedCard variant="glass" className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">
-                        Total Communities
-                      </p>
-                      <p className="text-3xl font-bold text-gray-900">
-                        {formatNumber(totalCommunities)}
-                      </p>
-                      <div className="flex items-center mt-2">
-                        {communityGrowth >= 0 ? (
-                          <ArrowUpRight className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <ArrowDownRight className="h-4 w-4 text-red-500" />
-                        )}
-                        <span
-                          className={`text-sm font-medium ${
-                            communityGrowth >= 0
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {formatPercentage(communityGrowth)}
-                        </span>
-                        <span className="text-sm text-gray-500 ml-1">
-                          vs last month
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-purple-100 rounded-lg">
-                      <Users className="h-6 w-6 text-purple-600" />
-                    </div>
-                  </div>
-                </AnimatedCard>
-
-                <AnimatedCard variant="glass" className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">
-                        Total Users
-                      </p>
-                      <p className="text-3xl font-bold text-gray-900">
-                        {formatNumber(totalUsers)}
-                      </p>
-                      <div className="flex items-center mt-2">
-                        {userGrowth >= 0 ? (
-                          <ArrowUpRight className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <ArrowDownRight className="h-4 w-4 text-red-500" />
-                        )}
-                        <span
-                          className={`text-sm font-medium ${
-                            userGrowth >= 0 ? "text-green-600" : "text-red-600"
-                          }`}
-                        >
-                          {formatPercentage(userGrowth)}
-                        </span>
-                        <span className="text-sm text-gray-500 ml-1">
-                          vs last month
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-blue-100 rounded-lg">
-                      <UserPlus className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </AnimatedCard>
-              </div>
-
-              {/* Charts Section */}
-              <div className="w-full">
-                {/* User Growth Chart */}
-                <AnimatedCard variant="glass" className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h4 className="text-lg font-semibold text-gray-900">
-                      User Growth
-                    </h4>
-                    <Badge
-                      variant="outline"
-                      className="bg-green-50 text-green-700 border-green-200"
-                    >
-                      +12.5% this month
-                    </Badge>
-                  </div>
-                  <div className="flex justify-center">
-                    <div className="w-full max-w-4xl">
-                      <ChartContainer
-                        config={{
-                          users: {
-                            label: "Users",
-                            color: chartColors.primary,
-                          },
-                        }}
-                        className="h-[400px]"
-                      >
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={mockAnalyticsData}>
-                            <defs>
-                              <linearGradient
-                                id="colorGradient"
-                                x1="0"
-                                y1="0"
-                                x2="0"
-                                y2="1"
-                              >
-                                <stop
-                                  offset="5%"
-                                  stopColor={chartColors.primary}
-                                  stopOpacity={0.3}
-                                />
-                                <stop
-                                  offset="95%"
-                                  stopColor={chartColors.primary}
-                                  stopOpacity={0}
-                                />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid
-                              strokeDasharray="3 3"
-                              stroke="#f0f0f0"
-                            />
-                            <XAxis dataKey="date" stroke="#666" fontSize={12} />
-                            <YAxis stroke="#666" fontSize={12} />
-                            <ChartTooltip content={<ChartTooltipContent />} />
-                            <Area
-                              type="monotone"
-                              dataKey="users"
-                              stroke={chartColors.primary}
-                              fillOpacity={1}
-                              fill="url(#colorGradient)"
-                              strokeWidth={3}
-                            />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </ChartContainer>
-                    </div>
-                  </div>
-                </AnimatedCard>
-              </div>
-
-              {/* Community Performance and Geographic Distribution */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Top Performing Communities */}
-                <div className="lg:col-span-2">
-                  <AnimatedCard variant="glass" className="p-6">
-                    <div className="flex justify-between items-center mb-6">
-                      <h4 className="text-lg font-semibold text-gray-900">
-                        Top Performing Communities
-                      </h4>
-                      <AnimatedButton 
-                        variant="glass" 
-                        size="sm"
-                        onClick={() => setIsAllCommunitiesDialogOpen(true)}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View All
-                      </AnimatedButton>
-                    </div>
-                    <div className="space-y-4">
-                      {mockCommunityPerformance.map((community, index) => (
-                        <div
-                          key={community.id}
-                          className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold">
-                              {index + 1}
-                            </div>
-                            <div>
-                              <h5 className="font-semibold text-gray-900">
-                                {community.name}
-                              </h5>
-                              <div className="flex items-center gap-3 text-sm text-gray-600">
-                                <span>
-                                  {formatNumber(community.members)} members
-                                </span>
-                                <span>•</span>
-                                <span>{community.events} events</span>
-                                <span>•</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {community.category}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </AnimatedCard>
-                </div>
-
-                {/* Geographic Distribution */}
-                <AnimatedCard variant="glass" className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h4 className="text-lg font-semibold text-gray-900">
-                      Top 5 Cities
-                    </h4>
-                    <Globe className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <ChartContainer
-                    config={{
-                      users: {
-                        label: "Users",
-                        color: chartColors.tertiary,
-                      },
-                    }}
-                    className="h-[200px] mb-4"
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={mockGeographicData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={40}
-                          outerRadius={80}
-                          paddingAngle={2}
-                          dataKey="percentage"
-                        >
-                          {mockGeographicData.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={
-                                index === 0
-                                  ? "#8B5CF6" // Jakarta - Purple
-                                  : index === 1
-                                  ? "#06B6D4" // Surabaya - Cyan
-                                  : index === 2
-                                  ? "#10B981" // Bali - Green
-                                  : index === 3
-                                  ? "#F59E0B" // Medan - Orange
-                                  : index === 4
-                                  ? "#EF4444" // IKN - Red
-                                  : "#6B7280" // Others - Gray
-                              }
-                            />
-                          ))}
-                        </Pie>
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                  <div className="space-y-2">
-                    {mockGeographicData.map((country, index) => (
-                      <div
-                        key={country.country}
-                        className="flex items-center justify-between text-sm"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{
-                              backgroundColor:
-                                index === 0
-                                  ? "#8B5CF6" // Jakarta - Purple
-                                  : index === 1
-                                  ? "#06B6D4" // Surabaya - Cyan
-                                  : index === 2
-                                  ? "#10B981" // Bali - Green
-                                  : index === 3
-                                  ? "#F59E0B" // Medan - Orange
-                                  : index === 4
-                                  ? "#EF4444" // IKN - Red
-                                  : "#6B7280", // Others - Gray
-                            }}
-                          ></div>
-                          <span className="text-gray-700">
-                            {country.country}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium text-gray-900">
-                            {formatNumber(country.users)}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {country.percentage}%
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </AnimatedCard>
-              </div>
-            </TabsContent>
-
             {/* Community Requests Tab - Simplified */}
             <TabsContent value="requests" className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-2xl font-bold text-gray-900">
                   Community Creation Requests
                 </h3>
-                <div className="flex gap-2">
-                  <AnimatedButton variant="glass" size="sm">
-                    <Filter className="h-4 w-4 mr-2" />
-                    Filter
-                  </AnimatedButton>
-                  <AnimatedButton variant="glass" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </AnimatedButton>
-                </div>
               </div>
 
               {/* Request Status Overview */}
@@ -2171,26 +1852,9 @@ export default function SuperadminPage() {
                     </div>
 
                     <select
-                      value={requestFilterCategory}
-                      onChange={(e) => setRequestFilterCategory(e.target.value)}
-                      className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
-                    >
-                      <option value="all">All Categories</option>
-                      <option value="Technology">Technology</option>
-                      <option value="Health & Fitness">Health & Fitness</option>
-                      <option value="Books & Literature">
-                        Books & Literature
-                      </option>
-                      <option value="Environment">Environment</option>
-                      <option value="Travel & Work">Travel & Work</option>
-                      <option value="Food & Cooking">Food & Cooking</option>
-                      <option value="Photography">Photography</option>
-                    </select>
-
-                    <select
                       value={requestSortBy}
                       onChange={(e) => setRequestSortBy(e.target.value)}
-                      className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
+                      className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200 bg-white"
                     >
                       <option value="oldest">Oldest First</option>
                       <option value="newest">Newest First</option>
@@ -2308,255 +1972,609 @@ export default function SuperadminPage() {
             {/* Activity Logs Tab */}
             <TabsContent value="activity" className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold text-gray-900">
+                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <Activity className="h-6 w-6 text-purple-600" />
                   System Activity Logs
                 </h3>
-                <div className="flex gap-2">
-                  <AnimatedButton variant="glass" size="sm">
-                    <CalendarIcon className="h-4 w-4 mr-2" />
-                    Date Range
-                  </AnimatedButton>
-                  <AnimatedButton variant="glass" size="sm">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Export Logs
-                  </AnimatedButton>
+                <div className="flex gap-2 items-center">
+                  <span className="text-sm text-gray-600">Filter by:</span>
+                  <select
+                    value={activityFilterStatus}
+                    onChange={(e) => {
+                      setActivityFilterStatus(e.target.value);
+                      setCurrentActivityPage(1);
+                    }}
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200 bg-white"
+                  >
+                    <option value="all">All Actions</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="suspend">Suspended</option>
+                    <option value="reactive">Reactivated</option>
+                  </select>
                 </div>
               </div>
 
               <AnimatedCard variant="glass" className="p-6">
-                <ActivityLogsTable />
+                {/* Stats Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-green-600 font-medium">
+                          Approved
+                        </p>
+                        <p className="text-2xl font-bold text-green-700">
+                          {
+                            mockActivityLogs.filter(
+                              (log) => log.action === "approved"
+                            ).length
+                          }
+                        </p>
+                      </div>
+                      <CheckCircle2 className="h-8 w-8 text-green-500" />
+                    </div>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-red-600 font-medium">
+                          Rejected
+                        </p>
+                        <p className="text-2xl font-bold text-red-700">
+                          {
+                            mockActivityLogs.filter(
+                              (log) => log.action === "rejected"
+                            ).length
+                          }
+                        </p>
+                      </div>
+                      <XCircle className="h-8 w-8 text-red-500" />
+                    </div>
+                  </div>
+                  <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-orange-600 font-medium">
+                          Suspended
+                        </p>
+                        <p className="text-2xl font-bold text-orange-700">
+                          {
+                            mockActivityLogs.filter(
+                              (log) => log.action === "suspend"
+                            ).length
+                          }
+                        </p>
+                      </div>
+                      <Ban className="h-8 w-8 text-orange-500" />
+                    </div>
+                  </div>
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-blue-600 font-medium">
+                          Reactivated
+                        </p>
+                        <p className="text-2xl font-bold text-blue-700">
+                          {
+                            mockActivityLogs.filter(
+                              (log) => log.action === "reactive"
+                            ).length
+                          }
+                        </p>
+                      </div>
+                      <RefreshCcw className="h-8 w-8 text-blue-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activity Logs Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Action
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Community
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Date & Time
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedActivityLogs.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={3}
+                            className="text-center py-8 text-gray-500"
+                          >
+                            No activity logs found
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedActivityLogs.map((log) => (
+                          <tr
+                            key={log.id}
+                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="py-4 px-4">
+                              {getActionBadge(log.action)}
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="font-medium text-gray-900">
+                                {log.communityName}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="text-sm text-gray-700">
+                                {new Date(log.timestamp).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  }
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(log.timestamp).toLocaleTimeString(
+                                  "en-US",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalActivityPages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                    <div className="text-sm text-gray-600">
+                      Showing {activityStartIndex + 1} to{" "}
+                      {Math.min(activityEndIndex, filteredActivityLogs.length)}{" "}
+                      of {filteredActivityLogs.length} logs
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <AnimatedButton
+                        variant="glass"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentActivityPage((prev) =>
+                            Math.max(1, prev - 1)
+                          )
+                        }
+                        disabled={currentActivityPage === 1}
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </AnimatedButton>
+                      <div className="flex items-center gap-1">
+                        {Array.from(
+                          { length: totalActivityPages },
+                          (_, i) => i + 1
+                        )
+                          .filter(
+                            (page) =>
+                              page === 1 ||
+                              page === totalActivityPages ||
+                              Math.abs(page - currentActivityPage) <= 1
+                          )
+                          .map((page, index, array) => (
+                            <div key={page} className="flex items-center">
+                              {index > 0 && array[index - 1] !== page - 1 && (
+                                <span className="px-2 text-gray-400">...</span>
+                              )}
+                              <button
+                                onClick={() => setCurrentActivityPage(page)}
+                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                                  currentActivityPage === page
+                                    ? "bg-purple-600 text-white"
+                                    : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                      <AnimatedButton
+                        variant="glass"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentActivityPage((prev) =>
+                            Math.min(totalActivityPages, prev + 1)
+                          )
+                        }
+                        disabled={currentActivityPage === totalActivityPages}
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </AnimatedButton>
+                    </div>
+                  </div>
+                )}
               </AnimatedCard>
             </TabsContent>
 
-            {/* Store Badges Tab - Redesigned CRUD Interface */}
-            <TabsContent value="badges" className="space-y-6">
+            {/* Reports Tab - Community Reports & Inactive Communities */}
+            <TabsContent value="reports" className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <ShoppingBag className="h-5 w-5 text-purple-600" />
-                  Store Badge Management
+                  <AlertTriangle className="h-6 w-6 text-orange-600" />
+                  Community Reports & Moderation
                 </h3>
-                <AnimatedButton
-                  onClick={() => setIsCreateDialogOpen(true)}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Badge
-                </AnimatedButton>
+                <div className="text-sm text-gray-600">
+                  Total Reports: {mockReportedCommunities.length} | Inactive:{" "}
+                  {mockInactiveCommunities.length}
+                </div>
               </div>
 
-              {/* Badge Statistics Overview */}
-              <div className="mb-6">
-                <AnimatedCard variant="glass" className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-purple-100 rounded-xl">
-                      <ShoppingBag className="h-8 w-8 text-purple-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-600 mb-1">
-                        Total Badges in Store
-                      </p>
-                      <p className="text-3xl font-bold text-purple-600">
-                        {badges.length}
-                      </p>
-                    </div>
-                  </div>
-                </AnimatedCard>
-              </div>
-
-              {/* Enhanced Filters and Search */}
+              {/* Reported Communities Section */}
               <AnimatedCard variant="glass" className="p-6">
-                <div className="flex flex-col lg:flex-row gap-4 mb-6">
-                  <div className="relative flex-1">
+                <div className="flex justify-between items-center mb-6">
+                  <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Ban className="h-5 w-5 text-red-600" />
+                    Reported Communities
+                    <Badge className="bg-red-100 text-red-700 border-red-200">
+                      {mockReportedCommunities.length} Reports
+                    </Badge>
+                  </h4>
+                  <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                      placeholder="Search badges by name, description, or category..."
-                      value={badgeSearchQuery}
-                      onChange={(e) => handleBadgeSearchChange(e.target.value)}
-                      className="pl-10 border-gray-200 focus:border-violet-300 focus:ring-violet-200 glass-effect"
+                      placeholder="Search reported communities..."
+                      value={reportSearchQuery}
+                      onChange={(e) => setReportSearchQuery(e.target.value)}
+                      className="pl-10 w-64"
                     />
-                  </div>
-                  <div className="flex gap-2">
-                    <select
-                      value={sortBy}
-                      onChange={(e) => handleBadgeSortChange(e.target.value)}
-                      className="w-[160px] glass-effect border-gray-200 focus:border-violet-300 rounded-md px-3 py-2 text-sm"
-                    >
-                      <option value="newest">Newest First</option>
-                      <option value="oldest">Oldest First</option>
-                      <option value="name-asc">Name (A-Z)</option>
-                      <option value="name-desc">Name (Z-A)</option>
-                      <option value="price-high">Price (High-Low)</option>
-                      <option value="price-low">Price (Low-High)</option>
-                      <option value="popularity">Most Popular</option>
-                    </select>
                   </div>
                 </div>
 
-                {/* Badge Display */}
-                {sortedBadges.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="mb-4 text-gray-400">
-                      <Search className="h-12 w-12 mx-auto" />
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Community
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Members
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Reports
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Last Report
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedReportedCommunities.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={5}
+                            className="text-center py-8 text-gray-500"
+                          >
+                            No reported communities found
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedReportedCommunities.map((report) => (
+                          <tr
+                            key={report.id}
+                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="py-4 px-4">
+                              <div className="font-medium text-gray-900">
+                                {report.communityName}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {report.communityDetails.admin.name}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="text-sm text-gray-700">
+                                {report.communityDetails.memberCount}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <Badge className="bg-red-500 text-white">
+                                {report.reportCount} reports
+                              </Badge>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="text-sm text-gray-700">
+                                {new Date(
+                                  report.lastReportDate
+                                ).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex gap-2">
+                                <AnimatedButton
+                                  variant="glass"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedReport(report);
+                                    setIsReportDetailOpen(true);
+                                    // Reset pagination when opening dialog
+                                    setReportDetailPage(1);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-700"
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  View
+                                </AnimatedButton>
+                                <AnimatedButton
+                                  variant="glass"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Ban className="h-4 w-4 mr-1" />
+                                  Suspend
+                                </AnimatedButton>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination for Reported Communities */}
+                {totalReportPages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                    <div className="text-sm text-gray-600">
+                      Showing {reportStartIndex + 1} to{" "}
+                      {Math.min(
+                        reportEndIndex,
+                        sortedReportedCommunities.length
+                      )}{" "}
+                      of {sortedReportedCommunities.length} reports
                     </div>
-                    <h5 className="text-xl font-medium text-gray-900 mb-2">
-                      No badges found
-                    </h5>
-                    <p className="text-gray-500 mb-6">
-                      {badgeSearchQuery
-                        ? `No results for "${badgeSearchQuery}"`
-                        : "No badges have been created yet."}
-                    </p>
-                    <AnimatedButton
-                      onClick={() => setIsCreateDialogOpen(true)}
-                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create First Badge
-                    </AnimatedButton>
+                    <div className="flex items-center gap-2">
+                      <AnimatedButton
+                        variant="glass"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentReportPage((prev) => Math.max(1, prev - 1))
+                        }
+                        disabled={currentReportPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </AnimatedButton>
+                      <span className="text-sm text-gray-600">
+                        Page {currentReportPage} of {totalReportPages}
+                      </span>
+                      <AnimatedButton
+                        variant="glass"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentReportPage((prev) =>
+                            Math.min(totalReportPages, prev + 1)
+                          )
+                        }
+                        disabled={currentReportPage === totalReportPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </AnimatedButton>
+                    </div>
                   </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                      {paginatedBadges.map((badge, index) => (
-                        <div
-                          key={badge.id}
-                          className="group relative bg-white rounded-xl border-2 border-gray-200 hover:border-purple-300 transition-all duration-300 hover:shadow-lg overflow-hidden"
-                          style={{
-                            animationDelay: `${index * 100}ms`,
-                            animationFillMode: "both",
-                          }}
-                        >
-                          {/* Badge Header */}
-                          <div className="h-24 bg-gradient-to-br from-purple-500 to-indigo-600 relative">
-                            <div className="absolute inset-0 bg-black/10"></div>
-                            <div className="absolute top-2 right-2">
-                              {badge.isActive ? (
-                                <Badge className="bg-green-500 text-white text-xs">
-                                  Active
+                )}
+              </AnimatedCard>
+
+              {/* Inactive Communities Section */}
+              <AnimatedCard variant="glass" className="p-6">
+                <div className="flex justify-between items-start mb-6">
+                  <div className="flex-1">
+                    <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-2">
+                      <Clock className="h-5 w-5 text-orange-600" />
+                      Inactive Communities (Auto-Suspended)
+                      <Badge className="bg-orange-100 text-orange-700 border-orange-200">
+                        {sortedInactiveCommunities.length} Suspended
+                      </Badge>
+                      {sortedInactiveCommunities.filter(
+                        (c: any) => c.reactivationRequested
+                      ).length > 0 && (
+                        <Badge className="bg-blue-500 text-white">
+                          <Bell className="h-3 w-3 mr-1" />
+                          {
+                            sortedInactiveCommunities.filter(
+                              (c: any) => c.reactivationRequested
+                            ).length
+                          }{" "}
+                          Pending
+                        </Badge>
+                      )}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Communities automatically suspended due to no activity
+                      (events or announcements) for more than 30 days
+                    </p>
+                  </div>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search inactive communities..."
+                      value={inactiveSearchQuery}
+                      onChange={(e) => setInactiveSearchQuery(e.target.value)}
+                      className="pl-10 w-64"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Community
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Members
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Inactive Status
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Last Activity
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Reactivation
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedInactiveCommunities.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={5}
+                            className="text-center py-8 text-gray-500"
+                          >
+                            No inactive communities found
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedInactiveCommunities.map((community) => (
+                          <tr
+                            key={community.id}
+                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-2">
+                                <div>
+                                  <div className="font-medium text-gray-900">
+                                    {community.communityName}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {community.admin.name}
+                                  </div>
+                                </div>
+                                {community.reactivationRequested && (
+                                  <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
+                                    <Bell className="h-3 w-3 mr-1 inline" />
+                                    Request
+                                  </Badge>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="text-sm text-gray-700">
+                                {community.memberCount}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex flex-col gap-1">
+                                <Badge className="bg-orange-500 text-white w-fit">
+                                  {community.inactiveDays} days
                                 </Badge>
+                                <span className="text-xs text-gray-500">
+                                  {community.lastActivityType === "event"
+                                    ? "📅 Event"
+                                    : "📢 Announcement"}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="text-sm text-gray-700">
+                                {new Date(
+                                  community.lastActivity
+                                ).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              {community.reactivationRequested ? (
+                                <div className="flex flex-col gap-2">
+                                  <AnimatedButton
+                                    variant="glass"
+                                    size="sm"
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                                    Approve
+                                  </AnimatedButton>
+                                </div>
                               ) : (
-                                <Badge className="bg-gray-500 text-white text-xs">
-                                  Inactive
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs text-gray-400"
+                                >
+                                  No request
                                 </Badge>
                               )}
-                            </div>
-                          </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
 
-                          {/* Badge Image */}
-                          <div className="relative -mt-8 flex justify-center">
-                            <div className="w-16 h-16 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center">
-                              <img
-                                src={
-                                  badge.image ||
-                                  "/placeholder.svg?height=48&width=48"
-                                }
-                                alt={badge.name}
-                                className="w-12 h-12 rounded-full object-cover"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Badge Content */}
-                          <div className="p-4 pt-2">
-                            <div className="text-center mb-4">
-                              <h4 className="font-bold text-gray-900 text-lg mb-2">
-                                {badge.name}
-                              </h4>
-                              <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                                {badge.description}
-                              </p>
-                              <div className="text-lg font-bold text-purple-600">
-                                {badge.price} points
-                              </div>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex gap-1">
-                              <AnimatedButton
-                                variant="glass"
-                                size="sm"
-                                onClick={() => handleViewBadge(badge)}
-                                className="flex-1 text-xs"
-                              >
-                                <Eye className="h-3 w-3 mr-1" />
-                                View
-                              </AnimatedButton>
-                              <AnimatedButton
-                                variant="glass"
-                                size="sm"
-                                onClick={() => handleEditBadge(badge)}
-                                className="flex-1 text-xs text-blue-600 hover:text-blue-700"
-                              >
-                                <Edit className="h-3 w-3 mr-1" />
-                                Edit
-                              </AnimatedButton>
-                              <AnimatedButton
-                                variant="glass"
-                                size="sm"
-                                onClick={() => handleDeleteConfirmation(badge)}
-                                className="text-xs text-red-600 hover:text-red-700"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </AnimatedButton>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                {/* Pagination for Inactive Communities */}
+                {totalInactivePages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                    <div className="text-sm text-gray-600">
+                      Showing {inactiveStartIndex + 1} to{" "}
+                      {Math.min(
+                        inactiveEndIndex,
+                        sortedInactiveCommunities.length
+                      )}{" "}
+                      of {sortedInactiveCommunities.length} communities
                     </div>
-
-                    {/* Badge Pagination */}
-                    {totalBadgePages > 1 && (
-                      <div className="flex items-center justify-center gap-2 mt-8">
-                        <AnimatedButton
-                          variant="glass"
-                          onClick={() =>
-                            setCurrentBadgePage((prev) => Math.max(1, prev - 1))
-                          }
-                          disabled={currentBadgePage === 1}
-                          className="!bg-white hover:!bg-gray-50 border border-gray-200"
-                        >
-                          <ChevronLeft className="h-4 w-4 mr-1" />
-                          Previous
-                        </AnimatedButton>
-
-                        <div className="flex gap-2">
-                          {Array.from(
-                            { length: totalBadgePages },
-                            (_, i) => i + 1
-                          ).map((page) => (
-                            <AnimatedButton
-                              key={page}
-                              variant={
-                                currentBadgePage === page ? "default" : "glass"
-                              }
-                              onClick={() => setCurrentBadgePage(page)}
-                              className={`w-10 h-10 p-0 ${
-                                currentBadgePage === page
-                                  ? "!bg-gradient-to-r !from-purple-600 !to-indigo-600 text-white"
-                                  : "!bg-white hover:!bg-gray-50 border border-gray-200"
-                              }`}
-                            >
-                              {page}
-                            </AnimatedButton>
-                          ))}
-                        </div>
-
-                        <AnimatedButton
-                          variant="glass"
-                          onClick={() =>
-                            setCurrentBadgePage((prev) =>
-                              Math.min(totalBadgePages, prev + 1)
-                            )
-                          }
-                          disabled={currentBadgePage === totalBadgePages}
-                          className="!bg-white hover:!bg-gray-50 border border-gray-200"
-                        >
-                          Next
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </AnimatedButton>
-                      </div>
-                    )}
-                  </>
+                    <div className="flex items-center gap-2">
+                      <AnimatedButton
+                        variant="glass"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentInactivePage((prev) =>
+                            Math.max(1, prev - 1)
+                          )
+                        }
+                        disabled={currentInactivePage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </AnimatedButton>
+                      <span className="text-sm text-gray-600">
+                        Page {currentInactivePage} of {totalInactivePages}
+                      </span>
+                      <AnimatedButton
+                        variant="glass"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentInactivePage((prev) =>
+                            Math.min(totalInactivePages, prev + 1)
+                          )
+                        }
+                        disabled={currentInactivePage === totalInactivePages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </AnimatedButton>
+                    </div>
+                  </div>
                 )}
               </AnimatedCard>
             </TabsContent>
@@ -2692,15 +2710,17 @@ export default function SuperadminPage() {
                             Tags
                           </label>
                           <div className="flex flex-wrap gap-2">
-                            {selectedCommunity.tags?.map((tag, index) => (
-                              <Badge
-                                key={index}
-                                variant="outline"
-                                className="text-xs px-3 py-1 bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 text-purple-700"
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
+                            {selectedCommunity.tags?.map(
+                              (tag: string, index: number) => (
+                                <Badge
+                                  key={index}
+                                  variant="outline"
+                                  className="text-xs px-3 py-1 bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 text-purple-700"
+                                >
+                                  {tag}
+                                </Badge>
+                              )
+                            )}
                           </div>
                         </div>
                       </div>
@@ -2751,225 +2771,280 @@ export default function SuperadminPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Enhanced Badge View Dialog with Fixed Background */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl bg-white border border-gray-200 shadow-xl">
+      {/* Report Detail Dialog */}
+      <Dialog open={isReportDetailOpen} onOpenChange={setIsReportDetailOpen}>
+        <DialogContent className="max-w-3xl bg-white border border-gray-200 shadow-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader className="pb-4 border-b border-gray-200">
-            <DialogTitle className="text-2xl font-bold text-gray-900">
-              Badge Details
+            <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              Report Details
             </DialogTitle>
             <DialogDescription className="text-gray-600">
-              View comprehensive information about this badge
+              View detailed information about this reported community
             </DialogDescription>
           </DialogHeader>
 
-          {selectedBadge && (
+          {selectedReport && (
             <div className="space-y-6">
-              {/* Badge Header */}
-              <div className="flex items-start gap-6">
-                <div className="relative">
-                  <div className="w-24 h-24 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 p-1">
-                    <img
-                      src={
-                        selectedBadge.image ||
-                        "/placeholder.svg?height=88&width=88"
-                      }
-                      alt={selectedBadge.name}
-                      className="w-full h-full rounded-lg object-cover"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-2xl font-bold text-gray-900">
-                      {selectedBadge.name}
+              {/* Community Header */}
+              <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      {selectedReport.communityName}
                     </h3>
-                    {selectedBadge.isActive ? (
-                      <Badge className="bg-green-500 text-white">Active</Badge>
-                    ) : (
-                      <Badge className="bg-gray-500 text-white">Inactive</Badge>
-                    )}
-                  </div>
-                  <p className="text-gray-600 mb-3">
-                    {selectedBadge.description}
-                  </p>
-                  <div className="text-2xl font-bold text-purple-600">
-                    {selectedBadge.price} points
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className="bg-red-500 text-white">
+                        {selectedReport.reportCount} Reports
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Admin: {selectedReport.communityDetails.admin.name} (
+                      {selectedReport.communityDetails.admin.email})
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Members: {selectedReport.communityDetails.memberCount}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Badge Information */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                  Badge Information
+              {/* Report Reasons Statistics */}
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
+                <h4 className="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Report Reasons Breakdown
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <div className="text-sm text-gray-600 mb-1">Price</div>
-                      <div className="font-semibold text-purple-600 text-lg">
-                        {selectedBadge.price} points
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-600 mb-1">Status</div>
-                      {selectedBadge.isActive ? (
-                        <Badge className="bg-green-500 text-white">
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-gray-500 text-white">
-                          Inactive
-                        </Badge>
+                {(() => {
+                  const reasonCounts = selectedReport.reports.reduce(
+                    (acc: any, report: any) => {
+                      acc[report.reason] = (acc[report.reason] || 0) + 1;
+                      return acc;
+                    },
+                    {}
+                  );
+
+                  const sortedReasons = Object.entries(reasonCounts).sort(
+                    ([, a]: any, [, b]: any) => b - a
+                  );
+
+                  return (
+                    <div className="flex flex-wrap gap-2">
+                      {sortedReasons.map(
+                        ([reason, count]: any, index: number) => (
+                          <div
+                            key={reason}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
+                              index === 0
+                                ? "bg-red-100 border-red-300 text-red-800"
+                                : "bg-white border-gray-200 text-gray-700"
+                            }`}
+                          >
+                            {index === 0 && (
+                              <span className="text-xs font-bold">👑</span>
+                            )}
+                            <span className="text-sm font-medium">
+                              {reason}
+                            </span>
+                            <Badge
+                              className={`${
+                                index === 0
+                                  ? "bg-red-500 text-white"
+                                  : "bg-gray-500 text-white"
+                              } text-xs px-2 py-0.5`}
+                            >
+                              {count}
+                            </Badge>
+                          </div>
+                        )
                       )}
                     </div>
-                    <div>
-                      <div className="text-sm text-gray-600 mb-1">
-                        Total Purchases
-                      </div>
-                      <div className="font-semibold text-blue-600 text-lg">
-                        {selectedBadge.purchaseCount || 0}
-                      </div>
-                    </div>
-                  </div>
+                  );
+                })()}
+              </div>
 
-                  <div className="space-y-4">
-                    <div>
-                      <div className="text-sm text-gray-600 mb-1">Created</div>
-                      <div className="font-medium">
-                        {formatDate(selectedBadge.createdAt)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-600 mb-1">
-                        Last Updated
-                      </div>
-                      <div className="font-medium">
-                        {formatDate(selectedBadge.updatedAt)}
-                      </div>
-                    </div>
-                  </div>
+              {/* Report List with Pagination */}
+              <div>
+                <div className="mb-4">
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    User Reports
+                  </h4>
                 </div>
+
+                {(() => {
+                  // All reports without filter
+                  const filteredReports = selectedReport.reports;
+
+                  // Pagination
+                  const totalPages = Math.ceil(
+                    filteredReports.length / reportDetailItemsPerPage
+                  );
+                  const startIndex =
+                    (reportDetailPage - 1) * reportDetailItemsPerPage;
+                  const endIndex = startIndex + reportDetailItemsPerPage;
+                  const paginatedReports = filteredReports.slice(
+                    startIndex,
+                    endIndex
+                  );
+
+                  return (
+                    <>
+                      {/* Report Items */}
+                      <div className="space-y-3 mb-4">
+                        {paginatedReports.map((report: any, index: number) => (
+                          <div
+                            key={index}
+                            className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <div className="font-medium text-gray-900 mb-2">
+                                  {report.reporterName}
+                                </div>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-orange-50 border-orange-300 text-orange-700"
+                                >
+                                  {report.reason}
+                                </Badge>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(report.reportDate).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Notes/Description from User */}
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                              <div className="flex items-start gap-2">
+                                <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+                                    User Notes
+                                  </label>
+                                  <p className="text-sm text-gray-700 leading-relaxed">
+                                    {report.description}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Pagination Info and Controls */}
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                        <div className="text-sm text-gray-600">
+                          Showing {startIndex + 1} to{" "}
+                          {Math.min(endIndex, filteredReports.length)} of{" "}
+                          {filteredReports.length} reports
+                        </div>
+
+                        {totalPages > 1 && (
+                          <div className="flex items-center gap-2">
+                            <AnimatedButton
+                              variant="glass"
+                              size="sm"
+                              onClick={() =>
+                                setReportDetailPage((prev) =>
+                                  Math.max(1, prev - 1)
+                                )
+                              }
+                              disabled={reportDetailPage === 1}
+                              className="disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </AnimatedButton>
+
+                            <div className="flex items-center gap-1">
+                              {Array.from(
+                                { length: Math.min(totalPages, 5) },
+                                (_, i) => {
+                                  // Show first, last, current, and adjacent pages
+                                  const pages = [];
+                                  if (totalPages <= 5) {
+                                    return i + 1;
+                                  }
+
+                                  if (i === 0) return 1;
+                                  if (i === 4) return totalPages;
+                                  if (reportDetailPage <= 3) return i + 1;
+                                  if (reportDetailPage >= totalPages - 2)
+                                    return totalPages - 4 + i;
+                                  return reportDetailPage - 2 + i;
+                                }
+                              ).map((page, idx, arr) => (
+                                <div key={page} className="flex items-center">
+                                  {idx > 0 && page !== arr[idx - 1] + 1 && (
+                                    <span className="px-2 text-gray-400">
+                                      ...
+                                    </span>
+                                  )}
+                                  <button
+                                    onClick={() => setReportDetailPage(page)}
+                                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                                      reportDetailPage === page
+                                        ? "bg-purple-600 text-white"
+                                        : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                                    }`}
+                                  >
+                                    {page}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+
+                            <AnimatedButton
+                              variant="glass"
+                              size="sm"
+                              onClick={() =>
+                                setReportDetailPage((prev) =>
+                                  Math.min(totalPages, prev + 1)
+                                )
+                              }
+                              disabled={reportDetailPage === totalPages}
+                              className="disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </AnimatedButton>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}
 
-          <DialogFooter className="flex items-center justify-between">
+          <DialogFooter className="flex items-center justify-between gap-2">
             <AnimatedButton
               variant="glass"
-              onClick={() => setIsViewDialogOpen(false)}
-              className="!bg-gray-100 hover:!bg-gray-200 !text-gray-700 border-0"
+              onClick={() => setIsReportDetailOpen(false)}
             >
               Close
             </AnimatedButton>
-            <AnimatedButton
-              onClick={() => {
-                if (selectedBadge) {
-                  setIsViewDialogOpen(false);
-                  handleEditBadge(selectedBadge);
-                }
-              }}
-              className="!bg-gradient-to-r !from-purple-600 !to-blue-600 hover:!from-purple-700 hover:!to-blue-700 !text-white border-0"
-            >
-              Edit Badge
+            <AnimatedButton className="bg-red-600 hover:bg-red-700 text-white">
+              <Ban className="h-4 w-4 mr-2" />
+              Suspend Community
             </AnimatedButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Create Badge Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl bg-white border border-gray-200 shadow-xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-gray-900">
-              Create New Badge
-            </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Create a new badge that users can purchase with their points.
-            </DialogDescription>
-          </DialogHeader>
-          <BadgeForm
-            onSubmit={handleCreateBadge}
-            onCancel={() => setIsCreateDialogOpen(false)}
-            isLoading={isLoading}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Badge Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl bg-white border border-gray-200 shadow-xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-gray-900">
-              Edit Badge
-            </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Update the badge information and settings.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedBadge && (
-            <BadgeForm
-              badge={selectedBadge}
-              onSubmit={handleUpdateBadge}
-              onCancel={() => setIsEditDialogOpen(false)}
-              isLoading={isLoading}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-bold text-gray-900">
-              Delete Badge
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-600">
-              {selectedBadge && (
-                <>
-                  Are you sure you want to delete the badge{" "}
-                  <strong>"{selectedBadge.name}"</strong>? This action cannot be
-                  undone.
-                  <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                    <span className="text-sm text-red-700 block">
-                      {selectedBadge.purchaseCount || 0} users have purchased
-                      this badge.
-                    </span>
-                  </div>
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="pt-4 border-t border-gray-200">
-            <AlertDialogCancel className="bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-300">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => handleDeleteBadge()}
-              disabled={isLoading}
-              className="bg-red-600 hover:bg-red-700 text-white border-0"
-            >
-              {isLoading ? (
-                <>
-                  <Spinner className="mr-2" />
-                  Deleting...
-                </>
-              ) : (
-                <>Delete Badge</>
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* All Communities Dialog */}
-      <Dialog open={isAllCommunitiesDialogOpen} onOpenChange={setIsAllCommunitiesDialogOpen}>
+      <Dialog
+        open={isAllCommunitiesDialogOpen}
+        onOpenChange={setIsAllCommunitiesDialogOpen}
+      >
         <DialogContent className="max-w-6xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
@@ -3050,7 +3125,7 @@ export default function SuperadminPage() {
                           </Badge>
                         </div>
                       </div>
-                      
+
                       <div className="flex gap-2">
                         <Button
                           variant="ghost"

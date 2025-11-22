@@ -85,10 +85,6 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     path: "/help-center",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
-  {
-    path: "/wishlist",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
   { path: "/store", allowedRoles: ["user", "community_admin", "super_admin"] },
   {
     path: "/communities",
