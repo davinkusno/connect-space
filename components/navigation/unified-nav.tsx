@@ -38,7 +38,6 @@ import {
   Search,
   Calendar,
   Users,
-  MessageSquare,
   Trophy,
   ShoppingBag,
   HelpCircle,
@@ -75,13 +74,6 @@ const navigationLinks = [
     label: "Events",
     icon: Calendar,
     hoverClasses: "hover:bg-green-50 hover:text-green-600",
-  },
-
-  {
-    href: "/messages",
-    label: "Messages",
-    icon: MessageSquare,
-    hoverClasses: "hover:bg-indigo-50 hover:text-indigo-600",
   },
   {
     href: "/leaderboard",
@@ -150,9 +142,7 @@ export function UnifiedNav() {
             case "new_message":
               uiType = "message";
               title = "New Message";
-              if (notif.reference_type === "message" && notif.reference_id) {
-                actionUrl = `/messages`;
-              } else if (notif.reference_type === "community" && notif.reference_id) {
+              if (notif.reference_type === "community" && notif.reference_id) {
                 actionUrl = `/community/${notif.reference_id}`;
               }
               break;
@@ -250,9 +240,7 @@ export function UnifiedNav() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const visibleLinks = user
-    ? navigationLinks
-    : navigationLinks.filter((link) => link.href !== "/messages");
+  const visibleLinks = navigationLinks;
 
   const handleMarkAsRead = async (id: string) => {
     try {
