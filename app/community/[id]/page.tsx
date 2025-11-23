@@ -14,9 +14,12 @@ import {
   MapPin,
   Users,
   Calendar,
+  MessageCircle,
+  Share2,
   Bell,
   UserPlus,
   UserMinus,
+  ThumbsUp,
   Reply,
   Send,
   ImageIcon,
@@ -36,12 +39,8 @@ import {
   Edit,
   Trash2,
   ChevronRight,
-  AlertTriangle,
-  MoreVertical,
   Save,
   Sparkles,
-  Share2,
-  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -49,24 +48,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
 import dynamic from "next/dynamic";
-import { PaginationControls } from "@/components/ui/pagination-controls";
-import { ReportDialog } from "@/components/community/report-dialog";
+// import { FloatingChat } from "@/components/chat/floating-chat"; // Component not found
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  FadeTransition,
+  SlideTransition,
+  InViewTransition,
+} from "@/components/ui/content-transitions";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { InViewTransition, SlideTransition, FadeTransition } from "@/components/ui/content-transitions";
-import { HoverScale, ButtonPulse } from "@/components/ui/micro-interactions";
+import {
+  ButtonPulse,
+  HoverScale,
+} from "@/components/ui/micro-interactions";
 
 // Dynamic import for Leaflet map
 const LeafletMap = dynamic(
@@ -85,10 +83,13 @@ export default function CommunityPage({
   const [isLoading, setIsLoading] = useState(true);
   const [community, setCommunity] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [creatorData, setCreatorData] = useState<any>(null);
   const [userRole, setUserRole] = useState<"creator" | "admin" | "moderator" | "member" | null>(null);
   const [isMember, setIsMember] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "discussions");
+  const [membershipStatus, setMembershipStatus] = useState<"approved" | "pending" | null>(null); // Track membership status
+  const [showPendingDialog, setShowPendingDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "about");
   
   // Tab-specific data
   const [discussions, setDiscussions] = useState<any[]>([]);
@@ -96,19 +97,6 @@ export default function CommunityPage({
   const [members, setMembers] = useState<any[]>([]);
   const [memberCount, setMemberCount] = useState(0);
   const [isLoadingTab, setIsLoadingTab] = useState(false);
-  const [eventsPage, setEventsPage] = useState(1);
-  const eventsPerPage = 6;
-  const [membersPage, setMembersPage] = useState(1);
-  const membersPerPage = 12;
-
-  // Report dialog state
-  const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const [reportType, setReportType] = useState<"community" | "post" | "member" | "event">("community");
-  const [reportTargetId, setReportTargetId] = useState<string>("");
-  const [reportTargetName, setReportTargetName] = useState<string>("");
-
-  // Join/Leave modal state
-  const [joinLeaveModalOpen, setJoinLeaveModalOpen] = useState(false);
 
   // Post creation
   const [newPost, setNewPost] = useState("");
@@ -123,17 +111,17 @@ export default function CommunityPage({
   const [isSavingDescription, setIsSavingDescription] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
 
-  // Additional state for UI features
-  const [isOwner, setIsOwner] = useState(false);
-  const [isJoined, setIsJoined] = useState(false);
+  // Additional UI states
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [showLocationMap, setShowLocationMap] = useState(false);
 
-  // Load community data and user role
+  // Load community data from database
   useEffect(() => {
     loadCommunityData();
   }, [id]);
+
+  // Community data is already loaded in community state
 
   // Update active tab when URL parameter changes
   useEffect(() => {
@@ -148,7 +136,34 @@ export default function CommunityPage({
     if (community) {
       loadTabData(activeTab);
     }
-  }, [activeTab, community]);
+  }, [activeTab, community, creatorData]);
+
+  // Show pending dialog if status is pending on load
+  useEffect(() => {
+    if (membershipStatus === "pending") {
+      setShowPendingDialog(true);
+    }
+  }, [membershipStatus]);
+
+  // Ensure creator data is loaded
+  useEffect(() => {
+    const fetchCreatorIfNeeded = async () => {
+      if (community?.creator_id && !creatorData) {
+        const supabase = getSupabaseBrowser();
+        const { data: creatorInfo, error: creatorError } = await supabase
+          .from("users")
+          .select("id, username, full_name, avatar_url")
+          .eq("id", community.creator_id)
+          .single();
+        
+        if (!creatorError && creatorInfo) {
+          setCreatorData(creatorInfo);
+        }
+      }
+    };
+
+    fetchCreatorIfNeeded();
+  }, [community?.creator_id, creatorData]);
 
     const loadCommunityData = async () => {
       try {
@@ -161,12 +176,6 @@ export default function CommunityPage({
           .from("communities")
         .select(`
           *,
-          creator:creator_id (
-            id,
-            username,
-            full_name,
-            avatar_url
-          ),
           categories (
             id,
             name
@@ -174,6 +183,8 @@ export default function CommunityPage({
         `)
           .eq("id", id)
           .single();
+
+      console.log("Raw community data:", communityData);
 
       if (communityError) {
         console.error("Error fetching community:", communityError);
@@ -198,6 +209,40 @@ export default function CommunityPage({
       }
 
       setCommunity(communityData);
+      console.log("Community data loaded:", {
+        id: communityData.id,
+        name: communityData.name,
+        created_at: communityData.created_at,
+        creator_id: communityData.creator_id
+      });
+      console.log("Community created_at type:", typeof communityData.created_at);
+      console.log("Community created_at value:", communityData.created_at);
+
+      // Always fetch creator data separately
+      if (communityData?.creator_id) {
+        console.log("Fetching creator with ID:", communityData.creator_id);
+        const { data: creatorInfo, error: creatorError } = await supabase
+          .from("users")
+          .select("id, username, full_name, avatar_url")
+          .eq("id", communityData.creator_id)
+          .single();
+        
+        console.log("Creator query result:", { creatorInfo, creatorError });
+        
+        if (creatorError) {
+          console.error("Error fetching creator:", creatorError);
+          console.error("Creator ID:", communityData.creator_id);
+        } else if (creatorInfo) {
+          console.log("Creator data loaded successfully:", creatorInfo);
+          console.log("Creator full_name:", creatorInfo.full_name);
+          console.log("Creator username:", creatorInfo.username);
+          setCreatorData(creatorInfo);
+        } else {
+          console.warn("No creator data found for creator_id:", communityData.creator_id);
+        }
+      } else {
+        console.warn("No creator_id found in community data");
+      }
 
       if (session?.user) {
         setCurrentUser(session.user);
@@ -206,38 +251,47 @@ export default function CommunityPage({
         if (communityData.creator_id === session.user.id) {
           setUserRole("creator");
           setIsMember(true);
-          setIsOwner(true);
-          setIsJoined(true);
+          setMembershipStatus("approved");
         } else {
-          // Check membership and role
+          // Check membership - check ALL memberships (including pending)
           const { data: membershipData } = await supabase
-            .from("community_members")
-            .select("role")
+          .from("community_members")
+            .select("role, status")
             .eq("community_id", id)
             .eq("user_id", session.user.id)
             .maybeSingle();
 
           if (membershipData) {
-            setIsMember(true);
-            setIsJoined(true);
-            setUserRole(membershipData.role as any);
-            setIsOwner(membershipData.role === "admin");
+            // User has a row in community_members
+            const memberStatus = membershipData.status
+            if (memberStatus === false) {
+              // Pending approval
+              setMembershipStatus("pending");
+              setIsMember(false); // Not a member yet, waiting for approval
+              setUserRole(null);
+            } else {
+              // Approved member (status = true or null)
+              setIsMember(true);
+              setMembershipStatus("approved");
+              setUserRole(membershipData.role as any);
+            }
           } else {
+            // No membership record
+            setMembershipStatus(null);
             setIsMember(false);
-            setIsJoined(false);
-          setIsOwner(false);
+            setUserRole(null);
           }
         }
-        }
+      }
 
       // Get member count - only approved members (status = true or null)
       // Creator is already included in community_members table, so no need to add +1
       const { count } = await supabase
-          .from("community_members")
+        .from("community_members")
           .select("*", { count: "exact", head: true })
         .eq("community_id", id)
         .or("status.is.null,status.eq.true");
-        
+
       setMemberCount(count || 0);
     } catch (error) {
       console.error("Error loading community:", error);
@@ -255,8 +309,8 @@ export default function CommunityPage({
       const supabase = getSupabaseBrowser();
 
       switch (tab) {
-        case "discussions":
-          // Load discussions from messages table (top-level messages only)
+        case "announcements":
+          // Load announcements from messages table (top-level messages only)
           const { data: messagesData } = await supabase
             .from("messages")
             .select(`
@@ -395,13 +449,17 @@ export default function CommunityPage({
           break;
 
         case "members":
-          // Load all members (admin, member, moderator) - only approved members
-          const { data: allMembersData, error: allMembersError } = await supabase
+          // Load ALL members from community_members table - only approved members (status = true or null)
+          // This includes admin, member, and moderator roles
+          // Creator is also in community_members table with role "admin"
+          // Use specific foreign key relationship to avoid ambiguity
+          const { data: membersData, error: membersError } = await supabase
             .from("community_members")
             .select(`
               user_id,
               role,
               joined_at,
+              status,
               users!community_members_user_id_fkey (
                 id,
                 username,
@@ -413,23 +471,33 @@ export default function CommunityPage({
             .or("status.is.null,status.eq.true")
             .order("joined_at", { ascending: false });
 
-          if (allMembersError) {
-            console.error("Error fetching members:", allMembersError);
-            toast.error("Failed to load members");
+          if (membersError) {
+            console.error("Error fetching members:", membersError);
             setMembers([]);
-            } else {
-            // Map members and ensure creator is treated as admin
-            const formattedMembers = (allMembersData || []).map((member: any) => {
-              // If this member is the creator, treat them as admin
-              const isCreator = member.user_id === community.creator_id;
-              return {
-                ...member,
-                role: isCreator ? "admin" : member.role,
-                users: member.users || null,
-              };
-            });
-            setMembers(formattedMembers);
+            break;
           }
+
+          // Filter for approved members (status = true or null, NOT false)
+          const approvedMembers = (membersData || []).filter((m: any) => {
+            const status = m.status;
+            return status === true || status === null || status === undefined;
+          });
+
+          console.log("Approved members:", approvedMembers?.length, approvedMembers);
+          
+          // Map members and ensure creator is treated as admin with Creator badge
+          const formattedMembers = approvedMembers.map((member: any) => {
+            // If this member is the creator, treat them as admin
+            const isCreator = member.user_id === community.creator_id;
+            return {
+              ...member,
+              role: isCreator ? "admin" : member.role,
+              isCreator: isCreator,
+            };
+          });
+          
+          // Set all members - creator is already in the list with role "admin"
+          setMembers(formattedMembers);
           break;
 
         default:
@@ -442,30 +510,20 @@ export default function CommunityPage({
     }
   };
 
-  const handleJoinCommunity = () => {
+  const handleJoinCommunity = async () => {
     if (!currentUser) {
       toast.error("Please log in to join this community");
       router.push("/auth/login");
       return;
     }
 
-    if (userRole === "creator") {
-      return; // Creator cannot leave their own community
-    }
-
-    // Open confirmation modal
-    setJoinLeaveModalOpen(true);
-  };
-
-  const confirmJoinLeave = async () => {
-    if (!currentUser) {
-      return;
-    }
-
     try {
       setIsJoining(true);
-      setJoinLeaveModalOpen(false);
       const supabase = getSupabaseBrowser();
+
+      if (!supabase) {
+        throw new Error("Failed to initialize Supabase client");
+      }
 
       // Ensure user exists in users table before joining
       const { data: existingUser, error: userCheckError } = await supabase
@@ -493,7 +551,7 @@ export default function CommunityPage({
         if (createUserError) {
           console.error("Error creating user record:", createUserError);
           // Continue anyway - might be a duplicate key error
-      }
+        }
       }
 
       if (isMember) {
@@ -531,57 +589,85 @@ export default function CommunityPage({
             toast.info("Join request sent! Wait for admin approval.");
           }
         } else {
-          // Check if already a member (to avoid duplicate key error)
-          const { data: existingMember } = await supabase
+          // Check if already a member (without selecting status to avoid cache issues)
+          const { data: existingMember, error: checkError } = await supabase
             .from("community_members")
             .select("id")
             .eq("community_id", id)
             .eq("user_id", currentUser.id)
             .maybeSingle();
 
-          if (existingMember) {
-            toast.info("You are already a member of this community");
-            setIsMember(true);
-            setUserRole("member");
-            return;
+          if (checkError) {
+            console.error("Error checking existing member:", checkError);
+            // Continue anyway - might be a schema issue
           }
 
-          // Join directly
-          const { error } = await supabase
-            .from("community_members")
-            .insert({
-              community_id: id,
-              user_id: currentUser.id,
-              role: "member"
-            });
+          if (existingMember) {
+            // If member exists, check status separately to avoid cache issues
+            const { data: memberStatus } = await supabase
+              .from("community_members")
+              .select("status")
+              .eq("id", existingMember.id)
+              .maybeSingle();
 
-          if (error) {
-            // Handle specific error codes
-            if (error.code === "23503") {
-              throw new Error("User account not found. Please try logging out and back in.");
-            } else if (error.code === "23505") {
-              // Unique constraint violation - already a member
+            const statusValue = memberStatus?.status
+            if (statusValue === false) {
+              toast.info("Your join request is pending approval");
+              setIsJoining(false);
+              return;
+            } else {
               toast.info("You are already a member of this community");
               setIsMember(true);
               setUserRole("member");
+              setIsJoining(false);
               return;
             }
-            throw error;
           }
 
-          setIsMember(true);
-          setUserRole("member");
-          setMemberCount(prev => prev + 1);
-          toast.success("Welcome to the community!");
-          loadTabData(activeTab); // Reload tab data
+          // Join community - use API endpoint to ensure status is set correctly
+          const response = await fetch("/api/community-members/join", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              community_id: id,
+            }),
+          })
+
+          const result = await response.json()
+
+          if (!response.ok) {
+            if (result.error?.includes("already") || result.message?.includes("already")) {
+              toast.info(result.message || "You already have a pending request or are a member")
+              setIsJoining(false)
+              return
+            }
+            throw new Error(result.error || "Failed to join community")
+          }
+
+          if (result.member) {
+            // Update membership status to pending
+            setMembershipStatus("pending")
+            setIsMember(false)
+            setUserRole(null)
+            // Show dialog
+            setShowPendingDialog(true)
+            loadTabData(activeTab) // Reload tab data
+          } else {
+            throw new Error("Failed to create join request. Please try again.")
+          }
         }
       }
     } catch (error: any) {
       console.error("Error joining/leaving community:", error);
-      if (error.code === "23503") {
+      const errorMessage = error?.message || error?.toString() || "An unknown error occurred";
+      console.error("Full error details:", error);
+      
+      if (error?.code === "23503") {
         toast.error("User account issue. Please try logging out and back in.");
       } else {
-        toast.error(error.message || "Failed to update membership");
+        toast.error(errorMessage || "Failed to join community. Please try again.");
       }
     } finally {
       setIsJoining(false);
@@ -606,10 +692,10 @@ export default function CommunityPage({
 
       if (error) throw error;
 
-      toast.success("Discussion posted!");
-        setNewPost("");
-      // Reload discussions
-      loadTabData("discussions");
+      toast.success("Announcement posted!");
+      setNewPost("");
+      // Reload announcements
+      loadTabData("announcements");
     } catch (error: any) {
       console.error("Error posting discussion:", error);
       toast.error(error.message || "Failed to post discussion");
@@ -639,18 +725,19 @@ export default function CommunityPage({
       toast.success("Reply posted!");
       setReplyContent("");
       setReplyingTo(null);
-      // Reload discussions
-      loadTabData("discussions");
+      // Reload announcements
+      loadTabData("announcements");
     } catch (error: any) {
       console.error("Error posting reply:", error);
       toast.error(error.message || "Failed to post reply");
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleEditDescription = () => {
-    setEditedDescription(community?.description || "");
+    if (!community) return;
+    setEditedDescription(community.description || "");
     setIsEditingDescription(true);
   };
 
@@ -717,8 +804,9 @@ export default function CommunityPage({
 
     setIsGeneratingDescription(true);
     try {
-      const tagsText = community.tags && community.tags.length > 0 
-        ? community.tags.slice(0, 3).join(", ")
+      const tags = community.tags || [];
+      const tagsText = tags.length > 0 
+        ? tags.slice(0, 3).join(", ")
         : "General";
       
       const response = await fetch("/api/ai/generate-content", {
@@ -749,8 +837,8 @@ export default function CommunityPage({
         setEditedDescription(generatedDescription);
         toast.success("Description generated successfully!");
       } else {
-        const tagsText = community.tags && community.tags.length > 0 
-          ? community.tags.slice(0, 3).join(", ")
+        const tagsText = tags.length > 0 
+          ? tags.slice(0, 3).join(", ")
           : "various topics";
         const fallbackDescription = `${community.name} is a ${community.category || "community"} focused on ${tagsText}. Join us to connect with like-minded individuals, share knowledge, and participate in activities related to our community interests.`;
         setEditedDescription(fallbackDescription);
@@ -758,8 +846,9 @@ export default function CommunityPage({
       }
     } catch (error: any) {
       console.error("Failed to generate description:", error);
-      const tagsText = community?.tags && community.tags.length > 0 
-        ? community.tags.slice(0, 3).join(", ")
+      const tags = community?.tags || [];
+      const tagsText = tags.length > 0 
+        ? tags.slice(0, 3).join(", ")
         : "various topics";
       const fallbackDescription = `${community?.name || "This community"} is a ${community?.category || "community"} focused on ${tagsText}. Join us to connect with like-minded individuals, share knowledge, and participate in activities related to our community interests.`;
       setEditedDescription(fallbackDescription);
@@ -770,7 +859,9 @@ export default function CommunityPage({
   };
 
   const canManage = userRole === "creator" || userRole === "admin";
+  const isOwner = userRole === "creator" || (community && currentUser && community.creator_id === currentUser.id);
 
+  // Show loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
@@ -815,7 +906,7 @@ export default function CommunityPage({
           fill
           className="object-cover"
             priority
-        />
+          />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
         
@@ -884,84 +975,130 @@ export default function CommunityPage({
           </div>
       </div>
             </div>
+      </div>
 
       {/* Action Bar */}
       <div className="bg-white border-b border-gray-200 sticky top-16 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center gap-3">
+              {userRole === "creator" ? (
               <Button
+                  disabled
+                  className="bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed"
+                >
+                  <Crown className="h-4 w-4 mr-2" />
+                  Your Community
+              </Button>
+              ) : membershipStatus === "approved" && isMember ? (
+                <div className="px-4 py-2 bg-green-50 text-green-700 rounded-md border border-green-200 flex items-center">
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Community Joined
+            </div>
+              ) : membershipStatus === "pending" ? (
+                <div className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-200 flex items-center">
+                  <Clock className="h-4 w-4 mr-2" />
+                  Waiting For Approval
+              </div>
+              ) : (
+                <Button
                     onClick={handleJoinCommunity}
-                disabled={isJoining || userRole === "creator"}
-                    className={
-                  isMember
-                        ? "bg-gray-100 text-gray-900 hover:bg-gray-200"
-                    : "bg-violet-600 hover:bg-violet-700 text-white"
-                    }
-              >
-                {isJoining ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : isMember ? (
-                  <UserMinus className="h-4 w-4 mr-2" />
-                ) : (
+                  disabled={isJoining}
+                  className="bg-violet-600 hover:bg-violet-700 text-white"
+                >
+                  {isJoining ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Joining...
+                    </>
+                  ) : (
+                    <>
                       <UserPlus className="h-4 w-4 mr-2" />
-                )}
-                {userRole === "creator" ? "Your Community" : isMember ? "Leave" : "Join Community"}
+                      Join Community
+                </>
+              )}
                 </Button>
+              )}
               
-              {currentUser && (
+              {isMember && membershipStatus === "approved" && (
+                  <Button
+                  onClick={handleJoinCommunity}
+                    variant="outline"
+                  className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                  >
+                  <UserMinus className="h-4 w-4 mr-2" />
+                  Leave
+                  </Button>
+              )}
+              
                     <Button
                       variant="outline"
-                  className="border-gray-200 hover:bg-red-50 hover:border-red-300 hover:text-red-600"
-                  onClick={() => {
-                    setReportType("community");
-                    setReportTargetId(id);
-                    setReportTargetName(community.name);
-                    setReportDialogOpen(true);
-                  }}
-                >
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Report
+                className="border-gray-200 hover:bg-gray-50"
+                onClick={async () => {
+                  const url = window.location.href;
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({
+                        title: community.name,
+                        text: `Check out ${community.name} on ConnectSpace!`,
+                        url: url,
+                      });
+                      toast.success("Shared successfully!");
+                    } else {
+                      // Fallback: Copy to clipboard
+                      await navigator.clipboard.writeText(url);
+                      toast.success("Link copied to clipboard!");
+                    }
+                  } catch (error: any) {
+                    // User cancelled or error occurred
+                    if (error.name !== "AbortError") {
+                      // Fallback: Copy to clipboard
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        toast.success("Link copied to clipboard!");
+                      } catch (clipboardError) {
+                        toast.error("Failed to share. Please copy the URL manually.");
+                      }
+                    }
+                  }
+                }}
+              >
+                <Share2 className="h-4 w-4 mr-2" />
+                Share
                     </Button>
-              )}
                 </div>
           </div>
         </div>
-            </div>
+      </div>
 
-      {/* Main Content Section */}
-      <div className="max-w-6xl mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
             {/* Community Tabs */}
-            <Tabs
-              defaultValue="about"
-              className="w-full"
-              onValueChange={setActiveTab}
-            >
-              <TabsList className="grid w-full grid-cols-4 bg-gray-50 border-gray-200">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-4 bg-white border border-gray-200 rounded-lg p-1 h-auto">
                 <TabsTrigger
                   value="about"
-                  className="data-[state=active]:bg-white data-[state=active]:text-violet-700"
+                  className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
                 >
                   About
                 </TabsTrigger>
                 <TabsTrigger
                   value="announcements"
-                  className="data-[state=active]:bg-white data-[state=active]:text-violet-700"
+                  className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
                 >
                   Announcements
                 </TabsTrigger>
                 <TabsTrigger
                   value="events"
-                  className="data-[state=active]:bg-white data-[state=active]:text-violet-700"
+                  className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
                 >
                   Events
                 </TabsTrigger>
                 <TabsTrigger
                   value="members"
-                  className="data-[state=active]:bg-white data-[state=active]:text-violet-700"
+                  className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
                 >
                   Members
                 </TabsTrigger>
@@ -1072,7 +1209,24 @@ export default function CommunityPage({
                         <div>
                           <span className="text-sm text-gray-500">Founded</span>
                           <p className="font-medium text-gray-900">
-                            {community.founded}
+                            {community?.created_at 
+                              ? (() => {
+                                  try {
+                                    const date = new Date(community.created_at);
+                                    if (isNaN(date.getTime())) {
+                                      console.error("Invalid date:", community.created_at);
+                                      return "Unknown";
+                                    }
+                                    return date.toLocaleDateString("en-US", {
+                                      month: "long",
+                                      year: "numeric",
+                                    });
+                                  } catch (e) {
+                                    console.error("Date parsing error:", e);
+                                    return "Unknown";
+                                  }
+                                })()
+                              : "Unknown"}
                           </p>
                         </div>
                       </div>
@@ -1092,7 +1246,9 @@ export default function CommunityPage({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setShowLocationMap(true)}
+                              onClick={() => {
+                                // Handle map view
+                              }}
                               className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
                             >
                               <Navigation className="h-4 w-4 mr-2" />
@@ -1109,7 +1265,7 @@ export default function CommunityPage({
                           Community Tags
                         </h4>
                         <div className="flex flex-wrap gap-2">
-                          {community.tags.map((tag: string, index: number) => (
+                          {community.tags?.map((tag: string, index: number) => (
                             <HoverScale key={index}>
                               <Badge
                                 variant="outline"
@@ -1129,46 +1285,38 @@ export default function CommunityPage({
 
               {/* Announcements Tab */}
               <TabsContent value="announcements" className="space-y-8 mt-8">
-                {isLoadingTab ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-                  </div>
-                ) : (
-                  <>
-                    {/* New Announcement - Only for Admin/Owner */}
-                    {isOwner && (
-                  <SlideTransition
-                        show={activeTab === "announcements"}
-                    direction="up"
-                  >
-                    <Card className="border-gray-100">
+                {/* New Announcement - Only for Admin/Owner */}
+                {canManage && (
+                  <Card className="border-gray-200">
                       <CardContent className="p-6">
                         <div className="flex gap-4">
                           <Avatar>
-                            <AvatarImage src="/placeholder.svg?height=40&width=40" />
-                                <AvatarFallback>Admin</AvatarFallback>
+                          <AvatarImage src={currentUser?.user_metadata?.avatar_url} />
+                          <AvatarFallback>
+                            {currentUser?.email?.charAt(0).toUpperCase()}
+                          </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 space-y-4">
                             <Textarea
-                                  placeholder="Create an announcement for the community..."
+                            placeholder="Create an announcement for the community..."
                               value={newPost}
                               onChange={(e) => setNewPost(e.target.value)}
-                                  className="min-h-[100px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none"
+                            className="min-h-[100px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none"
                             />
-                                <div className="flex justify-end items-center">
+                          <div className="flex justify-end items-center">
                               <Button
                                 disabled={!newPost.trim() || isSubmitting}
-                                    onClick={handlePostDiscussion}
-                                    className="bg-violet-600 hover:bg-violet-700 text-white"
+                              onClick={handlePostDiscussion}
+                              className="bg-violet-600 hover:bg-violet-700 text-white"
                                 >
                                   {isSubmitting ? (
                                     <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                       Posting...
                                     </>
                                   ) : (
                                     <>
-                                        <Send className="h-4 w-4 mr-2" /> Post Announcement
+                                  <Send className="h-4 w-4 mr-2" /> Post Announcement
                                     </>
                                   )}
                                 </Button>
@@ -1177,57 +1325,95 @@ export default function CommunityPage({
                         </div>
                       </CardContent>
                     </Card>
-                  </SlideTransition>
                 )}
 
-                    {/* Announcement Posts */}
-                <div className="space-y-6">
-                  {discussions.map((post, index) => (
-                    <InViewTransition
-                      key={post.id}
-                      effect="fade"
-                      delay={index * 100}
-                    >
-                      <Card className="hover:shadow-md transition-shadow duration-300 border-gray-100 hover:border-violet-200">
-                        <CardContent className="p-8">
+                {/* Announcements List */}
+                {isLoadingTab ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+                  </div>
+                ) : discussions.length === 0 ? (
+                  <Card className="border-gray-200">
+                    <CardContent className="p-12 text-center">
+                      <MessageCircle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        No announcements yet
+                      </h3>
+                      <p className="text-gray-600 mb-6">
+                        Community admins can post announcements here.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-4">
+                    {discussions.map((discussion) => (
+                      <Card key={discussion.id} className="border-gray-200 hover:shadow-md transition-shadow">
+                        <CardContent className="p-6">
                           <div className="flex gap-4">
                             <Avatar>
-                                  <AvatarImage src={post.users?.avatar_url || "/placeholder.svg?height=40&width=40"} />
-                                  <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
-                                    {(post.users?.username || post.users?.full_name || post.author || "U").charAt(0)}
-                                  </AvatarFallback>
+                              <AvatarImage src={discussion.users?.avatar_url} />
+                              <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
+                                {(discussion.users?.username || discussion.users?.full_name || "U").charAt(0)}
+                              </AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-3">
                                 <span className="font-medium text-gray-900">
-                                      {post.users?.full_name || post.users?.username || post.author || "Anonymous"}
+                                  {discussion.users?.full_name || discussion.users?.username || "Anonymous"}
                                 </span>
-                                    <Badge variant="secondary" className="bg-violet-100 text-violet-700">
-                                      Admin
-                                    </Badge>
-                                <span className="text-gray-500 text-sm">
-                                      {post.timestamp || (post.created_at ? new Date(post.created_at).toLocaleDateString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                        hour: "numeric",
-                                        minute: "2-digit",
-                                      }) : "")}
+                                <Badge variant="secondary" className="bg-violet-100 text-violet-700">
+                                  Admin
+                                </Badge>
+                                <span className="text-sm text-gray-500">
+                                  {new Date(discussion.created_at).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                  })}
                                 </span>
+                                {discussion.is_edited && (
+                                  <Badge variant="outline" className="text-xs">Edited</Badge>
+                                )}
                               </div>
-                              <h3 className="font-medium text-lg mb-3 text-gray-900">
-                                    {post.title || post.content?.substring(0, 50) + "..."}
-                              </h3>
-                                  <p className="text-gray-700 leading-relaxed">
-                                {post.content}
+                              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                {discussion.content}
                               </p>
+                              {/* Delete button for announcement owner/admin */}
+                              {canManage && currentUser && discussion.sender_id === currentUser.id && (
+                                <div className="mt-4 flex justify-end">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                    onClick={async () => {
+                                      if (confirm("Are you sure you want to delete this announcement?")) {
+                                        const supabase = getSupabaseBrowser();
+                                        const { error } = await supabase
+                                          .from("messages")
+                                          .delete()
+                                          .eq("id", discussion.id);
+                                        
+                                        if (error) {
+                                          toast.error("Failed to delete announcement");
+                                        } else {
+                                          toast.success("Announcement deleted");
+                                          loadTabData("announcements");
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Delete
+                                  </Button>
+                              </div>
+                              )}
                             </div>
                           </div>
                         </CardContent>
                       </Card>
-                    </InViewTransition>
                   ))}
                 </div>
-                  </>
                 )}
               </TabsContent>
 
@@ -1281,14 +1467,8 @@ export default function CommunityPage({
                     </CardContent>
                   </Card>
                 ) : (
-                  <>
-                  <div className="space-y-3">
-                    {events
-                      .slice(
-                        (eventsPage - 1) * eventsPerPage,
-                        eventsPage * eventsPerPage
-                      )
-                      .map((event) => {
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {events.map((event) => {
                       // Ensure event has a valid ID
                       if (!event?.id) {
                         console.warn("Event missing ID:", event);
@@ -1300,176 +1480,139 @@ export default function CommunityPage({
                       const startDate = new Date(event.start_time);
                       const endDate = new Date(event.end_time);
                       
-                      // Format date for display
-                      const dayOfMonth = startDate.getDate();
-                      const monthShort = startDate.toLocaleDateString("en-US", { month: "short" });
-                      const weekday = startDate.toLocaleDateString("en-US", { weekday: "short" });
-                      const year = startDate.getFullYear();
-                      const timeRange = `${startDate.toLocaleTimeString("en-US", {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })} - ${endDate.toLocaleTimeString("en-US", {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}`;
-                      
                       return (
-                        <div key={event.id} className="relative group">
                         <Link 
-                          href={`/events/${event.id}`}
-                          className="block"
+                          key={eventId} 
+                          href={`/events/${eventId}`}
+                          className="block group"
                         >
-                          <Card className="border-gray-200 hover:shadow-lg hover:border-violet-400 transition-all duration-300 cursor-pointer">
-                            <CardContent className="p-4">
-                              <div className="flex gap-4">
-                                {/* Date Display - Prominent on Left */}
-                                <div className="flex-shrink-0 w-20 text-center">
-                                  <div className={`rounded-lg p-3 ${
-                                    isUpcoming 
-                                      ? "bg-violet-100 border-2 border-violet-300" 
-                                      : "bg-gray-100 border-2 border-gray-300"
-                                  }`}>
-                                    <div className={`text-2xl font-bold ${
-                                      isUpcoming ? "text-violet-700" : "text-gray-700"
-                                    }`}>
-                                      {dayOfMonth}
-                                    </div>
-                                    <div className={`text-xs font-semibold uppercase mt-1 ${
-                                      isUpcoming ? "text-violet-600" : "text-gray-600"
-                                    }`}>
-                                      {monthShort}
-                                    </div>
-                                    <div className={`text-xs mt-1 ${
-                                      isUpcoming ? "text-violet-500" : "text-gray-500"
-                                    }`}>
-                                      {weekday}
-                                    </div>
-                                  </div>
-                                  {!isUpcoming && (
-                                    <div className="text-xs text-gray-500 mt-1">{year}</div>
+                          <Card className="border-gray-200 hover:shadow-xl hover:border-violet-400 transition-all duration-300 cursor-pointer overflow-hidden h-full bg-gradient-to-br from-white to-violet-50/30">
+                            {event.image_url && (
+                              <div className="relative h-48 w-full overflow-hidden">
+                              <Image
+                                  src={event.image_url}
+                                  alt={event.title || "Event image"}
+                                  fill
+                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                                <div className="absolute top-3 right-3">
+                                  {isUpcoming ? (
+                                    <Badge className="bg-violet-600 text-white border-0">
+                                      <Calendar className="h-3 w-3 mr-1" />
+                                      Upcoming
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="bg-gray-500 text-white border-0">
+                                      Past Event
+                                    </Badge>
                                   )}
                                 </div>
-
-                                {/* Event Details */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between gap-3 mb-2">
-                                    <div className="flex-1 min-w-0">
-                                      <h4 className="text-lg font-bold text-gray-900 group-hover:text-violet-600 transition-colors line-clamp-1">
+                              </div>
+                            )}
+                            <CardContent className="p-6">
+                              <div className="space-y-4">
+                                <div>
+                                  <h4 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-violet-600 transition-colors">
                                 {event.title}
                               </h4>
-                                      {event.description && (
-                                        <p className="text-sm text-gray-600 line-clamp-1 mt-1">
-                                          {event.description}
-                                        </p>
-                                      )}
+                                  {event.description && (
+                                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                                      {event.description}
+                                    </p>
+                                  )}
                                 </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                      {isUpcoming ? (
-                                        <Badge className="bg-violet-600 text-white border-0 text-xs">
-                                          Upcoming
-                                        </Badge>
-                                      ) : (
-                                        <Badge variant="secondary" className="bg-gray-500 text-white border-0 text-xs">
-                                          Past
-                                        </Badge>
-                                      )}
-                                      <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-violet-600 group-hover:translate-x-1 transition-all" />
-                                </div>
-                              </div>
-
-                                  {/* Event Info */}
-                                  <div className="space-y-1.5 text-sm">
-                                    <div className="flex items-center gap-2 text-gray-700">
-                                      <Clock className="h-4 w-4 text-violet-600 flex-shrink-0" />
-                                      <span className="font-medium">{timeRange}</span>
+                                
+                                <div className="space-y-2 text-sm">
+                                  <div className="flex items-center gap-2 text-gray-700">
+                                    <div className="p-1.5 rounded-lg bg-violet-100 text-violet-600">
+                                      <Clock className="h-4 w-4" />
                                     </div>
-                                    
-                                    {event.location && (
-                                      <div className="flex items-center gap-2 text-gray-700">
-                                        <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                                        <span className="truncate">{event.location}</span>
+                                    <div className="flex-1">
+                                      <div className="font-medium">
+                                        {startDate.toLocaleDateString("en-US", {
+                                          weekday: "long",
+                                          month: "long",
+                                          day: "numeric",
+                                        })}
                                       </div>
-                                    )}
-                                    
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                      {event.is_online && (
-                                        <div className="flex items-center gap-1.5 text-gray-600">
-                                          <Globe className="h-3.5 w-3.5 text-green-600" />
-                                          <span className="text-xs">Online</span>
-                                        </div>
-                                      )}
-                                      {event.max_attendees && (
-                                        <div className="flex items-center gap-1.5 text-gray-600">
-                                          <Users className="h-3.5 w-3.5 text-amber-600" />
-                                          <span className="text-xs">Max {event.max_attendees}</span>
-                                        </div>
-                                      )}
+                                      <div className="text-xs text-gray-500">
+                                        {startDate.toLocaleTimeString("en-US", {
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                        })} - {endDate.toLocaleTimeString("en-US", {
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                        })}
+                                      </div>
                                     </div>
                                   </div>
+                                  
+                                  {event.location && (
+                                    <div className="flex items-center gap-2 text-gray-700">
+                                      <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
+                                    <MapPin className="h-4 w-4" />
+                                      </div>
+                                      <span className="flex-1 truncate">{event.location}</span>
+                                    </div>
+                                  )}
+                                  
+                                  {event.is_online && (
+                                    <div className="flex items-center gap-2 text-gray-700">
+                                      <div className="p-1.5 rounded-lg bg-green-100 text-green-600">
+                                        <Globe className="h-4 w-4" />
+                                      </div>
+                                      <span className="flex-1">Online Event</span>
+                                    </div>
+                                  )}
+                                  
+                                  {event.max_attendees && (
+                                    <div className="flex items-center gap-2 text-gray-700">
+                                      <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
+                                  <Users className="h-4 w-4" />
                                 </div>
+                                      <span className="flex-1">Max {event.max_attendees} attendees</span>
                               </div>
-                            </CardContent>
-                          </Card>
-                        </Link>
-                        {currentUser && (
-                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 bg-white/90 hover:bg-white shadow-md"
-                                  onClick={(e) => e.preventDefault()}
-                                >
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setReportType("event");
-                                    setReportTargetId(event.id);
-                                    setReportTargetName(event.title || "Event");
-                                    setReportDialogOpen(true);
-                                  }}
-                                >
-                                  <AlertTriangle className="h-4 w-4 mr-2" />
-                                  Report Event
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                                  )}
+                                </div>
+                                
+                                <div className="pt-3 border-t border-gray-200">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                      {isUpcoming ? "Starts" : "Started"} {startDate.toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                      })}
+                                    </span>
+                                    <ChevronRight className="h-4 w-4 text-violet-600 group-hover:translate-x-1 transition-transform" />
+                              </div>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                })}
                 </div>
-                {events.length > eventsPerPage && (
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <PaginationControls
-                      currentPage={eventsPage}
-                      totalPages={Math.ceil(events.length / eventsPerPage)}
-                      onPageChange={setEventsPage}
-                      itemsPerPage={eventsPerPage}
-                      totalItems={events.length}
-                    />
-                  </div>
-                )}
-                </>
-              )}
+            )}
               </TabsContent>
 
               {/* Members Tab */}
-              <TabsContent value="members" className="space-y-6 mt-6">
+          <TabsContent value="members" className="space-y-6 mt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900">Members</h3>
                     <p className="text-gray-600 text-sm mt-1">
                       {memberCount} total members
                     </p>
+                  </div>
+                  {isMember && (
+                    <div className="w-64">
+                      <Input
+                        placeholder="Search members..."
+                        className="border-gray-200"
+                      />
                     </div>
+                  )}
                   </div>
 
                 {isLoadingTab ? (
@@ -1477,102 +1620,56 @@ export default function CommunityPage({
                     <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
                   </div>
                 ) : (
-                  <>
-                    <div className="grid gap-4">
-                      {members
-                        .slice(
-                          (membersPage - 1) * membersPerPage,
-                          membersPage * membersPerPage
-                        )
-                        .map((member: any) => (
-                          <Card key={member.user_id} className="border-gray-200">
-                            <CardContent className="p-4">
+                  <div className="grid gap-4">
+                    {members.map((member: any) => (
+                      <Card key={member.user_id} className="border-gray-200">
+                        <CardContent className="p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                               <Avatar className="h-12 w-12">
-                                    <AvatarImage src={member.users?.avatar_url} />
-                                    <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
-                                      {(member.users?.username || member.users?.full_name || "U").charAt(0)}
+                                <AvatarImage src={member.users?.avatar_url} />
+                                <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
+                                  {(member.users?.username || member.users?.full_name || "U").charAt(0)}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                    <div className="flex items-center gap-2">
-                                      <h4 className="font-semibold text-gray-900">
-                                        {member.users?.full_name || member.users?.username || "Anonymous"}
-                                </h4>
-                                      {member.role === "creator" && (
-                                        <Badge variant="secondary" className="bg-violet-100 text-violet-700 text-xs">
-                                          <Crown className="h-3 w-3 mr-1" />
-                                          Creator
-                                        </Badge>
-                                      )}
-                                      {member.role === "admin" && (
-                                        <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
-                                          <Shield className="h-3 w-3 mr-1" />
-                                          Admin
-                                        </Badge>
-                                      )}
-                                      {member.role === "moderator" && (
-                                        <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
-                                          <Star className="h-3 w-3 mr-1" />
-                                          Moderator
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <p className="text-sm text-gray-600">
-                                      Joined {new Date(member.joined_at).toLocaleDateString("en-US", {
-                                        month: "short",
-                                        year: "numeric",
-                                      })}
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold text-gray-900">
+                                    {member.users?.full_name || member.users?.username || "Unknown"}
+                                  </h4>
+                                  {member.isCreator && (
+                                    <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
+                                      <Crown className="h-3 w-3 mr-1" />
+                                      Creator
+                                    </Badge>
+                                  )}
+                                  {!member.isCreator && member.role === "admin" && (
+                                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
+                                      <Shield className="h-3 w-3 mr-1" />
+                                      Admin
+                                    </Badge>
+                                  )}
+                                  {member.role === "moderator" && (
+                                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+                                      <Star className="h-3 w-3 mr-1" />
+                                      Moderator
+                                    </Badge>
+                                  )}
+                                  {/* Member biasa tidak perlu badge */}
+                                </div>
+                                <p className="text-sm text-gray-600">
+                                  Joined {new Date(member.joined_at).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
                                 </p>
                               </div>
                               </div>
-                                {isMember && member.user_id !== currentUser?.id && (
-                                  <div className="flex items-center gap-2">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-9 w-9 p-0"
-                                        >
-                                          <MoreVertical className="h-4 w-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuItem
-                                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                                          onClick={() => {
-                                            setReportType("member");
-                                            setReportTargetId(member.user_id);
-                                            setReportTargetName(member.users?.full_name || member.users?.username || "Member");
-                                            setReportDialogOpen(true);
-                                          }}
-                                        >
-                                          <AlertTriangle className="h-4 w-4 mr-2" />
-                                          Report Member
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </div>
-                                )}
                             </div>
                         </CardContent>
                       </Card>
                   ))}
                 </div>
-                    {members.length > membersPerPage && (
-                      <div className="mt-6 pt-4 border-t border-gray-200">
-                        <PaginationControls
-                          currentPage={membersPage}
-                          totalPages={Math.ceil(members.length / membersPerPage)}
-                          onPageChange={setMembersPage}
-                          itemsPerPage={membersPerPage}
-                          totalItems={members.length}
-                        />
-                      </div>
-                    )}
-                  </>
                 )}
               </TabsContent>
             </Tabs>
@@ -1598,16 +1695,39 @@ export default function CommunityPage({
                     {memberCount.toLocaleString()}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Upcoming Events</span>
-                    <span className="font-medium text-gray-900">
-                      {community.upcomingEvents || events.filter((e: any) => new Date(e.start_time) >= new Date()).length}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Upcoming Events
+                  </span>
+                  <span className="font-semibold text-gray-900">
+                    {events.length}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Founded</span>
-                    <span className="font-medium text-gray-900">
-                      {community.founded || (community.created_at ? new Date(community.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "Unknown")}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Founded
+                  </span>
+                  <span className="font-semibold text-gray-900">
+                    {community?.created_at 
+                      ? (() => {
+                          try {
+                            const date = new Date(community.created_at);
+                            if (isNaN(date.getTime())) {
+                              console.error("Invalid date:", community.created_at);
+                              return "Unknown";
+                            }
+                            return date.toLocaleDateString("en-US", {
+                              month: "short",
+                              year: "numeric",
+                            });
+                          } catch (e) {
+                            console.error("Date parsing error:", e);
+                            return "Unknown";
+                          }
+                        })()
+                      : "Unknown"}
                     </span>
                   </div>
                 </CardContent>
@@ -1615,163 +1735,46 @@ export default function CommunityPage({
 
             {/* Creator Info */}
             <Card className="border-gray-200">
-              <CardHeader>
+                <CardHeader>
                 <CardTitle className="text-lg font-semibold">Created By</CardTitle>
-              </CardHeader>
+                </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src={community.creator?.avatar_url} />
+                    <AvatarImage src={creatorData?.avatar_url || community.creator?.avatar_url} />
                     <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
-                      {(community.creator?.username || "U").charAt(0)}
+                      {(creatorData?.username || community.creator?.username || "U").charAt(0).toUpperCase()}
                     </AvatarFallback>
-                  </Avatar>
+                      </Avatar>
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">
-                      {community.creator?.full_name || community.creator?.username || "Anonymous"}
+                      {creatorData?.full_name || creatorData?.username || "Loading..."}
                     </p>
                     <p className="text-sm text-violet-600">Founder</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            {isMember && (
-              <Card className="border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    <Button
-                      variant="outline"
-                    className="w-full justify-start border-gray-200"
-                    onClick={() => setActiveTab("discussions")}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Start Discussion
-                    </Button>
-                  {canManage && (
-                    <Link href={`/events/create?community_id=${id}`} className="w-full">
-                    <Button
-                      variant="outline"
-                        className="w-full justify-start border-gray-200"
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Create Event
-                    </Button>
-                    </Link>
-                  )}
-                    <Button
-                      variant="outline"
-                    className="w-full justify-start border-gray-200"
-                    >
-                      <Users className="h-4 w-4 mr-2" />
-                      Invite Friends
-                    </Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Moderators */}
-            <InViewTransition effect="slide-left" delay={100}>
-              <Card className="border-gray-100">
-                <CardHeader>
-                  <CardTitle className="text-lg font-medium text-gray-900">
-                    Moderators
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {community.moderators && community.moderators.length > 0 ? (
-                    community.moderators.map((mod: any, index: number) => (
-                    <div key={index} className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={mod.avatar || "/placeholder.svg"} />
-                          <AvatarFallback>{(mod.name || "M")[0]}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-sm text-gray-900">
-                            {mod.name || "Moderator"}
-                        </p>
-                          <p className="text-violet-700 text-xs">{mod.role || "Moderator"}</p>
                       </div>
                     </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500">No moderators yet</p>
-                  )}
                 </CardContent>
               </Card>
-            </InViewTransition>
           </div>
         </div>
       </div>
 
-      {/* Report Dialog */}
-      <ReportDialog
-        isOpen={reportDialogOpen}
-        onClose={() => setReportDialogOpen(false)}
-        reportType={reportType}
-        reportTargetId={reportTargetId}
-        reportTargetName={reportTargetName}
-      />
-
-      {/* Join/Leave Confirmation Modal */}
-      <Dialog open={joinLeaveModalOpen} onOpenChange={setJoinLeaveModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+      {/* Dialog for pending approval */}
+      <Dialog open={showPendingDialog} onOpenChange={setShowPendingDialog}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">
-              {isMember ? "Leave Community" : "Join Community"}
-            </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              {isMember
-                ? `Are you sure you want to leave "${community?.name}"? You'll need to join again to access member-only features.`
-                : `Are you sure you want to join "${community?.name}"? You'll be able to participate in discussions, attend events, and connect with other members.`}
+            <DialogTitle>Waiting For Admin Approval</DialogTitle>
+            <DialogDescription>
+              Your join request has been sent to the community admin. Please wait for approval.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex-col sm:flex-row gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setJoinLeaveModalOpen(false)}
-              disabled={isJoining}
-              className="w-full sm:w-auto"
-            >
-              Cancel
+          <div className="flex justify-end mt-4">
+            <Button onClick={() => setShowPendingDialog(false)}>
+              OK
             </Button>
-            <Button
-              onClick={confirmJoinLeave}
-              disabled={isJoining}
-              className={
-                isMember
-                  ? "w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
-                  : "w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white"
-              }
-            >
-              {isJoining ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isMember ? "Leaving..." : "Joining..."}
-                </>
-              ) : (
-                <>
-                  {isMember ? (
-                    <>
-                      <UserMinus className="h-4 w-4 mr-2" />
-                      Leave Community
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Join Community
-                    </>
-                  )}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
-

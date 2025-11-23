@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { 
@@ -153,7 +154,7 @@ export default function CommunityMembersPage({
       // Get community by ID
       const { data: communityData, error: communityError } = await supabase
         .from("communities")
-        .select("id, name, logo_url")
+        .select("id, name, logo_url, creator_id")
         .eq("id", id)
         .single()
 
@@ -188,7 +189,7 @@ export default function CommunityMembersPage({
       await loadMembers(communityData.id)
     } catch (error) {
       console.error("Error loading community:", error)
-      }
+    }
   }
 
   const loadMembers = async (communityId: string) => {
@@ -297,14 +298,14 @@ export default function CommunityMembersPage({
           user_id: member.user_id,
           role: member.role as "admin" | "member",
           joined_at: member.joined_at,
-      user: {
+          user: {
             id: user?.id || member.user_id,
             username: user?.username || null,
             full_name: user?.full_name || null,
             avatar_url: user?.avatar_url || null,
             email: user?.email || ""
-      }
-    }
+          }
+        }
       })
 
       // Combine with dummy data (only 3 dummy members)
@@ -315,9 +316,9 @@ export default function CommunityMembersPage({
     } catch (error) {
       console.error("Error loading members:", error)
       // Use dummy data on error
-    setMembers(mockMembers)
-    setTotalCount(mockMembers.length)
-    setTotalPages(Math.ceil(mockMembers.length / pageSize))
+      setMembers(mockMembers)
+      setTotalCount(mockMembers.length)
+      setTotalPages(Math.ceil(mockMembers.length / pageSize))
     }
   }
 
@@ -541,10 +542,16 @@ export default function CommunityMembersPage({
 
                       {/* Member Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="mb-1">
+                        <div className="mb-1 flex items-center gap-2">
                           <h3 className="text-lg font-semibold text-gray-900 truncate">
                             {member.user.full_name || member.user.username || "Unknown User"}
                           </h3>
+                          {member.role === "admin" && (
+                            <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-none">
+                              <Shield className="w-3 h-3 mr-1" />
+                              Admin
+                            </Badge>
+                          )}
                         </div>
                         
                         <div className="flex items-center space-x-4 text-sm text-gray-600">
@@ -603,39 +610,39 @@ export default function CommunityMembersPage({
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
-                            >
-                              <UserMinus className="w-4 h-4 mr-2" />
-                              Kick
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Remove Member</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to remove{" "}
-                                <span className="font-semibold">
-                                  {member.user.full_name || member.user.username || "this member"}
-                                </span>{" "}
-                                from the community? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleKickMember(member.id, member.user.full_name || member.user.username || "Member")}
-                                className="bg-red-600 hover:bg-red-700"
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
                               >
-                                Remove Member
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                <UserMinus className="w-4 h-4 mr-2" />
+                                Kick
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remove Member</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to remove{" "}
+                                  <span className="font-semibold">
+                                    {member.user.full_name || member.user.username || "this member"}
+                                  </span>{" "}
+                                  from the community? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleKickMember(member.id, member.user.full_name || member.user.username || "Member")}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Remove Member
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </>
                       )}
                     </div>
@@ -710,3 +717,6 @@ export default function CommunityMembersPage({
     </PageTransition>
   )
 }
+
+
+

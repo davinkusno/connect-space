@@ -151,6 +151,7 @@ export default function DiscoverPage() {
     try {
       const supabase = getSupabaseBrowser();
       // Fetch communities from database with category relationship
+      // Fetch all communities (both public and private) - we'll filter by privacy later if needed
       const { data: communitiesData, error } = await supabase
         .from("communities")
         .select(
@@ -169,9 +170,7 @@ export default function DiscoverPage() {
           created_at,
           location,
           is_private
-        `
-        )
-        .eq("is_private", false) // Only show public communities
+        `)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -179,6 +178,7 @@ export default function DiscoverPage() {
         toast.error("Failed to load communities");
         return;
       }
+
 
       // Transform database data to match Community interface
       const transformedCommunities: Community[] = (communitiesData || []).map(

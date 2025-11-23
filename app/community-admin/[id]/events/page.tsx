@@ -54,7 +54,11 @@ interface Event {
   startTime?: Date // Add startTime to check if event has passed
 }
 
-export default function CommunityAdminEventsPage() {
+export default function CommunityAdminEventsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming")
   const [searchQuery, setSearchQuery] = useState("")
   const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({from: undefined, to: undefined})
@@ -72,10 +76,15 @@ export default function CommunityAdminEventsPage() {
   const [communityName, setCommunityName] = useState<string>("Community")
 
   useEffect(() => {
-    loadEvents()
-  }, [])
+    const loadParams = async () => {
+      const resolvedParams = await params
+      setCommunityId(resolvedParams.id)
+      loadEvents(resolvedParams.id)
+    }
+    loadParams()
+  }, [params])
 
-  const loadEvents = async () => {
+  const loadEvents = async (id: string) => {
     try {
       const supabase = getSupabaseBrowser()
       
@@ -84,54 +93,40 @@ export default function CommunityAdminEventsPage() {
       
       if (!user) {
         console.error("User not found")
-        // Use dummy data only if no user
         loadDummyEventsOnly()
         return
       }
 
-      // Get community where user is creator or admin
-      let communityData = null
-      
-      // Try to get community where user is creator
-      let { data: communityDataAsCreator, error: communityError } = await supabase
+      // Get community by ID from params
+      const { data: communityData, error: communityError } = await supabase
         .from("communities")
-        .select("id, name")
-        .eq("creator_id", user.id)
-        .limit(1)
+        .select("id, name, creator_id")
+        .eq("id", id)
+        .single()
+
+      if (communityError || !communityData) {
+        console.error("Community not found:", communityError)
+        loadDummyEventsOnly()
+        return
+      }
+
+      // Verify user is admin or creator
+      const isCreator = communityData.creator_id === user.id
+      const { data: membership } = await supabase
+        .from("community_members")
+        .select("role")
+        .eq("community_id", id)
+        .eq("user_id", user.id)
+        .eq("role", "admin")
         .maybeSingle()
 
-      if (communityDataAsCreator && !communityError) {
-        communityData = communityDataAsCreator
-      } else {
-        // If not found as creator, try to get community where user is admin
-        const { data: memberData } = await supabase
-          .from("community_members")
-          .select("community_id")
-          .eq("user_id", user.id)
-          .eq("role", "admin")
-          .limit(1)
-          .maybeSingle()
-
-        if (memberData) {
-          const { data: commData } = await supabase
-            .from("communities")
-            .select("id, name")
-            .eq("id", memberData.community_id)
-            .single()
-
-          if (commData) {
-            communityData = commData
-          }
-        }
-      }
-
-      if (!communityData) {
-        console.error("Community not found")
+      if (!isCreator && !membership) {
+        console.error("User is not admin or creator")
         loadDummyEventsOnly()
         return
       }
 
-      setCommunityId(communityData.id)
+      setCommunityId(id)
       setCommunityName(communityData.name || "Community")
 
       // Fetch real events from database
@@ -497,7 +492,7 @@ export default function CommunityAdminEventsPage() {
         <div className="max-w-6xl mx-auto p-8 relative z-10">
           {/* Back Button */}
           <div className="mb-4">
-            <Link href="/community-admin">
+            <Link href={communityId ? `/community-admin/${communityId}` : "/community-admin"}>
               <Button variant="outline" size="sm" className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Community Dashboard
@@ -738,7 +733,7 @@ export default function CommunityAdminEventsPage() {
                             <span className="text-sm text-gray-600">{event.organizer}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Link href={`/events/${event.id}`}>
+                            <Link href={communityId ? `/community-admin/${communityId}/events/${event.id}` : `/events/${event.id}`}>
                               <Button variant="outline" size="sm" className="text-purple-600 border-purple-200 hover:bg-purple-50">
                                 View Details
                                 <ChevronRight className="w-4 h-4 ml-1" />
@@ -746,7 +741,7 @@ export default function CommunityAdminEventsPage() {
                             </Link>
                             {activeTab === "upcoming" && event.startTime && event.startTime > new Date() ? (
                               <>
-                                <Link href={`/community-admin/events/${event.id}/edit`}>
+                                <Link href={communityId ? `/community-admin/${communityId}/events/${event.id}/edit` : `/community-admin/events/${event.id}/edit`}>
                                   <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
                                     <Edit className="w-4 h-4" />
                                   </Button>
