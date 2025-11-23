@@ -8,6 +8,7 @@ import { AnimatedCard } from "@/components/ui/animated-card";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -26,19 +27,7 @@ import {
   Crown,
   Plus,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-
-interface Province {
-  id: string;
-  name: string;
-}
 
 interface City {
   id: string;
@@ -54,9 +43,9 @@ interface UserProfile {
     avatar_url?: string;
     name?: string;
     username?: string;
-    location?: string;
-    location_province?: string;
     location_city?: string;
+    location_city_name?: string;
+    location_province?: string;
     interests?: string[];
     points?: number;
     is_community_admin?: boolean;
@@ -80,11 +69,10 @@ export default function ProfilePage() {
   const [newInterest, setNewInterest] = useState("");
   
   // Location data
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
-  const [selectedProvince, setSelectedProvince] = useState("");
-  const [selectedCity, setSelectedCity] = useState("");
-  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [allCities, setAllCities] = useState<City[]>([]);
+  const [locationQuery, setLocationQuery] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState<City | null>(null);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
 
   const router = useRouter();
@@ -115,8 +103,16 @@ export default function ProfilePage() {
         });
         setPoints(metadata.points || 1250);
         setIsCommunityAdmin(metadata.is_community_admin || false);
-        setSelectedProvince(metadata.location_province || "");
-        setSelectedCity(metadata.location_city || "");
+        
+        // Load location from metadata
+        if (metadata.location_city) {
+          setLocationQuery(metadata.location_city_name || "");
+          setSelectedLocation({
+            id: metadata.location_city,
+            id_provinsi: metadata.location_province || "",
+            name: metadata.location_city_name || "",
+          });
+        }
       } catch (error) {
         console.error("Error getting user:", error);
         toast({
@@ -130,47 +126,29 @@ export default function ProfilePage() {
     };
 
     getUser();
-    fetchProvinces();
+    fetchAllCities();
   }, [supabase.auth, router, toast]);
 
-  // Fetch cities when province changes
-  useEffect(() => {
-    if (selectedProvince) {
-      fetchCities(selectedProvince);
-    } else {
-      setCities([]);
-      setSelectedCity("");
-    }
-  }, [selectedProvince]);
-
-  const fetchProvinces = async () => {
-    setLoadingProvinces(true);
-    try {
-      const response = await fetch(
-        "https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json"
-      );
-      const data = await response.json();
-      setProvinces(data);
-    } catch (error) {
-      console.error("Error fetching provinces:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load provinces",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingProvinces(false);
-    }
-  };
-
-  const fetchCities = async (provinceId: string) => {
+  const fetchAllCities = async () => {
     setLoadingCities(true);
     try {
-      const response = await fetch(
-        `https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${provinceId}.json`
+      // First, fetch all provinces
+      const provincesResponse = await fetch(
+        "https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json"
       );
-      const data = await response.json();
-      setCities(data);
+      const provinces: Province[] = await provincesResponse.json();
+
+      // Then, fetch cities for all provinces
+      const allCitiesPromises = provinces.map((province) =>
+        fetch(
+          `https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${province.id}.json`
+        ).then((res) => res.json())
+      );
+
+      const citiesArrays = await Promise.all(allCitiesPromises);
+      const flattenedCities = citiesArrays.flat();
+      
+      setAllCities(flattenedCities);
     } catch (error) {
       console.error("Error fetching cities:", error);
       toast({
@@ -222,8 +200,9 @@ export default function ProfilePage() {
         data: {
           full_name: formData.fullName,
           username: formData.username,
-          location_province: selectedProvince,
-          location_city: selectedCity,
+          location_city: selectedLocation?.id || null,
+          location_city_name: selectedLocation?.name || null,
+          location_province: selectedLocation?.id_provinsi || null,
           interests: formData.interests,
           points: points,
           is_community_admin: isCommunityAdmin,
@@ -243,8 +222,9 @@ export default function ProfilePage() {
                 ...prev.user_metadata,
                 full_name: formData.fullName,
                 username: formData.username,
-                location_province: selectedProvince,
-                location_city: selectedCity,
+                location_city: selectedLocation?.id || null,
+                location_city_name: selectedLocation?.name || null,
+                location_province: selectedLocation?.id_provinsi || null,
                 interests: formData.interests,
                 points: points,
                 is_community_admin: isCommunityAdmin,
@@ -284,8 +264,19 @@ export default function ProfilePage() {
       });
       setPoints(user.user_metadata?.points || 1250);
       setIsCommunityAdmin(user.user_metadata?.is_community_admin || false);
-      setSelectedProvince(user.user_metadata?.location_province || "");
-      setSelectedCity(user.user_metadata?.location_city || "");
+      
+      // Reset location
+      if (user.user_metadata?.location_city) {
+        setLocationQuery(user.user_metadata.location_city_name || "");
+        setSelectedLocation({
+          id: user.user_metadata.location_city,
+          id_provinsi: user.user_metadata.location_province || "",
+          name: user.user_metadata.location_city_name || "",
+        });
+      } else {
+        setLocationQuery("");
+        setSelectedLocation(null);
+      }
     }
   };
 
@@ -886,100 +877,100 @@ export default function ProfilePage() {
                       Additional Information
                     </h4>
                     <div className="space-y-6">
-                      {/* Location - Province */}
-                      <div className="space-y-2">
+                      {/* Location Search */}
+                      <div className="space-y-2 relative">
                         <Label
-                          htmlFor="province"
+                          htmlFor="location"
                           className="text-sm font-semibold text-gray-700"
                         >
-                          Province
+                          City / Regency
                         </Label>
                         {isEditing ? (
-                          <Select
-                            value={selectedProvince}
-                            onValueChange={(value) => {
-                              setSelectedProvince(value);
-                              setSelectedCity(""); // Reset city when province changes
-                            }}
-                          >
-                            <SelectTrigger className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500">
-                              <SelectValue placeholder="Select province" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {loadingProvinces ? (
-                                <SelectItem value="loading" disabled>
-                                  Loading provinces...
-                                </SelectItem>
-                              ) : (
-                                provinces.map((province) => (
-                                  <SelectItem key={province.id} value={province.id}>
-                                    {province.name}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
+                          <div className="relative">
+                            <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 z-10" />
+                            <Input
+                              id="location"
+                              value={locationQuery}
+                              onChange={(e) => {
+                                setLocationQuery(e.target.value);
+                                setShowLocationDropdown(true);
+                              }}
+                              onFocus={() => setShowLocationDropdown(true)}
+                              onBlur={() => setTimeout(() => setShowLocationDropdown(false), 200)}
+                              placeholder="Search for your city..."
+                              className="pl-12 h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
+                            />
+                            {locationQuery && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
+                                onClick={() => {
+                                  setLocationQuery("");
+                                  setSelectedLocation(null);
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                            
+                            {/* Search Results Dropdown */}
+                            {showLocationDropdown && locationQuery && (
+                              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+                                {loadingCities ? (
+                                  <div className="p-4 text-center text-gray-500">
+                                    Loading cities...
+                                  </div>
+                                ) : (
+                                  <>
+                                    {allCities
+                                      .filter((city) =>
+                                        city.name
+                                          .toLowerCase()
+                                          .includes(locationQuery.toLowerCase())
+                                      )
+                                      .slice(0, 10)
+                                      .map((city) => (
+                                        <button
+                                          key={city.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedLocation(city);
+                                            setLocationQuery(toTitleCase(city.name));
+                                            setShowLocationDropdown(false);
+                                          }}
+                                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors duration-200 border-b border-gray-100 last:border-0"
+                                        >
+                                          <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                          <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-gray-900">
+                                              {toTitleCase(city.name)}
+                                            </div>
+                                          </div>
+                                        </button>
+                                      ))}
+                                    {allCities.filter((city) =>
+                                      city.name
+                                        .toLowerCase()
+                                        .includes(locationQuery.toLowerCase())
+                                    ).length === 0 && (
+                                      <div className="p-4 text-center text-gray-500">
+                                        No cities found
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
                             <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
                               <MapPin className="h-5 w-5 text-orange-600" />
                             </div>
                             <span className="text-gray-900 font-medium">
-                              {provinces.find((p) => p.id === selectedProvince)
-                                ?.name || "Not provided"}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Location - City */}
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="city"
-                          className="text-sm font-semibold text-gray-700"
-                        >
-                          City / Regency
-                        </Label>
-                        {isEditing ? (
-                          <Select
-                            value={selectedCity}
-                            onValueChange={setSelectedCity}
-                            disabled={!selectedProvince}
-                          >
-                            <SelectTrigger className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500">
-                              <SelectValue
-                                placeholder={
-                                  selectedProvince
-                                    ? "Select city"
-                                    : "Select province first"
-                                }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {loadingCities ? (
-                                <SelectItem value="loading" disabled>
-                                  Loading cities...
-                                </SelectItem>
-                              ) : (
-                                cities.map((city) => (
-                                  <SelectItem key={city.id} value={city.id}>
-                                    {toTitleCase(city.name)}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                              <MapPin className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <span className="text-gray-900 font-medium">
-                              {selectedCity
-                                ? toTitleCase(
-                                    cities.find((c) => c.id === selectedCity)
-                                      ?.name || "Not provided"
-                                  )
+                              {selectedLocation
+                                ? toTitleCase(selectedLocation.name)
                                 : "Not provided"}
                             </span>
                           </div>

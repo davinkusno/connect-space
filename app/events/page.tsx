@@ -24,19 +24,16 @@ import {
   Search,
   Map,
   Plus,
-  TrendingUp,
   Brain,
   Clock,
   Filter,
   Bookmark,
   ArrowRight,
-  Sparkles,
   Award,
   Zap,
   Globe,
   X,
   Users,
-  Check,
   Lock,
   ChevronLeft,
   ChevronRight,
@@ -77,7 +74,6 @@ interface Event {
   reviewCount: number;
   image: string;
   gallery?: string[];
-  trending?: boolean;
   featured: boolean;
   isNew?: boolean;
   difficulty?: "Beginner" | "Intermediate" | "Advanced";
@@ -106,6 +102,7 @@ export default function EventsPage() {
   } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState("all");
+  const [gettingLocation, setGettingLocation] = useState(false);
   const [dateRange, setDateRange] = useState("upcoming");
   const [searchFilter, setSearchFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
@@ -121,7 +118,7 @@ export default function EventsPage() {
     const fetchEvents = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const params = new URLSearchParams({
           page: currentPage.toString(),
@@ -146,7 +143,7 @@ export default function EventsPage() {
         }
 
         const response = await fetch(`/api/events?${params.toString()}`);
-        
+
         if (!response.ok) {
           throw new Error("Failed to fetch events");
         }
@@ -164,7 +161,15 @@ export default function EventsPage() {
     };
 
     fetchEvents();
-  }, [currentPage, itemsPerPage, searchQuery, selectedCategory, selectedLocation, dateRange, locationQuery]);
+  }, [
+    currentPage,
+    itemsPerPage,
+    searchQuery,
+    selectedCategory,
+    selectedLocation,
+    dateRange,
+    locationQuery,
+  ]);
 
   const categories = [
     { value: "all", label: "All Categories", icon: "🎯" },
@@ -225,20 +230,22 @@ export default function EventsPage() {
       );
     }
 
-    // Location filter
+    // Location filter (selectedLocation from filter panel)
     if (selectedLocation !== "all") {
       if (selectedLocation === "online") {
-        filtered = filtered.filter((event) => event.location.isOnline);
+        filtered = filtered.filter(
+          (event) => event.location?.isOnline === true
+        );
       } else {
         filtered = filtered.filter(
           (event) =>
-            event.location.city.toLowerCase() === selectedLocation.toLowerCase()
+            event.location?.city?.toLowerCase() ===
+            selectedLocation.toLowerCase()
         );
       }
     }
 
-    // Date filter (client-side filtering is minimal since API handles most of it)
-    // This is mainly for consistency and any edge cases
+    // Date filter (client-side filtering for consistency)
     if (dateRange === "upcoming") {
       const now = new Date();
       filtered = filtered.filter((event) => {
@@ -285,18 +292,23 @@ export default function EventsPage() {
     dateRange,
   ]);
 
-  // Use events directly from API (already paginated)
-  const paginatedEvents = filteredEvents;
+  // Pagination logic - slice filtered events for client-side pagination
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
+
+  // Calculate total pages based on filtered events length (for client-side pagination)
+  const calculatedTotalPages = Math.ceil(filteredEvents.length / itemsPerPage);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, locationQuery, selectedCategory, selectedLocation, dateRange]);
+  }, [searchQuery, locationQuery, selectedCategory, dateRange]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     // Smooth scroll to top of events section
-    window.scrollTo({ top: 400, behavior: 'smooth' });
+    window.scrollTo({ top: 400, behavior: "smooth" });
   };
 
   const toggleSaveEvent = (eventId: string | number) => {
@@ -308,8 +320,10 @@ export default function EventsPage() {
   };
 
   // Get user's current location
-  const getUserLocation = () => {
+  const getUserLocation = (callback?: (city: string) => void) => {
     if (navigator.geolocation) {
+      setGettingLocation(true);
+
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
@@ -321,33 +335,44 @@ export default function EventsPage() {
             );
             const data = await response.json();
 
+            const cityName = data.city || data.locality || "Current Location";
+
             setUserLocation({
               lat: latitude,
               lng: longitude,
-              city: data.city || data.locality || "Current Location",
+              city: cityName,
             });
+
+            // Call callback with city name if provided
+            if (callback) {
+              callback(cityName);
+            }
           } catch (error) {
+            const cityName = "Current Location";
             setUserLocation({
               lat: latitude,
               lng: longitude,
-              city: "Current Location",
+              city: cityName,
             });
+
+            if (callback) {
+              callback(cityName);
+            }
+          } finally {
+            setGettingLocation(false);
           }
         },
         (error) => {
-          // Silently handle geolocation errors (user denied or unavailable)
-          // Location features will simply be disabled
+          console.error("Geolocation error:", error);
+          setGettingLocation(false);
+          alert(
+            "Unable to get your location. Please enable location services or enter a city manually."
+          );
         }
       );
+    } else {
+      alert("Geolocation is not supported by your browser.");
     }
-  };
-
-  const getActiveFiltersCount = () => {
-    let count = 0;
-    if (selectedCategory !== "all") count++;
-    if (selectedLocation !== "all") count++;
-    if (dateRange !== "all") count++;
-    return count;
   };
 
   // Get user location on component mount
@@ -362,40 +387,40 @@ export default function EventsPage() {
 
   const clearFilters = () => {
     setSelectedCategory("all");
-    setSelectedLocation("all");
     setDateRange("all");
     setSearchQuery("");
   };
 
   // Pagination Component
   const PaginationControls = () => {
-    if (totalPages <= 1) return null;
+    if (calculatedTotalPages <= 1) return null;
 
     const getPageNumbers = () => {
       const pages = [];
       const maxVisible = 5;
-      
-      if (totalPages <= maxVisible) {
-        for (let i = 1; i <= totalPages; i++) {
+
+      if (calculatedTotalPages <= maxVisible) {
+        for (let i = 1; i <= calculatedTotalPages; i++) {
           pages.push(i);
         }
       } else {
         if (currentPage <= 3) {
           for (let i = 1; i <= 4; i++) pages.push(i);
-          pages.push('...');
-          pages.push(totalPages);
-        } else if (currentPage >= totalPages - 2) {
+          pages.push("...");
+          pages.push(calculatedTotalPages);
+        } else if (currentPage >= calculatedTotalPages - 2) {
           pages.push(1);
-          pages.push('...');
-          for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+          pages.push("...");
+          for (let i = calculatedTotalPages - 3; i <= calculatedTotalPages; i++)
+            pages.push(i);
         } else {
           pages.push(1);
-          pages.push('...');
+          pages.push("...");
           pages.push(currentPage - 1);
           pages.push(currentPage);
           pages.push(currentPage + 1);
-          pages.push('...');
-          pages.push(totalPages);
+          pages.push("...");
+          pages.push(calculatedTotalPages);
         }
       }
       return pages;
@@ -414,8 +439,8 @@ export default function EventsPage() {
         </Button>
 
         <div className="flex items-center gap-1">
-          {getPageNumbers().map((page, index) => (
-            page === '...' ? (
+          {getPageNumbers().map((page, index) =>
+            page === "..." ? (
               <span key={`ellipsis-${index}`} className="px-2 text-gray-400">
                 ...
               </span>
@@ -435,14 +460,14 @@ export default function EventsPage() {
                 {page}
               </Button>
             )
-          ))}
+          )}
         </div>
 
         <Button
           variant="outline"
           size="sm"
           onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
+          disabled={currentPage === calculatedTotalPages}
           className="h-9 px-3 border-gray-300 hover:bg-purple-50 hover:border-purple-400 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronRight className="h-4 w-4" />
@@ -461,12 +486,14 @@ export default function EventsPage() {
     const isSaved = savedEvents.includes(event.id);
 
     return (
-      <Card className={cn(
-        "group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border-2",
-        event.isPrivate 
-          ? "border-amber-400 hover:border-amber-500" 
-          : "border-gray-200"
-      )}>
+      <Card
+        className={cn(
+          "group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border-2",
+          event.isPrivate
+            ? "border-amber-400 hover:border-amber-500"
+            : "border-gray-200"
+        )}
+      >
         <div className="relative h-48 overflow-hidden">
           <Image
             src={event.image || "/placeholder.svg"}
@@ -634,10 +661,13 @@ export default function EventsPage() {
                 <div className="text-center">
                   <div className="text-3xl font-bold mb-1">
                     <AnimatedCounter
-                      end={filteredEvents.filter((e) => e.trending).length}
+                      end={
+                        filteredEvents.filter((e) => !e.location.isOnline)
+                          .length
+                      }
                     />
                   </div>
-                  <div className="text-purple-200 text-sm">Trending Now</div>
+                  <div className="text-purple-200 text-sm">Events Offline</div>
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold mb-1">
@@ -647,7 +677,7 @@ export default function EventsPage() {
                       }
                     />
                   </div>
-                  <div className="text-purple-200 text-sm">Online Events</div>
+                  <div className="text-purple-200 text-sm">Events Online</div>
                 </div>
               </div>
             </SmoothReveal>
@@ -723,10 +753,10 @@ export default function EventsPage() {
                       </Button>
                     )}
 
-                    {/* Location Dropdown - Simple Version */}
+                    {/* Location Dropdown with Search */}
                     {showLocationDropdown && (
                       <div
-                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-[99999] overflow-hidden"
+                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-[99999] max-h-80 overflow-y-auto"
                         style={{
                           position: "absolute",
                           top: "100%",
@@ -736,30 +766,37 @@ export default function EventsPage() {
                           zIndex: 99999,
                         }}
                       >
+                        {/* Use Current Location Button */}
                         <button
                           onClick={() => {
                             console.log("Use current location clicked");
-                            getUserLocation();
-                            if (userLocation) {
-                              setLocationQuery(userLocation.city);
-                            }
-                            setShowLocationDropdown(false);
+                            getUserLocation((cityName) => {
+                              setLocationQuery(cityName);
+                              setShowLocationDropdown(false);
+                            });
                           }}
-                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors duration-200"
+                          disabled={gettingLocation}
+                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors duration-200 border-b border-gray-100 disabled:opacity-50 disabled:cursor-wait"
                           onMouseDown={(e) => e.preventDefault()}
                         >
-                          <svg
-                            className="w-5 h-5 text-gray-600"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <path d="M11 18.93A7.005 7.005 0 015.07 13H3v-2h2.07A7.005 7.005 0 0111 5.07V3h2v2.07A7.005 7.005 0 0118.93 11H21v2h-2.07A7.005 7.005 0 0113 18.93V21h-2v-2.07zM12 17a5 5 0 100-10 5 5 0 000 10zm0-3a2 2 0 110-4 2 2 0 010 4z" />
-                          </svg>
+                          {gettingLocation ? (
+                            <div className="w-5 h-5 border-2 border-gray-300 border-t-purple-600 rounded-full animate-spin flex-shrink-0" />
+                          ) : (
+                            <svg
+                              className="w-5 h-5 text-gray-600 flex-shrink-0"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <path d="M11 18.93A7.005 7.005 0 015.07 13H3v-2h2.07A7.005 7.005 0 0111 5.07V3h2v2.07A7.005 7.005 0 0118.93 11H21v2h-2.07A7.005 7.005 0 0113 18.93V21h-2v-2.07zM12 17a5 5 0 100-10 5 5 0 000 10zm0-3a2 2 0 110-4 2 2 0 010 4z" />
+                            </svg>
+                          )}
                           <div className="flex-1">
                             <div className="font-medium text-gray-900">
-                              Use my current location
+                              {gettingLocation
+                                ? "Getting your location..."
+                                : "Use my current location"}
                             </div>
                           </div>
                         </button>
@@ -805,7 +842,6 @@ export default function EventsPage() {
                     <SelectContent>
                       <SelectItem value="all">All Events</SelectItem>
                       <SelectItem value="recommendations">For You</SelectItem>
-                      <SelectItem value="trending">Trending</SelectItem>
                       <SelectItem value="map">Map View</SelectItem>
                       <SelectItem value="saved">Saved</SelectItem>
                     </SelectContent>
@@ -832,126 +868,21 @@ export default function EventsPage() {
                   </div>
                 </div>
 
-                {/* Right: Filters Button & Create */}
+                {/* Right: Date Range Filter */}
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={cn(
-                      "h-10 px-4 rounded-lg border-gray-300 font-medium transition-all",
-                      getActiveFiltersCount() > 0 &&
-                        "border-purple-600 text-purple-600 bg-purple-50"
-                    )}
-                  >
-                    <Filter className="h-4 w-4 mr-2" />
-                    Filters
-                    {getActiveFiltersCount() > 0 && (
-                      <span className="ml-2 bg-purple-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {getActiveFiltersCount()}
-                      </span>
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Collapsible Filters Panel - Smooth Animation */}
-              <div
-                className={cn(
-                  "overflow-hidden transition-all duration-300 ease-in-out",
-                  showFilters ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"
-                )}
-              >
-                <div className="px-6 py-6 border-t border-gray-200 bg-gradient-to-b from-gray-50 to-white">
-                  {/* Filter Header */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-900">
-                        Filter Events
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Refine your search to find the perfect event
-                      </p>
-                    </div>
-                    {getActiveFiltersCount() > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={clearFilters}
-                        className="h-8 text-sm text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        Clear all ({getActiveFiltersCount()})
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Filters Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Location Filter */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-gray-700 flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        Location
-                      </label>
-                      <Select
-                        value={selectedLocation}
-                        onValueChange={setSelectedLocation}
-                      >
-                        <SelectTrigger className="w-full h-10 text-sm bg-white border-gray-300 rounded-lg hover:border-purple-400 transition-colors">
-                          <SelectValue placeholder="All Locations" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Locations</SelectItem>
-                          <SelectItem value="online">
-                            <div className="flex items-center gap-2">
-                              <Globe className="h-3 w-3" />
-                              Online
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="san francisco">
-                            San Francisco
-                          </SelectItem>
-                          <SelectItem value="new york">New York</SelectItem>
-                          <SelectItem value="austin">Austin</SelectItem>
-                          <SelectItem value="miami">Miami</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Date Filter */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-gray-700 flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        Date Range
-                      </label>
-                      <Select value={dateRange} onValueChange={setDateRange}>
-                        <SelectTrigger className="w-full h-10 text-sm bg-white border-gray-300 rounded-lg hover:border-purple-400 transition-colors">
-                          <SelectValue placeholder="All Dates" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="upcoming">Upcoming Events</SelectItem>
-                          <SelectItem value="today">Today</SelectItem>
-                          <SelectItem value="week">This Week</SelectItem>
-                          <SelectItem value="month">This Month</SelectItem>
-                          <SelectItem value="all">All Dates</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Results Counter */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-gray-700 flex items-center gap-1">
-                        <Check className="h-3 w-3" />
-                        Results
-                      </label>
-                      <div className="h-10 px-4 bg-purple-50 border border-purple-200 rounded-lg flex items-center justify-between">
-                        <span className="text-sm font-semibold text-purple-900">
-                          {filteredEvents.length} events found
-                        </span>
-                        <Sparkles className="h-4 w-4 text-purple-600" />
-                      </div>
-                    </div>
-                  </div>
+                  <Select value={dateRange} onValueChange={setDateRange}>
+                    <SelectTrigger className="w-[160px] h-10 border-gray-300 rounded-lg">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="All Dates" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="upcoming">Upcoming Events</SelectItem>
+                      <SelectItem value="all">All Dates</SelectItem>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">This Week</SelectItem>
+                      <SelectItem value="month">This Month</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -964,9 +895,9 @@ export default function EventsPage() {
                   </h2>
                   <p className="text-gray-600 mt-1">
                     Find your next amazing experience
-                    {totalPages > 1 && (
+                    {calculatedTotalPages > 1 && (
                       <span className="ml-2 text-sm">
-                        • Page {currentPage} of {totalPages}
+                        • Page {currentPage} of {calculatedTotalPages}
                       </span>
                     )}
                   </p>
@@ -1039,151 +970,51 @@ export default function EventsPage() {
               {/* Recommended Events Grid */}
               {filteredEvents.length > 0 ? (
                 <>
-                <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                  {paginatedEvents.map((event, index) => {
-                    const isSaved = savedEvents.includes(event.id);
+                  <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                    {paginatedEvents.map((event, index) => {
+                      const isSaved = savedEvents.includes(event.id);
 
-                    return (
-                      <div key={event.id} className="stagger-item">
-                        <Card className={cn(
-                          "group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border-2",
-                          event.isPrivate 
-                            ? "border-amber-400 hover:border-amber-500" 
-                            : "border-purple-200"
-                        )}>
-                          <div className="relative h-48 overflow-hidden">
-                            <Image
-                              src={event.image || "/placeholder.svg"}
-                              alt={event.title}
-                              width={500}
-                              height={300}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-
-                            {/* Badges Container */}
-                            <div className="absolute top-3 left-3 flex flex-col gap-2">
-                              {/* AI Recommended Badge */}
-                              <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-0 flex items-center gap-1 shadow-md">
-                                <Brain className="h-3 w-3" />
-                                AI Recommended
-                              </Badge>
-                              
-                              {/* Private Badge - Only show for private events */}
-                              {event.isPrivate && (
-                                <Badge className="bg-amber-500 hover:bg-amber-600 text-white border-0 flex items-center gap-1 shadow-md">
-                                  <Lock className="h-3 w-3" />
-                                  Members Only
-                                </Badge>
-                              )}
-                            </div>
-
-                            {/* Save Button */}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="absolute bottom-3 right-3 h-8 w-8 p-0 bg-white/90 hover:bg-white rounded-full"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleSaveEvent(event.id);
-                              }}
-                            >
-                              <Heart
-                                className={cn(
-                                  "h-4 w-4",
-                                  isSaved
-                                    ? "fill-red-500 text-red-500"
-                                    : "text-gray-600"
-                                )}
+                      return (
+                        <div key={event.id} className="stagger-item">
+                          <Card
+                            className={cn(
+                              "group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border-2",
+                              event.isPrivate
+                                ? "border-amber-400 hover:border-amber-500"
+                                : "border-purple-200"
+                            )}
+                          >
+                            <div className="relative h-48 overflow-hidden">
+                              <Image
+                                src={event.image || "/placeholder.svg"}
+                                alt={event.title}
+                                width={500}
+                                height={300}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               />
-                            </Button>
-                          </div>
 
-                          <CardContent className="p-4">
-                            {/* Category Badge */}
-                            <Badge variant="secondary" className="mb-3">
-                              {event.category}
-                            </Badge>
+                              {/* Badges Container */}
+                              <div className="absolute top-3 left-3 flex flex-col gap-2">
+                                {/* AI Recommended Badge */}
+                                <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-0 flex items-center gap-1 shadow-md">
+                                  <Brain className="h-3 w-3" />
+                                  AI Recommended
+                                </Badge>
 
-                            {/* Title */}
-                            <Link href={`/events/${event.id}`}>
-                              <h3 className="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2 mb-2">
-                                {event.title}
-                              </h3>
-                            </Link>
-
-                            {/* Description */}
-                            <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                              {event.description}
-                            </p>
-
-                            {/* Private Event Info - with consistent height */}
-                            <div className="mb-3 h-[42px]">
-                              {event.isPrivate && (
-                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
-                                  <div className="flex items-center gap-2">
-                                    <Lock className="h-3 w-3 text-amber-600 flex-shrink-0" />
-                                    <p className="text-xs text-amber-700 font-medium">
-                                      Join this community to attend event
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* AI Explanation */}
-                            <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-2 mb-4">
-                              <div className="flex items-start gap-2">
-                                <Brain className="h-3 w-3 text-purple-600 mt-0.5 flex-shrink-0" />
-                                <p className="text-xs text-purple-700">
-                                  Based on your interest in{" "}
-                                  {event.category.toLowerCase()} events
-                                </p>
+                                {/* Private Badge - Only show for private events */}
+                                {event.isPrivate && (
+                                  <Badge className="bg-amber-500 hover:bg-amber-600 text-white border-0 flex items-center gap-1 shadow-md">
+                                    <Lock className="h-3 w-3" />
+                                    Members Only
+                                  </Badge>
+                                )}
                               </div>
-                            </div>
 
-                            {/* Event Info */}
-                            <div className="space-y-2 mb-4">
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Calendar className="h-4 w-4" />
-                                <span>
-                                  {new Date(event.date).toLocaleDateString(
-                                    "en-US",
-                                    {
-                                      month: "short",
-                                      day: "numeric",
-                                    }
-                                  )}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Clock className="h-4 w-4" />
-                                <span>
-                                  {event.time} - {event.endTime}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <MapPin className="h-4 w-4" />
-                                <span className="truncate">
-                                  {event.location.city}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Users className="h-4 w-4" />
-                                <span>{event.attendees} attending</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Award className="h-4 w-4" />
-                                <span className="truncate">
-                                  {event.organizer}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex gap-2">
+                              {/* Save Button */}
                               <Button
-                                variant="outline"
-                                className="flex-1 border-gray-300 hover:bg-gray-50"
+                                size="sm"
+                                variant="ghost"
+                                className="absolute bottom-3 right-3 h-8 w-8 p-0 bg-white/90 hover:bg-white rounded-full"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggleSaveEvent(event.id);
@@ -1191,30 +1022,132 @@ export default function EventsPage() {
                               >
                                 <Heart
                                   className={cn(
-                                    "h-4 w-4 mr-2",
-                                    isSaved && "fill-red-500 text-red-500"
+                                    "h-4 w-4",
+                                    isSaved
+                                      ? "fill-red-500 text-red-500"
+                                      : "text-gray-600"
                                   )}
                                 />
-                                {isSaved ? "Saved" : "Save"}
                               </Button>
-                              <Link
-                                href={`/events/${event.id}`}
-                                className="flex-1"
-                              >
-                                <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-                                  View Event
-                                </Button>
-                              </Link>
                             </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    );
-                  })}
-                </StaggerContainer>
-                
-                {/* Pagination Controls */}
-                <PaginationControls />
+
+                            <CardContent className="p-4">
+                              {/* Category Badge */}
+                              <Badge variant="secondary" className="mb-3">
+                                {event.category}
+                              </Badge>
+
+                              {/* Title */}
+                              <Link href={`/events/${event.id}`}>
+                                <h3 className="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2 mb-2">
+                                  {event.title}
+                                </h3>
+                              </Link>
+
+                              {/* Description */}
+                              <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                                {event.description}
+                              </p>
+
+                              {/* Private Event Info - with consistent height */}
+                              <div className="mb-3 h-[42px]">
+                                {event.isPrivate && (
+                                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
+                                    <div className="flex items-center gap-2">
+                                      <Lock className="h-3 w-3 text-amber-600 flex-shrink-0" />
+                                      <p className="text-xs text-amber-700 font-medium">
+                                        Join this community to attend event
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* AI Explanation */}
+                              <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-2 mb-4">
+                                <div className="flex items-start gap-2">
+                                  <Brain className="h-3 w-3 text-purple-600 mt-0.5 flex-shrink-0" />
+                                  <p className="text-xs text-purple-700">
+                                    Based on your interest in{" "}
+                                    {event.category.toLowerCase()} events
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Event Info */}
+                              <div className="space-y-2 mb-4">
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <Calendar className="h-4 w-4" />
+                                  <span>
+                                    {new Date(event.date).toLocaleDateString(
+                                      "en-US",
+                                      {
+                                        month: "short",
+                                        day: "numeric",
+                                      }
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <Clock className="h-4 w-4" />
+                                  <span>
+                                    {event.time} - {event.endTime}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <MapPin className="h-4 w-4" />
+                                  <span className="truncate">
+                                    {event.location.city}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <Users className="h-4 w-4" />
+                                  <span>{event.attendees} attending</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <Award className="h-4 w-4" />
+                                  <span className="truncate">
+                                    {event.organizer}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  className="flex-1 border-gray-300 hover:bg-gray-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSaveEvent(event.id);
+                                  }}
+                                >
+                                  <Heart
+                                    className={cn(
+                                      "h-4 w-4 mr-2",
+                                      isSaved && "fill-red-500 text-red-500"
+                                    )}
+                                  />
+                                  {isSaved ? "Saved" : "Save"}
+                                </Button>
+                                <Link
+                                  href={`/events/${event.id}`}
+                                  className="flex-1"
+                                >
+                                  <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                                    View Event
+                                  </Button>
+                                </Link>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      );
+                    })}
+                  </StaggerContainer>
+
+                  {/* Pagination Controls */}
+                  <PaginationControls />
                 </>
               ) : (
                 <SmoothReveal>
@@ -1241,31 +1174,6 @@ export default function EventsPage() {
               )}
             </TabsContent>
 
-            {/* Trending Tab */}
-            <TabsContent value="trending" className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg">
-                    <TrendingUp className="h-6 w-6 text-white" />
-                  </div>
-                  Trending Events
-                </h2>
-              </div>
-
-              <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {paginatedEvents
-                  .filter((event) => event.trending)
-                  .map((event, index) => (
-                    <div key={event.id} className="stagger-item">
-                      <EnhancedEventCard event={event} />
-                    </div>
-                  ))}
-              </StaggerContainer>
-              
-              {/* Pagination Controls */}
-              <PaginationControls />
-            </TabsContent>
-
             {/* Saved Tab */}
             <TabsContent value="saved" className="space-y-6">
               {savedEvents.length > 0 ? (
@@ -1288,7 +1196,7 @@ export default function EventsPage() {
                         </div>
                       ))}
                   </StaggerContainer>
-                  
+
                   {/* Pagination Controls */}
                   <PaginationControls />
                 </>
