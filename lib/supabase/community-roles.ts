@@ -55,12 +55,24 @@ export async function isAdminOfCommunity(
 
 /**
  * Check if a user is creator or admin of a specific community
+ * @param useServiceClient - If true, uses service role client (for middleware/API routes)
  */
 export async function isCreatorOrAdminOfCommunity(
   userId: string,
-  communityId: string
+  communityId: string,
+  useServiceClient: boolean = false
 ): Promise<boolean> {
-  const supabase = await createServerClient();
+  let supabase;
+  
+  if (useServiceClient) {
+    // Use service role client for middleware to bypass RLS
+    supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  } else {
+    supabase = await createServerClient();
+  }
   
   // Check if user is creator
   const { data: community, error: communityError } = await supabase
@@ -79,7 +91,25 @@ export async function isCreatorOrAdminOfCommunity(
   }
 
   // Check if user is admin
-  return isAdminOfCommunity(userId, communityId);
+  if (useServiceClient) {
+    // Use service client for admin check too
+    const { data: membership, error: membershipError } = await supabase
+      .from("community_members")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("community_id", communityId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    if (membershipError) {
+      console.error("Error checking community admin status:", membershipError);
+      return false;
+    }
+
+    return !!membership;
+  } else {
+    return isAdminOfCommunity(userId, communityId);
+  }
 }
 
 /**

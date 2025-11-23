@@ -38,9 +38,6 @@ import {
   Search,
   Calendar,
   Users,
-  MessageSquare,
-  Trophy,
-  ShoppingBag,
   HelpCircle,
   Zap,
   X,
@@ -75,25 +72,6 @@ const navigationLinks = [
     label: "Events",
     icon: Calendar,
     hoverClasses: "hover:bg-green-50 hover:text-green-600",
-  },
-
-  {
-    href: "/messages",
-    label: "Messages",
-    icon: MessageSquare,
-    hoverClasses: "hover:bg-indigo-50 hover:text-indigo-600",
-  },
-  {
-    href: "/leaderboard",
-    label: "Leaderboard",
-    icon: Trophy,
-    hoverClasses: "hover:bg-yellow-50 hover:text-yellow-600",
-  },
-  {
-    href: "/store",
-    label: "Store",
-    icon: ShoppingBag,
-    hoverClasses: "hover:bg-pink-50 hover:text-pink-600",
   },
   {
     href: "/help-center",
@@ -142,20 +120,11 @@ export function UnifiedNav() {
         // Transform database notifications to UI format
         const transformedNotifications: Notification[] = (notificationsData || []).map((notif: any) => {
           // Map database types to UI types
-          let uiType: "message" | "event" | "achievement" | "system" | "community" = "system";
+          let uiType: "event" | "achievement" | "system" | "community" = "system";
           let title = "";
           let actionUrl = "";
 
           switch (notif.type) {
-            case "new_message":
-              uiType = "message";
-              title = "New Message";
-              if (notif.reference_type === "message" && notif.reference_id) {
-                actionUrl = `/messages`;
-              } else if (notif.reference_type === "community" && notif.reference_id) {
-                actionUrl = `/community/${notif.reference_id}`;
-              }
-              break;
             case "event_reminder":
               uiType = "event";
               title = "Event Reminder";
@@ -250,9 +219,7 @@ export function UnifiedNav() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const visibleLinks = user
-    ? navigationLinks
-    : navigationLinks.filter((link) => link.href !== "/messages");
+  const visibleLinks = navigationLinks;
 
   const handleMarkAsRead = async (id: string) => {
     try {

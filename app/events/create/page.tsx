@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AnimatedCard } from "@/components/ui/animated-card";
 import { AnimatedButton } from "@/components/ui/animated-button";
-import { ArrowLeft, Calendar, Loader2, MapPin, Clock, Users, Globe, FileText, Sparkles, Map, Wand2 } from "lucide-react";
+import { ArrowLeft, Calendar, Loader2, MapPin, Clock, Users, Globe, FileText, Sparkles, Map, Wand2, Upload, Image as ImageIcon, X } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
@@ -43,7 +43,10 @@ export default function CreateEventPage() {
     location: "",
     is_online: false,
     max_attendees: "",
+    image_url: "",
   });
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [enhanceDialogOpen, setEnhanceDialogOpen] = useState(false);
   const [enhancingContentType, setEnhancingContentType] = useState<"title" | "description" | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -170,6 +173,54 @@ export default function CreateEventPage() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size must be less than 5MB");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const formDataToUpload = new FormData();
+      formDataToUpload.append("image", file);
+
+      const response = await fetch("/api/events/upload-image", {
+        method: "POST",
+        body: formDataToUpload,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to upload image");
+      }
+
+      setFormData((prev) => ({ ...prev, image_url: data.url }));
+      setImagePreview(data.url);
+      toast.success("Image uploaded successfully!");
+    } catch (error: any) {
+      console.error("Error uploading image:", error);
+      toast.error(error.message || "Failed to upload image");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData((prev) => ({ ...prev, image_url: "" }));
+    setImagePreview(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -245,48 +296,56 @@ export default function CreateEventPage() {
         <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-        {/* Enhanced Header */}
-        <div className="mb-8">
-          <Link href={communityId ? `/community/${communityId}` : "/events"}>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="mb-6 hover:bg-purple-50 transition-colors group"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-              Back
-            </Button>
-          </Link>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 relative z-10">
+        {/* Enhanced Header with better back button placement */}
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <Link href={communityId ? `/community/${communityId}` : "/events"}>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="hover:bg-purple-50 transition-colors group -ml-2"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                Back
+              </Button>
+            </Link>
+            {community && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200">
+                <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                <span className="text-sm font-medium text-purple-700">{community.name}</span>
+              </div>
+            )}
+          </div>
           
-          <div className="flex items-start gap-4 mb-4">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 shadow-lg">
-              <Calendar className="h-8 w-8 text-white" />
+          <div className="flex items-start gap-4">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-500 via-blue-500 to-indigo-600 shadow-xl">
+              <Calendar className="h-10 w-10 text-white" />
             </div>
-            <div className="flex-1">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
+            <div className="flex-1 pt-1">
+              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
                 Create New Event
               </h1>
-              {community && (
-                <p className="text-gray-600 text-lg">
-                  Creating event for{" "}
-                  <span className="font-semibold text-purple-600">{community.name}</span>
-                </p>
-              )}
+              <p className="text-gray-600 text-base sm:text-lg">
+                {community 
+                  ? `Create an exciting event for ${community.name}`
+                  : "Fill in the details below to create your event"
+                }
+              </p>
             </div>
           </div>
         </div>
 
         {/* Enhanced Form Card */}
-        <AnimatedCard variant="glass" className="shadow-2xl border-0">
-          <CardHeader className="pb-6">
+        <AnimatedCard variant="glass" className="shadow-2xl border-0 overflow-hidden">
+          <CardHeader className="pb-6 bg-gradient-to-r from-purple-50 via-blue-50 to-indigo-50 border-b border-purple-100">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-purple-100 to-blue-100">
-                <Sparkles className="h-5 w-5 text-purple-600" />
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 shadow-lg">
+                <Sparkles className="h-5 w-5 text-white" />
               </div>
               <div>
-                <CardTitle className="text-2xl text-gray-900">Event Details</CardTitle>
-                <CardDescription className="text-base mt-1">
+                <CardTitle className="text-2xl font-bold text-gray-900">Event Details</CardTitle>
+                <CardDescription className="text-base mt-1 text-gray-600">
                   Fill in the details below to create your event
                 </CardDescription>
               </div>
@@ -295,9 +354,83 @@ export default function CreateEventPage() {
           
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Title Section */}
+              {/* Event Image Upload Section */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <Label htmlFor="event-image" className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-purple-600" />
+                  Event Image
+                  <span className="text-sm font-normal text-gray-500">(optional but recommended)</span>
+                </Label>
+                <div className="space-y-3">
+                  {imagePreview ? (
+                    <div className="relative group">
+                      <div className="relative w-full h-64 rounded-xl overflow-hidden border-2 border-gray-200">
+                        <img
+                          src={imagePreview}
+                          alt="Event preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleRemoveImage}
+                          className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="file"
+                        id="event-image"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={isUploadingImage}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="event-image"
+                        className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
+                          isUploadingImage
+                            ? "border-purple-300 bg-purple-50"
+                            : "border-gray-300 hover:border-purple-400 hover:bg-purple-50/50"
+                        }`}
+                      >
+                        {isUploadingImage ? (
+                          <>
+                            <Loader2 className="h-8 w-8 text-purple-600 animate-spin mb-3" />
+                            <span className="text-sm font-medium text-purple-600">Uploading image...</span>
+                          </>
+                        ) : (
+                          <>
+                            <div className="p-3 rounded-full bg-purple-100 mb-3">
+                              <Upload className="h-6 w-6 text-purple-600" />
+                            </div>
+                            <span className="text-sm font-medium text-gray-700 mb-1">
+                              Click to upload event image
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              PNG, JPG, or GIF up to 5MB
+                            </span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-gray-200"></div>
+
+              {/* Title Section */}
+              <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <Label htmlFor="title" className="text-base font-semibold text-gray-700 flex items-center gap-2">
                     <FileText className="h-4 w-4 text-purple-600" />
                     Event Title *
@@ -342,8 +475,8 @@ export default function CreateEventPage() {
               </div>
 
               {/* Description Section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <Label htmlFor="description" className="text-base font-semibold text-gray-700 flex items-center gap-2">
                     <FileText className="h-4 w-4 text-purple-600" />
                     Description *
@@ -388,41 +521,43 @@ export default function CreateEventPage() {
               </div>
 
               {/* Date and Time Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <Label htmlFor="start_time" className="text-base font-semibold text-gray-700 flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-purple-600" />
-                    Start Date & Time *
-                  </Label>
-                  <Input
-                    id="start_time"
-                    type="datetime-local"
-                    value={formData.start_time}
-                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                    className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all"
-                    required
-                  />
-                </div>
-                <div className="space-y-3">
-                  <Label htmlFor="end_time" className="text-base font-semibold text-gray-700 flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-purple-600" />
-                    End Date & Time *
-                  </Label>
-                  <Input
-                    id="end_time"
-                    type="datetime-local"
-                    value={formData.end_time}
-                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                    className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all"
-                    required
-                  />
+              <div className="p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="start_time" className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-purple-600" />
+                      Start Date & Time *
+                    </Label>
+                    <Input
+                      id="start_time"
+                      type="datetime-local"
+                      value={formData.start_time}
+                      onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                      className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all bg-white"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="end_time" className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-purple-600" />
+                      End Date & Time *
+                    </Label>
+                    <Input
+                      id="end_time"
+                      type="datetime-local"
+                      value={formData.end_time}
+                      onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                      className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all bg-white"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Location Section */}
               {!formData.is_online && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <Label htmlFor="location" className="text-base font-semibold text-gray-700 flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-purple-600" />
                       Location *
@@ -487,7 +622,7 @@ export default function CreateEventPage() {
 
               {/* Online Location Section */}
               {formData.is_online && (
-                <div className="space-y-3">
+                <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
                   <Label htmlFor="location" className="text-base font-semibold text-gray-700 flex items-center gap-2">
                     <Globe className="h-4 w-4 text-purple-600" />
                     Online Meeting Link
@@ -498,7 +633,7 @@ export default function CreateEventPage() {
                     placeholder="Online meeting link (e.g., Zoom, Google Meet, Discord)"
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all"
+                    className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all bg-white"
                   />
                 </div>
               )}
@@ -525,7 +660,7 @@ export default function CreateEventPage() {
               </div>
 
               {/* Max Attendees Section */}
-              <div className="space-y-3">
+              <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
                 <Label htmlFor="max_attendees" className="text-base font-semibold text-gray-700 flex items-center gap-2">
                   <Users className="h-4 w-4 text-purple-600" />
                   Max Attendees
@@ -537,7 +672,7 @@ export default function CreateEventPage() {
                   placeholder="No limit"
                   value={formData.max_attendees}
                   onChange={(e) => setFormData({ ...formData, max_attendees: e.target.value })}
-                  className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all"
+                  className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all bg-white"
                   min="1"
                 />
                 <p className="text-sm text-gray-500 flex items-center gap-1">
@@ -547,15 +682,15 @@ export default function CreateEventPage() {
               </div>
 
               {/* Divider */}
-              <div className="border-t border-gray-200 my-6"></div>
+              <div className="border-t border-gray-200 my-8"></div>
 
               {/* Submit Buttons */}
-              <div className="flex items-center gap-4 pt-2">
-                <Link href={communityId ? `/community/${communityId}` : "/events"} className="flex-1">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-4 bg-gradient-to-r from-gray-50 to-purple-50/30 -mx-6 px-6 py-6 rounded-b-xl">
+                <Link href={communityId ? `/community/${communityId}` : "/events"} className="flex-1 sm:flex-initial sm:w-auto">
                   <Button 
                     type="button" 
                     variant="outline" 
-                    className="w-full h-12 text-base border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all"
+                    className="w-full sm:w-auto min-w-[120px] h-12 text-base border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all"
                   >
                     Cancel
                   </Button>
@@ -564,7 +699,7 @@ export default function CreateEventPage() {
                   type="submit"
                   disabled={isSubmitting}
                   variant="default"
-                  className="flex-1 h-12 text-base font-semibold"
+                  className="flex-1 sm:flex-initial sm:min-w-[200px] h-12 text-base font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg"
                 >
                   {isSubmitting ? (
                     <>
