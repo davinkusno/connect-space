@@ -260,6 +260,50 @@ export interface Database {
           updated_at?: string
         }
       }
+      reports: {
+        Row: {
+          id: string
+          reporter_id: string
+          report_type: "community" | "post" | "member" | "event"
+          target_id: string
+          reason: string
+          details: string | null
+          status: "pending" | "reviewing" | "resolved" | "dismissed"
+          reviewed_by: string | null
+          review_notes: string | null
+          created_at: string
+          updated_at: string
+          resolved_at: string | null
+        }
+        Insert: {
+          id?: string
+          reporter_id: string
+          report_type: "community" | "post" | "member" | "event"
+          target_id: string
+          reason: string
+          details?: string | null
+          status?: "pending" | "reviewing" | "resolved" | "dismissed"
+          reviewed_by?: string | null
+          review_notes?: string | null
+          created_at?: string
+          updated_at?: string
+          resolved_at?: string | null
+        }
+        Update: {
+          id?: string
+          reporter_id?: string
+          report_type?: "community" | "post" | "member" | "event"
+          target_id?: string
+          reason?: string
+          details?: string | null
+          status?: "pending" | "reviewing" | "resolved" | "dismissed"
+          reviewed_by?: string | null
+          review_notes?: string | null
+          created_at?: string
+          updated_at?: string
+          resolved_at?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never

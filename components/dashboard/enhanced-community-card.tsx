@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
-import { Users, MessageCircle, Calendar, Settings, Bell, MoreHorizontal, ExternalLink } from "lucide-react"
+import { Users, Calendar, Settings, Bell, MoreHorizontal, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 
@@ -14,7 +14,6 @@ interface CommunityData {
   name: string
   role: string
   members: number
-  unreadMessages: number
   lastActivity: string
   image: string
   gradient: string
@@ -67,11 +66,6 @@ export function EnhancedCommunityCard({ community, variant = "detailed", classNa
                     {community.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                {community.unreadMessages > 0 && (
-                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {community.unreadMessages}
-                  </div>
-                )}
               </div>
 
               <div className="flex-1 min-w-0">
@@ -138,9 +132,6 @@ export function EnhancedCommunityCard({ community, variant = "detailed", classNa
             </div>
           </div>
 
-          {community.unreadMessages > 0 && (
-            <Badge className="bg-red-500 text-white">{community.unreadMessages} new</Badge>
-          )}
         </div>
 
         {/* Description */}
@@ -184,11 +175,6 @@ export function EnhancedCommunityCard({ community, variant = "detailed", classNa
             <Button variant="outline" size="sm" className="w-full">
               <ExternalLink className="h-3 w-3 mr-1" />
               View Community
-            </Button>
-          </Link>
-          <Link href={`/community/${community.id}/messages`}>
-            <Button variant="outline" size="sm" className="px-3">
-              <MessageCircle className="h-3 w-3" />
             </Button>
           </Link>
           <Button variant="outline" size="sm" className="px-3">

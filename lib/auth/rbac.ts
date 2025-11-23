@@ -85,10 +85,6 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     path: "/help-center",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
-  {
-    path: "/wishlist",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
   { path: "/store", allowedRoles: ["user", "community_admin", "super_admin"] },
   {
     path: "/communities",
@@ -112,37 +108,39 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     path: "/events/create",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
+  // Community Admin routes (permission checked in middleware - creator/admin of specific community)
+  // All authenticated users can access, but middleware will verify they are creator/admin
   {
-    path: "/community-admin/members",
-    allowedRoles: ["community_admin", "super_admin"],
+    path: "/community-admin/[id]",
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/discussions",
-    allowedRoles: ["community_admin", "super_admin"],
+    path: "/community-admin/[id]/members",
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/events",
-    allowedRoles: ["community_admin", "super_admin"],
+    path: "/community-admin/[id]/discussions",
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/create",
-    allowedRoles: ["community_admin", "super_admin"],
+    path: "/community-admin/[id]/events",
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/events/[id]",
-    allowedRoles: ["community_admin", "super_admin"],
+    path: "/community-admin/[id]/events/[eventId]",
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/events/[id]/edit",
-    allowedRoles: ["community_admin", "super_admin"],
+    path: "/community-admin/[id]/events/[eventId]/edit",
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/notifications",
-    allowedRoles: ["community_admin", "super_admin"],
+    path: "/community-admin/[id]/notifications",
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/requests",
-    allowedRoles: ["community_admin", "super_admin"],
+    path: "/community-admin/[id]/requests",
+    allowedRoles: ["user", "community_admin", "super_admin"],
   },
 
   // Super Admin routes (super admins only)

@@ -48,7 +48,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
 import dynamic from "next/dynamic";
-import { FloatingChat } from "@/components/chat/floating-chat";
+// import { FloatingChat } from "@/components/chat/floating-chat"; // Component not found
 import {
   FadeTransition,
   SlideTransition,
@@ -165,15 +165,15 @@ export default function CommunityPage({
     fetchCreatorIfNeeded();
   }, [community?.creator_id, creatorData]);
 
-  const loadCommunityData = async () => {
-    try {
+    const loadCommunityData = async () => {
+      try {
       setIsLoading(true);
-      const supabase = getSupabaseBrowser();
+        const supabase = getSupabaseBrowser();
       const session = await getClientSession();
 
-      // Fetch community data
+        // Fetch community data
       const { data: communityData, error: communityError } = await supabase
-        .from("communities")
+          .from("communities")
         .select(`
           *,
           categories (
@@ -181,8 +181,8 @@ export default function CommunityPage({
             name
           )
         `)
-        .eq("id", id)
-        .single();
+          .eq("id", id)
+          .single();
 
       console.log("Raw community data:", communityData);
 
@@ -190,8 +190,8 @@ export default function CommunityPage({
         console.error("Error fetching community:", communityError);
         toast.error("Failed to load community");
         router.push("/communities");
-        return;
-      }
+          return;
+        }
 
       // Parse location if it's a string
       if (communityData.location && typeof communityData.location === 'string') {
@@ -255,7 +255,7 @@ export default function CommunityPage({
         } else {
           // Check membership - check ALL memberships (including pending)
           const { data: membershipData } = await supabase
-            .from("community_members")
+          .from("community_members")
             .select("role, status")
             .eq("community_id", id)
             .eq("user_id", session.user.id)
@@ -288,7 +288,7 @@ export default function CommunityPage({
       // Creator is already included in community_members table, so no need to add +1
       const { count } = await supabase
         .from("community_members")
-        .select("*", { count: "exact", head: true })
+          .select("*", { count: "exact", head: true })
         .eq("community_id", id)
         .or("status.is.null,status.eq.true");
 
@@ -309,8 +309,8 @@ export default function CommunityPage({
       const supabase = getSupabaseBrowser();
 
       switch (tab) {
-        case "discussions":
-          // Load discussions from messages table (top-level messages only)
+        case "announcements":
+          // Load announcements from messages table (top-level messages only)
           const { data: messagesData } = await supabase
             .from("messages")
             .select(`
@@ -376,7 +376,7 @@ export default function CommunityPage({
             );
 
             setDiscussions(messagesWithUsers);
-          } else {
+            } else {
             setDiscussions([]);
           }
           break;
@@ -468,6 +468,7 @@ export default function CommunityPage({
               )
             `)
             .eq("community_id", id)
+            .or("status.is.null,status.eq.true")
             .order("joined_at", { ascending: false });
 
           if (membersError) {
@@ -484,8 +485,19 @@ export default function CommunityPage({
 
           console.log("Approved members:", approvedMembers?.length, approvedMembers);
           
+          // Map members and ensure creator is treated as admin with Creator badge
+          const formattedMembers = approvedMembers.map((member: any) => {
+            // If this member is the creator, treat them as admin
+            const isCreator = member.user_id === community.creator_id;
+            return {
+              ...member,
+              role: isCreator ? "admin" : member.role,
+              isCreator: isCreator,
+            };
+          });
+          
           // Set all members - creator is already in the list with role "admin"
-          setMembers(approvedMembers);
+          setMembers(formattedMembers);
           break;
 
         default:
@@ -680,15 +692,15 @@ export default function CommunityPage({
 
       if (error) throw error;
 
-      toast.success("Discussion posted!");
+      toast.success("Announcement posted!");
       setNewPost("");
-      // Reload discussions
-      loadTabData("discussions");
+      // Reload announcements
+      loadTabData("announcements");
     } catch (error: any) {
       console.error("Error posting discussion:", error);
       toast.error(error.message || "Failed to post discussion");
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
 
@@ -713,8 +725,8 @@ export default function CommunityPage({
       toast.success("Reply posted!");
       setReplyContent("");
       setReplyingTo(null);
-      // Reload discussions
-      loadTabData("discussions");
+      // Reload announcements
+      loadTabData("announcements");
     } catch (error: any) {
       console.error("Error posting reply:", error);
       toast.error(error.message || "Failed to post reply");
@@ -874,9 +886,9 @@ export default function CommunityPage({
             <Link href="/communities">
               <Button>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Browse Communities
-              </Button>
-            </Link>
+              Browse Communities
+            </Button>
+          </Link>
           </CardContent>
         </Card>
       </div>
@@ -888,11 +900,11 @@ export default function CommunityPage({
       {/* Hero Section with Cover Image */}
       <div className="relative h-72 overflow-hidden bg-gradient-to-br from-violet-600 to-blue-600">
         {community.banner_url && (
-          <Image
+        <Image
             src={community.banner_url}
-            alt={community.name}
-            fill
-            className="object-cover"
+          alt={community.name}
+          fill
+          className="object-cover"
             priority
           />
         )}
@@ -963,7 +975,7 @@ export default function CommunityPage({
           </div>
       </div>
             </div>
-              </div>
+      </div>
 
       {/* Action Bar */}
       <div className="bg-white border-b border-gray-200 sticky top-16 z-40 shadow-sm">
@@ -971,26 +983,26 @@ export default function CommunityPage({
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center gap-3">
               {userRole === "creator" ? (
-                <Button
+              <Button
                   disabled
                   className="bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed"
                 >
                   <Crown className="h-4 w-4 mr-2" />
                   Your Community
-                </Button>
+              </Button>
               ) : membershipStatus === "approved" && isMember ? (
                 <div className="px-4 py-2 bg-green-50 text-green-700 rounded-md border border-green-200 flex items-center">
                   <UserPlus className="h-4 w-4 mr-2" />
                   Community Joined
-                </div>
+            </div>
               ) : membershipStatus === "pending" ? (
                 <div className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-200 flex items-center">
                   <Clock className="h-4 w-4 mr-2" />
                   Waiting For Approval
-                </div>
+              </div>
               ) : (
                 <Button
-                  onClick={handleJoinCommunity}
+                    onClick={handleJoinCommunity}
                   disabled={isJoining}
                   className="bg-violet-600 hover:bg-violet-700 text-white"
                 >
@@ -1003,24 +1015,24 @@ export default function CommunityPage({
                     <>
                       <UserPlus className="h-4 w-4 mr-2" />
                       Join Community
-                    </>
-                  )}
+                </>
+              )}
                 </Button>
               )}
               
               {isMember && membershipStatus === "approved" && (
-                <Button
+                  <Button
                   onClick={handleJoinCommunity}
-                  variant="outline"
+                    variant="outline"
                   className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
-                >
+                  >
                   <UserMinus className="h-4 w-4 mr-2" />
                   Leave
-                </Button>
+                  </Button>
               )}
               
-              <Button 
-                variant="outline" 
+                    <Button
+                      variant="outline"
                 className="border-gray-200 hover:bg-gray-50"
                 onClick={async () => {
                   const url = window.location.href;
@@ -1053,8 +1065,8 @@ export default function CommunityPage({
               >
                 <Share2 className="h-4 w-4 mr-2" />
                 Share
-              </Button>
-            </div>
+                    </Button>
+                </div>
           </div>
         </div>
       </div>
@@ -1098,9 +1110,9 @@ export default function CommunityPage({
                   <Card className="border-gray-100">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-xl font-medium text-gray-900">
-                          About This Community
-                        </CardTitle>
+                      <CardTitle className="text-xl font-medium text-gray-900">
+                        About This Community
+                      </CardTitle>
                         {isOwner && !isEditingDescription && (
                           <Button
                             variant="outline"
@@ -1188,9 +1200,9 @@ export default function CommunityPage({
                           </div>
                         </div>
                       ) : (
-                        <p className="text-gray-700 leading-relaxed">
-                          {community.description}
-                        </p>
+                      <p className="text-gray-700 leading-relaxed">
+                        {community.description}
+                      </p>
                       )}
 
                       <div className="py-6">
@@ -1276,43 +1288,43 @@ export default function CommunityPage({
                 {/* New Announcement - Only for Admin/Owner */}
                 {canManage && (
                   <Card className="border-gray-200">
-                    <CardContent className="p-6">
-                      <div className="flex gap-4">
-                        <Avatar>
+                      <CardContent className="p-6">
+                        <div className="flex gap-4">
+                          <Avatar>
                           <AvatarImage src={currentUser?.user_metadata?.avatar_url} />
                           <AvatarFallback>
                             {currentUser?.email?.charAt(0).toUpperCase()}
                           </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 space-y-4">
-                          <Textarea
+                          </Avatar>
+                          <div className="flex-1 space-y-4">
+                            <Textarea
                             placeholder="Create an announcement for the community..."
-                            value={newPost}
-                            onChange={(e) => setNewPost(e.target.value)}
+                              value={newPost}
+                              onChange={(e) => setNewPost(e.target.value)}
                             className="min-h-[100px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none"
-                          />
+                            />
                           <div className="flex justify-end items-center">
-                            <Button
-                              disabled={!newPost.trim() || isSubmitting}
+                              <Button
+                                disabled={!newPost.trim() || isSubmitting}
                               onClick={handlePostDiscussion}
                               className="bg-violet-600 hover:bg-violet-700 text-white"
-                            >
-                              {isSubmitting ? (
-                                <>
+                                >
+                                  {isSubmitting ? (
+                                    <>
                                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Posting...
-                                </>
-                              ) : (
-                                <>
+                                      Posting...
+                                    </>
+                                  ) : (
+                                    <>
                                   <Send className="h-4 w-4 mr-2" /> Post Announcement
-                                </>
-                              )}
-                            </Button>
+                                    </>
+                                  )}
+                                </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
                 )}
 
                 {/* Announcements List */}
@@ -1394,14 +1406,14 @@ export default function CommunityPage({
                                     <Trash2 className="h-4 w-4 mr-1" />
                                     Delete
                                   </Button>
-                                </div>
+                              </div>
                               )}
                             </div>
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
-                  </div>
+                  ))}
+                </div>
                 )}
               </TabsContent>
 
@@ -1419,9 +1431,9 @@ export default function CommunityPage({
                       <Button 
                         className="bg-violet-600 hover:bg-violet-700 text-white"
                       >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Create Event
-                      </Button>
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Create Event
+                        </Button>
                     </Link>
                     )}
                   </div>
@@ -1477,7 +1489,7 @@ export default function CommunityPage({
                           <Card className="border-gray-200 hover:shadow-xl hover:border-violet-400 transition-all duration-300 cursor-pointer overflow-hidden h-full bg-gradient-to-br from-white to-violet-50/30">
                             {event.image_url && (
                               <div className="relative h-48 w-full overflow-hidden">
-                                <Image
+                              <Image
                                   src={event.image_url}
                                   alt={event.title || "Event image"}
                                   fill
@@ -1501,8 +1513,8 @@ export default function CommunityPage({
                               <div className="space-y-4">
                                 <div>
                                   <h4 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-violet-600 transition-colors">
-                                    {event.title}
-                                  </h4>
+                                {event.title}
+                              </h4>
                                   {event.description && (
                                     <p className="text-sm text-gray-600 line-clamp-2 mb-3">
                                       {event.description}
@@ -1538,7 +1550,7 @@ export default function CommunityPage({
                                   {event.location && (
                                     <div className="flex items-center gap-2 text-gray-700">
                                       <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
-                                        <MapPin className="h-4 w-4" />
+                                    <MapPin className="h-4 w-4" />
                                       </div>
                                       <span className="flex-1 truncate">{event.location}</span>
                                     </div>
@@ -1556,10 +1568,10 @@ export default function CommunityPage({
                                   {event.max_attendees && (
                                     <div className="flex items-center gap-2 text-gray-700">
                                       <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
-                                        <Users className="h-4 w-4" />
-                                      </div>
+                                  <Users className="h-4 w-4" />
+                                </div>
                                       <span className="flex-1">Max {event.max_attendees} attendees</span>
-                                    </div>
+                              </div>
                                   )}
                                 </div>
                                 
@@ -1580,11 +1592,11 @@ export default function CommunityPage({
                     </Link>
                   );
                 })}
-              </div>
+                </div>
             )}
-          </TabsContent>
+              </TabsContent>
 
-          {/* Members Tab */}
+              {/* Members Tab */}
           <TabsContent value="members" className="space-y-6 mt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1625,7 +1637,13 @@ export default function CommunityPage({
                                   <h4 className="font-semibold text-gray-900">
                                     {member.users?.full_name || member.users?.username || "Unknown"}
                                   </h4>
-                                  {member.role === "admin" && (
+                                  {member.isCreator && (
+                                    <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
+                                      <Crown className="h-3 w-3 mr-1" />
+                                      Creator
+                                    </Badge>
+                                  )}
+                                  {!member.isCreator && member.role === "admin" && (
                                     <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
                                       <Shield className="h-3 w-3 mr-1" />
                                       Admin
@@ -1646,12 +1664,12 @@ export default function CommunityPage({
                                   })}
                                 </p>
                               </div>
+                              </div>
                             </div>
-                          </div>
                         </CardContent>
                       </Card>
-                    ))}
-                  </div>
+                  ))}
+                </div>
                 )}
               </TabsContent>
             </Tabs>
@@ -1684,8 +1702,8 @@ export default function CommunityPage({
                   </span>
                   <span className="font-semibold text-gray-900">
                     {events.length}
-                  </span>
-                </div>
+                    </span>
+                  </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 flex items-center gap-2">
                     <Clock className="h-4 w-4" />
@@ -1710,16 +1728,16 @@ export default function CommunityPage({
                           }
                         })()
                       : "Unknown"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
 
             {/* Creator Info */}
             <Card className="border-gray-200">
-              <CardHeader>
+                <CardHeader>
                 <CardTitle className="text-lg font-semibold">Created By</CardTitle>
-              </CardHeader>
+                </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
@@ -1727,16 +1745,16 @@ export default function CommunityPage({
                     <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
                       {(creatorData?.username || community.creator?.username || "U").charAt(0).toUpperCase()}
                     </AvatarFallback>
-                  </Avatar>
+                      </Avatar>
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">
                       {creatorData?.full_name || creatorData?.username || "Loading..."}
                     </p>
                     <p className="text-sm text-violet-600">Founder</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                      </div>
+                    </div>
+                </CardContent>
+              </Card>
           </div>
         </div>
       </div>

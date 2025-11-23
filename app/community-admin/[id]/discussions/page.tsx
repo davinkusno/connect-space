@@ -373,7 +373,7 @@ export default function CommunityDiscussionsPage({
     filteredAnnouncements = filteredAnnouncements.filter(announcement =>
       announcement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       announcement.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      announcement.eventTitle.toLowerCase().includes(searchTerm.toLowerCase())
+      (announcement.eventTitle?.toLowerCase() || "").includes(searchTerm.toLowerCase())
     )
   }
 
@@ -399,8 +399,8 @@ export default function CommunityDiscussionsPage({
       aValue = a.title.toLowerCase()
       bValue = b.title.toLowerCase()
     } else if (sortBy === "event") {
-      aValue = a.eventTitle.toLowerCase()
-      bValue = b.eventTitle.toLowerCase()
+      aValue = (a.eventTitle?.toLowerCase() || "")
+      bValue = (b.eventTitle?.toLowerCase() || "")
     }
 
     if (sortOrder === "asc") {

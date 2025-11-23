@@ -8,9 +8,9 @@ import { AnimatedCard } from "@/components/ui/animated-card";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { PageTransition } from "@/components/ui/page-transition";
 import { FloatingElements } from "@/components/ui/floating-elements";
@@ -18,15 +18,22 @@ import {
   User,
   Mail,
   MapPin,
-  Globe,
   Calendar,
   Edit3,
   Save,
   X,
   Camera,
-  CheckCircle,
+  Award,
+  Crown,
+  Plus,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface City {
+  id: string;
+  id_provinsi: string;
+  name: string;
+}
 
 interface UserProfile {
   id: string;
@@ -36,9 +43,12 @@ interface UserProfile {
     avatar_url?: string;
     name?: string;
     username?: string;
-    bio?: string;
-    location?: string;
-    website?: string;
+    location_city?: string;
+    location_city_name?: string;
+    location_province?: string;
+    interests?: string[];
+    points?: number;
+    is_community_admin?: boolean;
   };
 }
 
@@ -52,10 +62,18 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState({
     fullName: "",
     username: "",
-    bio: "",
-    location: "",
-    website: "",
+    interests: [] as string[],
   });
+  const [points, setPoints] = useState(0);
+  const [isCommunityAdmin, setIsCommunityAdmin] = useState(false);
+  const [newInterest, setNewInterest] = useState("");
+  
+  // Location data
+  const [allCities, setAllCities] = useState<City[]>([]);
+  const [locationQuery, setLocationQuery] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState<City | null>(null);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
 
   const router = useRouter();
   const supabase = getSupabaseBrowser();
@@ -81,10 +99,20 @@ export default function ProfilePage() {
           fullName: metadata.full_name || metadata.name || "",
           username:
             metadata.username || session.user.email?.split("@")[0] || "",
-          bio: metadata.bio || "",
-          location: metadata.location || "",
-          website: metadata.website || "",
+          interests: metadata.interests || ["Technology", "Community", "Networking"],
         });
+        setPoints(metadata.points || 1250);
+        setIsCommunityAdmin(metadata.is_community_admin || false);
+        
+        // Load location from metadata
+        if (metadata.location_city) {
+          setLocationQuery(metadata.location_city_name || "");
+          setSelectedLocation({
+            id: metadata.location_city,
+            id_provinsi: metadata.location_province || "",
+            name: metadata.location_city_name || "",
+          });
+        }
       } catch (error) {
         console.error("Error getting user:", error);
         toast({
@@ -98,7 +126,49 @@ export default function ProfilePage() {
     };
 
     getUser();
+    fetchAllCities();
   }, [supabase.auth, router, toast]);
+
+  const fetchAllCities = async () => {
+    setLoadingCities(true);
+    try {
+      // First, fetch all provinces
+      const provincesResponse = await fetch(
+        "https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json"
+      );
+      const provinces: Province[] = await provincesResponse.json();
+
+      // Then, fetch cities for all provinces
+      const allCitiesPromises = provinces.map((province) =>
+        fetch(
+          `https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${province.id}.json`
+        ).then((res) => res.json())
+      );
+
+      const citiesArrays = await Promise.all(allCitiesPromises);
+      const flattenedCities = citiesArrays.flat();
+      
+      setAllCities(flattenedCities);
+    } catch (error) {
+      console.error("Error fetching cities:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load cities",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingCities(false);
+    }
+  };
+
+  // Convert city name from CAPSLOCK to Title Case
+  const toTitleCase = (str: string) => {
+    return str
+      .toLowerCase()
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -114,11 +184,15 @@ export default function ProfilePage() {
         return;
       }
 
-      if (formData.website && !formData.website.startsWith("http")) {
-        setFormData((prev) => ({
-          ...prev,
-          website: `https://${prev.website}`,
-        }));
+      // Validate interests minimum
+      if (formData.interests.length < 3) {
+        toast({
+          title: "Validation Error",
+          description: "Please add at least 3 interests.",
+          variant: "destructive",
+        });
+        setIsSaving(false);
+        return;
       }
 
       // Update user metadata in Supabase
@@ -126,9 +200,12 @@ export default function ProfilePage() {
         data: {
           full_name: formData.fullName,
           username: formData.username,
-          bio: formData.bio,
-          location: formData.location,
-          website: formData.website,
+          location_city: selectedLocation?.id || null,
+          location_city_name: selectedLocation?.name || null,
+          location_province: selectedLocation?.id_provinsi || null,
+          interests: formData.interests,
+          points: points,
+          is_community_admin: isCommunityAdmin,
         },
       });
 
@@ -145,9 +222,12 @@ export default function ProfilePage() {
                 ...prev.user_metadata,
                 full_name: formData.fullName,
                 username: formData.username,
-                bio: formData.bio,
-                location: formData.location,
-                website: formData.website,
+                location_city: selectedLocation?.id || null,
+                location_city_name: selectedLocation?.name || null,
+                location_province: selectedLocation?.id_provinsi || null,
+                interests: formData.interests,
+                points: points,
+                is_community_admin: isCommunityAdmin,
               },
             }
           : null
@@ -172,6 +252,7 @@ export default function ProfilePage() {
 
   const handleCancel = () => {
     setIsEditing(false);
+    setNewInterest("");
     // Reset form data to original values
     if (user) {
       setFormData({
@@ -179,11 +260,74 @@ export default function ProfilePage() {
           user.user_metadata?.full_name || user.user_metadata?.name || "",
         username:
           user.user_metadata?.username || user.email?.split("@")[0] || "",
-        bio: user.user_metadata?.bio || "",
-        location: user.user_metadata?.location || "",
-        website: user.user_metadata?.website || "",
+        interests: user.user_metadata?.interests || ["Technology", "Community", "Networking"],
       });
+      setPoints(user.user_metadata?.points || 1250);
+      setIsCommunityAdmin(user.user_metadata?.is_community_admin || false);
+      
+      // Reset location
+      if (user.user_metadata?.location_city) {
+        setLocationQuery(user.user_metadata.location_city_name || "");
+        setSelectedLocation({
+          id: user.user_metadata.location_city,
+          id_provinsi: user.user_metadata.location_province || "",
+          name: user.user_metadata.location_city_name || "",
+        });
+      } else {
+        setLocationQuery("");
+        setSelectedLocation(null);
+      }
     }
+  };
+
+  const handleAddInterest = () => {
+    if (!newInterest.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an interest.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.interests.includes(newInterest.trim())) {
+      toast({
+        title: "Error",
+        description: "This interest already exists.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setFormData({
+      ...formData,
+      interests: [...formData.interests, newInterest.trim()],
+    });
+    setNewInterest("");
+    toast({
+      title: "Interest added",
+      description: "Your interest has been added successfully.",
+    });
+  };
+
+  const handleRemoveInterest = (interestToRemove: string) => {
+    if (formData.interests.length <= 3) {
+      toast({
+        title: "Cannot remove",
+        description: "You must have at least 3 interests.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setFormData({
+      ...formData,
+      interests: formData.interests.filter((i) => i !== interestToRemove),
+    });
+    toast({
+      title: "Interest removed",
+      description: "Your interest has been removed.",
+    });
   };
 
   const getUserDisplayName = () => {
@@ -539,15 +683,35 @@ export default function ProfilePage() {
                   </p>
                   <p className="text-sm text-gray-500 mb-6">{user.email}</p>
 
-                  {/* Badges */}
-                  <div className="flex justify-center gap-2 mb-6">
-                    <Badge className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-300 px-3 py-1">
-                      Community Member
-                    </Badge>
-                    <Badge className="bg-gradient-to-r from-green-100 to-green-200 text-green-800 border-green-300 px-3 py-1 flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3" />
-                      Verified
-                    </Badge>
+                  {/* Status Badge */}
+                  <div className="flex flex-wrap justify-center gap-2 mb-6">
+                    {isCommunityAdmin ? (
+                      <Badge className="bg-gradient-to-r from-amber-100 to-amber-200 text-amber-800 border-amber-300 px-3 py-1 flex items-center gap-1">
+                        <Crown className="h-3 w-3" />
+                        Community Admin
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-300 px-3 py-1">
+                        Community Member
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Points */}
+                  <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200">
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+                        <Award className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-purple-900">
+                          {points.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-purple-600 font-medium">
+                          Total Points
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Member Since */}
@@ -713,97 +877,195 @@ export default function ProfilePage() {
                       Additional Information
                     </h4>
                     <div className="space-y-6">
-                      <div className="space-y-2">
+                      {/* Location Search */}
+                      <div className="space-y-2 relative">
                         <Label
-                          htmlFor="bio"
+                          htmlFor="location"
                           className="text-sm font-semibold text-gray-700"
                         >
-                          Bio
+                          City / Regency
                         </Label>
                         {isEditing ? (
-                          <Textarea
-                            id="bio"
-                            value={formData.bio}
-                            onChange={(e) =>
-                              setFormData({ ...formData, bio: e.target.value })
-                            }
-                            placeholder="Tell us about yourself..."
-                            className="border-gray-200 focus:border-purple-500 focus:ring-purple-500 min-h-[100px]"
-                            rows={4}
-                          />
+                          <div className="relative">
+                            <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 z-10" />
+                            <Input
+                              id="location"
+                              value={locationQuery}
+                              onChange={(e) => {
+                                setLocationQuery(e.target.value);
+                                setShowLocationDropdown(true);
+                              }}
+                              onFocus={() => setShowLocationDropdown(true)}
+                              onBlur={() => setTimeout(() => setShowLocationDropdown(false), 200)}
+                              placeholder="Search for your city..."
+                              className="pl-12 h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
+                            />
+                            {locationQuery && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
+                                onClick={() => {
+                                  setLocationQuery("");
+                                  setSelectedLocation(null);
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                            
+                            {/* Search Results Dropdown */}
+                            {showLocationDropdown && locationQuery && (
+                              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+                                {loadingCities ? (
+                                  <div className="p-4 text-center text-gray-500">
+                                    Loading cities...
+                                  </div>
+                                ) : (
+                                  <>
+                                    {allCities
+                                      .filter((city) =>
+                                        city.name
+                                          .toLowerCase()
+                                          .includes(locationQuery.toLowerCase())
+                                      )
+                                      .slice(0, 10)
+                                      .map((city) => (
+                                        <button
+                                          key={city.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedLocation(city);
+                                            setLocationQuery(toTitleCase(city.name));
+                                            setShowLocationDropdown(false);
+                                          }}
+                                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors duration-200 border-b border-gray-100 last:border-0"
+                                        >
+                                          <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                          <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-gray-900">
+                                              {toTitleCase(city.name)}
+                                            </div>
+                                          </div>
+                                        </button>
+                                      ))}
+                                    {allCities.filter((city) =>
+                                      city.name
+                                        .toLowerCase()
+                                        .includes(locationQuery.toLowerCase())
+                                    ).length === 0 && (
+                                      <div className="p-4 text-center text-gray-500">
+                                        No cities found
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         ) : (
-                          <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                            <p className="text-gray-900 leading-relaxed">
-                              {formData.bio || "No bio provided yet."}
-                            </p>
+                          <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                              <MapPin className="h-5 w-5 text-orange-600" />
+                            </div>
+                            <span className="text-gray-900 font-medium">
+                              {selectedLocation
+                                ? toTitleCase(selectedLocation.name)
+                                : "Not provided"}
+                            </span>
                           </div>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="location"
-                            className="text-sm font-semibold text-gray-700"
-                          >
-                            Location
-                          </Label>
-                          {isEditing ? (
-                            <Input
-                              id="location"
-                              value={formData.location}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  location: e.target.value,
-                                })
-                              }
-                              placeholder="City, Country"
-                              className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
-                            />
-                          ) : (
-                            <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                                <MapPin className="h-5 w-5 text-orange-600" />
-                              </div>
-                              <span className="text-gray-900 font-medium">
-                                {formData.location || "Not provided"}
-                              </span>
+                      {/* Interests Section */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          Interests
+                          <span className="text-xs text-gray-500 font-normal">
+                            (Minimum 3 required)
+                          </span>
+                        </Label>
+                        {isEditing ? (
+                          <div className="space-y-3">
+                            {/* Add Interest Input */}
+                            <div className="flex gap-2">
+                              <Input
+                                value={newInterest}
+                                onChange={(e) => setNewInterest(e.target.value)}
+                                onKeyPress={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleAddInterest();
+                                  }
+                                }}
+                                placeholder="Add an interest (e.g., Photography, Hiking)"
+                                className="h-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
+                              />
+                              <AnimatedButton
+                                variant="gradient"
+                                size="sm"
+                                onClick={handleAddInterest}
+                                className="px-4"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </AnimatedButton>
                             </div>
-                          )}
-                        </div>
 
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="website"
-                            className="text-sm font-semibold text-gray-700"
-                          >
-                            Website
-                          </Label>
-                          {isEditing ? (
-                            <Input
-                              id="website"
-                              value={formData.website}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  website: e.target.value,
-                                })
-                              }
-                              placeholder="https://yourwebsite.com"
-                              className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
-                            />
-                          ) : (
-                            <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                                <Globe className="h-5 w-5 text-indigo-600" />
-                              </div>
-                              <span className="text-gray-900 font-medium">
-                                {formData.website || "Not provided"}
-                              </span>
+                            {/* Interests List */}
+                            <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-xl border border-gray-200 min-h-[80px]">
+                              {formData.interests.length === 0 ? (
+                                <p className="text-sm text-gray-500 w-full text-center py-4">
+                                  No interests added yet. Add at least 3.
+                                </p>
+                              ) : (
+                                formData.interests.map((interest, index) => (
+                                  <Badge
+                                    key={index}
+                                    variant="secondary"
+                                    className="px-3 py-1.5 text-sm flex items-center gap-2 bg-purple-100 text-purple-800 border-purple-300"
+                                  >
+                                    {interest}
+                                    <button
+                                      onClick={() => handleRemoveInterest(interest)}
+                                      className="hover:text-red-600 transition-colors"
+                                      disabled={formData.interests.length <= 3}
+                                      title={
+                                        formData.interests.length <= 3
+                                          ? "Minimum 3 interests required"
+                                          : "Remove interest"
+                                      }
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </Badge>
+                                ))
+                              )}
                             </div>
-                          )}
-                        </div>
+                            <p className="text-xs text-gray-500">
+                              {formData.interests.length}/∞ interests added (min: 3)
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                            <div className="flex flex-wrap gap-2">
+                              {formData.interests.length === 0 ? (
+                                <p className="text-sm text-gray-500">
+                                  No interests added yet.
+                                </p>
+                              ) : (
+                                formData.interests.map((interest, index) => (
+                                  <Badge
+                                    key={index}
+                                    variant="secondary"
+                                    className="px-3 py-1.5 text-sm bg-purple-100 text-purple-800 border-purple-300"
+                                  >
+                                    {interest}
+                                  </Badge>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

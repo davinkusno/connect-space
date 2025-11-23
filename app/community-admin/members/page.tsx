@@ -188,7 +188,7 @@ export default function CommunityMembersPage({
       await loadMembers(communityData.id)
     } catch (error) {
       console.error("Error loading community:", error)
-    }
+      }
   }
 
   const loadMembers = async (communityId: string) => {
@@ -297,14 +297,14 @@ export default function CommunityMembersPage({
           user_id: member.user_id,
           role: member.role as "admin" | "member",
           joined_at: member.joined_at,
-          user: {
+      user: {
             id: user?.id || member.user_id,
             username: user?.username || null,
             full_name: user?.full_name || null,
             avatar_url: user?.avatar_url || null,
             email: user?.email || ""
-          }
-        }
+      }
+    }
       })
 
       // Combine with dummy data (only 3 dummy members)
@@ -315,9 +315,9 @@ export default function CommunityMembersPage({
     } catch (error) {
       console.error("Error loading members:", error)
       // Use dummy data on error
-      setMembers(mockMembers)
-      setTotalCount(mockMembers.length)
-      setTotalPages(Math.ceil(mockMembers.length / pageSize))
+    setMembers(mockMembers)
+    setTotalCount(mockMembers.length)
+    setTotalPages(Math.ceil(mockMembers.length / pageSize))
     }
   }
 
@@ -603,39 +603,39 @@ export default function CommunityMembersPage({
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                            >
+                              <UserMinus className="w-4 h-4 mr-2" />
+                              Kick
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove Member</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to remove{" "}
+                                <span className="font-semibold">
+                                  {member.user.full_name || member.user.username || "this member"}
+                                </span>{" "}
+                                from the community? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleKickMember(member.id, member.user.full_name || member.user.username || "Member")}
+                                className="bg-red-600 hover:bg-red-700"
                               >
-                                <UserMinus className="w-4 h-4 mr-2" />
-                                Kick
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Remove Member</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to remove{" "}
-                                  <span className="font-semibold">
-                                    {member.user.full_name || member.user.username || "this member"}
-                                  </span>{" "}
-                                  from the community? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleKickMember(member.id, member.user.full_name || member.user.username || "Member")}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  Remove Member
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                                Remove Member
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                         </>
                       )}
                     </div>

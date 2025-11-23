@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
 import { hasAccess, getRedirectPath, type UserRole } from "@/lib/auth/rbac"
 import { createServiceClient } from "@/lib/supabase/service"
+import { isCreatorOrAdminOfCommunity } from "@/lib/supabase/community-roles"
 
 export async function updateSession(request: NextRequest) {
   const supabaseResponse = NextResponse.next({
@@ -73,6 +74,28 @@ export async function updateSession(request: NextRequest) {
     } else {
       // If user_type is null/undefined, default to "user" (all authenticated users)
       userRole = "user"
+    }
+
+    // Special handling for community-admin routes
+    // Check if user is creator or admin of the specific community
+    if (currentPath.startsWith("/community-admin/")) {
+      const pathMatch = currentPath.match(/^\/community-admin\/([^/]+)/)
+      if (pathMatch && pathMatch[1]) {
+        const communityId = pathMatch[1]
+        // Use service client for middleware to bypass RLS
+        const hasPermission = await isCreatorOrAdminOfCommunity(user.id, communityId, true)
+        
+        // Super admins always have access
+        if (userRole === "super_admin" || hasPermission) {
+          // Allow access - continue to next check
+        } else {
+          console.log(`Access denied for user ${user.email} (${userRole}) to ${currentPath} - not creator or admin of community ${communityId}`)
+          const redirectPath = getRedirectPath(userRole, currentPath)
+          const url = request.nextUrl.clone()
+          url.pathname = redirectPath
+          return NextResponse.redirect(url)
+        }
+      }
     }
 
     // Only restrict superadmin routes - everything else is allowed for authenticated users

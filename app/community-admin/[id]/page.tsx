@@ -1131,12 +1131,14 @@ export default function CommunityAdminPage({
                     
 
                     {/* Edit Community Button */}
-                    <Link href={communityId ? `/community-admin/${communityId}/edit` : "/community-admin/edit"} className="w-full">
-                      <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit Community
-                      </Button>
-                    </Link>
+                    {communityId && (
+                      <Link href={`/community-admin/${communityId}/edit`} className="w-full">
+                        <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit Community
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1226,14 +1228,16 @@ export default function CommunityAdminPage({
                   </div>
                   
                   {/* See More Link */}
-                  <div className="mt-3">
-                    <Link href={communityId ? `/community-admin/${communityId}/requests` : "/community-admin/requests"} className="block">
-                      <Button variant="ghost" className="w-full text-purple-600 hover:text-purple-700 hover:bg-purple-50">
-                        See All Requests
-                        <ChevronRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </Link>
-                  </div>
+                  {communityId && (
+                    <div className="mt-3">
+                      <Link href={`/community-admin/${communityId}/requests`} className="block">
+                        <Button variant="ghost" className="w-full text-purple-600 hover:text-purple-700 hover:bg-purple-50">
+                          See All Requests
+                          <ChevronRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1380,45 +1384,49 @@ export default function CommunityAdminPage({
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Events Card */}
-                    <Link href={communityId ? `/community-admin/${communityId}/events` : "/community-admin/events"}>
-                      <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
-                            <span className="text-white text-sm">📅</span>
-                          </div>
-                          <h4 className="font-semibold text-gray-900">Events</h4>
-                        </div>
-                        {/* removed status badge per request */}
-                      </div>
-                      <p className="text-sm text-gray-600">Manage and track your community events</p>
-                      <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
-                        <EventCount communityId={community?.id} />
-                        <ChevronRight className="w-4 h-4 text-purple-600" />
-                      </div>
-                      </div>
-                    </Link>
-
-
-                    {/* Members Card */}
-                    <Link href={communityId ? `/community-admin/${communityId}/members` : "/community-admin/members"}>
-                      <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer">
+                    {communityId && (
+                      <Link href={`/community-admin/${communityId}/events`}>
+                        <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
-                              <span className="text-white text-sm">👥</span>
+                              <span className="text-white text-sm">📅</span>
                             </div>
-                            <h4 className="font-semibold text-gray-900">Members</h4>
+                            <h4 className="font-semibold text-gray-900">Events</h4>
                           </div>
                           {/* removed status badge per request */}
                         </div>
-                        <p className="text-sm text-gray-600">View and manage community members</p>
+                        <p className="text-sm text-gray-600">Manage and track your community events</p>
                         <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
-                          <span>{community?.memberCount.toLocaleString()} members</span>
+                          <EventCount communityId={community?.id} />
                           <ChevronRight className="w-4 h-4 text-purple-600" />
                         </div>
-                      </div>
-                    </Link>
+                        </div>
+                      </Link>
+                    )}
+
+
+                    {/* Members Card */}
+                    {communityId && (
+                      <Link href={`/community-admin/${communityId}/members`}>
+                        <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
+                                <span className="text-white text-sm">👥</span>
+                              </div>
+                              <h4 className="font-semibold text-gray-900">Members</h4>
+                            </div>
+                            {/* removed status badge per request */}
+                          </div>
+                          <p className="text-sm text-gray-600">View and manage community members</p>
+                          <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+                            <span>{community?.memberCount.toLocaleString()} members</span>
+                            <ChevronRight className="w-4 h-4 text-purple-600" />
+                          </div>
+                        </div>
+                      </Link>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1501,14 +1509,16 @@ export default function CommunityAdminPage({
                   )}
 
                   {/* See More Link */}
-                  <div className="mt-3">
-                    <Link href={communityId ? `/community-admin/${communityId}/discussions` : "/community-admin/discussions"}>
-                      <Button variant="ghost" className="text-purple-600 hover:text-purple-700 hover:bg-purple-50">
-                        See More
-                        <ChevronRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </Link>
-                  </div>
+                  {communityId && (
+                    <div className="mt-3">
+                      <Link href={`/community-admin/${communityId}/discussions`}>
+                        <Button variant="ghost" className="text-purple-600 hover:text-purple-700 hover:bg-purple-50">
+                          See More
+                          <ChevronRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

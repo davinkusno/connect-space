@@ -155,39 +155,6 @@ export async function POST(
       )
     }
 
-    if (updateError) {
-      console.error("Failed to update status - Full error:", {
-        message: updateError.message,
-        code: updateError.code,
-        details: updateError.details,
-        hint: updateError.hint,
-        fullError: JSON.stringify(updateError, null, 2)
-      })
-      
-      // Check if it's a permission/RLS issue
-      if (updateError.code === "42501" || updateError.message?.includes("permission") || updateError.message?.includes("policy")) {
-        return NextResponse.json(
-          { 
-            error: "Permission denied",
-            details: "You may not have permission to update this record. Check RLS policies.",
-            code: updateError.code,
-            hint: updateError.hint
-          },
-          { status: 403 }
-        )
-      }
-      
-      return NextResponse.json(
-        { 
-          error: "Failed to update status",
-          details: updateError.message || "Unknown error",
-          code: updateError.code,
-          hint: updateError.hint
-        },
-        { status: 500 }
-      )
-    }
-
     // If RPC succeeded, use the result directly
     if (updatedRecord && updatedRecord.status === true) {
       console.log("Status successfully updated via RPC")
