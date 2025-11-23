@@ -79,6 +79,11 @@ interface Event {
   images: string[];
   tags: string[];
   website?: string;
+  communities?: {
+    id: string;
+    name: string;
+    logo_url?: string;
+  };
   relatedEvents: Array<{
     id: string;
     title: string;
@@ -118,6 +123,7 @@ export default function EventDetailsPage({
   const [isAttendeesOpen, setIsAttendeesOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Fetch event data from Supabase
   useEffect(() => {
@@ -129,6 +135,9 @@ export default function EventDetailsPage({
         setError(null);
         const supabase = getSupabaseBrowser();
         
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        
         // Fetch event with community and creator info
         const { data: eventData, error: eventError } = await supabase
           .from("events")
@@ -137,7 +146,8 @@ export default function EventDetailsPage({
             communities (
               id,
               name,
-              logo_url
+              logo_url,
+              creator_id
             ),
             creator:creator_id (
               id,
@@ -195,6 +205,30 @@ export default function EventDetailsPage({
         ]);
 
         const registeredCount = attendeesResult.count || 0;
+
+        // Check if user is admin/creator of the community
+        if (user && eventData.communities) {
+          const community = eventData.communities as any;
+          
+          // Check if user is creator
+          if (community.creator_id === user.id) {
+            setIsAdmin(true);
+          } else {
+            // Check if user is admin
+            const { data: membership } = await supabase
+              .from("community_members")
+              .select("role")
+              .eq("community_id", community.id)
+              .eq("user_id", user.id)
+              .eq("role", "admin")
+              .maybeSingle();
+            
+            if (membership) {
+              setIsAdmin(true);
+            }
+          }
+        }
+
         const relatedEvents = (relatedEventsResult.data || []).map((e: any) => ({
           id: e.id,
           title: e.title,
@@ -215,59 +249,113 @@ export default function EventDetailsPage({
           attendees: 0, // Could fetch if needed
         }));
 
-        // Parse location - it's stored as a string address
+        // Parse location - it's stored as a string that might be JSON
         const locationString = eventData.location || "";
         let parsedLocation = {
-          venue: locationString,
+          venue: "",
           address: locationString,
           city: "",
-      lat: 0,
-      lng: 0,
+          lat: 0,
+          lng: 0,
           isOnline: eventData.is_online || false,
           meetingLink: eventData.is_online ? locationString : undefined,
         };
 
-        // For physical locations, try to geocode the address to get coordinates
+        // Try to parse location as JSON (it might be nested JSON string)
         if (locationString && !eventData.is_online) {
           try {
-            // Try to extract city from address (simple parsing)
-            const parts = locationString.split(',').map(p => p.trim());
-            if (parts.length > 1) {
-              parsedLocation.city = parts[parts.length - 1];
-              parsedLocation.address = locationString;
-              parsedLocation.venue = parts[0];
+            let locationData: any = null;
+            
+            // Try to parse as JSON
+            try {
+              locationData = typeof locationString === 'string' ? JSON.parse(locationString) : locationString;
+              
+              // If it's still a string after parsing, try parsing again (nested JSON)
+              if (typeof locationData === 'string') {
+                try {
+                  locationData = JSON.parse(locationData);
+                } catch (e) {
+                  // If second parse fails, use the first parsed string
+                }
+              }
+            } catch (e) {
+              // If JSON parse fails, treat as plain string
+              locationData = null;
             }
 
-            // Geocode the address using Nominatim (OpenStreetMap)
-            const geocodeResponse = await fetch(
-              `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationString)}&limit=1&addressdetails=1`,
-              {
-                headers: {
-                  'User-Agent': 'ConnectSpace/1.0' // Required by Nominatim
-                }
+            if (locationData && typeof locationData === 'object') {
+              // Extract address and city from parsed JSON
+              if (locationData.address) {
+                parsedLocation.address = locationData.address;
+              } else if (typeof locationData === 'string') {
+                parsedLocation.address = locationData;
               }
-            );
-            
-            if (geocodeResponse.ok) {
-              const geocodeData = await geocodeResponse.json();
-              if (geocodeData && geocodeData.length > 0) {
-                const result = geocodeData[0];
-                parsedLocation.lat = parseFloat(result.lat);
-                parsedLocation.lng = parseFloat(result.lon);
-                
-                // Update address details if geocoding found better info
-                if (result.address) {
-                  const addr = result.address;
-                  parsedLocation.city = addr.city || addr.town || addr.village || addr.municipality || parsedLocation.city;
-                  if (result.display_name) {
-                    parsedLocation.address = result.display_name;
+              
+              if (locationData.city) {
+                parsedLocation.city = locationData.city;
+              }
+              
+              if (locationData.lat) {
+                parsedLocation.lat = parseFloat(locationData.lat);
+              }
+              
+              if (locationData.lng) {
+                parsedLocation.lng = parseFloat(locationData.lng);
+              }
+            } else {
+              // If not JSON, treat as plain address string
+              // Try to extract city from address (simple parsing)
+              const parts = locationString.split(',').map(p => p.trim());
+              if (parts.length > 1) {
+                // Look for city in the address parts (usually near the end)
+                // Common pattern: ..., City, Province, Country
+                parsedLocation.address = locationString;
+                // Try to find city (usually second to last or third to last)
+                if (parts.length >= 2) {
+                  // Check if there's a recognizable city name
+                  const possibleCity = parts[parts.length - 2] || parts[parts.length - 1];
+                  if (possibleCity && !possibleCity.match(/^\d+$/)) { // Not just a number
+                    parsedLocation.city = possibleCity;
                   }
                 }
+              } else {
+                parsedLocation.address = locationString;
               }
             }
-          } catch (geocodeError) {
-            console.warn("Geocoding failed, using address string:", geocodeError);
-            // Continue with address string if geocoding fails
+
+            // If we have address but no coordinates, try geocoding
+            if (parsedLocation.address && (parsedLocation.lat === 0 || parsedLocation.lng === 0)) {
+              try {
+                const geocodeResponse = await fetch(
+                  `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(parsedLocation.address)}&limit=1&addressdetails=1`,
+                  {
+                    headers: {
+                      'User-Agent': 'ConnectSpace/1.0' // Required by Nominatim
+                    }
+                  }
+                );
+                
+                if (geocodeResponse.ok) {
+                  const geocodeData = await geocodeResponse.json();
+                  if (geocodeData && geocodeData.length > 0) {
+                    const result = geocodeData[0];
+                    parsedLocation.lat = parseFloat(result.lat);
+                    parsedLocation.lng = parseFloat(result.lon);
+                    
+                    // Update city if geocoding found better info
+                    if (result.address && !parsedLocation.city) {
+                      const addr = result.address;
+                      parsedLocation.city = addr.city || addr.town || addr.village || addr.municipality || "";
+                    }
+                  }
+                }
+              } catch (geocodeError) {
+                console.warn("Geocoding failed:", geocodeError);
+              }
+            }
+          } catch (error) {
+            console.warn("Location parsing failed, using raw string:", error);
+            parsedLocation.address = locationString;
           }
         }
 
@@ -301,6 +389,7 @@ export default function EventDetailsPage({
           image: eventData.image_url || "",
           images: eventData.image_url ? [eventData.image_url] : [],
           tags: eventData.category ? [eventData.category] : [],
+          communities: eventData.communities as any,
           relatedEvents: relatedEvents,
           organizerEvents: organizerEvents,
         };
@@ -342,7 +431,11 @@ export default function EventDetailsPage({
   }, []);
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      return ""; // Return empty string if invalid date
+    }
+    return date.toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -437,14 +530,12 @@ export default function EventDetailsPage({
   const availableSpots = event ? event.capacity - event.registered : 0;
   const registrationPercentage = event ? (event.registered / event.capacity) * 100 : 0;
 
-  // Mock user role - replace with actual auth check
-  const isAdmin = false; // Set to true if user is community admin
   const [showBanner, setShowBanner] = useState(true);
 
   // Show loading state
   if (isLoading || isCheckingAuth) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading event...</p>
@@ -456,7 +547,7 @@ export default function EventDetailsPage({
   // Show error state
   if (error || !event) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
         <div className="text-center max-w-md">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Event Not Found</h1>
           <p className="text-gray-600 mb-6">{error || "The event you're looking for doesn't exist."}</p>
@@ -469,7 +560,7 @@ export default function EventDetailsPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
       {/* Back Button */}
       <div className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 py-3">
@@ -522,7 +613,7 @@ export default function EventDetailsPage({
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                <span>{event.location.venue}</span>
+                <span>{event.location.address}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -557,7 +648,7 @@ export default function EventDetailsPage({
             {/* Left: Date & Title */}
             <div className="hidden min-w-0 flex-1 flex-col gap-1 md:flex">
               <time className="text-xs uppercase leading-5 tracking-tight text-gray-500">
-                {formatDate(event.date)} · {formatTime(event.time)}
+                {formatDate(event.date) && `${formatDate(event.date)} · `}{formatTime(event.time)}
               </time>
               <h2 className="text-xl font-semibold text-gray-900 truncate">
                 {event.title}
@@ -566,7 +657,17 @@ export default function EventDetailsPage({
 
             {/* Right: Badges & Actions */}
             <div className="ml-auto flex w-full items-center justify-between gap-2 md:w-auto md:justify-start">
-              {isRegistered ? (
+              {isAdmin ? (
+                <>
+                  {/* Admin Badge */}
+                  <div className="flex items-center gap-2 pl-3 sm:flex">
+                    <Badge className="bg-purple-100 text-purple-700 border-purple-200 px-3 py-1.5 text-sm font-medium rounded-full">
+                      <Award className="h-3 w-3 mr-1" />
+                      <span className="truncate px-0.5">Event Admin</span>
+                    </Badge>
+                  </div>
+                </>
+              ) : isRegistered ? (
                 <>
                   {/* "You're going!" Badge */}
                   <div className="flex items-center gap-2 pl-3 sm:flex">
@@ -768,11 +869,10 @@ export default function EventDetailsPage({
 
           {/* Content Tabs */}
           <Tabs defaultValue="about" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="about">About</TabsTrigger>
               <TabsTrigger value="location">Location</TabsTrigger>
-              <TabsTrigger value="discussion">Announcement</TabsTrigger>
-              <TabsTrigger value="gallery">Gallery</TabsTrigger>
+              <TabsTrigger value="announcement">Announcement</TabsTrigger>
             </TabsList>
 
             <TabsContent value="about" className="space-y-6 mt-6">
@@ -1166,20 +1266,12 @@ export default function EventDetailsPage({
                       Event Location
                     </CardTitle>
                     <CardDescription>
-                      {event.location.venue && event.location.venue !== event.location.address
-                        ? `${event.location.venue} • ${event.location.address}${event.location.city ? `, ${event.location.city}` : ''}`
-                        : event.location.address || "Location information"}
+                      {event.location.address || "Location information"}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* Location Details */}
                     <div className="space-y-2 text-sm">
-                      {event.location.venue && event.location.venue !== event.location.address && (
-                        <div className="flex items-start gap-2">
-                          <span className="font-medium text-gray-700 min-w-[80px]">Venue:</span>
-                          <span className="text-gray-600">{event.location.venue}</span>
-                        </div>
-                      )}
                       <div className="flex items-start gap-2">
                         <span className="font-medium text-gray-700 min-w-[80px]">Address:</span>
                         <span className="text-gray-600">{event.location.address}</span>
@@ -1228,36 +1320,14 @@ export default function EventDetailsPage({
               )}
             </TabsContent>
 
-            <TabsContent value="discussion" className="mt-6">
+            <TabsContent value="announcement" className="mt-6">
               <EventDiscussion
                 eventId={event.id}
                 organizerName={event.organizer.name}
                 hasAnnouncement={true}
+                isAdmin={isAdmin}
+                communityId={event.communities?.id || ""}
               />
-            </TabsContent>
-
-            <TabsContent value="gallery" className="space-y-6 mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Event Gallery</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {event.images.map((image, index) => (
-                      <div
-                        key={index}
-                        className="aspect-video rounded-lg overflow-hidden hover:scale-105 transition-transform cursor-pointer"
-                      >
-                        <img
-                          src={image || "/placeholder.svg"}
-                          alt={`Event image ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
           </Tabs>
         </div>

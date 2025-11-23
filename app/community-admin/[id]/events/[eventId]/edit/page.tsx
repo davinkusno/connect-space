@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { use } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -150,9 +150,16 @@ const categories = [
 export default function EditEventPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ eventId: string }>;
 }) {
-  const { id } = use(params);
+  const pathname = usePathname();
+  // Extract community ID from pathname: /community-admin/[communityId]/events/[eventId]/edit
+  const pathParts = pathname?.split("/") || [];
+  const communityIdIndex = pathParts.indexOf("community-admin") + 1;
+  const communityId = communityIdIndex > 0 && pathParts[communityIdIndex] ? pathParts[communityIdIndex] : null;
+  
+  // This eventId is the event ID (from nested route)
+  const { eventId } = use(params);
   const router = useRouter()
   
   const [eventData, setEventData] = useState({
@@ -215,7 +222,7 @@ export default function EditEventPage({
         const supabase = getSupabaseBrowser()
         
         // Check if event ID is a dummy event
-        if (id.startsWith("dummy-")) {
+        if (eventId.startsWith("dummy-")) {
           setIsLoadingEvent(false)
           return
         }
@@ -224,7 +231,7 @@ export default function EditEventPage({
         const { data: eventRecord, error: eventError } = await supabase
           .from("events")
           .select("*")
-          .eq("id", id)
+          .eq("id", eventId)
           .single()
 
         if (eventError || !eventRecord) {
@@ -315,7 +322,7 @@ export default function EditEventPage({
     }
 
     loadEventData()
-  }, [id])
+  }, [eventId])
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -415,7 +422,7 @@ export default function EditEventPage({
       if (eventData.capacity) updatePayload.max_attendees = parseInt(eventData.capacity)
 
       // Update event via API
-      const response = await fetch(`/api/events/${id}/update`, {
+      const response = await fetch(`/api/events/${eventId}/update`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -434,7 +441,7 @@ export default function EditEventPage({
       
       // Redirect to event detail page
       setTimeout(() => {
-        window.location.href = `/community-admin/events/${id}`
+        window.location.href = communityId ? `/community-admin/${communityId}/events/${eventId}` : `/community-admin/events/${eventId}`
       }, 500)
     } catch (error: any) {
       console.error("Error updating event:", error)
@@ -738,7 +745,7 @@ export default function EditEventPage({
               <h1 className="text-4xl font-light text-gray-900 mb-3">Edit Event</h1>
               <p className="text-gray-600">Update your event details</p>
             </div>
-            <Link href="/community-admin/events">
+            <Link href={communityId ? `/community-admin/${communityId}/events` : "/community-admin/events"}>
               <Button variant="outline" size="icon" className="border-gray-200 hover:border-purple-300 hover:bg-purple-50">
                 <ArrowLeft className="w-4 h-4" />
               </Button>
@@ -1098,3 +1105,6 @@ export default function EditEventPage({
     </div>
   )
 }
+
+
+

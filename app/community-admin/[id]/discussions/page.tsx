@@ -46,7 +46,11 @@ interface AnnouncementTopic {
   tags?: string[]
 }
 
-export default function CommunityDiscussionsPage() {
+export default function CommunityDiscussionsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const [announcements, setAnnouncements] = useState<AnnouncementTopic[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [communityId, setCommunityId] = useState<string | null>(null)
@@ -67,10 +71,15 @@ export default function CommunityDiscussionsPage() {
 
   // Load announcements from database
   useEffect(() => {
-    loadCommunityAndAnnouncements()
-  }, [])
+    const loadParams = async () => {
+      const resolvedParams = await params
+      setCommunityId(resolvedParams.id)
+      loadCommunityAndAnnouncements(resolvedParams.id)
+    }
+    loadParams()
+  }, [params])
 
-  const loadCommunityAndAnnouncements = async () => {
+  const loadCommunityAndAnnouncements = async (id: string) => {
     try {
       setIsLoading(true)
       const supabase = getSupabaseBrowser()
@@ -84,50 +93,37 @@ export default function CommunityDiscussionsPage() {
         return
       }
 
-      // Get community where user is creator or admin
-      let communityData = null
-      
-      // Try to get community where user is creator
-      let { data: communityDataAsCreator, error: communityError } = await supabase
+      // Get community by ID from params
+      const { data: communityData, error: communityError } = await supabase
         .from("communities")
-        .select("id, name")
-        .eq("creator_id", user.id)
-        .limit(1)
-        .maybeSingle()
+        .select("id, name, creator_id")
+        .eq("id", id)
+        .single()
 
-      if (communityDataAsCreator && !communityError) {
-        communityData = communityDataAsCreator
-      } else {
-        // If not found as creator, try to get community where user is admin
-        const { data: memberData } = await supabase
-          .from("community_members")
-          .select("community_id")
-          .eq("user_id", user.id)
-          .eq("role", "admin")
-          .limit(1)
-          .maybeSingle()
-
-        if (memberData) {
-          const { data: commData } = await supabase
-            .from("communities")
-            .select("id, name")
-            .eq("id", memberData.community_id)
-            .single()
-
-          if (commData) {
-            communityData = commData
-          }
-        }
-      }
-
-      if (!communityData) {
-        console.error("Community not found")
+      if (communityError || !communityData) {
+        console.error("Community not found:", communityError)
         setIsLoading(false)
         return
       }
 
-      setCommunityId(communityData.id)
-      await loadAnnouncements(communityData.id)
+      // Verify user is admin or creator
+      const isCreator = communityData.creator_id === user.id
+      const { data: membership } = await supabase
+        .from("community_members")
+        .select("role")
+        .eq("community_id", id)
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle()
+
+      if (!isCreator && !membership) {
+        console.error("User is not admin or creator")
+        setIsLoading(false)
+        return
+      }
+
+      setCommunityId(id)
+      await loadAnnouncements(id)
     } catch (error) {
       console.error("Error loading community:", error)
       setIsLoading(false)
@@ -427,7 +423,7 @@ export default function CommunityDiscussionsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
         <div className="mb-6">
-          <Link href="/community-admin">
+          <Link href={communityId ? `/community-admin/${communityId}` : "/community-admin"}>
             <Button variant="outline" size="sm" className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard

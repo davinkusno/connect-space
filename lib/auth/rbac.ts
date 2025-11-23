@@ -112,8 +112,6 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     path: "/events/create",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
-<<<<<<< Updated upstream
-=======
   {
     path: "/community-admin/members",
     allowedRoles: ["community_admin", "super_admin"],
@@ -146,12 +144,6 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     path: "/community-admin/requests",
     allowedRoles: ["community_admin", "super_admin"],
   },
-  {
-    path: "/create-community",
-    allowedRoles: ["community_admin", "super_admin"],
-  },
-  { path: "/events/create", allowedRoles: ["community_admin", "super_admin"] },
->>>>>>> Stashed changes
 
   // Super Admin routes (super admins only)
   { path: "/superadmin", allowedRoles: ["super_admin"] },

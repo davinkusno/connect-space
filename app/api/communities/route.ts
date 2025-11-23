@@ -146,11 +146,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return formatError("DATABASE_ERROR", "Failed to create community", null, 500)
     }
 
-    // Add creator as admin member
+    // Add creator as admin member with status = true (approved)
     await supabase.from("community_members").insert({
       community_id: community.id,
       user_id: session.user.id,
       role: "admin",
+      status: true, // Creator is automatically approved
     })
 
     return formatResponse(community, undefined, 201)

@@ -169,13 +169,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Add creator as admin member
+    // Add creator as admin member with status = true (approved)
     const { error: memberError } = await supabase
       .from("community_members")
       .insert({
         community_id: community.id,
         user_id: user.id,
         role: "admin",
+        status: true, // Creator is automatically approved
       });
 
     if (memberError) {

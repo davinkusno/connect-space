@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { 
@@ -153,7 +154,7 @@ export default function CommunityMembersPage({
       // Get community by ID
       const { data: communityData, error: communityError } = await supabase
         .from("communities")
-        .select("id, name, logo_url")
+        .select("id, name, logo_url, creator_id")
         .eq("id", id)
         .single()
 
@@ -541,10 +542,16 @@ export default function CommunityMembersPage({
 
                       {/* Member Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="mb-1">
+                        <div className="mb-1 flex items-center gap-2">
                           <h3 className="text-lg font-semibold text-gray-900 truncate">
                             {member.user.full_name || member.user.username || "Unknown User"}
                           </h3>
+                          {member.role === "admin" && (
+                            <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-none">
+                              <Shield className="w-3 h-3 mr-1" />
+                              Admin
+                            </Badge>
+                          )}
                         </div>
                         
                         <div className="flex items-center space-x-4 text-sm text-gray-600">
@@ -710,3 +717,6 @@ export default function CommunityMembersPage({
     </PageTransition>
   )
 }
+
+
+

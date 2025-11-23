@@ -75,6 +75,7 @@ export interface Database {
           user_id: string
           role: "admin" | "moderator" | "member"
           joined_at: string
+          status: boolean | null
         }
         Insert: {
           id?: string
@@ -82,6 +83,7 @@ export interface Database {
           user_id: string
           role?: "admin" | "moderator" | "member"
           joined_at?: string
+          status?: boolean | null
         }
         Update: {
           id?: string
@@ -89,6 +91,7 @@ export interface Database {
           user_id?: string
           role?: "admin" | "moderator" | "member"
           joined_at?: string
+          status?: boolean | null
         }
       }
       events: {
