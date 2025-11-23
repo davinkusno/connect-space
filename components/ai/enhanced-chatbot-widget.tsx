@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -59,7 +60,7 @@ interface EnhancedChatbotWidgetProps {
   position?: "bottom-right" | "bottom-left" | "top-right" | "top-left"
 }
 
-export function EnhancedChatbotWidget({
+function EnhancedChatbotWidgetComponent({
   className,
   defaultOpen = false,
   context = "general",
@@ -959,3 +960,5 @@ export function EnhancedChatbotWidget({
     </Card>
   )
 }
+
+export const EnhancedChatbotWidget = React.memo(EnhancedChatbotWidgetComponent)
