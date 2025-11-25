@@ -65,6 +65,7 @@ import {
   ButtonPulse,
   HoverScale,
 } from "@/components/ui/micro-interactions";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 
 // Dynamic import for Leaflet map
 const LeafletMap = dynamic(
@@ -93,10 +94,25 @@ export default function CommunityPage({
   
   // Tab-specific data
   const [discussions, setDiscussions] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [pastEvents, setPastEvents] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [memberCount, setMemberCount] = useState(0);
   const [isLoadingTab, setIsLoadingTab] = useState(false);
+  const [upcomingEventsPage, setUpcomingEventsPage] = useState(1);
+  const [pastEventsPage, setPastEventsPage] = useState(1);
+  const eventsPerPage = 6;
+  const [membersPage, setMembersPage] = useState(1);
+  const membersPerPage = 12;
+
+  // Report dialog state
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportType, setReportType] = useState<"community" | "post" | "member" | "event">("community");
+  const [reportTargetId, setReportTargetId] = useState<string>("");
+  const [reportTargetName, setReportTargetName] = useState<string>("");
+
+  // Join/Leave modal state
+  const [joinLeaveModalOpen, setJoinLeaveModalOpen] = useState(false);
 
   // Post creation
   const [newPost, setNewPost] = useState("");
@@ -382,70 +398,37 @@ export default function CommunityPage({
           break;
 
         case "events":
-          // Load events for this community (both upcoming and recent past events)
-          // Show upcoming events first, then recent past events
+          // Load upcoming and past events separately
           const now = new Date().toISOString();
-          const { data: upcomingEvents } = await supabase
+          
+          // Fetch upcoming events
+          const { data: upcomingEventsData, error: upcomingError } = await supabase
             .from("events")
             .select("*")
             .eq("community_id", id)
             .gte("start_time", now)
-            .order("start_time", { ascending: true })
-            .limit(20);
+            .order("start_time", { ascending: true });
           
-          // Also load recent past events (last 30 days) for context
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          if (upcomingError) {
+            console.error("Error fetching upcoming events:", upcomingError);
+            toast.error("Failed to load upcoming events");
+          }
           
-          const { data: recentPastEvents } = await supabase
+          // Fetch past events (all past events, not just recent)
+          const { data: pastEventsData, error: pastError } = await supabase
             .from("events")
             .select("*")
             .eq("community_id", id)
-            .gte("start_time", thirtyDaysAgo.toISOString())
             .lt("start_time", now)
-            .order("start_time", { ascending: false })
-            .limit(5);
+            .order("start_time", { ascending: false });
           
-          // Combine: upcoming first, then recent past
-          // Use a Map to ensure unique events by ID (in case of duplicates)
-          const eventsMap = new Map();
+          if (pastError) {
+            console.error("Error fetching past events:", pastError);
+            toast.error("Failed to load past events");
+          }
           
-          // Add upcoming events first
-          (upcomingEvents || []).forEach((event: any) => {
-            if (event?.id) {
-              eventsMap.set(String(event.id), event);
-            }
-          });
-          
-          // Add recent past events (won't overwrite if duplicate)
-          (recentPastEvents || []).forEach((event: any) => {
-            if (event?.id && !eventsMap.has(String(event.id))) {
-              eventsMap.set(String(event.id), event);
-            }
-          });
-          
-          // Convert back to array: upcoming first, then recent past
-          const allEvents = Array.from(eventsMap.values());
-          
-          // Sort: upcoming events first (by start_time ascending), then past events (by start_time descending)
-          allEvents.sort((a, b) => {
-            const aTime = new Date(a.start_time).getTime();
-            const bTime = new Date(b.start_time).getTime();
-            const now = Date.now();
-            
-            const aIsUpcoming = aTime >= now;
-            const bIsUpcoming = bTime >= now;
-            
-            // If both are upcoming or both are past, sort by time
-            if (aIsUpcoming === bIsUpcoming) {
-              return aIsUpcoming ? aTime - bTime : bTime - aTime;
-            }
-            
-            // Upcoming events come first
-            return aIsUpcoming ? -1 : 1;
-          });
-          
-          setEvents(allEvents);
+          setUpcomingEvents(upcomingEventsData || []);
+          setPastEvents(pastEventsData || []);
           break;
 
         case "members":
@@ -1418,12 +1401,12 @@ export default function CommunityPage({
               </TabsContent>
 
               {/* Events Tab */}
-              <TabsContent value="events" className="space-y-6 mt-6">
+              <TabsContent value="events" className="space-y-8 mt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900">Upcoming Events</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">Events</h3>
                     <p className="text-gray-600 text-sm mt-1">
-                      {events.length} events scheduled
+                      {upcomingEvents.length} upcoming, {pastEvents.length} past
                     </p>
                   </div>
                   {canManage && (
@@ -1442,33 +1425,42 @@ export default function CommunityPage({
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
                   </div>
-                ) : events.length === 0 ? (
+                ) : (
+                  <>
+                    {/* Upcoming Events Section */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-900">Upcoming Events</h4>
+                          <p className="text-gray-600 text-sm mt-1">
+                            {upcomingEvents.length} {upcomingEvents.length === 1 ? 'event' : 'events'} scheduled
+                          </p>
+                        </div>
+                      </div>
+
+                      {upcomingEvents.length === 0 ? (
                   <Card className="border-gray-200">
-                    <CardContent className="p-12 text-center">
-                      <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                          <CardContent className="p-8 text-center">
+                            <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                            <h4 className="text-base font-semibold text-gray-900 mb-2">
                         No upcoming events
-                      </h3>
-                      <p className="text-gray-600 mb-6">
+                            </h4>
+                            <p className="text-sm text-gray-600">
                         {canManage 
                           ? "Create the first event for your community!"
                           : "Check back later for upcoming events."}
                       </p>
-                      {canManage && (
-                        <Link href={`/events/create?community_id=${id}`}>
-                          <Button 
-                            className="bg-violet-600 hover:bg-violet-700 text-white"
-                          >
-                            <Calendar className="h-4 w-4 mr-2" />
-                            Create Event
-                          </Button>
-                        </Link>
-                      )}
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {events.map((event) => {
+                  <>
+                  <div className="space-y-3">
+                            {upcomingEvents
+                      .slice(
+                                (upcomingEventsPage - 1) * eventsPerPage,
+                                upcomingEventsPage * eventsPerPage
+                      )
+                      .map((event) => {
                       // Ensure event has a valid ID
                       if (!event?.id) {
                         console.warn("Event missing ID:", event);
@@ -1476,9 +1468,20 @@ export default function CommunityPage({
                       }
                       
                       const eventId = String(event.id);
-                      const isUpcoming = new Date(event.start_time) >= new Date();
                       const startDate = new Date(event.start_time);
                       const endDate = new Date(event.end_time);
+                      
+                      // Format date for display
+                      const dayOfMonth = startDate.getDate();
+                      const monthShort = startDate.toLocaleDateString("en-US", { month: "short" });
+                      const weekday = startDate.toLocaleDateString("en-US", { weekday: "short" });
+                      const timeRange = `${startDate.toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })} - ${endDate.toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}`;
                       
                       return (
                         <Link 
@@ -1486,114 +1489,232 @@ export default function CommunityPage({
                           href={`/events/${eventId}`}
                           className="block group"
                         >
-                          <Card className="border-gray-200 hover:shadow-xl hover:border-violet-400 transition-all duration-300 cursor-pointer overflow-hidden h-full bg-gradient-to-br from-white to-violet-50/30">
-                            {event.image_url && (
-                              <div className="relative h-48 w-full overflow-hidden">
-                              <Image
-                                  src={event.image_url}
-                                  alt={event.title || "Event image"}
-                                  fill
-                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                />
-                                <div className="absolute top-3 right-3">
-                                  {isUpcoming ? (
-                                    <Badge className="bg-violet-600 text-white border-0">
-                                      <Calendar className="h-3 w-3 mr-1" />
-                                      Upcoming
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="secondary" className="bg-gray-500 text-white border-0">
-                                      Past Event
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                            <CardContent className="p-6">
-                              <div className="space-y-4">
-                                <div>
-                                  <h4 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-violet-600 transition-colors">
-                                {event.title}
-                              </h4>
-                                  {event.description && (
-                                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                                      {event.description}
-                                    </p>
-                                  )}
-                                </div>
-                                
-                                <div className="space-y-2 text-sm">
-                                  <div className="flex items-center gap-2 text-gray-700">
-                                    <div className="p-1.5 rounded-lg bg-violet-100 text-violet-600">
-                                      <Clock className="h-4 w-4" />
+                          <Card className="border-gray-200 hover:shadow-lg hover:border-violet-400 transition-all duration-300 cursor-pointer">
+                            <CardContent className="p-4">
+                              <div className="flex gap-4">
+                                {/* Date Display - Prominent on Left */}
+                                <div className="flex-shrink-0 w-20 text-center">
+                                  <div className="rounded-lg p-3 bg-violet-100 border-2 border-violet-300">
+                                    <div className="text-2xl font-bold text-violet-700">
+                                      {dayOfMonth}
                                     </div>
-                                    <div className="flex-1">
-                                      <div className="font-medium">
-                                        {startDate.toLocaleDateString("en-US", {
-                                          weekday: "long",
-                                          month: "long",
-                                          day: "numeric",
-                                        })}
-                                      </div>
-                                      <div className="text-xs text-gray-500">
-                                        {startDate.toLocaleTimeString("en-US", {
-                                          hour: "numeric",
-                                          minute: "2-digit",
-                                        })} - {endDate.toLocaleTimeString("en-US", {
-                                          hour: "numeric",
-                                          minute: "2-digit",
-                                        })}
-                                      </div>
+                                    <div className="text-xs font-semibold uppercase mt-1 text-violet-600">
+                                      {monthShort}
+                                    </div>
+                                    <div className="text-xs mt-1 text-violet-500">
+                                      {weekday}
                                     </div>
                                   </div>
-                                  
-                                  {event.location && (
-                                    <div className="flex items-center gap-2 text-gray-700">
-                                      <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
-                                    <MapPin className="h-4 w-4" />
-                                      </div>
-                                      <span className="flex-1 truncate">{event.location}</span>
-                                    </div>
-                                  )}
-                                  
-                                  {event.is_online && (
-                                    <div className="flex items-center gap-2 text-gray-700">
-                                      <div className="p-1.5 rounded-lg bg-green-100 text-green-600">
-                                        <Globe className="h-4 w-4" />
-                                      </div>
-                                      <span className="flex-1">Online Event</span>
-                                    </div>
-                                  )}
-                                  
-                                  {event.max_attendees && (
-                                    <div className="flex items-center gap-2 text-gray-700">
-                                      <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
-                                  <Users className="h-4 w-4" />
                                 </div>
-                                      <span className="flex-1">Max {event.max_attendees} attendees</span>
-                              </div>
-                                  )}
+
+                                {/* Event Details */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-3 mb-2">
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="text-lg font-bold text-gray-900 group-hover:text-violet-600 transition-colors line-clamp-1">
+                                        {event.title}
+                                      </h4>
+                                      {event.description && (
+                                        <p className="text-sm text-gray-600 line-clamp-1 mt-1">
+                                          {event.description}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <Badge className="bg-violet-600 text-white border-0 text-xs">
+                                          Upcoming
+                                        </Badge>
+                                      <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-violet-600 group-hover:translate-x-1 transition-all" />
+                                    </div>
+                                  </div>
+
+                                  {/* Event Info */}
+                                  <div className="space-y-1.5 text-sm">
+                                    <div className="flex items-center gap-2 text-gray-700">
+                                      <Clock className="h-4 w-4 text-violet-600 flex-shrink-0" />
+                                      <span className="font-medium">{timeRange}</span>
+                                    </div>
+                                    
+                                    {event.location && (
+                                      <div className="flex items-center gap-2 text-gray-700">
+                                        <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                                        <span className="truncate">{event.location}</span>
+                                      </div>
+                                    )}
+                                    
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                      {event.is_online && (
+                                        <div className="flex items-center gap-1.5 text-gray-600">
+                                          <Globe className="h-3.5 w-3.5 text-green-600" />
+                                          <span className="text-xs">Online</span>
+                                        </div>
+                                      )}
+                                      {event.max_attendees && (
+                                        <div className="flex items-center gap-1.5 text-gray-600">
+                                          <Users className="h-3.5 w-3.5 text-amber-600" />
+                                          <span className="text-xs">Max {event.max_attendees}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                                
-                                <div className="pt-3 border-t border-gray-200">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500">
-                                      {isUpcoming ? "Starts" : "Started"} {startDate.toLocaleDateString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                      })}
-                                    </span>
-                                    <ChevronRight className="h-4 w-4 text-violet-600 group-hover:translate-x-1 transition-transform" />
                               </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                          {upcomingEvents.length > eventsPerPage && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                      <PaginationControls
+                                currentPage={upcomingEventsPage}
+                                totalPages={Math.ceil(upcomingEvents.length / eventsPerPage)}
+                                onPageChange={setUpcomingEventsPage}
+                        itemsPerPage={eventsPerPage}
+                                totalItems={upcomingEvents.length}
+                              />
                             </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Past Events Section */}
+                    {pastEvents.length > 0 && (
+                      <div className="space-y-4 pt-6 border-t border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-900">Past Events</h4>
+                            <p className="text-gray-600 text-sm mt-1">
+                              {pastEvents.length} {pastEvents.length === 1 ? 'event' : 'events'} completed
+                            </p>
                           </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  );
-                })}
-                </div>
-            )}
+                        </div>
+
+                        <div className="space-y-3">
+                          {pastEvents
+                            .slice(
+                              (pastEventsPage - 1) * eventsPerPage,
+                              pastEventsPage * eventsPerPage
+                            )
+                            .map((event) => {
+                              const eventId = String(event.id);
+                              const startDate = new Date(event.start_time);
+                              const endDate = new Date(event.end_time);
+                              
+                              // Format date for display
+                              const dayOfMonth = startDate.getDate();
+                              const monthShort = startDate.toLocaleDateString("en-US", { month: "short" });
+                              const weekday = startDate.toLocaleDateString("en-US", { weekday: "short" });
+                              const year = startDate.getFullYear();
+                              const timeRange = `${startDate.toLocaleTimeString("en-US", {
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })} - ${endDate.toLocaleTimeString("en-US", {
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}`;
+                              
+                              return (
+                                <div key={eventId} className="relative group">
+                                <Link 
+                                  href={`/events/${eventId}`}
+                                  className="block"
+                                >
+                                  <Card className="border-gray-200 hover:shadow-lg hover:border-gray-400 transition-all duration-300 cursor-pointer opacity-75 hover:opacity-100">
+                                    <CardContent className="p-4">
+                                      <div className="flex gap-4">
+                                        {/* Date Display - Prominent on Left */}
+                                        <div className="flex-shrink-0 w-20 text-center">
+                                          <div className="rounded-lg p-3 bg-gray-100 border-2 border-gray-300">
+                                            <div className="text-2xl font-bold text-gray-700">
+                                              {dayOfMonth}
+                                            </div>
+                                            <div className="text-xs font-semibold uppercase mt-1 text-gray-600">
+                                              {monthShort}
+                                            </div>
+                                            <div className="text-xs mt-1 text-gray-500">
+                                              {weekday}
+                                            </div>
+                                          </div>
+                                          <div className="text-xs text-gray-500 mt-1">{year}</div>
+                                        </div>
+
+                                        {/* Event Details */}
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-start justify-between gap-3 mb-2">
+                                            <div className="flex-1 min-w-0">
+                                              <h4 className="text-lg font-bold text-gray-900 group-hover:text-gray-700 transition-colors line-clamp-1">
+                                                {event.title}
+                                              </h4>
+                                              {event.description && (
+                                                <p className="text-sm text-gray-600 line-clamp-1 mt-1">
+                                                  {event.description}
+                                                </p>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                              <Badge variant="secondary" className="bg-gray-500 text-white border-0 text-xs">
+                                                Past
+                                              </Badge>
+                                              <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all" />
+                                            </div>
+                                          </div>
+
+                                          {/* Event Info */}
+                                          <div className="space-y-1.5 text-sm">
+                                            <div className="flex items-center gap-2 text-gray-700">
+                                              <Clock className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                                              <span className="font-medium">{timeRange}</span>
+                                            </div>
+                                            
+                                            {event.location && (
+                                              <div className="flex items-center gap-2 text-gray-700">
+                                                <MapPin className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                                                <span className="truncate">{event.location}</span>
+                                              </div>
+                                            )}
+                                            
+                                            <div className="flex items-center gap-3 flex-wrap">
+                                              {event.is_online && (
+                                                <div className="flex items-center gap-1.5 text-gray-600">
+                                                  <Globe className="h-3.5 w-3.5 text-gray-500" />
+                                                  <span className="text-xs">Online</span>
+                                                </div>
+                                              )}
+                                              {event.max_attendees && (
+                                                <div className="flex items-center gap-1.5 text-gray-600">
+                                                  <Users className="h-3.5 w-3.5 text-gray-500" />
+                                                  <span className="text-xs">Max {event.max_attendees}</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                </Link>
+                                </div>
+                              );
+                            })}
+                        </div>
+                        {pastEvents.length > eventsPerPage && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <PaginationControls
+                              currentPage={pastEventsPage}
+                              totalPages={Math.ceil(pastEvents.length / eventsPerPage)}
+                              onPageChange={setPastEventsPage}
+                              itemsPerPage={eventsPerPage}
+                              totalItems={pastEvents.length}
+                            />
+                          </div>
+                        )}
+                    </div>
+                  )}
+                  </>
+                )}
               </TabsContent>
 
               {/* Members Tab */}
@@ -1620,8 +1741,14 @@ export default function CommunityPage({
                     <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
                   </div>
                 ) : (
+                  <>
                   <div className="grid gap-4">
-                    {members.map((member: any) => (
+                    {members
+                      .slice(
+                        (membersPage - 1) * membersPerPage,
+                        membersPage * membersPerPage
+                      )
+                      .map((member: any) => (
                       <Card key={member.user_id} className="border-gray-200">
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between">
@@ -1664,12 +1791,24 @@ export default function CommunityPage({
                                   })}
                                 </p>
                               </div>
-                              </div>
                             </div>
+                          </div>
                         </CardContent>
                       </Card>
                   ))}
                 </div>
+                {members.length > membersPerPage && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <PaginationControls
+                      currentPage={membersPage}
+                      totalPages={Math.ceil(members.length / membersPerPage)}
+                      onPageChange={setMembersPage}
+                      itemsPerPage={membersPerPage}
+                      totalItems={members.length}
+                    />
+                  </div>
+                )}
+                </>
                 )}
               </TabsContent>
             </Tabs>
@@ -1701,7 +1840,7 @@ export default function CommunityPage({
                     Upcoming Events
                   </span>
                   <span className="font-semibold text-gray-900">
-                    {events.length}
+                    {upcomingEvents.length + pastEvents.length}
                     </span>
                   </div>
                 <div className="flex justify-between items-center">

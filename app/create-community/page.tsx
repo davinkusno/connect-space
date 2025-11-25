@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -25,6 +25,8 @@ import { EnhanceContentButton } from "@/components/ai/enhance-content-button"
 import { LocationPicker } from "@/components/ui/location-picker"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { PageTransition } from "@/components/ui/page-transition"
+import { SmoothReveal } from "@/components/ui/smooth-reveal"
 
 interface LocationData {
   address: string
@@ -180,60 +182,71 @@ export default function CreateCommunityPage() {
   }
 
   const steps = [
-    { number: 1, title: "Basic Information", description: "Name, description, and category" },
-    { number: 2, title: "Location & Privacy", description: "Where and how your community meets" },
-    { number: 3, title: "Review & Create", description: "Final review before creating" },
+    { number: 1, title: "Basic Information" },
+    { number: 2, title: "Location & Privacy" },
   ]
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-light text-gray-900 mb-3">Create Your Community</h1>
-          <p className="text-gray-600">Build a space where like-minded people can connect and grow together</p>
-        </div>
-
-        {/* Progress Steps */}
-        <div className="mb-12">
-          <div className="flex items-center justify-between">
-            {steps.map((step, index) => (
-              <div key={step.number} className="flex items-center">
-                <div
-                  className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors duration-200 ${
-                    currentStep >= step.number
-                      ? "bg-violet-700 border-violet-700 text-white"
-                      : "border-gray-300 text-gray-500"
-                  }`}
-                >
-                  {step.number}
+    <PageTransition>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <SmoothReveal delay={100} direction="up">
+            <div className="mb-8">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-gradient-to-r from-violet-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <Users className="h-6 w-6 text-white" />
                 </div>
-                <div className="ml-4 hidden sm:block">
-                  <p
-                    className={`text-sm font-medium transition-colors duration-200 ${
-                      currentStep >= step.number ? "text-violet-700" : "text-gray-500"
-                    }`}
-                  >
-                    {step.title}
-                  </p>
-                  <p className="text-xs text-gray-500">{step.description}</p>
+                <div>
+                  <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">Create Your Community</h1>
+                  <p className="text-gray-600 mt-1">Build a space where like-minded people can connect and grow together</p>
                 </div>
-                {index < steps.length - 1 && (
-                  <div
-                    className={`w-16 h-0.5 ml-4 transition-colors duration-200 ${
-                      currentStep > step.number ? "bg-violet-700" : "bg-gray-300"
-                    }`}
-                  />
-                )}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          </SmoothReveal>
+
+          {/* Progress Steps */}
+          <SmoothReveal delay={200} direction="up">
+            <div className="mb-8 bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-xl p-4 sm:p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                {steps.map((step, index) => (
+                  <React.Fragment key={step.number}>
+                    <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                      <div
+                        className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 transition-all duration-200 shadow-sm ${
+                          currentStep >= step.number
+                            ? "bg-violet-600 border-violet-600 text-white scale-110"
+                            : "border-gray-300 text-gray-500 bg-white"
+                        }`}
+                      >
+                        <span className="text-xs sm:text-sm font-medium">{step.number}</span>
+                      </div>
+                      <p
+                        className={`text-xs sm:text-sm font-semibold transition-colors duration-200 whitespace-nowrap ${
+                          currentStep >= step.number ? "text-violet-700" : "text-gray-500"
+                        }`}
+                      >
+                        {step.title}
+                      </p>
+                    </div>
+                    {index < steps.length - 1 && (
+                      <div
+                        className={`flex-1 h-0.5 mx-2 sm:mx-4 max-w-[60px] sm:max-w-none transition-colors duration-200 ${
+                          currentStep > step.number ? "bg-violet-600" : "bg-gray-300"
+                        }`}
+                      />
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          </SmoothReveal>
 
         <form onSubmit={handleSubmit}>
           {/* Step 1: Basic Information with AI Integration */}
           {currentStep === 1 && (
-            <Card className="border-gray-100">
+            <SmoothReveal delay={300} direction="up">
+              <Card className="border-gray-200/50 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="text-xl font-medium text-gray-900 flex items-center gap-2">
                   Basic Information
@@ -391,11 +404,13 @@ export default function CreateCommunityPage() {
                 )}
               </CardContent>
             </Card>
+            </SmoothReveal>
           )}
 
           {/* Step 2: Location & Privacy */}
           {currentStep === 2 && (
-            <Card className="border-gray-100">
+            <SmoothReveal delay={300} direction="up">
+              <Card className="border-gray-200/50 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="text-xl font-medium text-gray-900">Location & Privacy</CardTitle>
                 <p className="text-gray-600">Set up where your community meets and who can join</p>
@@ -482,58 +497,8 @@ export default function CreateCommunityPage() {
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
 
-          {/* Step 3: Review & Create */}
-          {currentStep === 3 && (
-            <Card className="border-gray-100">
-              <CardHeader>
-                <CardTitle className="text-xl font-medium text-gray-900">Review & Create</CardTitle>
-                <p className="text-gray-600">Review your community details before creating</p>
-              </CardHeader>
-              <CardContent className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6">
-                    <div>
-                      <Label className="text-sm text-gray-500">Community Name</Label>
-                      <p className="font-medium text-gray-900">{formData.name || "Not specified"}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-gray-500">Category</Label>
-                      <p className="font-medium text-gray-900">{formData.category || "Not specified"}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-gray-500">Meeting Type</Label>
-                      <p className="font-medium text-gray-900 capitalize">{formData.locationType}</p>
-                    </div>
-                    {formData.location?.address && (
-                      <div>
-                        <Label className="text-sm text-gray-500">Location</Label>
-                        <p className="font-medium text-gray-900">{formData.location.address}</p>
-                        {formData.location.city && (
-                          <p className="text-sm text-gray-600">{formData.location.city}</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-6">
-                    <div>
-                      <Label className="text-sm text-gray-500">Privacy</Label>
-                      <p className="font-medium text-gray-900 capitalize">{formData.privacy}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-sm text-gray-500">Description</Label>
-                  <p className="mt-2 text-gray-900 leading-relaxed">
-                    {formData.description || "No description provided"}
-                  </p>
-                </div>
-
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 pt-4 border-t border-gray-200">
                   <Checkbox id="terms" required className="text-violet-700 border-gray-300 focus:ring-violet-200" />
                   <Label htmlFor="terms" className="text-sm text-gray-600">
                     I agree to the{" "}
@@ -548,10 +513,12 @@ export default function CreateCommunityPage() {
                 </div>
               </CardContent>
             </Card>
+            </SmoothReveal>
           )}
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between mt-12">
+          <SmoothReveal delay={400} direction="up">
+            <div className="flex justify-between mt-12">
             <Button
               type="button"
               variant="outline"
@@ -562,13 +529,12 @@ export default function CreateCommunityPage() {
               Previous
             </Button>
 
-            {currentStep < 3 ? (
+            {currentStep < 2 ? (
               <Button
                 type="button"
-                onClick={() => setCurrentStep(Math.min(3, currentStep + 1))}
+                onClick={() => setCurrentStep(Math.min(2, currentStep + 1))}
                 disabled={
-                  (currentStep === 1 && (!formData.name || !formData.description || !formData.category)) ||
-                  (currentStep === 2 && (!formData.locationType || !formData.privacy || (formData.locationType !== "online" && !formData.location?.address)))
+                  currentStep === 1 && (!formData.name || !formData.description || !formData.category)
                 }
                 className="bg-violet-700 hover:bg-violet-800 text-white"
               >
@@ -591,8 +557,10 @@ export default function CreateCommunityPage() {
               </Button>
             )}
           </div>
+          </SmoothReveal>
         </form>
       </div>
     </div>
+    </PageTransition>
   )
 }
