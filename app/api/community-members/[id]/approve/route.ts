@@ -1,6 +1,47 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
 
+// Helper function to create notification when a user is approved
+async function createApprovalNotification(
+  supabase: any,
+  userId: string,
+  communityId: string
+) {
+  try {
+    // Get community name
+    const { data: community } = await supabase
+      .from("communities")
+      .select("name")
+      .eq("id", communityId)
+      .single()
+
+    if (!community) {
+      console.error("Community not found for notification")
+      return
+    }
+
+    // Create notification
+    const { error: notifError } = await supabase
+      .from("notifications")
+      .insert({
+        user_id: userId,
+        type: "community_update",
+        content: `Your join request to "${community.name}" has been approved! You can now access the community.`,
+        is_read: false,
+        reference_id: communityId,
+        reference_type: "community"
+      })
+
+    if (notifError) {
+      console.error("Error creating approval notification:", notifError)
+    } else {
+      console.log("Approval notification created successfully")
+    }
+  } catch (error) {
+    console.error("Error in createApprovalNotification:", error)
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -158,6 +199,10 @@ export async function POST(
     // If RPC succeeded, use the result directly
     if (updatedRecord && updatedRecord.status === true) {
       console.log("Status successfully updated via RPC")
+      
+      // Create notification for the approved user
+      await createApprovalNotification(supabase, updatedRecord.user_id, community_id)
+      
       return NextResponse.json(
         { 
           message: "Request approved successfully",
@@ -226,10 +271,13 @@ export async function POST(
 
     console.log("Status successfully updated to true")
 
+    // Create notification for the approved user
+    await createApprovalNotification(supabase, verifyData.user_id, community_id)
+
     return NextResponse.json(
       { 
         message: "Request approved successfully",
-        member: updatedRecord
+        member: verifyData
       },
       { status: 200 }
     )

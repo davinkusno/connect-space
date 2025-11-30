@@ -15,7 +15,6 @@ import {
   Users,
   Calendar,
   MessageCircle,
-  Share2,
   Bell,
   UserPlus,
   UserMinus,
@@ -41,6 +40,7 @@ import {
   ChevronRight,
   Save,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -66,6 +66,7 @@ import {
   HoverScale,
 } from "@/components/ui/micro-interactions";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import { ReportDialog } from "@/components/community/report-dialog";
 
 // Dynamic import for Leaflet map
 const LeafletMap = dynamic(
@@ -1003,7 +1004,7 @@ export default function CommunityPage({
                 </Button>
               )}
               
-              {isMember && membershipStatus === "approved" && (
+              {isMember && membershipStatus === "approved" && userRole !== "creator" && (
                   <Button
                   onClick={handleJoinCommunity}
                     variant="outline"
@@ -1016,38 +1017,16 @@ export default function CommunityPage({
               
                     <Button
                       variant="outline"
-                className="border-gray-200 hover:bg-gray-50"
-                onClick={async () => {
-                  const url = window.location.href;
-                  try {
-                    if (navigator.share) {
-                      await navigator.share({
-                        title: community.name,
-                        text: `Check out ${community.name} on ConnectSpace!`,
-                        url: url,
-                      });
-                      toast.success("Shared successfully!");
-                    } else {
-                      // Fallback: Copy to clipboard
-                      await navigator.clipboard.writeText(url);
-                      toast.success("Link copied to clipboard!");
-                    }
-                  } catch (error: any) {
-                    // User cancelled or error occurred
-                    if (error.name !== "AbortError") {
-                      // Fallback: Copy to clipboard
-                      try {
-                        await navigator.clipboard.writeText(url);
-                        toast.success("Link copied to clipboard!");
-                      } catch (clipboardError) {
-                        toast.error("Failed to share. Please copy the URL manually.");
-                      }
-                    }
-                  }
+                className="border-gray-200 hover:bg-gray-50 hover:border-red-200 hover:text-red-600"
+                onClick={() => {
+                  setReportType("community");
+                  setReportTargetId(id);
+                  setReportTargetName(community.name);
+                  setReportDialogOpen(true);
                 }}
               >
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Report
                     </Button>
                 </div>
           </div>
@@ -1055,6 +1034,22 @@ export default function CommunityPage({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Show waiting message if pending approval */}
+        {membershipStatus === "pending" && userRole !== "creator" ? (
+          <Card className="border-yellow-200 bg-yellow-50/50">
+            <CardContent className="p-8 text-center">
+              <Clock className="h-16 w-16 text-yellow-600 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Waiting For Approval</h2>
+              <p className="text-gray-600 mb-4">
+                Your join request has been sent to the community admin. 
+                You'll be able to view the community content once your request is approved.
+              </p>
+              <p className="text-sm text-gray-500">
+                We'll notify you when your request is reviewed.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -1896,6 +1891,7 @@ export default function CommunityPage({
               </Card>
           </div>
         </div>
+        )}
       </div>
 
       {/* Dialog for pending approval */}
@@ -1914,6 +1910,15 @@ export default function CommunityPage({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Report Dialog */}
+      <ReportDialog
+        isOpen={reportDialogOpen}
+        onClose={() => setReportDialogOpen(false)}
+        reportType={reportType}
+        reportTargetId={reportTargetId}
+        reportTargetName={reportTargetName}
+      />
     </div>
   );
 }

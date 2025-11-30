@@ -168,16 +168,20 @@ export default function CommunityAdminRequestsPage({
     try {
       const supabase = getSupabaseBrowser()
       
-      // Update all pending requests to approved
-      const { error } = await supabase
-        .from("community_members")
-        .update({ status: true })
-        .eq("community_id", communityId)
-        .eq("status", false)
+      // Use API endpoint for bulk approval (includes notifications)
+      const response = await fetch("/api/community-members/bulk-approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          community_id: communityId
+        })
+      })
 
-      if (error) {
-        console.error("Error approving all requests:", error)
-        toast.error("Failed to approve all requests")
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error("Error approving all requests:", result.error)
+        toast.error(result.error || "Failed to approve all requests")
         return
       }
 

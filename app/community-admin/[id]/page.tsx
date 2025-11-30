@@ -823,18 +823,22 @@ export default function CommunityAdminPage({
       
       if (pendingRequests.length === 0) return
 
-      // Update all pending requests status to true in community_members
-      // Only update for the current community's members for security
+      // Use API endpoint for bulk approval (includes notifications)
       const requestIds = pendingRequests.map(r => r.id)
-      const { error: updateError } = await supabase
-        .from("community_members")
-        .update({ status: true })
-        .in("id", requestIds)
-        .eq("community_id", community.id)
+      const response = await fetch("/api/community-members/bulk-approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          community_id: community.id,
+          member_ids: requestIds
+        })
+      })
 
-      if (updateError) {
-        console.error("Error approving all requests:", updateError)
-        toast.error("Failed to approve all requests")
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error("Error approving all requests:", result.error)
+        toast.error(result.error || "Failed to approve all requests")
         return
       }
 
