@@ -2,6 +2,7 @@
 -- This script ensures the column is lowercase 'status' not 'Status'
 
 -- First, check if column exists with wrong case and rename it
+-- Note: Column creation/renaming is conditional to avoid errors on re-runs
 DO $$
 BEGIN
   -- Check if 'Status' (uppercase) exists
@@ -35,6 +36,8 @@ COMMENT ON COLUMN community_members.status IS 'Join request status: false = pend
 -- Create index for better query performance when filtering by status
 CREATE INDEX IF NOT EXISTS idx_community_members_status ON community_members(status);
 
+-- IMPORTANT: Always run this UPDATE, even if column already existed
+-- This handles recovery from partial failures where column was added but UPDATE failed
 -- Update existing members to have status = true (approved) if they are currently members
 UPDATE community_members 
 SET status = true 

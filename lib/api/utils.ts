@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server"
 import { ZodError, type ZodSchema } from "zod"
 import type { ApiResponse } from "./types"
 import { createServerClient } from "@/lib/supabase/server"
-import { rateLimit } from "./rate-limit"
 
 // Validate request data against a schema
 export async function validateRequest<T>(
@@ -83,16 +82,10 @@ export function formatError(
   return NextResponse.json({ success: false, error: { code, message, details } }, { status })
 }
 
-// Apply rate limiting to API routes
+// Apply rate limiting to API routes (disabled - no Redis)
 export async function applyRateLimit(req: NextRequest): Promise<boolean> {
-  try {
-    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1"
-    const { success } = await rateLimit(ip)
-    return success
-  } catch (error) {
-    console.error("Rate limiting error:", error)
-    return true // Allow the request if rate limiting fails
-  }
+  // Rate limiting disabled - always allow requests
+  return true
 }
 
 // Parse path parameters

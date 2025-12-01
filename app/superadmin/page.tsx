@@ -79,9 +79,12 @@ import {
   Flame,
   MessageCircle,
   CalendarDays,
+  Megaphone,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { SuperAdminNav } from "@/components/navigation/superadmin-nav";
+import { AdsManagement } from "@/components/superadmin/ads-management";
 
 // Badge data types
 export interface StoreBadge {
@@ -1156,7 +1159,18 @@ const mockInactiveCommunities = [
 ];
 
 export default function SuperadminPage() {
+  const router = useRouter();
+  const pathname = usePathname();
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Sync active tab with pathname
+  useEffect(() => {
+    if (pathname === "/superadmin/ads") {
+      setActiveTab("ads");
+    } else if (pathname === "/superadmin") {
+      setActiveTab("overview");
+    }
+  }, [pathname]);
 
   // Reports management state
   const [reportSearchQuery, setReportSearchQuery] = useState("");
@@ -1544,7 +1558,7 @@ export default function SuperadminPage() {
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-4 glass-effect border-0 p-2 rounded-2xl mb-8 h-14">
+            <TabsList className="grid w-full grid-cols-5 glass-effect border-0 p-2 rounded-2xl mb-8 h-14">
               <TabsTrigger
                 value="overview"
                 className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
@@ -1577,6 +1591,13 @@ export default function SuperadminPage() {
               >
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                 <span className="font-medium">Reports</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="ads"
+                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
+              >
+                <Megaphone className="h-4 w-4 flex-shrink-0" />
+                <span className="font-medium">Ads</span>
               </TabsTrigger>
             </TabsList>
 
@@ -2577,6 +2598,11 @@ export default function SuperadminPage() {
                   </div>
                 )}
               </AnimatedCard>
+            </TabsContent>
+
+            {/* Ads Tab */}
+            <TabsContent value="ads" className="space-y-6">
+              <AdsManagement />
             </TabsContent>
           </Tabs>
         </div>

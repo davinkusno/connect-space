@@ -67,6 +67,7 @@ import {
 } from "@/components/ui/micro-interactions";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { ReportDialog } from "@/components/community/report-dialog";
+import { AdCarousel } from "@/components/community/ad-carousel";
 
 // Dynamic import for Leaflet map
 const LeafletMap = dynamic(
@@ -1889,6 +1890,9 @@ export default function CommunityPage({
                     </div>
                 </CardContent>
               </Card>
+
+            {/* Ad Carousel - Fixed position below Created By */}
+            <AdCarousel communityId={id} placement="sidebar" autoRotateInterval={5000} />
           </div>
         </div>
         )}
