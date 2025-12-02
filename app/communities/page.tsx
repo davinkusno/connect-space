@@ -24,6 +24,9 @@ import {
   Calendar,
   X,
   Award,
+  CheckCircle2,
+  Clock,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -49,7 +52,6 @@ const LeafletCommunitiesMap = dynamic(
   }
 );
 import { AnimatedCounter } from "@/components/ui/animated-counter";
-import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
 import { PaginationControls } from "@/components/ui/pagination-controls";
@@ -70,7 +72,12 @@ export default function DiscoverPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [membershipFilter, setMembershipFilter] = useState<"all" | "joined" | "pending" | "not_joined">("all");
   const [gettingLocation, setGettingLocation] = useState(false);
+  
+  // Membership status tracking
+  const [membershipStatus, setMembershipStatus] = useState<Record<string, "joined" | "pending" | "not_joined">>({});
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Get user's current location with callback
   const getUserLocationCommunities = (callback?: (city: string) => void) => {
@@ -150,6 +157,11 @@ export default function DiscoverPage() {
   const loadData = async () => {
     try {
       const supabase = getSupabaseBrowser();
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+      
       // Fetch communities from database with category relationship
       // Fetch all communities (both public and private) - we'll filter by privacy later if needed
       const { data: communitiesData, error } = await supabase
@@ -169,7 +181,8 @@ export default function DiscoverPage() {
           member_count,
           created_at,
           location,
-          is_private
+          is_private,
+          creator_id
         `)
         .order("created_at", { ascending: false });
 
@@ -178,6 +191,47 @@ export default function DiscoverPage() {
         toast.error("Failed to load communities");
         return;
       }
+      
+      // Fetch membership status for current user if logged in
+      const membershipStatusMap: Record<string, "joined" | "pending" | "not_joined"> = {};
+      if (user) {
+        const communityIds = (communitiesData || []).map((c: any) => c.id);
+        if (communityIds.length > 0) {
+          const { data: memberships } = await supabase
+            .from("community_members")
+            .select("community_id, status")
+            .eq("user_id", user.id)
+            .in("community_id", communityIds);
+          
+          // Initialize all as not_joined
+          communityIds.forEach((id: string) => {
+            membershipStatusMap[id] = "not_joined";
+          });
+          
+          // Check if user is creator
+          (communitiesData || []).forEach((comm: any) => {
+            if (comm.creator_id === user.id) {
+              membershipStatusMap[comm.id] = "joined";
+            }
+          });
+          
+          // Update based on memberships
+          (memberships || []).forEach((membership: any) => {
+            if (membership.status === false) {
+              membershipStatusMap[membership.community_id] = "pending";
+            } else if (membership.status === true || membership.status === null) {
+              membershipStatusMap[membership.community_id] = "joined";
+            }
+          });
+        }
+      } else {
+        // User not logged in - all communities are not_joined
+        (communitiesData || []).forEach((comm: any) => {
+          membershipStatusMap[comm.id] = "not_joined";
+        });
+      }
+      
+      setMembershipStatus(membershipStatusMap);
 
 
       // Transform database data to match Community interface
@@ -313,8 +367,16 @@ export default function DiscoverPage() {
       );
     }
 
+    // Membership filter
+    if (membershipFilter !== "all" && currentUser) {
+      filtered = filtered.filter((community) => {
+        const status = membershipStatus[community.id] || "not_joined";
+        return status === membershipFilter;
+      });
+    }
+
     return filtered;
-  }, [communities, searchQuery, locationQuery, selectedCategory]);
+  }, [communities, searchQuery, locationQuery, selectedCategory, membershipFilter, membershipStatus, currentUser]);
 
   const toggleSaveCommunity = useCallback((communityId: string) => {
     setSavedCommunities((prev) =>
@@ -333,7 +395,7 @@ export default function DiscoverPage() {
   // Reset to page 1 when search/filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, locationQuery, selectedCategory]);
+  }, [searchQuery, locationQuery, selectedCategory, membershipFilter]);
 
   const EnhancedCommunityCard = React.memo(
     ({
@@ -345,8 +407,17 @@ export default function DiscoverPage() {
     }) => {
       const isSaved = savedCommunities.includes(community.id);
 
+      // Determine border color based on membership status
+      const getBorderColor = () => {
+        if (!currentUser) return "border-gray-200";
+        const status = membershipStatus[community.id];
+        if (status === "joined") return "border-green-500 border-2";
+        if (status === "pending") return "border-amber-500 border-2";
+        return "border-gray-200";
+      };
+
       return (
-        <Card className="bg-white rounded-2xl overflow-hidden group w-full h-full flex flex-col shadow-md hover:shadow-xl transition-all duration-300 ease-in-out transform hover:-translate-y-1">
+        <Card className={cn("bg-white rounded-2xl overflow-hidden group w-full h-full flex flex-col shadow-md hover:shadow-xl transition-all duration-300 ease-in-out transform hover:-translate-y-1", getBorderColor())}>
           <div className="relative overflow-hidden">
             <Image
               src={community.image}
@@ -361,7 +432,24 @@ export default function DiscoverPage() {
                 {community.category}
               </Badge>
             </div>
-            <div className="absolute top-4 right-4">
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+              {/* Membership Status Badge on Image */}
+              {currentUser && membershipStatus[community.id] && (
+                <>
+                  {membershipStatus[community.id] === "joined" && (
+                    <Badge className="bg-green-500/90 backdrop-blur-sm text-white border border-green-300 text-xs font-semibold px-2 py-0.5 flex items-center gap-1 shadow-md">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Joined
+                    </Badge>
+                  )}
+                  {membershipStatus[community.id] === "pending" && (
+                    <Badge className="bg-amber-500/90 backdrop-blur-sm text-white border border-amber-300 text-xs font-semibold px-2 py-0.5 flex items-center gap-1 shadow-md">
+                      <Clock className="h-3 w-3" />
+                      Pending
+                    </Badge>
+                  )}
+                </>
+              )}
               <Button
                 size="icon"
                 className={`rounded-full backdrop-blur-sm bg-white/30 hover:bg-white/50 text-white hover:text-red-500 transition-colors h-9 w-9 ${
@@ -388,7 +476,7 @@ export default function DiscoverPage() {
           </div>
           <CardContent className="p-5 flex flex-col flex-grow">
             <div className="flex-grow">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <h3 className="font-bold text-lg text-gray-800 leading-tight truncate">
                   {community.name}
                 </h3>
@@ -399,6 +487,23 @@ export default function DiscoverPage() {
                   <Badge variant="secondary" className="text-xs font-semibold">
                     New
                   </Badge>
+                )}
+                {/* Membership Status Badge */}
+                {currentUser && membershipStatus[community.id] && (
+                  <>
+                    {membershipStatus[community.id] === "joined" && (
+                      <Badge className="bg-green-50 text-green-700 border border-green-500 text-xs font-semibold px-2 py-0.5 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Joined
+                      </Badge>
+                    )}
+                    {membershipStatus[community.id] === "pending" && (
+                      <Badge className="bg-amber-50 text-amber-700 border border-amber-500 text-xs font-semibold px-2 py-0.5 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Pending
+                      </Badge>
+                    )}
+                  </>
                 )}
               </div>
               <p className="text-gray-600 text-sm mb-4 line-clamp-2">
@@ -639,23 +744,46 @@ export default function DiscoverPage() {
         <div className="max-w-7xl mx-auto px-6 mt-8">
           {/* Filter Bar */}
           <div className="bg-white border-b border-gray-200 sticky top-0 z-40 -mx-6 px-6">
-            <div className="flex items-center justify-between gap-4 py-4">
-              {/* Left: View Selector */}
-              <div className="flex-shrink-0">
-                <Select
-                  value={viewMode}
-                  onValueChange={(value: "grid" | "list" | "map") =>
-                    setViewMode(value)
-                  }
-                >
-                  <SelectTrigger className="w-[150px] h-10 border-gray-300 rounded-lg font-medium">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="grid">Grid View</SelectItem>
-                    <SelectItem value="map">Map View</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="flex items-center justify-between gap-4 py-4 flex-wrap">
+              {/* Left: View Selector and Membership Filter */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex-shrink-0">
+                  <Select
+                    value={viewMode}
+                    onValueChange={(value: "grid" | "list" | "map") =>
+                      setViewMode(value)
+                    }
+                  >
+                    <SelectTrigger className="w-[150px] h-10 border-gray-300 rounded-lg font-medium">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="grid">Grid View</SelectItem>
+                      <SelectItem value="map">Map View</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Membership Filter - Only show if user is logged in */}
+                {currentUser && (
+                  <div className="flex-shrink-0">
+                    <Select
+                      value={membershipFilter}
+                      onValueChange={(value: "all" | "joined" | "pending" | "not_joined") =>
+                        setMembershipFilter(value)
+                      }
+                    >
+                      <SelectTrigger className="w-[160px] h-10 border-gray-300 rounded-lg font-medium">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Communities</SelectItem>
+                        <SelectItem value="joined">My Communities</SelectItem>
+                        <SelectItem value="pending">Pending Requests</SelectItem>
+                        <SelectItem value="not_joined">Not Joined</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               {/* Center: Categories (Horizontal Scroll - Centered) */}
@@ -727,8 +855,6 @@ export default function DiscoverPage() {
             )}
           </div>
         </div>
-
-        <EnhancedChatbotWidget />
       </div>
     </PageTransition>
   );

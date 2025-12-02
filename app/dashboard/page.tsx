@@ -47,7 +47,6 @@ import {
   Lightbulb,
 } from "lucide-react";
 import Link from "next/link";
-import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { DailySummaryWidget } from "@/components/daily-summary/daily-summary-widget";
 import { RecommendationPanel } from "@/components/ai/recommendation-panel";
@@ -1810,7 +1809,6 @@ export default function DashboardPage() {
         </Tabs>
         </div>
 
-      <EnhancedChatbotWidget context="dashboard" size="normal" />
       </div>
     </>
   );

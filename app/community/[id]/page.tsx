@@ -328,7 +328,7 @@ export default function CommunityPage({
 
       switch (tab) {
         case "announcements":
-          // Load announcements from messages table (top-level messages only)
+          // Load discussion threads from messages table (top-level messages only)
           const { data: messagesData } = await supabase
             .from("messages")
             .select(`
@@ -342,9 +342,23 @@ export default function CommunityPage({
             .eq("community_id", id)
             .is("parent_id", null)
             .order("created_at", { ascending: false })
-            .limit(20);
+            .limit(50);
 
           if (messagesData && messagesData.length > 0) {
+            // Get all sender IDs to fetch roles in one query
+            const senderIds = [...new Set(messagesData.map((m: any) => m.sender_id))];
+            
+            // Fetch roles for all senders
+            const { data: membershipsData } = await supabase
+              .from("community_members")
+              .select("user_id, role")
+              .eq("community_id", id)
+              .in("user_id", senderIds);
+            
+            const roleMap = new Map(
+              (membershipsData || []).map((m: any) => [m.user_id, m.role])
+            );
+
             // Load user data for each message
             const messagesWithUsers = await Promise.all(
               messagesData.map(async (message) => {
@@ -354,8 +368,12 @@ export default function CommunityPage({
                   .eq("id", message.sender_id)
                   .single();
 
-                // Load replies for each message
-                const { data: replies } = await supabase
+                // Get author role
+                const authorRole = roleMap.get(message.sender_id) || null;
+                const isCreator = message.sender_id === community?.creator_id;
+
+                // Load ALL replies for each message (not just 5)
+                const { data: replies, count: replyCount } = await supabase
                   .from("messages")
                   .select(`
                     id,
@@ -364,10 +382,25 @@ export default function CommunityPage({
                     updated_at,
                     is_edited,
                     sender_id
-                  `)
+                  `, { count: 'exact' })
                   .eq("parent_id", message.id)
-                  .order("created_at", { ascending: true })
-                  .limit(5);
+                  .order("created_at", { ascending: true });
+
+                // Get reply sender IDs
+                const replySenderIds = [...new Set((replies || []).map((r: any) => r.sender_id))];
+                
+                // Fetch roles for reply senders
+                const { data: replyMembershipsData } = replySenderIds.length > 0
+                  ? await supabase
+                      .from("community_members")
+                      .select("user_id, role")
+                      .eq("community_id", id)
+                      .in("user_id", replySenderIds)
+                  : { data: [] };
+
+                const replyRoleMap = new Map(
+                  (replyMembershipsData || []).map((m: any) => [m.user_id, m.role])
+                );
 
                 // Load user data for replies
                 const repliesWithUsers = await Promise.all(
@@ -378,9 +411,14 @@ export default function CommunityPage({
                       .eq("id", reply.sender_id)
                       .single();
 
+                    const replyAuthorRole = replyRoleMap.get(reply.sender_id) || null;
+                    const replyIsCreator = reply.sender_id === community?.creator_id;
+
                     return {
                       ...reply,
                       users: replyUserData,
+                      authorRole: replyAuthorRole,
+                      isCreator: replyIsCreator,
                     };
                   })
                 );
@@ -388,7 +426,10 @@ export default function CommunityPage({
                 return {
                   ...message,
                   users: userData,
-                  replies: repliesWithUsers,
+                  replies: repliesWithUsers || [],
+                  replyCount: replyCount || repliesWithUsers.length,
+                  authorRole: authorRole,
+                  isCreator: isCreator,
                 };
               })
             );
@@ -677,9 +718,9 @@ export default function CommunityPage({
 
       if (error) throw error;
 
-      toast.success("Announcement posted!");
+      toast.success("Thread created!");
       setNewPost("");
-      // Reload announcements
+      // Reload discussion forum
       loadTabData("announcements");
     } catch (error: any) {
       console.error("Error posting discussion:", error);
@@ -710,7 +751,7 @@ export default function CommunityPage({
       toast.success("Reply posted!");
       setReplyContent("");
       setReplyingTo(null);
-      // Reload announcements
+      // Reload discussion forum
       loadTabData("announcements");
     } catch (error: any) {
       console.error("Error posting reply:", error);
@@ -1067,7 +1108,7 @@ export default function CommunityPage({
                   value="announcements"
                   className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
                 >
-                  Announcements
+                  Discussion Forum
                 </TabsTrigger>
                 <TabsTrigger
                   value="events"
@@ -1262,51 +1303,52 @@ export default function CommunityPage({
                 </SlideTransition>
               </TabsContent>
 
-              {/* Announcements Tab */}
-              <TabsContent value="announcements" className="space-y-8 mt-8">
-                {/* New Announcement - Only for Admin/Owner */}
-                {canManage && (
-                  <Card className="border-gray-200">
-                      <CardContent className="p-6">
-                        <div className="flex gap-4">
-                          <Avatar>
+              {/* Discussion Forum Tab */}
+              <TabsContent value="announcements" className="space-y-6 mt-8">
+                {/* New Thread - All Members Can Post */}
+                {isMember && currentUser && (
+                  <Card className="border-gray-200 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex gap-3">
+                        <Avatar className="h-10 w-10">
                           <AvatarImage src={currentUser?.user_metadata?.avatar_url} />
-                          <AvatarFallback>
+                          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
                             {currentUser?.email?.charAt(0).toUpperCase()}
                           </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 space-y-4">
-                            <Textarea
-                            placeholder="Create an announcement for the community..."
-                              value={newPost}
-                              onChange={(e) => setNewPost(e.target.value)}
-                            className="min-h-[100px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none"
-                            />
-                          <div className="flex justify-end items-center">
-                              <Button
-                                disabled={!newPost.trim() || isSubmitting}
+                        </Avatar>
+                        <div className="flex-1 space-y-3">
+                          <Textarea
+                            placeholder="Start a new discussion..."
+                            value={newPost}
+                            onChange={(e) => setNewPost(e.target.value)}
+                            className="min-h-[80px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none text-sm"
+                          />
+                          <div className="flex justify-end">
+                            <Button
+                              disabled={!newPost.trim() || isSubmitting}
                               onClick={handlePostDiscussion}
+                              size="sm"
                               className="bg-violet-600 hover:bg-violet-700 text-white"
-                                >
-                                  {isSubmitting ? (
-                                    <>
+                            >
+                              {isSubmitting ? (
+                                <>
                                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      Posting...
-                                    </>
-                                  ) : (
-                                    <>
-                                  <Send className="h-4 w-4 mr-2" /> Post Announcement
-                                    </>
-                                  )}
-                                </Button>
-                            </div>
+                                  Posting...
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="h-4 w-4 mr-2" /> Post
+                                </>
+                              )}
+                            </Button>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
 
-                {/* Announcements List */}
+                {/* Discussion Threads */}
                 {isLoadingTab ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
@@ -1316,83 +1358,234 @@ export default function CommunityPage({
                     <CardContent className="p-12 text-center">
                       <MessageCircle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        No announcements yet
+                        No discussions yet
                       </h3>
                       <p className="text-gray-600 mb-6">
-                        Community admins can post announcements here.
+                        {isMember 
+                          ? "Start the first discussion thread!" 
+                          : "Join the community to participate in discussions."}
                       </p>
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="space-y-4">
-                    {discussions.map((discussion) => (
-                      <Card key={discussion.id} className="border-gray-200 hover:shadow-md transition-shadow">
-                        <CardContent className="p-6">
-                          <div className="flex gap-4">
-                            <Avatar>
-                              <AvatarImage src={discussion.users?.avatar_url} />
-                              <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
-                                {(discussion.users?.username || discussion.users?.full_name || "U").charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-3">
-                                <span className="font-medium text-gray-900">
-                                  {discussion.users?.full_name || discussion.users?.username || "Anonymous"}
-                                </span>
-                                <Badge variant="secondary" className="bg-violet-100 text-violet-700">
-                                  Admin
-                                </Badge>
-                                <span className="text-sm text-gray-500">
-                                  {new Date(discussion.created_at).toLocaleDateString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                  })}
-                                </span>
-                                {discussion.is_edited && (
-                                  <Badge variant="outline" className="text-xs">Edited</Badge>
-                                )}
+                  <div className="space-y-3">
+                    {discussions.map((thread) => {
+                      const isExpanded = showReplies[thread.id] ?? true;
+                      const hasReplies = thread.replies && thread.replies.length > 0;
+                      const replyCount = thread.replyCount || thread.replies?.length || 0;
+                      
+                      return (
+                        <Card key={thread.id} className="border-gray-200 hover:border-gray-300 transition-colors">
+                          <CardContent className="p-0">
+                            {/* Main Thread Post */}
+                            <div className="p-4 border-b border-gray-100">
+                              <div className="flex gap-3">
+                                <Avatar className="h-9 w-9 flex-shrink-0">
+                                  <AvatarImage src={thread.users?.avatar_url} />
+                                  <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white text-sm">
+                                    {(thread.users?.username || thread.users?.full_name || "U").charAt(0).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <span className="font-semibold text-gray-900 text-sm">
+                                      {thread.users?.full_name || thread.users?.username || "Anonymous"}
+                                    </span>
+                                    {thread.isCreator && (
+                                      <Badge variant="secondary" className="bg-violet-100 text-violet-700 text-xs px-1.5 py-0">
+                                        Creator
+                                      </Badge>
+                                    )}
+                                    {!thread.isCreator && thread.authorRole === "admin" && (
+                                      <Badge variant="secondary" className="bg-violet-100 text-violet-700 text-xs px-1.5 py-0">
+                                        Admin
+                                      </Badge>
+                                    )}
+                                    {!thread.isCreator && thread.authorRole === "moderator" && (
+                                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs px-1.5 py-0">
+                                        Moderator
+                                      </Badge>
+                                    )}
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(thread.created_at).toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "numeric",
+                                        minute: "2-digit",
+                                      })}
+                                    </span>
+                                    {thread.is_edited && (
+                                      <Badge variant="outline" className="text-xs px-1.5 py-0">Edited</Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-gray-800 leading-relaxed whitespace-pre-wrap text-sm mb-3">
+                                    {thread.content}
+                                  </p>
+                                  <div className="flex items-center gap-4">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 px-2 text-xs text-gray-600 hover:text-violet-600 hover:bg-violet-50"
+                                      onClick={() => {
+                                        setReplyingTo(replyingTo === thread.id ? null : thread.id);
+                                        setReplyContent("");
+                                      }}
+                                    >
+                                      <Reply className="h-3.5 w-3.5 mr-1.5" />
+                                      Reply
+                                    </Button>
+                                    {hasReplies && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 px-2 text-xs text-gray-600 hover:text-gray-700"
+                                        onClick={() => {
+                                          setShowReplies({
+                                            ...showReplies,
+                                            [thread.id]: !isExpanded,
+                                          });
+                                        }}
+                                      >
+                                        {isExpanded ? (
+                                          <>
+                                            <ChevronRight className="h-3.5 w-3.5 mr-1.5 rotate-90" />
+                                            Hide {replyCount} {replyCount === 1 ? "reply" : "replies"}
+                                          </>
+                                        ) : (
+                                          <>
+                                            <ChevronRight className="h-3.5 w-3.5 mr-1.5" />
+                                            Show {replyCount} {replyCount === 1 ? "reply" : "replies"}
+                                          </>
+                                        )}
+                                      </Button>
+                                    )}
+                                    {isMember && currentUser && thread.sender_id === currentUser.id && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 ml-auto"
+                                        onClick={async () => {
+                                          if (confirm("Are you sure you want to delete this thread?")) {
+                                            const supabase = getSupabaseBrowser();
+                                            const { error } = await supabase
+                                              .from("messages")
+                                              .delete()
+                                              .eq("id", thread.id);
+                                            
+                                            if (error) {
+                                              toast.error("Failed to delete thread");
+                                            } else {
+                                              toast.success("Thread deleted");
+                                              loadTabData("announcements");
+                                            }
+                                          }
+                                        }}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                                        Delete
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                                {discussion.content}
-                              </p>
-                              {/* Delete button for announcement owner/admin */}
-                              {canManage && currentUser && discussion.sender_id === currentUser.id && (
-                                <div className="mt-4 flex justify-end">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                    onClick={async () => {
-                                      if (confirm("Are you sure you want to delete this announcement?")) {
-                                        const supabase = getSupabaseBrowser();
-                                        const { error } = await supabase
-                                          .from("messages")
-                                          .delete()
-                                          .eq("id", discussion.id);
-                                        
-                                        if (error) {
-                                          toast.error("Failed to delete announcement");
-                                        } else {
-                                          toast.success("Announcement deleted");
-                                          loadTabData("announcements");
-                                        }
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-1" />
-                                    Delete
-                                  </Button>
-                              </div>
-                              )}
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                  ))}
-                </div>
+
+                            {/* Reply Form */}
+                            {replyingTo === thread.id && isMember && currentUser && (
+                              <div className="p-4 bg-gray-50 border-b border-gray-100">
+                                <div className="flex gap-3">
+                                  <Avatar className="h-8 w-8 flex-shrink-0">
+                                    <AvatarImage src={currentUser?.user_metadata?.avatar_url} />
+                                    <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white text-xs">
+                                      {currentUser?.email?.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 space-y-2">
+                                    <Textarea
+                                      placeholder="Write a reply..."
+                                      value={replyContent}
+                                      onChange={(e) => setReplyContent(e.target.value)}
+                                      className="min-h-[60px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none text-sm"
+                                      autoFocus
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setReplyingTo(null);
+                                          setReplyContent("");
+                                        }}
+                                      >
+                                        Cancel
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        disabled={!replyContent.trim() || isSubmitting}
+                                        onClick={() => handleReply(thread.id)}
+                                        className="bg-violet-600 hover:bg-violet-700 text-white"
+                                      >
+                                        {isSubmitting ? (
+                                          <>
+                                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                            Posting...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Send className="h-3.5 w-3.5 mr-1.5" />
+                                            Reply
+                                          </>
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Replies Section */}
+                            {hasReplies && isExpanded && (
+                              <div className="bg-gray-50">
+                                {thread.replies.map((reply: any) => (
+                                  <div key={reply.id} className="p-4 border-b border-gray-100 last:border-b-0">
+                                    <div className="flex gap-3 pl-8">
+                                      <Avatar className="h-8 w-8 flex-shrink-0">
+                                        <AvatarImage src={reply.users?.avatar_url} />
+                                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs">
+                                          {(reply.users?.username || reply.users?.full_name || "U").charAt(0).toUpperCase()}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="font-semibold text-gray-900 text-sm">
+                                            {reply.users?.full_name || reply.users?.username || "Anonymous"}
+                                          </span>
+                                          <span className="text-xs text-gray-500">
+                                            {new Date(reply.created_at).toLocaleDateString("en-US", {
+                                              month: "short",
+                                              day: "numeric",
+                                              hour: "numeric",
+                                              minute: "2-digit",
+                                            })}
+                                          </span>
+                                          {reply.is_edited && (
+                                            <Badge variant="outline" className="text-xs px-1.5 py-0">Edited</Badge>
+                                          )}
+                                        </div>
+                                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
+                                          {reply.content}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 )}
               </TabsContent>
 

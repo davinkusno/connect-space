@@ -37,6 +37,8 @@ import {
   Lock,
   ChevronLeft,
   ChevronRight,
+  CheckCircle2,
+  Ticket,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -45,7 +47,6 @@ import { AnimatedCard } from "@/components/ui/animated-card";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { StaggerContainer } from "@/components/ui/stagger-container";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
-import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { LeafletEventsMap } from "@/components/maps/leaflet-events-map";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -112,6 +113,8 @@ export default function EventsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6);
   const [totalPages, setTotalPages] = useState(1);
+  const [registrationStatus, setRegistrationStatus] = useState<Record<string | number, boolean>>({});
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Fetch events from API
   useEffect(() => {
@@ -151,6 +154,32 @@ export default function EventsPage() {
         const data = await response.json();
         setEvents(data.events || []);
         setTotalPages(data.pagination?.totalPages || 1);
+        
+        // Fetch registration status for current user
+        const { getSupabaseBrowser } = await import("@/lib/supabase/client");
+        const supabase = getSupabaseBrowser();
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUser(user);
+        
+        if (user && data.events && data.events.length > 0) {
+          const eventIds = data.events.map((e: Event) => String(e.id));
+          const { data: registrations } = await supabase
+            .from("event_attendees")
+            .select("event_id")
+            .eq("user_id", user.id)
+            .in("event_id", eventIds);
+          
+          const registrationMap: Record<string | number, boolean> = {};
+          eventIds.forEach((id: string | number) => {
+            registrationMap[id] = false;
+          });
+          
+          (registrations || []).forEach((reg: any) => {
+            registrationMap[reg.event_id] = true;
+          });
+          
+          setRegistrationStatus(registrationMap);
+        }
       } catch (err: any) {
         console.error("Error fetching events:", err);
         setError(err.message || "Failed to load events");
@@ -485,13 +514,20 @@ export default function EventsPage() {
   }) => {
     const isSaved = savedEvents.includes(event.id);
 
+    // Determine border color based on registration status
+    const getBorderColor = () => {
+      if (event.isPrivate) return "border-amber-400 hover:border-amber-500";
+      if (currentUser && registrationStatus[event.id]) {
+        return "border-green-500 border-2";
+      }
+      return "border-gray-200";
+    };
+
     return (
       <Card
         className={cn(
           "group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border-2",
-          event.isPrivate
-            ? "border-amber-400 hover:border-amber-500"
-            : "border-gray-200"
+          getBorderColor()
         )}
       >
         <div className="relative h-48 overflow-hidden">
@@ -503,15 +539,22 @@ export default function EventsPage() {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
 
-          {/* Private Badge - Only show for private events */}
-          {event.isPrivate && (
-            <div className="absolute top-3 left-3">
-              <Badge className="bg-amber-500 hover:bg-amber-600 text-white border-0 flex items-center gap-1 shadow-md">
-                <Lock className="h-3 w-3" />
+          <div className="absolute top-3 left-3 flex flex-col gap-2">
+            {/* Private Badge - Only show for private events */}
+            {event.isPrivate && (
+              <Badge className="bg-amber-500 hover:bg-amber-600 text-white border-2 border-amber-300 flex items-center gap-1 shadow-lg text-xs font-bold px-2.5 py-1">
+                <Lock className="h-3.5 w-3.5" />
                 Members Only
               </Badge>
-            </div>
-          )}
+            )}
+            {/* Registration Status Badge on Image */}
+            {currentUser && registrationStatus[event.id] && (
+              <Badge className="bg-green-500/90 backdrop-blur-sm text-white border border-green-300 text-xs font-semibold px-2 py-0.5 flex items-center gap-1 shadow-md">
+                <CheckCircle2 className="h-3 w-3" />
+                Registered
+              </Badge>
+            )}
+          </div>
 
           {/* Save Button */}
           <Button
@@ -533,10 +576,19 @@ export default function EventsPage() {
         </div>
 
         <CardContent className="p-4">
-          {/* Category Badge */}
-          <Badge variant="secondary" className="mb-3">
-            {event.category}
-          </Badge>
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            {/* Category Badge */}
+            <Badge variant="secondary">
+              {event.category}
+            </Badge>
+            {/* Registration Status Badge */}
+            {currentUser && registrationStatus[event.id] && (
+              <Badge className="bg-green-50 text-green-700 border border-green-500 text-xs font-semibold px-2 py-0.5 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                Registered
+              </Badge>
+            )}
+          </div>
 
           {/* Title */}
           <Link href={`/events/${event.id}`}>
@@ -1303,7 +1355,6 @@ export default function EventsPage() {
           </Tabs>
         </div>
 
-        <EnhancedChatbotWidget context="events" size="normal" />
       </div>
     </PageTransition>
   );

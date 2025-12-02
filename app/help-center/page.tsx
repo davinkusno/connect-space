@@ -47,7 +47,6 @@ import {
 import Link from "next/link";
 import { PageTransition } from "@/components/ui/page-transition";
 import { FloatingElements } from "@/components/ui/floating-elements";
-import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 
 const faqData = [
   {
@@ -406,7 +405,6 @@ export default function HelpCenterPage() {
 
           </Tabs>
         </div>
-        <EnhancedChatbotWidget />
       </div>
     </PageTransition>
   );
