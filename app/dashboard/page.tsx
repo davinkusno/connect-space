@@ -48,8 +48,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { PaginationControls } from "@/components/ui/pagination-controls";
-import { DailySummaryWidget } from "@/components/daily-summary/daily-summary-widget";
-import { RecommendationPanel } from "@/components/ai/recommendation-panel";
 
 // Import new enhanced components
 import { EnhancedEventCard } from "@/components/dashboard/enhanced-event-card";
@@ -88,46 +86,63 @@ export default function DashboardPage() {
   const [joinedCommunitiesPage, setJoinedCommunitiesPage] = useState(1);
   const communitiesPerPage = 6;
 
-  // Initialize with default saved events (all 10 events for demo)
-  const [savedEvents, setSavedEvents] = useState<number[]>([
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-  ]);
+  const [savedEvents, setSavedEvents] = useState<any[]>([]);
+  const [savedEventsIds, setSavedEventsIds] = useState<string[]>([]);
+  const [isLoadingSavedEvents, setIsLoadingSavedEvents] = useState(true);
   const [savedEventsPage, setSavedEventsPage] = useState(1);
   const [savedEventsFilter, setSavedEventsFilter] = useState("soonest"); // soonest, oldest
   const savedEventsPerPage = 5;
 
-  // Load saved events from localStorage on mount
+  // Load saved events from API
   useEffect(() => {
-    const saved = localStorage.getItem("savedEvents");
-    if (saved) {
+    const loadSavedEvents = async () => {
       try {
-        const parsedSaved = JSON.parse(saved);
-        setSavedEvents(parsedSaved);
+        setIsLoadingSavedEvents(true);
+        const response = await fetch("/api/events/saved");
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch saved events");
+        }
+        
+        const data = await response.json();
+        setSavedEvents(data.events || []);
+        setSavedEventsIds((data.events || []).map((e: any) => e.id));
       } catch (error) {
         console.error("Error loading saved events:", error);
-        // Keep default values if error
+        setSavedEvents([]);
+        setSavedEventsIds([]);
+      } finally {
+        setIsLoadingSavedEvents(false);
       }
-    } else {
-      // Save default to localStorage
-      localStorage.setItem(
-        "savedEvents",
-        JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-      );
-    }
+    };
+
+    loadSavedEvents();
   }, []);
 
-  // Save to localStorage whenever savedEvents changes
-  useEffect(() => {
-    localStorage.setItem("savedEvents", JSON.stringify(savedEvents));
-  }, [savedEvents]);
-
   // Toggle save event
-  const toggleSaveEvent = (eventId: number) => {
-    setSavedEvents((prev) =>
-      prev.includes(eventId)
-        ? prev.filter((id) => id !== eventId)
-        : [...prev, eventId]
-    );
+  const toggleSaveEvent = async (eventId: string | number) => {
+    const isCurrentlySaved = savedEventsIds.includes(String(eventId));
+    const method = isCurrentlySaved ? "DELETE" : "POST";
+    
+    try {
+      const response = await fetch(`/api/events/${eventId}/save`, {
+        method,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update saved status");
+      }
+
+      // Reload saved events from API
+      const savedResponse = await fetch("/api/events/saved");
+      if (savedResponse.ok) {
+        const data = await savedResponse.json();
+        setSavedEvents(data.events || []);
+        setSavedEventsIds((data.events || []).map((e: any) => e.id));
+      }
+    } catch (error: any) {
+      console.error("Error toggling save:", error);
+    }
   };
 
   useEffect(() => {
@@ -641,11 +656,31 @@ export default function DashboardPage() {
   ];
 
   // Get saved events list with filtering and sorting
-  const filteredSavedEvents = upcomingEvents
-    .filter((event) => savedEvents.includes(event.id))
+  const filteredSavedEvents = savedEvents
+    .map((event: any) => {
+      // Format event data to match expected structure
+      const startDate = new Date(event.start_time);
+      return {
+        id: event.id,
+        title: event.title,
+        description: event.description,
+        date: startDate.toISOString().split('T')[0],
+        time: startDate.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+        }),
+        location: event.location || event.community?.name || "Location TBD",
+        type: event.category || "General",
+        community: event.community?.name || "Community",
+        attendees: event.attendees || 0,
+        capacity: event.max_attendees || null,
+        image: event.image_url || "/placeholder.svg",
+        start_time: event.start_time,
+      };
+    })
     .sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
+      const dateA = new Date(a.start_time || a.date).getTime();
+      const dateB = new Date(b.start_time || b.date).getTime();
 
       // Sort by date
       if (savedEventsFilter === "soonest") {
@@ -1118,7 +1153,12 @@ export default function DashboardPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
-                    {paginatedSavedEvents.length > 0 ? (
+                    {isLoadingSavedEvents ? (
+                      <div className="text-center py-12">
+                        <div className="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-sm text-gray-600">Loading saved events...</p>
+                      </div>
+                    ) : paginatedSavedEvents.length > 0 ? (
                       <div className="space-y-3">
                         {paginatedSavedEvents.map((event) => (
                           <div
@@ -1145,7 +1185,7 @@ export default function DashboardPage() {
                                 <div className="flex items-center gap-1">
                                   <CalendarIcon className="h-3 w-3" />
                                   <span>
-                                    {new Date(event.date).toLocaleDateString(
+                                    {new Date(event.start_time || event.date).toLocaleDateString(
                                       "en-US",
                                       {
                                         month: "short",
@@ -1156,12 +1196,12 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
-                                  <span>{event.time}</span>
+                                  <span>{event.time || new Date(event.start_time || event.date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <MapPin className="h-3 w-3" />
                                   <span className="truncate max-w-[200px]">
-                                    {event.location}
+                                    {event.location || "Location TBD"}
                                   </span>
                                 </div>
                               </div>
@@ -1693,55 +1733,9 @@ export default function DashboardPage() {
             </Card>
           </TabsContent>
 
-          {/* Insights Tab - AI-powered insights and recommendations */}
+          {/* Insights Tab */}
           <TabsContent value="insights" className="space-y-6">
-            {/* Daily Summary - Full Version */}
-            <DailySummaryWidget
-              userId="current-user"
-              compact={false}
-              className="mb-6"
-            />
 
-            {/* AI Recommendations */}
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <div className="p-1.5 bg-amber-100 rounded-lg">
-                    <Lightbulb className="h-4 w-4 text-amber-600" />
-                  </div>
-                  Personalized Recommendations
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <RecommendationPanel
-                  userId="current-user"
-                  userProfile={{
-                    interests: [
-                      {
-                        topic: "Education",
-                        strength: 0.9,
-                        category: "Education",
-                      },
-                      {
-                        topic: "Sports",
-                        strength: 0.8,
-                        category: "Sports",
-                      },
-                      { topic: "Art", strength: 0.7, category: "Art" },
-                    ],
-                    joinedCommunities: ["Tech Innovators", "Startup Founders"],
-                    location: "New York",
-                    goals: [
-                      "Learn new skills",
-                      "Network with peers",
-                      "Find mentors",
-                    ],
-                  }}
-                  maxRecommendations={6}
-                  showExplanations={true}
-                />
-              </CardContent>
-            </Card>
 
             {/* Engagement Analytics */}
             <Card className="border-0 shadow-sm">

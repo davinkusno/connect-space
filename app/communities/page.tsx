@@ -292,7 +292,6 @@ export default function DiscoverPage() {
             lastActivity: comm.created_at, // Can be updated with actual last activity
             engagementScore: 70, // Can be calculated based on various metrics
             isRecommended: false,
-            recommendationScore: 0,
             isVerified: false, // Add verification field to database if needed
             isNew:
               new Date(comm.created_at).getTime() >
@@ -427,11 +426,6 @@ export default function DiscoverPage() {
               className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-            <div className="absolute top-4 left-4">
-              <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-none shadow-md">
-                {community.category}
-              </Badge>
-            </div>
             <div className="absolute top-4 right-4 flex items-center gap-2">
               {/* Membership Status Badge on Image */}
               {currentUser && membershipStatus[community.id] && (
@@ -465,10 +459,6 @@ export default function DiscoverPage() {
             </div>
             <div className="absolute bottom-4 right-4 flex items-center gap-2 text-white">
               <div className="flex items-center gap-1 backdrop-blur-sm bg-black/30 px-2 py-1 rounded-full text-xs">
-                <Star className="h-3 w-3 text-yellow-400 fill-current" />
-                <span>{community.averageRating}</span>
-              </div>
-              <div className="flex items-center gap-1 backdrop-blur-sm bg-black/30 px-2 py-1 rounded-full text-xs">
                 <Users className="h-3 w-3" />
                 <span>{community.memberCount.toLocaleString()}</span>
               </div>
@@ -476,7 +466,7 @@ export default function DiscoverPage() {
           </div>
           <CardContent className="p-5 flex flex-col flex-grow">
             <div className="flex-grow">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <div className="flex items-center gap-2 mb-2">
                 <h3 className="font-bold text-lg text-gray-800 leading-tight truncate">
                   {community.name}
                 </h3>
@@ -487,23 +477,6 @@ export default function DiscoverPage() {
                   <Badge variant="secondary" className="text-xs font-semibold">
                     New
                   </Badge>
-                )}
-                {/* Membership Status Badge */}
-                {currentUser && membershipStatus[community.id] && (
-                  <>
-                    {membershipStatus[community.id] === "joined" && (
-                      <Badge className="bg-green-50 text-green-700 border border-green-500 text-xs font-semibold px-2 py-0.5 flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Joined
-                      </Badge>
-                    )}
-                    {membershipStatus[community.id] === "pending" && (
-                      <Badge className="bg-amber-50 text-amber-700 border border-amber-500 text-xs font-semibold px-2 py-0.5 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        Pending
-                      </Badge>
-                    )}
-                  </>
                 )}
               </div>
               <p className="text-gray-600 text-sm mb-4 line-clamp-2">
@@ -520,12 +493,6 @@ export default function DiscoverPage() {
                   <MapPin className="h-4 w-4 text-gray-500" />
                   <span>{community.location.city}</span>
                 </div>
-                <div className="flex items-center gap-2" title="Rating">
-                  <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                  <span>
-                    {community.averageRating} ({community.activityLevel})
-                  </span>
-                </div>
                 <div
                   className="flex items-center gap-2"
                   title="Upcoming Events"
@@ -533,24 +500,6 @@ export default function DiscoverPage() {
                   <Calendar className="h-4 w-4 text-gray-500" />
                   <span>{community.upcomingEvents} upcoming events</span>
                 </div>
-              </div>
-
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2">
-                {community.tags.slice(0, 3).map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="outline"
-                    className="text-xs font-normal"
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-                {community.tags.length > 3 && (
-                  <Badge variant="outline" className="text-xs font-normal">
-                    +{community.tags.length - 3} more
-                  </Badge>
-                )}
               </div>
             </div>
             <div className="pt-4 mt-auto border-t border-gray-200/80">
@@ -822,7 +771,7 @@ export default function DiscoverPage() {
                     </SmoothReveal>
                   ))}
                 </StaggerContainer>
-                {filteredCommunities.length > itemsPerPage && (
+                {totalPages > 1 && (
                   <div className="mt-8">
                     <PaginationControls
                       currentPage={currentPage}

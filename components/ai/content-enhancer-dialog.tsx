@@ -77,30 +77,51 @@ export function ContentEnhancerDialog({
     setError(null)
 
     try {
-      const response = await fetch("/api/ai/enhance-content", {
+      // Use generate-content endpoint for title/description generation
+      let type = "";
+      let params: any = {};
+      
+      if (contentType === "title") {
+        type = context?.name ? "community-description" : "event-description";
+        params = {
+          name: context?.name || originalContent,
+          category: context?.category || "",
+        };
+      } else if (contentType === "description") {
+        type = context?.type === "event" ? "event-description" : "community-description";
+        params = {
+          name: context?.name || "",
+          category: context?.category || "",
+          description: originalContent,
+        };
+      } else {
+        // For other types, just return the original content
+        setEnhancedContent(originalContent);
+        setActiveTab("result");
+        setIsEnhancing(false);
+        return;
+      }
+
+      const response = await fetch("/api/ai/generate-content", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content: originalContent,
-          contentType,
-          enhancementType: enhancementType === "custom" ? "custom" : enhancementType,
-          customPrompt: enhancementType === "custom" ? customPrompt : "",
-          tone,
-          context,
+          type,
+          params,
         }),
       })
 
       if (!response.ok) {
-        throw new Error("Failed to enhance content")
+        throw new Error("Failed to generate content")
       }
 
       const data = await response.json()
-      setEnhancedContent(data.enhancedContent)
+      setEnhancedContent(data.description || originalContent)
       setActiveTab("result")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred while enhancing content")
+      setError(err instanceof Error ? err.message : "An error occurred while generating content")
     } finally {
       setIsEnhancing(false)
     }

@@ -50,6 +50,7 @@ import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { LeafletEventsMap } from "@/components/maps/leaflet-events-map";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
+import { toast } from "sonner";
 
 interface Event {
   id: string | number;
@@ -163,6 +164,8 @@ export default function EventsPage() {
         
         if (user && data.events && data.events.length > 0) {
           const eventIds = data.events.map((e: Event) => String(e.id));
+          
+          // Fetch registration status
           const { data: registrations } = await supabase
             .from("event_attendees")
             .select("event_id")
@@ -179,6 +182,16 @@ export default function EventsPage() {
           });
           
           setRegistrationStatus(registrationMap);
+          
+          // Fetch saved events
+          const { data: savedEventsData } = await supabase
+            .from("saved_events")
+            .select("event_id")
+            .eq("user_id", user.id)
+            .in("event_id", eventIds);
+          
+          const savedEventIds = (savedEventsData || []).map((se: any) => se.event_id);
+          setSavedEvents(savedEventIds);
         }
       } catch (err: any) {
         console.error("Error fetching events:", err);
@@ -321,12 +334,13 @@ export default function EventsPage() {
     dateRange,
   ]);
 
-  // Pagination logic - slice filtered events for client-side pagination
+  // Pagination logic
+  // Since we're doing client-side filtering, we need to paginate the filtered results
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
-
-  // Calculate total pages based on filtered events length (for client-side pagination)
+  
+  // Calculate total pages based on filtered results length
   const calculatedTotalPages = Math.ceil(filteredEvents.length / itemsPerPage);
 
   // Reset to page 1 when filters change
@@ -340,12 +354,34 @@ export default function EventsPage() {
     window.scrollTo({ top: 400, behavior: "smooth" });
   };
 
-  const toggleSaveEvent = (eventId: string | number) => {
-    setSavedEvents((prev) =>
-      prev.includes(eventId)
-        ? prev.filter((id) => id !== eventId)
-        : [...prev, eventId]
-    );
+  const toggleSaveEvent = async (eventId: string | number) => {
+    if (!currentUser) {
+      toast.error("Please log in to save events");
+      return;
+    }
+
+    const isCurrentlySaved = savedEvents.includes(eventId);
+    const method = isCurrentlySaved ? "DELETE" : "POST";
+    
+    try {
+      const response = await fetch(`/api/events/${eventId}/save`, {
+        method,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update saved status");
+      }
+
+      // Optimistically update UI
+      if (isCurrentlySaved) {
+        setSavedEvents((prev) => prev.filter((id) => id !== eventId));
+      } else {
+        setSavedEvents((prev) => [...prev, eventId]);
+      }
+    } catch (error: any) {
+      console.error("Error toggling save:", error);
+      toast.error(error.message || "Failed to save event");
+    }
   };
 
   // Get user's current location
@@ -421,7 +457,7 @@ export default function EventsPage() {
   };
 
   // Pagination Component
-  const PaginationControls = () => {
+  const EventPaginationControls = () => {
     if (calculatedTotalPages <= 1) return null;
 
     const getPageNumbers = () => {
@@ -465,6 +501,7 @@ export default function EventsPage() {
           className="h-9 px-3 border-gray-300 hover:bg-purple-50 hover:border-purple-400 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="h-4 w-4" />
+          Previous
         </Button>
 
         <div className="flex items-center gap-1">
@@ -499,6 +536,7 @@ export default function EventsPage() {
           disabled={currentPage === calculatedTotalPages}
           className="h-9 px-3 border-gray-300 hover:bg-purple-50 hover:border-purple-400 disabled:opacity-50 disabled:cursor-not-allowed"
         >
+          Next
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -526,7 +564,7 @@ export default function EventsPage() {
     return (
       <Card
         className={cn(
-          "group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border-2",
+          "group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border-2 flex flex-col h-full",
           getBorderColor()
         )}
       >
@@ -575,7 +613,7 @@ export default function EventsPage() {
           </Button>
         </div>
 
-        <CardContent className="p-4">
+        <CardContent className="p-4 flex flex-col flex-grow">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             {/* Category Badge */}
             <Badge variant="secondary">
@@ -592,18 +630,18 @@ export default function EventsPage() {
 
           {/* Title */}
           <Link href={`/events/${event.id}`}>
-            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2 mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2 mb-2 min-h-[3.5rem]">
               {event.title}
             </h3>
           </Link>
 
           {/* Description */}
-          <p className="text-sm text-gray-600 line-clamp-2 mb-4">
+          <p className="text-sm text-gray-600 line-clamp-2 mb-4 min-h-[2.5rem]">
             {event.description}
           </p>
 
           {/* Private Event Info - with consistent height */}
-          <div className="mb-3 h-[42px]">
+          <div className="mb-3 min-h-[42px]">
             {event.isPrivate && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
                 <div className="flex items-center gap-2">
@@ -617,7 +655,7 @@ export default function EventsPage() {
           </div>
 
           {/* Event Info */}
-          <div className="space-y-2 mb-4">
+          <div className="space-y-2 mb-4 flex-grow">
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Calendar className="h-4 w-4" />
               <span>
@@ -647,25 +685,9 @@ export default function EventsPage() {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1 border-gray-300 hover:bg-gray-50"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleSaveEvent(event.id);
-              }}
-            >
-              <Heart
-                className={cn(
-                  "h-4 w-4 mr-2",
-                  isSaved && "fill-red-500 text-red-500"
-                )}
-              />
-              {isSaved ? "Saved" : "Save"}
-            </Button>
-            <Link href={`/events/${event.id}`} className="flex-1">
+          {/* Action Button */}
+          <div className="mt-auto">
+            <Link href={`/events/${event.id}`} className="block">
               <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
                 View Event
               </Button>
@@ -893,7 +915,6 @@ export default function EventsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Events</SelectItem>
-                      <SelectItem value="recommendations">For You</SelectItem>
                       <SelectItem value="map">Map View</SelectItem>
                       <SelectItem value="saved">Saved</SelectItem>
                     </SelectContent>
@@ -965,7 +986,7 @@ export default function EventsPage() {
               </StaggerContainer>
 
               {/* Pagination Controls */}
-              <PaginationControls />
+              {calculatedTotalPages > 1 && <EventPaginationControls />}
 
               {filteredEvents.length === 0 && (
                 <SmoothReveal>
@@ -985,240 +1006,6 @@ export default function EventsPage() {
                       >
                         <Filter className="h-4 w-4 mr-2" />
                         Clear All Filters
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </SmoothReveal>
-              )}
-            </TabsContent>
-
-            {/* Recommendations Tab */}
-            <TabsContent value="recommendations" className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg">
-                      <Brain className="h-6 w-6 text-white" />
-                    </div>
-                    Personalized Recommendations
-                  </h2>
-                  <p className="text-gray-600">
-                    AI-powered suggestions based on your interests and
-                    preferences
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant="secondary"
-                    className="bg-purple-100 text-purple-600"
-                  >
-                    <Brain className="h-3 w-3 mr-1" />
-                    AI Powered
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Recommended Events Grid */}
-              {filteredEvents.length > 0 ? (
-                <>
-                  <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                    {paginatedEvents.map((event, index) => {
-                      const isSaved = savedEvents.includes(event.id);
-
-                      return (
-                        <div key={event.id} className="stagger-item">
-                          <Card
-                            className={cn(
-                              "group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border-2",
-                              event.isPrivate
-                                ? "border-amber-400 hover:border-amber-500"
-                                : "border-purple-200"
-                            )}
-                          >
-                            <div className="relative h-48 overflow-hidden">
-                              <Image
-                                src={event.image || "/placeholder.svg"}
-                                alt={event.title}
-                                width={500}
-                                height={300}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-
-                              {/* Badges Container */}
-                              <div className="absolute top-3 left-3 flex flex-col gap-2">
-                                {/* AI Recommended Badge */}
-                                <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-0 flex items-center gap-1 shadow-md">
-                                  <Brain className="h-3 w-3" />
-                                  AI Recommended
-                                </Badge>
-
-                                {/* Private Badge - Only show for private events */}
-                                {event.isPrivate && (
-                                  <Badge className="bg-amber-500 hover:bg-amber-600 text-white border-0 flex items-center gap-1 shadow-md">
-                                    <Lock className="h-3 w-3" />
-                                    Members Only
-                                  </Badge>
-                                )}
-                              </div>
-
-                              {/* Save Button */}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="absolute bottom-3 right-3 h-8 w-8 p-0 bg-white/90 hover:bg-white rounded-full"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleSaveEvent(event.id);
-                                }}
-                              >
-                                <Heart
-                                  className={cn(
-                                    "h-4 w-4",
-                                    isSaved
-                                      ? "fill-red-500 text-red-500"
-                                      : "text-gray-600"
-                                  )}
-                                />
-                              </Button>
-                            </div>
-
-                            <CardContent className="p-4">
-                              {/* Category Badge */}
-                              <Badge variant="secondary" className="mb-3">
-                                {event.category}
-                              </Badge>
-
-                              {/* Title */}
-                              <Link href={`/events/${event.id}`}>
-                                <h3 className="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2 mb-2">
-                                  {event.title}
-                                </h3>
-                              </Link>
-
-                              {/* Description */}
-                              <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                                {event.description}
-                              </p>
-
-                              {/* Private Event Info - with consistent height */}
-                              <div className="mb-3 h-[42px]">
-                                {event.isPrivate && (
-                                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
-                                    <div className="flex items-center gap-2">
-                                      <Lock className="h-3 w-3 text-amber-600 flex-shrink-0" />
-                                      <p className="text-xs text-amber-700 font-medium">
-                                        Join this community to attend event
-                                      </p>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* AI Explanation */}
-                              <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-2 mb-4">
-                                <div className="flex items-start gap-2">
-                                  <Brain className="h-3 w-3 text-purple-600 mt-0.5 flex-shrink-0" />
-                                  <p className="text-xs text-purple-700">
-                                    Based on your interest in{" "}
-                                    {event.category.toLowerCase()} events
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Event Info */}
-                              <div className="space-y-2 mb-4">
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                  <Calendar className="h-4 w-4" />
-                                  <span>
-                                    {new Date(event.date).toLocaleDateString(
-                                      "en-US",
-                                      {
-                                        month: "short",
-                                        day: "numeric",
-                                      }
-                                    )}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                  <Clock className="h-4 w-4" />
-                                  <span>
-                                    {event.time} - {event.endTime}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                  <MapPin className="h-4 w-4" />
-                                  <span className="truncate">
-                                    {event.location.city}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                  <Users className="h-4 w-4" />
-                                  <span>{event.attendees} attending</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                  <Award className="h-4 w-4" />
-                                  <span className="truncate">
-                                    {event.organizer}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Action Buttons */}
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  className="flex-1 border-gray-300 hover:bg-gray-50"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleSaveEvent(event.id);
-                                  }}
-                                >
-                                  <Heart
-                                    className={cn(
-                                      "h-4 w-4 mr-2",
-                                      isSaved && "fill-red-500 text-red-500"
-                                    )}
-                                  />
-                                  {isSaved ? "Saved" : "Save"}
-                                </Button>
-                                <Link
-                                  href={`/events/${event.id}`}
-                                  className="flex-1"
-                                >
-                                  <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-                                    View Event
-                                  </Button>
-                                </Link>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </div>
-                      );
-                    })}
-                  </StaggerContainer>
-
-                  {/* Pagination Controls */}
-                  <PaginationControls />
-                </>
-              ) : (
-                <SmoothReveal>
-                  <Card className="text-center py-16 border-dashed border-2 border-gray-200">
-                    <CardContent>
-                      <Brain className="h-16 w-16 text-purple-300 mx-auto mb-4" />
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                        No AI recommendations yet
-                      </h3>
-                      <p className="text-gray-600 mb-6">
-                        Attend some events and save your favorites to get
-                        personalized recommendations
-                      </p>
-                      <Button
-                        onClick={() => setActiveTab("all")}
-                        className="bg-gradient-to-r from-purple-500 to-blue-500"
-                      >
-                        <Search className="h-4 w-4 mr-2" />
-                        Explore Events
                       </Button>
                     </CardContent>
                   </Card>
@@ -1250,7 +1037,7 @@ export default function EventsPage() {
                   </StaggerContainer>
 
                   {/* Pagination Controls */}
-                  <PaginationControls />
+                  {calculatedTotalPages > 1 && <EventPaginationControls />}
                 </>
               ) : (
                 <SmoothReveal>

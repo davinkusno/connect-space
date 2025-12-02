@@ -51,7 +51,6 @@ import { AnimatedCard } from "@/components/ui/animated-card";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { StaggerContainer } from "@/components/ui/stagger-container";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
-import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { LeafletEventsMap } from "@/components/maps/leaflet-events-map";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -1699,7 +1698,6 @@ export default function EventsPage() {
           </Tabs>
         </div>
 
-        <EnhancedChatbotWidget context="events" size="normal" />
       </div>
     </PageTransition>
   );
