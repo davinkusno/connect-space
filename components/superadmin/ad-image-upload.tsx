@@ -20,14 +20,13 @@ export function AdImageUpload({
 }: AdImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageUrl || null);
-  const [manualUrl, setManualUrl] = useState(currentImageUrl || "");
+  const [tempPreviewUrl, setTempPreviewUrl] = useState<string | null>(null); // Temporary preview during upload
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Update preview when currentImageUrl changes (e.g., when editing)
   useEffect(() => {
     if (currentImageUrl) {
       setPreviewUrl(currentImageUrl);
-      setManualUrl(currentImageUrl);
     }
   }, [currentImageUrl]);
 
@@ -52,17 +51,21 @@ export function AdImageUpload({
       return;
     }
 
-    // Show preview
+    // Show temporary preview (local preview only, not uploaded yet)
+    let tempUrl: string | null = null;
+    
     if (isImage) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setPreviewUrl(e.target?.result as string);
+        const url = e.target?.result as string;
+        setTempPreviewUrl(url);
       };
       reader.readAsDataURL(file);
+      // For images, tempUrl is a data URL, no need to revoke
     } else {
       // For videos, create object URL for preview
-      const videoUrl = URL.createObjectURL(file);
-      setPreviewUrl(videoUrl);
+      tempUrl = URL.createObjectURL(file);
+      setTempPreviewUrl(tempUrl);
     }
 
     // Upload file
@@ -71,6 +74,11 @@ export function AdImageUpload({
       const session = await getClientSession();
       if (!session?.access_token) {
         toast.error("Please log in");
+        // Clean up temp preview (only for videos/blobs)
+        if (tempUrl) {
+          URL.revokeObjectURL(tempUrl);
+        }
+        setTempPreviewUrl(null);
         return;
       }
 
@@ -92,14 +100,25 @@ export function AdImageUpload({
       }
 
       const data = await response.json();
+      
+      // Clean up temporary preview (only for videos/blobs)
+      if (tempUrl) {
+        URL.revokeObjectURL(tempUrl);
+      }
+      setTempPreviewUrl(null);
+      
+      // Set the actual uploaded URL - only call onImageUrlChange after successful upload
       setPreviewUrl(data.url);
-      setManualUrl(data.url);
       onImageUrlChange(data.url);
       toast.success(`${isVideo ? 'Video' : 'Image'} uploaded successfully`);
     } catch (error: any) {
       console.error("Error uploading image:", error);
       toast.error(error.message || `Failed to upload ${isVideo ? 'video' : 'image'}`);
-      setPreviewUrl(null);
+      // Clean up temp preview on error (only for videos/blobs)
+      if (tempUrl) {
+        URL.revokeObjectURL(tempUrl);
+      }
+      setTempPreviewUrl(null);
     } finally {
       setIsUploading(false);
       // Reset file input
@@ -114,23 +133,24 @@ export function AdImageUpload({
     if (previewUrl && previewUrl.startsWith("blob:")) {
       URL.revokeObjectURL(previewUrl);
     }
+    if (tempPreviewUrl && tempPreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(tempPreviewUrl);
+    }
     setPreviewUrl(null);
-    setManualUrl("");
+    setTempPreviewUrl(null);
     onImageUrlChange("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  const handleManualUrlChange = (url: string) => {
-    setManualUrl(url);
-    if (url) {
-      setPreviewUrl(url);
-      onImageUrlChange(url);
-    }
-  };
-
-  const isVideoFile = previewUrl && previewUrl.startsWith("blob:");
+  // Determine if we should show video player
+  const displayUrl = tempPreviewUrl || previewUrl;
+  const isVideoFile = displayUrl && (
+    displayUrl.startsWith("blob:") || 
+    displayUrl.match(/\.(mp4|webm|ogg|mov|quicktime)$/i) ||
+    displayUrl.includes("/video/")
+  );
 
   return (
     <div className="space-y-4">
@@ -185,44 +205,42 @@ export function AdImageUpload({
       </div>
 
       {/* Preview */}
-      {previewUrl && (
+      {displayUrl && (
         <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
           {isVideoFile ? (
             <video
-              src={previewUrl}
+              src={displayUrl}
               controls
               className="w-full h-full object-cover"
               onError={() => {
                 toast.error("Failed to load video");
                 setPreviewUrl(null);
+                setTempPreviewUrl(null);
               }}
             />
           ) : (
             <Image
-              src={previewUrl}
+              src={displayUrl}
               alt="Ad preview"
               fill
               className="object-cover"
               onError={() => {
                 toast.error("Failed to load image");
                 setPreviewUrl(null);
+                setTempPreviewUrl(null);
               }}
             />
           )}
+          {tempPreviewUrl && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="text-white text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                <p className="text-sm">Uploading...</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
-
-      {/* Manual URL Input (Alternative) */}
-      <div className="space-y-2">
-        <Label className="text-xs text-gray-600">Or enter media URL manually</Label>
-        <Input
-          type="url"
-          value={manualUrl}
-          onChange={(e) => handleManualUrlChange(e.target.value)}
-          placeholder="https://example.com/image.jpg or https://example.com/video.mp4"
-          className="h-9 text-sm"
-        />
-      </div>
     </div>
   );
 }

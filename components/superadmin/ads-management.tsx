@@ -297,18 +297,6 @@ export function AdsManagement() {
     }
   };
 
-  const getPlacementColor = (placement: string) => {
-    switch (placement) {
-      case "sidebar":
-        return "bg-purple-100 text-purple-700";
-      case "banner":
-        return "bg-blue-100 text-blue-700";
-      case "inline":
-        return "bg-green-100 text-green-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -371,12 +359,6 @@ export function AdsManagement() {
                     )}
                   </div>
                   <div className="absolute top-2 right-2 flex gap-2 flex-wrap justify-end">
-                    <Badge
-                      variant="secondary"
-                      className={getPlacementColor(ad.placement)}
-                    >
-                      {ad.placement}
-                    </Badge>
                     <Badge
                       variant="secondary"
                       className={ad.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}
