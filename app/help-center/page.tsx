@@ -131,7 +131,7 @@ const faqData = [
       {
         question: "How do I get event reminders?",
         answer:
-          "Enable notifications in your account settings. You'll receive email and in-app reminders for events you're attending.",
+          "Enable notifications in your account settings. You'll receive email and in-app reminders for events you're interested in.",
       },
     ],
   },

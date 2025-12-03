@@ -35,11 +35,11 @@ export function UpdateRsvpDialog({
 
     if (isGoing) {
       toast.success("RSVP updated!", {
-        description: "You're confirmed to attend this event.",
+        description: "You're interested in joining this event.",
       });
     } else {
       toast.success("RSVP updated!", {
-        description: "You've declined this event.",
+        description: "You've removed your interest from this event.",
       });
     }
 
@@ -81,7 +81,7 @@ export function UpdateRsvpDialog({
                 htmlFor="going"
                 className="flex-1 cursor-pointer text-base font-normal"
               >
-                Going
+                Interested to join
               </Label>
             </div>
 
@@ -103,7 +103,7 @@ export function UpdateRsvpDialog({
                 htmlFor="not-going"
                 className="flex-1 cursor-pointer text-base font-normal"
               >
-                Not going
+                Not interested
               </Label>
             </div>
           </RadioGroup>

@@ -44,11 +44,12 @@ export default function CreateEventPage() {
     is_online: false,
     max_attendees: "",
     image_url: "",
+    link: "",
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [enhanceDialogOpen, setEnhanceDialogOpen] = useState(false);
-  const [enhancingContentType, setEnhancingContentType] = useState<"title" | "description" | null>(null);
+  const [enhancingContentType, setEnhancingContentType] = useState<"description" | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
 
   useEffect(() => {
@@ -65,16 +66,7 @@ export default function CreateEventPage() {
     setFormData((prev) => ({ ...prev, location: location.address }));
   }, []);
 
-  // AI Enhancement handlers
-  const handleEnhanceTitle = () => {
-    if (!formData.title.trim()) {
-      toast.error("Please enter a title first");
-      return;
-    }
-    setEnhancingContentType("title");
-    setEnhanceDialogOpen(true);
-  };
-
+  // AI Enhancement handlers (only for description)
   const handleEnhanceDescription = () => {
     if (!formData.description.trim()) {
       toast.error("Please enter a description first");
@@ -84,58 +76,8 @@ export default function CreateEventPage() {
     setEnhanceDialogOpen(true);
   };
 
-  const handleGenerateContent = async (type: "title" | "description") => {
-    if (type === "title" && !formData.title.trim()) {
-      toast.error("Please enter a title first");
-      return;
-    }
-    if (type === "description" && !formData.description.trim()) {
-      toast.error("Please enter a description first");
-      return;
-    }
-
-    setIsEnhancing(true);
-    try {
-      const response = await fetch("/api/ai/enhance-content", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          content: type === "title" ? formData.title : formData.description,
-          contentType: type,
-          enhancementType: "improve",
-          tone: "professional",
-          context: {
-            name: formData.title,
-            category: community?.name || "",
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to enhance content");
-      }
-
-      const data = await response.json();
-      if (type === "title") {
-        setFormData((prev) => ({ ...prev, title: data.enhancedContent }));
-      } else {
-        setFormData((prev) => ({ ...prev, description: data.enhancedContent }));
-      }
-      toast.success(`${type === "title" ? "Title" : "Description"} enhanced successfully!`);
-    } catch (error: any) {
-      console.error("Enhancement error:", error);
-      toast.error(`Failed to enhance ${type}. Please try again.`);
-    } finally {
-      setIsEnhancing(false);
-    }
-  };
-
   const handleAcceptEnhancedContent = (enhancedContent: string) => {
-    if (enhancingContentType === "title") {
-      setFormData((prev) => ({ ...prev, title: enhancedContent }));
-    } else if (enhancingContentType === "description") {
+    if (enhancingContentType === "description") {
       setFormData((prev) => ({ ...prev, description: enhancedContent }));
     }
     setEnhanceDialogOpen(false);
@@ -255,16 +197,22 @@ export default function CreateEventPage() {
         throw new Error(data.error || "Failed to create event");
       }
 
-      toast.success("Event created successfully!");
+      // Show success notification
+      toast.success("Event successfully created!", {
+        duration: 3000,
+      });
       
-      // Redirect to community page with events tab to show the new event
-      if (communityId) {
-        router.push(`/community/${communityId}?tab=events`);
-      } else if (data.id) {
-        router.push(`/events/${data.id}`);
-      } else {
-        router.push("/events");
-      }
+      // Wait a moment for user to see the notification, then redirect
+      setTimeout(() => {
+        // Redirect to community page with events tab to show the new event
+        if (communityId) {
+          router.push(`/community/${communityId}?tab=events`);
+        } else if (data.id) {
+          router.push(`/events/${data.id}`);
+        } else {
+          router.push("/events");
+        }
+      }, 500);
     } catch (error: any) {
       console.error("Error creating event:", error);
       toast.error(error.message || "Failed to create event");
@@ -430,40 +378,10 @@ export default function CreateEventPage() {
 
               {/* Title Section */}
               <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <Label htmlFor="title" className="text-base font-semibold text-gray-700 flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-purple-600" />
-                    Event Title *
-                  </Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleEnhanceTitle}
-                      disabled={!formData.title.trim() || isEnhancing}
-                      className="text-xs border-purple-200 hover:bg-purple-50 hover:border-purple-300"
-                    >
-                      <Wand2 className="h-3 w-3 mr-1" />
-                      Enhance
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleGenerateContent("title")}
-                      disabled={!formData.title.trim() || isEnhancing}
-                      className="text-xs border-purple-200 hover:bg-purple-50 hover:border-purple-300"
-                    >
-                      {isEnhancing ? (
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3 w-3 mr-1" />
-                      )}
-                      Quick Enhance
-                    </Button>
-                  </div>
-                </div>
+                <Label htmlFor="title" className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-purple-600" />
+                  Event Title *
+                </Label>
                 <Input
                   id="title"
                   placeholder="Enter a captivating event title..."
@@ -492,21 +410,6 @@ export default function CreateEventPage() {
                     >
                       <Wand2 className="h-3 w-3 mr-1" />
                       Enhance
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleGenerateContent("description")}
-                      disabled={!formData.description.trim() || isEnhancing}
-                      className="text-xs border-purple-200 hover:bg-purple-50 hover:border-purple-300"
-                    >
-                      {isEnhancing ? (
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3 w-3 mr-1" />
-                      )}
-                      Quick Enhance
                     </Button>
                   </div>
                 </div>
@@ -681,6 +584,27 @@ export default function CreateEventPage() {
                 </p>
               </div>
 
+              {/* Registration Link Section */}
+              <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
+                <Label htmlFor="link" className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-purple-600" />
+                  Registration Link
+                  <span className="text-sm font-normal text-gray-500">(optional)</span>
+                </Label>
+                <Input
+                  type="url"
+                  id="link"
+                  placeholder="https://example.com/register"
+                  value={formData.link}
+                  onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                  className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all bg-white"
+                />
+                <p className="text-sm text-gray-500 flex items-center gap-1">
+                  <span className="text-purple-600">💡</span>
+                  Add a link to external registration page
+                </p>
+              </div>
+
               {/* Divider */}
               <div className="border-t border-gray-200 my-8"></div>
 
@@ -720,14 +644,12 @@ export default function CreateEventPage() {
       </div>
 
       {/* AI Enhancement Dialog */}
-      {enhancingContentType && (
+      {enhancingContentType === "description" && (
         <ContentEnhancerDialog
           open={enhanceDialogOpen}
           onOpenChange={setEnhanceDialogOpen}
-          originalContent={
-            enhancingContentType === "title" ? formData.title : formData.description
-          }
-          contentType={enhancingContentType}
+          originalContent={formData.description}
+          contentType="description"
           context={{
             name: formData.title,
             category: community?.name || "",

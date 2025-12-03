@@ -35,8 +35,6 @@ import {
   X,
   Users,
   Lock,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -49,6 +47,18 @@ import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { LeafletEventsMap } from "@/components/maps/leaflet-events-map";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useRouter } from "next/navigation";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
 
 interface Event {
   id: string | number;
@@ -89,6 +99,7 @@ interface Event {
 }
 
 export default function EventsPage() {
+  const router = useRouter();
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,9 +120,9 @@ export default function EventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [savedEvents, setSavedEvents] = useState<(string | number)[]>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(6);
-  const [totalPages, setTotalPages] = useState(1);
+  const [unsaveEventId, setUnsaveEventId] = useState<string | number | null>(null);
+  const [isUnsaveDialogOpen, setIsUnsaveDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch events from API
   useEffect(() => {
@@ -121,8 +132,8 @@ export default function EventsPage() {
 
       try {
         const params = new URLSearchParams({
-          page: currentPage.toString(),
-          pageSize: itemsPerPage.toString(),
+          page: "1",
+          pageSize: "1000", // Fetch all events (large number to get all)
           dateRange: dateRange,
           sortBy: "start_time",
           sortOrder: "asc",
@@ -145,12 +156,16 @@ export default function EventsPage() {
         const response = await fetch(`/api/events?${params.toString()}`);
 
         if (!response.ok) {
-          throw new Error("Failed to fetch events");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to fetch events");
         }
 
         const data = await response.json();
-        setEvents(data.events || []);
-        setTotalPages(data.pagination?.totalPages || 1);
+        console.log("[Events Page] API Response:", data);
+        console.log("[Events Page] Events count:", data.events?.length || 0);
+        
+        // Ensure we always set events array, even if empty
+        setEvents(Array.isArray(data.events) ? data.events : []);
       } catch (err: any) {
         console.error("Error fetching events:", err);
         setError(err.message || "Failed to load events");
@@ -162,14 +177,62 @@ export default function EventsPage() {
 
     fetchEvents();
   }, [
-    currentPage,
-    itemsPerPage,
     searchQuery,
     selectedCategory,
     selectedLocation,
     dateRange,
     locationQuery,
   ]);
+
+  // Fetch saved events from API
+  const fetchSavedEvents = async () => {
+    try {
+      const supabase = getSupabaseBrowser();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setSavedEvents([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("event_save")
+        .select("event_id")
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error fetching saved events:", error);
+        return;
+      }
+
+      setSavedEvents(data?.map((item) => item.event_id) || []);
+    } catch (err) {
+      console.error("Error fetching saved events:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSavedEvents();
+  }, [events]); // Re-fetch when events change
+
+  // Listen for custom events from event detail page
+  useEffect(() => {
+    const handleEventSaved = () => {
+      fetchSavedEvents();
+    };
+
+    const handleEventUnsaved = () => {
+      fetchSavedEvents();
+    };
+
+    window.addEventListener('eventSaved', handleEventSaved);
+    window.addEventListener('eventUnsaved', handleEventUnsaved);
+
+    return () => {
+      window.removeEventListener('eventSaved', handleEventSaved);
+      window.removeEventListener('eventUnsaved', handleEventUnsaved);
+    };
+  }, []);
 
   const categories = [
     { value: "all", label: "All Categories", icon: "🎯" },
@@ -292,31 +355,106 @@ export default function EventsPage() {
     dateRange,
   ]);
 
-  // Pagination logic - slice filtered events for client-side pagination
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
+  // No pagination - show all filtered events
+  const paginatedEvents = filteredEvents;
 
-  // Calculate total pages based on filtered events length (for client-side pagination)
-  const calculatedTotalPages = Math.ceil(filteredEvents.length / itemsPerPage);
+  const toggleSaveEvent = async (eventId: string | number) => {
+    const isSaved = savedEvents.includes(eventId);
+    
+    // Check if user is logged in
+    const supabase = getSupabaseBrowser();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      router.push("/auth/login?redirect=/events");
+      return;
+    }
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, locationQuery, selectedCategory, dateRange]);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    // Smooth scroll to top of events section
-    window.scrollTo({ top: 400, behavior: "smooth" });
+    if (isSaved) {
+      // Show confirmation dialog for unsave
+      setUnsaveEventId(eventId);
+      setIsUnsaveDialogOpen(true);
+    } else {
+      // Save event
+      await handleSaveEvent(eventId);
+    }
   };
 
-  const toggleSaveEvent = (eventId: string | number) => {
-    setSavedEvents((prev) =>
-      prev.includes(eventId)
-        ? prev.filter((id) => id !== eventId)
-        : [...prev, eventId]
-    );
+  const handleSaveEvent = async (eventId: string | number) => {
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/save`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to save event");
+      }
+
+      // Update local state
+      setSavedEvents((prev) => [...prev, eventId]);
+      
+      // Refresh saved events from database to ensure consistency
+      const supabase = getSupabaseBrowser();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from("event_save")
+          .select("event_id")
+          .eq("user_id", user.id);
+        setSavedEvents(data?.map((item) => item.event_id) || []);
+      }
+    } catch (error: any) {
+      console.error("Error saving event:", error);
+      alert(error.message || "Failed to save event");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUnsaveEvent = async () => {
+    if (!unsaveEventId) return;
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/events/${unsaveEventId}/save`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to unsave event");
+      }
+
+      // Update local state
+      setSavedEvents((prev) => prev.filter((id) => id !== unsaveEventId));
+      
+      // Refresh saved events from database to ensure consistency
+      const supabase = getSupabaseBrowser();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from("event_save")
+          .select("event_id")
+          .eq("user_id", user.id);
+        setSavedEvents(data?.map((item) => item.event_id) || []);
+      }
+      
+      setIsUnsaveDialogOpen(false);
+      setUnsaveEventId(null);
+    } catch (error: any) {
+      console.error("Error unsaving event:", error);
+      alert(error.message || "Failed to unsave event");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Get user's current location
@@ -391,90 +529,6 @@ export default function EventsPage() {
     setSearchQuery("");
   };
 
-  // Pagination Component
-  const PaginationControls = () => {
-    if (calculatedTotalPages <= 1) return null;
-
-    const getPageNumbers = () => {
-      const pages = [];
-      const maxVisible = 5;
-
-      if (calculatedTotalPages <= maxVisible) {
-        for (let i = 1; i <= calculatedTotalPages; i++) {
-          pages.push(i);
-        }
-      } else {
-        if (currentPage <= 3) {
-          for (let i = 1; i <= 4; i++) pages.push(i);
-          pages.push("...");
-          pages.push(calculatedTotalPages);
-        } else if (currentPage >= calculatedTotalPages - 2) {
-          pages.push(1);
-          pages.push("...");
-          for (let i = calculatedTotalPages - 3; i <= calculatedTotalPages; i++)
-            pages.push(i);
-        } else {
-          pages.push(1);
-          pages.push("...");
-          pages.push(currentPage - 1);
-          pages.push(currentPage);
-          pages.push(currentPage + 1);
-          pages.push("...");
-          pages.push(calculatedTotalPages);
-        }
-      }
-      return pages;
-    };
-
-    return (
-      <div className="flex items-center justify-center gap-2 mt-8">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="h-9 px-3 border-gray-300 hover:bg-purple-50 hover:border-purple-400 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-
-        <div className="flex items-center gap-1">
-          {getPageNumbers().map((page, index) =>
-            page === "..." ? (
-              <span key={`ellipsis-${index}`} className="px-2 text-gray-400">
-                ...
-              </span>
-            ) : (
-              <Button
-                key={page}
-                variant={currentPage === page ? "default" : "outline"}
-                size="sm"
-                onClick={() => handlePageChange(page as number)}
-                className={cn(
-                  "h-9 w-9 p-0 border-gray-300",
-                  currentPage === page
-                    ? "bg-purple-600 text-white hover:bg-purple-700 border-purple-600"
-                    : "hover:bg-purple-50 hover:border-purple-400"
-                )}
-              >
-                {page}
-              </Button>
-            )
-          )}
-        </div>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === calculatedTotalPages}
-          className="h-9 px-3 border-gray-300 hover:bg-purple-50 hover:border-purple-400 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-    );
-  };
 
   const EnhancedEventCard = ({
     event,
@@ -587,7 +641,7 @@ export default function EventsPage() {
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Users className="h-4 w-4" />
-              <span>{event.attendees} attending</span>
+              <span>{event.attendees} interested</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Award className="h-4 w-4" />
@@ -895,11 +949,6 @@ export default function EventsPage() {
                   </h2>
                   <p className="text-gray-600 mt-1">
                     Find your next amazing experience
-                    {calculatedTotalPages > 1 && (
-                      <span className="ml-2 text-sm">
-                        • Page {currentPage} of {calculatedTotalPages}
-                      </span>
-                    )}
                   </p>
                 </div>
               </div>
@@ -913,7 +962,6 @@ export default function EventsPage() {
               </StaggerContainer>
 
               {/* Pagination Controls */}
-              <PaginationControls />
 
               {filteredEvents.length === 0 && (
                 <SmoothReveal>
@@ -1102,7 +1150,7 @@ export default function EventsPage() {
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
                                   <Users className="h-4 w-4" />
-                                  <span>{event.attendees} attending</span>
+                                  <span>{event.attendees} interested</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
                                   <Award className="h-4 w-4" />
@@ -1147,7 +1195,6 @@ export default function EventsPage() {
                   </StaggerContainer>
 
                   {/* Pagination Controls */}
-                  <PaginationControls />
                 </>
               ) : (
                 <SmoothReveal>
@@ -1198,7 +1245,6 @@ export default function EventsPage() {
                   </StaggerContainer>
 
                   {/* Pagination Controls */}
-                  <PaginationControls />
                 </>
               ) : (
                 <SmoothReveal>
@@ -1304,6 +1350,28 @@ export default function EventsPage() {
         </div>
 
         <EnhancedChatbotWidget context="events" size="normal" />
+
+        {/* Unsave Confirmation Dialog */}
+        <AlertDialog open={isUnsaveDialogOpen} onOpenChange={setIsUnsaveDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure to unsave?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This event will be removed from your saved events list.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleUnsaveEvent}
+                disabled={isSaving}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isSaving ? "Unsaving..." : "Yes, unsave"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </PageTransition>
   );

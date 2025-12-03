@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -1172,9 +1173,13 @@ export default function SuperadminPage() {
   const [reportDetailPage, setReportDetailPage] = useState(1);
   const [reportDetailItemsPerPage] = useState(5);
 
-  // Community requests state
-  const [requestSearchQuery, setRequestSearchQuery] = useState("");
-  const [requestSortBy, setRequestSortBy] = useState("newest");
+  // Ad requests state
+  const [adRequests, setAdRequests] = useState<any[]>([]);
+  const [isLoadingAdRequests, setIsLoadingAdRequests] = useState(true);
+  const [selectedAdRequest, setSelectedAdRequest] = useState<any>(null);
+  const [isAdRequestDialogOpen, setIsAdRequestDialogOpen] = useState(false);
+  const [adRequestFilter, setAdRequestFilter] = useState<"unread" | "all">("unread");
+  const [adRequestSort, setAdRequestSort] = useState<"desc" | "asc">("desc");
 
   // Community management state
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
@@ -1193,48 +1198,6 @@ export default function SuperadminPage() {
   const [currentActivityPage, setCurrentActivityPage] = useState(1);
   const [activityItemsPerPage] = useState(10);
 
-  // Calculate request statistics
-  const pendingRequests = mockCommunityRequests.filter(
-    (req) => req.status === "pending"
-  );
-  const approvedRequests = mockCommunityRequests.filter(
-    (req) => req.status === "approved"
-  );
-  const rejectedRequests = mockCommunityRequests.filter(
-    (req) => req.status === "rejected"
-  );
-
-  // Filter and sort pending requests
-  const filteredPendingRequests = pendingRequests
-    .filter((req) => {
-      const matchesSearch =
-        requestSearchQuery === "" ||
-        req.name.toLowerCase().includes(requestSearchQuery.toLowerCase()) ||
-        req.description
-          .toLowerCase()
-          .includes(requestSearchQuery.toLowerCase()) ||
-        req.requestedBy.name
-          .toLowerCase()
-          .includes(requestSearchQuery.toLowerCase());
-
-      return matchesSearch;
-    })
-    .sort((a, b) => {
-      switch (requestSortBy) {
-        case "oldest":
-          return (
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
-        case "newest":
-          return (
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-        case "name":
-          return a.name.localeCompare(b.name);
-        default:
-          return 0;
-      }
-    });
 
   // Filter and sort communities
   const filteredCommunities = mockCommunities
@@ -1358,6 +1321,51 @@ export default function SuperadminPage() {
     setIsCommunityDetailOpen(true);
     setCommunityDetailTab("overview");
   };
+
+  // Fetch ad requests
+  useEffect(() => {
+    const fetchAdRequests = async () => {
+      setIsLoadingAdRequests(true);
+      try {
+        const response = await fetch("/api/superadmin/ads-requests");
+        if (!response.ok) {
+          throw new Error("Failed to fetch ad requests");
+        }
+        const result = await response.json();
+        setAdRequests(result.data || []);
+      } catch (error) {
+        console.error("Error fetching ad requests:", error);
+        // Fallback to empty array if fetch fails
+        setAdRequests([]);
+      } finally {
+        setIsLoadingAdRequests(false);
+      }
+    };
+
+    fetchAdRequests();
+  }, []);
+
+  // Filter and sort ad requests
+  const filteredAdRequests = adRequests
+    .filter((req) => {
+      if (adRequestFilter === "unread") {
+        return !req.is_read;
+      }
+      return true; // "all"
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      if (adRequestSort === "desc") {
+        return dateB - dateA; // Newest first
+      } else {
+        return dateA - dateB; // Oldest first
+      }
+    });
+
+  // Calculate ad request statistics
+  const unreadAdRequests = adRequests.filter((req) => !req.is_read);
+  const readAdRequests = adRequests.filter((req) => req.is_read);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("en-US", {
@@ -1556,11 +1564,11 @@ export default function SuperadminPage() {
                 value="requests"
                 className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4 relative"
               >
-                <Users className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium">Requests</span>
-                {pendingRequests.length > 0 && (
+                <ShoppingBag className="h-4 w-4 flex-shrink-0" />
+                <span className="font-medium">Ad Requests</span>
+                {unreadAdRequests.length > 0 && (
                   <Badge className="bg-red-500 text-white text-xs px-1.5 py-0.5 ml-1 h-5 min-w-[20px] flex items-center justify-center">
-                    {pendingRequests.length}
+                    {unreadAdRequests.length}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -1754,28 +1762,29 @@ export default function SuperadminPage() {
               </div>
             </TabsContent>
 
-            {/* Community Requests Tab - Simplified */}
+            {/* Ad Requests Tab */}
             <TabsContent value="requests" className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold text-gray-900">
-                  Community Creation Requests
+                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <ShoppingBag className="h-6 w-6 text-purple-600" />
+                  Ad Requests
                 </h3>
               </div>
 
-              {/* Request Status Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              {/* Ad Request Status Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <AnimatedCard variant="glass" className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">
-                        Pending Review
+                        Unread Requests
                       </p>
                       <p className="text-2xl font-bold text-yellow-600">
-                        {pendingRequests.length}
+                        {unreadAdRequests.length}
                       </p>
                     </div>
                     <div className="p-2 bg-yellow-100 rounded-lg">
-                      <Clock className="h-5 w-5 text-yellow-600" />
+                      <Bell className="h-5 w-5 text-yellow-600" />
                     </div>
                   </div>
                 </AnimatedCard>
@@ -1784,10 +1793,10 @@ export default function SuperadminPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">
-                        Approved
+                        Read Requests
                       </p>
                       <p className="text-2xl font-bold text-green-600">
-                        {approvedRequests.length}
+                        {readAdRequests.length}
                       </p>
                     </div>
                     <div className="p-2 bg-green-100 rounded-lg">
@@ -1800,26 +1809,10 @@ export default function SuperadminPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">
-                        Rejected
-                      </p>
-                      <p className="text-2xl font-bold text-red-600">
-                        {rejectedRequests.length}
-                      </p>
-                    </div>
-                    <div className="p-2 bg-red-100 rounded-lg">
-                      <XCircle className="h-5 w-5 text-red-600" />
-                    </div>
-                  </div>
-                </AnimatedCard>
-
-                <AnimatedCard variant="glass" className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">
                         Total Requests
                       </p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {mockCommunityRequests.length}
+                        {adRequests.length}
                       </p>
                     </div>
                     <div className="p-2 bg-gray-100 rounded-lg">
@@ -1829,137 +1822,98 @@ export default function SuperadminPage() {
                 </AnimatedCard>
               </div>
 
-              {/* Pending Requests Section */}
+              {/* Ad Requests List */}
               <AnimatedCard variant="glass" className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-yellow-500" />
-                    Pending Requests - Requires Action
-                    <Badge className="bg-red-500 text-white">
-                      {pendingRequests.length}
-                    </Badge>
+                    <MessageSquare className="h-5 w-5 text-purple-500" />
+                    Ad Requests
+                    {unreadAdRequests.length > 0 && (
+                      <Badge className="bg-red-500 text-white">
+                        {unreadAdRequests.length} new
+                      </Badge>
+                    )}
                   </h4>
 
                   <div className="flex gap-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <Input
-                        placeholder="Search pending requests..."
-                        value={requestSearchQuery}
-                        onChange={(e) => setRequestSearchQuery(e.target.value)}
-                        className="pl-10 w-64 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
-                      />
-                    </div>
-
                     <select
-                      value={requestSortBy}
-                      onChange={(e) => setRequestSortBy(e.target.value)}
+                      value={adRequestFilter}
+                      onChange={(e) => setAdRequestFilter(e.target.value as "unread" | "all")}
                       className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200 bg-white"
                     >
-                      <option value="oldest">Oldest First</option>
-                      <option value="newest">Newest First</option>
-                      <option value="name">Name</option>
+                      <option value="unread">Unread</option>
+                      <option value="all">All</option>
+                    </select>
+                    <select
+                      value={adRequestSort}
+                      onChange={(e) => setAdRequestSort(e.target.value as "desc" | "asc")}
+                      className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200 bg-white"
+                    >
+                      <option value="desc">Newest First</option>
+                      <option value="asc">Oldest First</option>
                     </select>
                   </div>
                 </div>
 
-                {filteredPendingRequests.length === 0 ? (
+                {isLoadingAdRequests ? (
+                  <div className="text-center py-12">
+                    <Spinner />
+                    <p className="text-gray-500 mt-4">Loading ad requests...</p>
+                  </div>
+                ) : filteredAdRequests.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="mb-4 text-gray-400">
-                      <CheckCircle2 className="h-12 w-12 mx-auto" />
+                      <MessageSquare className="h-12 w-12 mx-auto" />
                     </div>
                     <h5 className="text-xl font-medium text-gray-900 mb-2">
-                      All caught up!
+                      No ad requests found
                     </h5>
                     <p className="text-gray-500">
-                      {requestSearchQuery
-                        ? `No pending requests match "${requestSearchQuery}"`
-                        : "No pending requests require your attention at this time."}
+                      {adRequestFilter === "unread"
+                        ? "There are no unread ad requests at this time."
+                        : "There are no ad requests at this time."}
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {filteredPendingRequests.map((request) => (
+                    {filteredAdRequests.map((request) => (
                       <div
                         key={request.id}
-                        className="p-4 rounded-lg border-2 border-gray-200 bg-white transition-all duration-200 hover:shadow-md"
+                        onClick={() => {
+                          setSelectedAdRequest(request);
+                          setIsAdRequestDialogOpen(true);
+                        }}
+                        className={`p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md cursor-pointer ${
+                          !request.is_read
+                            ? "border-purple-300 bg-purple-50/30"
+                            : "border-gray-200 bg-white"
+                        }`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
-                              <h5 className="text-lg font-semibold text-gray-900">
-                                {request.name}
-                              </h5>
-                              <Badge variant="outline" className="text-xs">
-                                {request.category}
-                              </Badge>
+                              <span className="text-lg font-semibold text-gray-900 hover:text-purple-600 transition-colors">
+                                {request.user_name || "Unknown User"}
+                              </span>
+                              {!request.is_read && (
+                                <Badge className="bg-yellow-500 text-white border-0">
+                                  New
+                                </Badge>
+                              )}
+                              {request.is_read && (
+                                <Badge variant="outline" className="text-xs text-gray-500">
+                                  Read
+                                </Badge>
+                              )}
                             </div>
 
                             <p className="text-gray-600 mb-3 line-clamp-2">
-                              {request.description}
+                              {request.message || "No message provided"}
                             </p>
 
                             <div className="flex items-center gap-4 text-sm text-gray-500">
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-6 w-6">
-                                  <AvatarImage
-                                    src={
-                                      request.requestedBy.avatar ||
-                                      "/placeholder.svg"
-                                    }
-                                    alt={request.requestedBy.name}
-                                  />
-                                  <AvatarFallback className="text-xs">
-                                    {request.requestedBy.name.charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span>{request.requestedBy.name}</span>
-                              </div>
-                              <span>•</span>
-                              <span>{formatDate(request.createdAt)}</span>
+                              <span>{formatDate(request.created_at)}</span>
                             </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 ml-4">
-                            <AnimatedButton
-                              variant="glass"
-                              size="sm"
-                              onClick={() => {
-                                // Convert request to community format for viewing
-                                const communityData = {
-                                  id: request.id,
-                                  name: request.name,
-                                  description: request.description,
-                                  category: request.category,
-                                  status: request.status,
-                                  createdAt: request.createdAt,
-                                  memberCount: 0,
-                                  totalEvents: 0,
-                                  location: "TBD",
-                                  admin: request.requestedBy,
-                                };
-                                handleViewCommunity(communityData);
-                              }}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </AnimatedButton>
-                            <AnimatedButton
-                              variant="glass"
-                              size="sm"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                            >
-                              <UserCheck className="h-4 w-4 mr-1" />
-                              Approve
-                            </AnimatedButton>
-                            <AnimatedButton
-                              variant="glass"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Ban className="h-4 w-4 mr-1" />
-                              Reject
-                            </AnimatedButton>
                           </div>
                         </div>
                       </div>
@@ -3160,6 +3114,68 @@ export default function SuperadminPage() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Ad Request Detail Dialog */}
+      <Dialog open={isAdRequestDialogOpen} onOpenChange={setIsAdRequestDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              Ad Request Details
+            </DialogTitle>
+            <DialogDescription>
+              View the details of this ad request
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedAdRequest && (
+            <div className="space-y-6 mt-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">User Name</Label>
+                <p className="text-base text-gray-900">{selectedAdRequest.user_name || "Unknown User"}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">Email</Label>
+                <p className="text-base text-gray-900 break-all">{selectedAdRequest.email || "No email provided"}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">Message</Label>
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-base text-gray-700 whitespace-pre-wrap">
+                    {selectedAdRequest.message || "No message provided"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">Request Date</Label>
+                <p className="text-base text-gray-900">{formatDate(selectedAdRequest.created_at)}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">Status</Label>
+                <div>
+                  {selectedAdRequest.is_read ? (
+                    <Badge className="bg-green-500 text-white">Read</Badge>
+                  ) : (
+                    <Badge className="bg-yellow-500 text-white">Unread</Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsAdRequestDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

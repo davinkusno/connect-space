@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { format, isSameDay } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EnhancedCalendar } from "@/components/ui/enhanced-calendar";
 import { NotificationModal } from "@/components/notifications/notification-modal";
@@ -46,7 +48,7 @@ import {
   Lightbulb,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { DailySummaryWidget } from "@/components/daily-summary/daily-summary-widget";
@@ -63,7 +65,10 @@ interface Community {
   banner_url?: string;
   created_at?: string;
   role?: "admin" | "moderator" | "member";
+  status?: boolean | null; // Join request status: false = pending, true = approved, null = legacy (treated as approved)
   member_count?: number;
+  members?: number;
+  upcomingEvents?: number;
   isCreator?: boolean;
 }
 
@@ -82,50 +87,147 @@ export default function DashboardPage() {
   const [isLoadingCommunities, setIsLoadingCommunities] = useState(true);
   const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  const [selectedSavedEvent, setSelectedSavedEvent] = useState<any | null>(null);
   const [createdCommunitiesPage, setCreatedCommunitiesPage] = useState(1);
   const [joinedCommunitiesPage, setJoinedCommunitiesPage] = useState(1);
   const communitiesPerPage = 6;
 
-  // Initialize with default saved events (all 10 events for demo)
-  const [savedEvents, setSavedEvents] = useState<number[]>([
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-  ]);
+  // Saved events from database
+  const [savedEventsData, setSavedEventsData] = useState<any[]>([]);
+  const [isLoadingSavedEvents, setIsLoadingSavedEvents] = useState(true);
   const [savedEventsPage, setSavedEventsPage] = useState(1);
-  const [savedEventsFilter, setSavedEventsFilter] = useState("soonest"); // soonest, oldest
+  const [savedEventsFilter, setSavedEventsFilter] = useState("saved-date-desc"); // saved-date-asc, saved-date-desc, event-date-asc, event-date-desc
   const savedEventsPerPage = 5;
 
-  // Load saved events from localStorage on mount
+  // Fetch saved events from database
   useEffect(() => {
-    const saved = localStorage.getItem("savedEvents");
-    if (saved) {
-      try {
-        const parsedSaved = JSON.parse(saved);
-        setSavedEvents(parsedSaved);
-      } catch (error) {
-        console.error("Error loading saved events:", error);
-        // Keep default values if error
-      }
-    } else {
-      // Save default to localStorage
-      localStorage.setItem(
-        "savedEvents",
-        JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-      );
+    console.log("[Dashboard] useEffect triggered, activeTab:", activeTab);
+    
+    if (activeTab !== "events") {
+      console.log("[Dashboard] Not events tab, skipping saved events fetch");
+      return;
     }
+
+    const fetchSavedEvents = async () => {
+      console.log("[Dashboard] fetchSavedEvents called");
+      setIsLoadingSavedEvents(true);
+      try {
+        // Use API route to avoid RLS issues
+        console.log("[Dashboard] Fetching saved events from API...");
+        console.log("[Dashboard] API URL: /api/events/saved");
+        
+        const response = await fetch("/api/events/saved", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include", // Include cookies for authentication
+        });
+
+        console.log("[Dashboard] API Response status:", response.status);
+        console.log("[Dashboard] API Response ok:", response.ok);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+          console.error("[Dashboard] Error fetching saved events - Status:", response.status);
+          console.error("[Dashboard] Error data:", errorData);
+          setSavedEventsData([]);
+          setIsLoadingSavedEvents(false);
+          return;
+        }
+
+        const data = await response.json();
+        console.log("[Dashboard] Received saved events from API:", data.events?.length || 0);
+        console.log("[Dashboard] Full API response:", data);
+        
+        if (data.events && data.events.length > 0) {
+          console.log("[Dashboard] First saved event:", data.events[0]);
+          console.log("[Dashboard] All saved events:", data.events);
+        } else {
+          console.log("[Dashboard] No events in response or empty array");
+        }
+
+        setSavedEventsData(data.events || []);
+        console.log("[Dashboard] Set savedEventsData with", (data.events || []).length, "events");
+      } catch (error: any) {
+        console.error("[Dashboard] Exception in fetchSavedEvents:", error);
+        console.error("[Dashboard] Error message:", error.message);
+        console.error("[Dashboard] Error stack:", error.stack);
+        setSavedEventsData([]);
+      } finally {
+        setIsLoadingSavedEvents(false);
+        console.log("[Dashboard] fetchSavedEvents completed");
+      }
+    };
+
+    fetchSavedEvents();
+  }, [activeTab]);
+
+  // Listen for custom events to refresh saved events
+  useEffect(() => {
+    const handleEventSaved = () => {
+      console.log("[Dashboard] Event saved, refreshing saved events list");
+      const fetchSavedEvents = async () => {
+        try {
+          const response = await fetch("/api/events/saved", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (!response.ok) {
+            console.error("[Dashboard] Error refreshing saved events");
+            return;
+          }
+
+          const data = await response.json();
+          setSavedEventsData(data.events || []);
+        } catch (error) {
+          console.error("[Dashboard] Error refreshing saved events:", error);
+        }
+      };
+
+      fetchSavedEvents();
+    };
+
+    const handleEventUnsaved = () => {
+      console.log("[Dashboard] Event unsaved, refreshing saved events list");
+      handleEventSaved(); // Same logic
+    };
+
+    window.addEventListener("eventSaved", handleEventSaved);
+    window.addEventListener("eventUnsaved", handleEventUnsaved);
+
+    return () => {
+      window.removeEventListener("eventSaved", handleEventSaved);
+      window.removeEventListener("eventUnsaved", handleEventUnsaved);
+    };
   }, []);
 
-  // Save to localStorage whenever savedEvents changes
-  useEffect(() => {
-    localStorage.setItem("savedEvents", JSON.stringify(savedEvents));
-  }, [savedEvents]);
+  // Toggle save event (delete from saved)
+  const toggleSaveEvent = async (eventId: string | number) => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/save`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-  // Toggle save event
-  const toggleSaveEvent = (eventId: number) => {
-    setSavedEvents((prev) =>
-      prev.includes(eventId)
-        ? prev.filter((id) => id !== eventId)
-        : [...prev, eventId]
-    );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to unsave event");
+      }
+
+      // Remove from local state
+      setSavedEventsData((prev) => prev.filter((event) => event.id !== eventId));
+    } catch (error: any) {
+      console.error("Error unsaving event:", error);
+      alert(error.message || "Failed to unsave event");
+    }
   };
 
   useEffect(() => {
@@ -158,6 +260,14 @@ export default function DashboardPage() {
     fetchUserData();
   }, []);
 
+  // Read tab from query parameter
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && ["home", "events", "communities", "achievements", "insights"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     const fetchCommunities = async () => {
       setIsLoadingCommunities(true);
@@ -188,18 +298,42 @@ export default function DashboardPage() {
           .order("created_at", { ascending: false });
 
         if (!createdError && createdData) {
+          // Fetch upcoming events count for each community
+          const communityIds = createdData.map((c) => c.id);
+          const now = new Date().toISOString();
+          
+          const { data: eventsData } = await supabase
+            .from("events")
+            .select("community_id")
+            .in("community_id", communityIds)
+            .gte("start_time", now);
+
+          // Count events per community
+          const eventCounts: { [key: string]: number } = {};
+          if (eventsData) {
+            eventsData.forEach((event: any) => {
+              eventCounts[event.community_id] = (eventCounts[event.community_id] || 0) + 1;
+            });
+          }
+
           setCreatedCommunities(
-            createdData.map((comm) => ({ ...comm, isCreator: true }))
+            createdData.map((comm) => ({ 
+              ...comm, 
+              isCreator: true,
+              upcomingEvents: eventCounts[comm.id] || 0
+            }))
           );
         }
 
         // Fetch communities where user is a member (but not creator)
+        // Only fetch approved members (status = true or null), exclude pending (status = false)
         const { data: memberData, error: memberError } = await supabase
           .from("community_members")
           .select(
             `
             community_id,
             role,
+            status,
             communities (
               id,
               name,
@@ -212,6 +346,7 @@ export default function DashboardPage() {
           `
           )
           .eq("user_id", session.user.id)
+          .or("status.is.null,status.eq.true")
           .order("joined_at", { ascending: false });
 
         if (!memberError && memberData) {
@@ -224,6 +359,7 @@ export default function DashboardPage() {
             .map((m: any) => ({
               ...m.communities,
               role: m.role,
+              status: m.status, // Include status to check if admin is approved
             }));
           setJoinedCommunities(joined);
         }
@@ -240,25 +376,71 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchJoinedEvents = async () => {
+      console.log("[Dashboard] fetchJoinedEvents called, activeTab:", activeTab);
       setIsLoadingEvents(true);
       try {
+        console.log("[Dashboard] Getting session...");
         const session = await getClientSession();
+        console.log("[Dashboard] Session:", session ? "exists" : "null");
         if (!session?.user) {
+          console.log("[Dashboard] No session or user, skipping fetch");
           setIsLoadingEvents(false);
           return;
         }
+        
+        console.log("[Dashboard] User ID:", session.user.id);
 
         const supabase = getSupabaseBrowser();
 
         // Fetch events where user has RSVP'd (going or maybe)
-        const { data: attendeeData, error: attendeeError } = await supabase
+        console.log("[Dashboard] Fetching events for user:", session.user.id);
+        
+        // First, get attendee records
+        const { data: attendeeRecords, error: attendeeError } = await supabase
           .from("event_attendees")
-          .select(
-            `
-            event_id,
-            status,
-            registered_at,
-            events (
+          .select("event_id, status, registered_at")
+          .eq("user_id", session.user.id)
+          .in("status", ["going", "maybe"])
+          .order("registered_at", { ascending: false });
+        
+        console.log("[Dashboard] Attendee records:", attendeeRecords);
+        console.log("[Dashboard] Attendee error:", attendeeError);
+        
+        if (attendeeError) {
+          console.error("[Dashboard] Error fetching attendee records:", attendeeError);
+          setJoinedEvents([]);
+          setIsLoadingEvents(false);
+          return;
+        }
+        
+        if (!attendeeRecords || attendeeRecords.length === 0) {
+          console.log("[Dashboard] No attendee records found");
+          setJoinedEvents([]);
+          setIsLoadingEvents(false);
+          return;
+        }
+        
+        // Get event IDs
+        const eventIds = attendeeRecords.map((r: any) => r.event_id);
+        console.log("[Dashboard] Event IDs to fetch:", eventIds);
+        
+        if (eventIds.length === 0) {
+          console.log("[Dashboard] No event IDs to fetch");
+          setJoinedEvents([]);
+          setIsLoadingEvents(false);
+          return;
+        }
+        
+        // Fetch events data with start_time (for calendar integration)
+        // Query without category column (may not exist in database)
+        let eventsData: any[] = [];
+        let eventsError: any = null;
+        
+        try {
+          // First try with minimal columns to avoid errors
+          const result = await supabase
+            .from("events")
+            .select(`
               id,
               title,
               description,
@@ -266,35 +448,126 @@ export default function DashboardPage() {
               end_time,
               location,
               image_url,
-              category,
-              community_id,
-              communities (
-                id,
-                name,
-                logo_url
-              )
-            )
-          `
-          )
-          .eq("user_id", session.user.id)
-          .in("status", ["going", "maybe"])
-          .order("registered_at", { ascending: false });
-
-        if (!attendeeError && attendeeData) {
-          // Filter to only upcoming events
-          const now = new Date();
-          const upcomingEvents = attendeeData
-            .filter((item: any) => {
-              if (!item.events || !item.events.start_time) return false;
-              const eventStart = new Date(item.events.start_time);
-              return eventStart >= now;
-            })
-            .map((item: any) => ({
+              community_id
+            `)
+            .in("id", eventIds);
+          
+          eventsData = result.data || [];
+          eventsError = result.error;
+          
+          console.log("[Dashboard] Events data (minimal query):", eventsData);
+          console.log("[Dashboard] Events error (minimal query):", eventsError);
+          
+          if (eventsError) {
+            console.error("[Dashboard] Error fetching events:", eventsError);
+            console.error("[Dashboard] Error details:", JSON.stringify(eventsError, null, 2));
+            setJoinedEvents([]);
+            setIsLoadingEvents(false);
+            return;
+          }
+          
+          // If we got events, try to fetch communities separately
+          if (eventsData.length > 0) {
+            const communityIds = [...new Set(eventsData.map(e => e.community_id).filter(Boolean))];
+            if (communityIds.length > 0) {
+              const { data: communitiesData } = await supabase
+                .from("communities")
+                .select("id, name, logo_url")
+                .in("id", communityIds);
+              
+              // Map communities to events
+              if (communitiesData) {
+                const communityMap = new Map(communitiesData.map(c => [c.id, c]));
+                eventsData = eventsData.map(event => ({
+                  ...event,
+                  communities: event.community_id ? communityMap.get(event.community_id) : null,
+                  category: null // Set default since column may not exist
+                }));
+              } else {
+                // Add null category if no communities
+                eventsData = eventsData.map(event => ({
+                  ...event,
+                  communities: null,
+                  category: null
+                }));
+              }
+            } else {
+              // Add null category if no community_ids
+              eventsData = eventsData.map(event => ({
+                ...event,
+                communities: null,
+                category: null
+              }));
+            }
+          }
+        } catch (err: any) {
+          console.error("[Dashboard] Exception fetching events:", err);
+          eventsError = err;
+        }
+        
+        if (eventsError) {
+          console.error("[Dashboard] Final error:", eventsError);
+          setJoinedEvents([]);
+          setIsLoadingEvents(false);
+          return;
+        }
+        
+        if (!eventsData || eventsData.length === 0) {
+          console.log("[Dashboard] No events data returned");
+          setJoinedEvents([]);
+          setIsLoadingEvents(false);
+          return;
+        }
+        
+        console.log("[Dashboard] Final events data:", eventsData);
+        
+        // Combine attendee records with events data
+        // Map attendee records to events, using start_time from events table
+        const attendeeData = attendeeRecords.map((record: any) => {
+          const event = eventsData?.find((e: any) => e.id === record.event_id);
+          if (!event) {
+            console.log(`[Dashboard] Event not found for event_id: ${record.event_id}`);
+            return null;
+          }
+          return {
+            ...record,
+            events: event
+          };
+        }).filter((item: any) => item !== null && item.events !== null);
+        
+        console.log("[Dashboard] Combined attendee data:", attendeeData);
+        console.log(`[Dashboard] Found ${attendeeData.length} attendee records with events`);
+        
+        if (!attendeeData || attendeeData.length === 0) {
+          console.log("[Dashboard] No attendee data with events found");
+          setJoinedEvents([]);
+          setIsLoadingEvents(false);
+          return;
+        }
+        
+        // Filter to only upcoming events and map to calendar format
+        // Use start_time from events table for calendar integration
+        const now = new Date();
+        const upcomingEvents = attendeeData
+          .filter((item: any) => {
+            if (!item.events || !item.events.start_time) {
+              console.log("[Dashboard] Skipping item - no events or start_time:", item);
+              return false;
+            }
+            const eventStart = new Date(item.events.start_time);
+            const isUpcoming = eventStart >= now;
+            console.log(`[Dashboard] Event "${item.events.title}": ${eventStart.toISOString()} >= ${now.toISOString()}? ${isUpcoming}`);
+            return isUpcoming;
+          })
+          .map((item: any) => {
+            // Use start_time from events table for calendar
+            const startTime = item.events.start_time;
+            return {
               id: item.events.id,
               title: item.events.title,
               description: item.events.description,
-              date: item.events.start_time,
-              time: new Date(item.events.start_time).toLocaleTimeString(
+              date: startTime, // Use start_time directly from events table
+              time: new Date(startTime).toLocaleTimeString(
                 "en-US",
                 {
                   hour: "2-digit",
@@ -309,22 +582,25 @@ export default function DashboardPage() {
               communityLogo: item.events.communities?.logo_url,
               status: item.status, // 'going' or 'maybe'
               registeredAt: item.registered_at,
-            }))
-            .sort(
-              (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-            )
-            .slice(0, 5); // Limit to 5 most recent
+            };
+          })
+          .sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+          );
 
-          setJoinedEvents(upcomingEvents);
-        }
+        console.log(`[Dashboard] Loaded ${upcomingEvents.length} interested events:`, upcomingEvents);
+        console.log(`[Dashboard] Sample event date:`, upcomingEvents[0]?.date);
+        setJoinedEvents(upcomingEvents);
       } catch (error) {
-        console.error("Error fetching joined events:", error);
+        console.error("Error fetching interested events:", error);
+        setJoinedEvents([]);
       } finally {
         setIsLoadingEvents(false);
       }
     };
 
     if (activeTab === "home" || activeTab === "events") {
+      console.log("[Dashboard] Fetching joined events...");
       fetchJoinedEvents();
     }
   }, [activeTab]);
@@ -352,6 +628,17 @@ export default function DashboardPage() {
 
   // Calculate total communities count
   const totalCommunities = createdCommunities.length + joinedCommunities.length;
+
+  // Filter events by selected date
+  const getEventsForDate = (date: Date | null) => {
+    if (!date) return [];
+    return joinedEvents.filter((event) => {
+      const eventDate = new Date(event.date);
+      return isSameDay(eventDate, date);
+    });
+  };
+
+  const eventsForSelectedDate = getEventsForDate(selectedDate);
 
   // Update active tab when URL parameter changes
   useEffect(() => {
@@ -629,17 +916,27 @@ export default function DashboardPage() {
   ];
 
   // Get saved events list with filtering and sorting
-  const filteredSavedEvents = upcomingEvents
-    .filter((event) => savedEvents.includes(event.id))
+  const filteredSavedEvents = savedEventsData
+    .filter((event) => {
+      // Show all saved events (including past events)
+      // If you want to filter only upcoming events, uncomment the line below
+      // const eventDate = new Date(event.date);
+      // return eventDate >= new Date();
+      return true;
+    })
     .sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-
-      // Sort by date
-      if (savedEventsFilter === "soonest") {
-        return dateA - dateB; // Ascending (nearest first)
+      if (savedEventsFilter === "saved-date-asc") {
+        // Sort by saved date ascending (oldest saved first)
+        return new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime();
+      } else if (savedEventsFilter === "saved-date-desc") {
+        // Sort by saved date descending (newest saved first)
+        return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
+      } else if (savedEventsFilter === "event-date-asc") {
+        // Sort by event date ascending (soonest first)
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
       } else {
-        return dateB - dateA; // Descending (oldest/farthest first)
+        // Sort by event date descending (farthest first)
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
       }
     });
 
@@ -651,6 +948,19 @@ export default function DashboardPage() {
     (savedEventsPage - 1) * savedEventsPerPage,
     savedEventsPage * savedEventsPerPage
   );
+
+  // Debug logging for saved events
+  useEffect(() => {
+    if (activeTab === "events") {
+      console.log("[Dashboard] savedEventsData length:", savedEventsData.length);
+      console.log("[Dashboard] filteredSavedEvents length:", filteredSavedEvents.length);
+      console.log("[Dashboard] paginatedSavedEvents length:", paginatedSavedEvents.length);
+      console.log("[Dashboard] savedEventsPage:", savedEventsPage);
+      if (savedEventsData.length > 0) {
+        console.log("[Dashboard] First saved event:", savedEventsData[0]);
+      }
+    }
+  }, [savedEventsData, filteredSavedEvents, paginatedSavedEvents, savedEventsPage, activeTab]);
 
   const recentActivity = [
     {
@@ -770,8 +1080,9 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* Compact Header with Inline Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
           <div>
@@ -807,9 +1118,9 @@ export default function DashboardPage() {
 
           {/* Events Tab - Enhanced event cards with calendar */}
           <TabsContent value="events" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Enhanced Calendar */}
-              <Card className="border-0 shadow-sm lg:col-span-1">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start relative">
+              {/* Enhanced Calendar - Left Column (1/3) */}
+              <Card className="border-0 shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                     <div className="p-1.5 bg-blue-100 rounded-lg">
@@ -819,260 +1130,224 @@ export default function DashboardPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
-                  <EnhancedCalendar />
+                  <EnhancedCalendar 
+                    selectedDate={selectedDate || undefined}
+                    onDateSelect={(date) => {
+                      setSelectedDate(date);
+                      setSelectedEvent(null); // Reset selected event when date changes
+                    }}
+                    showEventsList={false}
+                    events={(() => {
+                      console.log(`[Dashboard] Rendering calendar with ${joinedEvents.length} events`);
+                      if (joinedEvents.length === 0) {
+                        console.log("[Dashboard] No events to send to calendar");
+                        return [];
+                      }
+                      
+                      const mappedEvents = joinedEvents.map(event => {
+                        // Ensure date is in correct format
+                        const eventDate = typeof event.date === 'string' 
+                          ? event.date 
+                          : event.date instanceof Date 
+                          ? event.date.toISOString() 
+                          : new Date(event.date).toISOString();
+                        
+                        console.log(`[Dashboard] Sending event to calendar: ${event.title}, date: ${eventDate}`);
+                        
+                        return {
+                          id: event.id,
+                          date: eventDate,
+                          title: event.title,
+                        };
+                      });
+                      
+                      console.log(`[Dashboard] Mapped ${mappedEvents.length} events for calendar`);
+                      return mappedEvents;
+                    })()}
+                  />
                 </CardContent>
               </Card>
 
-              {/* Enhanced Event List */}
-              <div className="lg:col-span-3 space-y-4">
-                <Card className="border-0 shadow-sm">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                          <div className="p-1.5 bg-green-100 rounded-lg">
-                            <BookOpen className="h-4 w-4 text-green-600" />
+              {/* Upcoming Events List - Middle Column (1/3) */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <div className="p-1.5 bg-green-100 rounded-lg">
+                      <BookOpen className="h-4 w-4 text-green-600" />
+                    </div>
+                    Upcoming Events
+                  </CardTitle>
+                  <CardDescription className="text-sm text-gray-500 mt-1">
+                    {selectedDate 
+                      ? `Events you're interested in on ${selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
+                      : "Select a date to view events"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  {selectedDate ? (
+                    (() => {
+                      // Filter events by selected date
+                      const eventsForDate = joinedEvents.filter((event) => {
+                        const eventDate = new Date(event.date);
+                        return (
+                          eventDate.getDate() === selectedDate.getDate() &&
+                          eventDate.getMonth() === selectedDate.getMonth() &&
+                          eventDate.getFullYear() === selectedDate.getFullYear()
+                        );
+                      });
+
+                      if (eventsForDate.length === 0) {
+                        return (
+                          <div className="text-center py-12">
+                            <CalendarIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                            <p className="text-sm text-gray-500">
+                              No events on this date
+                            </p>
                           </div>
-                          Upcoming Events
-                        </CardTitle>
-                        <CardDescription className="text-sm text-gray-500 mt-1">
-                          Your scheduled events for the next 30 days
-                        </CardDescription>
-                      </div>
-                      <Link href="/events">
-                        <Button variant="outline" size="sm">
-                          Browse All Events
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {upcomingEvents
-                        .slice(
-                          (currentPage - 1) * eventsPerPage,
-                          currentPage * eventsPerPage
-                        )
-                        .map((event) => (
-                          <Card
-                            key={event.id}
-                            className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-gray-200"
-                          >
-                            <div className="relative h-36 overflow-hidden">
-                              <img
-                                src={event.image || "/placeholder.svg"}
-                                alt={event.title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
+                        );
+                      }
 
-                              {/* Status Badge */}
-                              <div className="absolute top-2 left-2">
-                                <Badge
-                                  className={`text-xs ${
-                                    event.status === "attending"
-                                      ? "bg-green-500 hover:bg-green-600 text-white border-0"
-                                      : event.status === "saved"
-                                      ? "bg-blue-500 hover:bg-blue-600 text-white border-0"
-                                      : "bg-gray-500 hover:bg-gray-600 text-white border-0"
-                                  }`}
-                                >
-                                  {event.status === "attending"
-                                    ? "Attending"
-                                    : event.status === "saved"
-                                    ? "Saved"
-                                    : "Not Going"}
-                                </Badge>
-                              </div>
-
-                              {/* Save Button */}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="absolute top-2 right-2 h-7 w-7 p-0 bg-white/90 hover:bg-white rounded-full"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleSaveEvent(event.id);
-                                }}
-                              >
-                                <Bookmark
-                                  className={`h-3.5 w-3.5 ${
-                                    savedEvents.includes(event.id)
-                                      ? "fill-amber-500 text-amber-500"
-                                      : "text-gray-600"
-                                  }`}
-                                />
-                              </Button>
-                            </div>
-
-                            <CardContent className="p-3">
-                              {/* Category Badge */}
-                              <Badge
-                                variant="secondary"
-                                className="mb-2 text-xs"
-                              >
-                                {event.type}
-                              </Badge>
-
-                              {/* Title */}
-                              <Link href={`/events/${event.id}`}>
-                                <h3 className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2 mb-2">
-                                  {event.title}
-                                </h3>
-                              </Link>
-
-                              {/* Description */}
-                              <p className="text-xs text-gray-600 line-clamp-2 mb-3">
-                                {event.description}
-                              </p>
-
-                              {/* Event Info */}
-                              <div className="space-y-1.5 mb-3">
-                                <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                                  <CalendarIcon className="h-3.5 w-3.5" />
-                                  <span>
-                                    {new Date(event.date).toLocaleDateString(
-                                      "en-US",
-                                      {
-                                        month: "short",
-                                        day: "numeric",
-                                      }
-                                    )}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  <span>{event.time}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                                  <MapPin className="h-3.5 w-3.5" />
-                                  <span className="truncate">
-                                    {event.location}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                                  <Users className="h-3.5 w-3.5" />
-                                  <span>{event.attendees} attending</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                                  <Award className="h-3.5 w-3.5" />
-                                  <span className="truncate">
-                                    {event.organizer?.name || event.community}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Action Buttons */}
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className={`flex-1 text-xs ${
-                                    savedEvents.includes(event.id)
-                                      ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                                      : "border-gray-300 hover:bg-gray-50"
-                                  }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleSaveEvent(event.id);
-                                  }}
-                                >
-                                  <Bookmark
-                                    className={`h-3 w-3 mr-1 ${
-                                      savedEvents.includes(event.id)
-                                        ? "fill-amber-500"
-                                        : ""
-                                    }`}
-                                  />
-                                  {savedEvents.includes(event.id)
-                                    ? "Saved"
-                                    : "Save"}
-                                </Button>
-                                <Link
-                                  href={`/events/${event.id}`}
-                                  className="flex-1"
-                                >
-                                  <Button
-                                    size="sm"
-                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs"
-                                  >
-                                    View Event
-                                  </Button>
-                                </Link>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                    </div>
-
-                    {/* Pagination Controls */}
-                    {upcomingEvents.length > eventsPerPage && (
-                      <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-gray-200">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setCurrentPage((prev) => Math.max(prev - 1, 1))
-                          }
-                          disabled={currentPage === 1}
-                          className="h-9"
-                        >
-                          <ChevronRight className="h-4 w-4 rotate-180 mr-1" />
-                          Previous
-                        </Button>
-
-                        <div className="flex items-center gap-2">
-                          {Array.from(
-                            {
-                              length: Math.ceil(
-                                upcomingEvents.length / eventsPerPage
-                              ),
-                            },
-                            (_, i) => i + 1
-                          ).map((page) => (
-                            <Button
-                              key={page}
-                              variant={
-                                currentPage === page ? "default" : "outline"
-                              }
-                              size="sm"
-                              onClick={() => setCurrentPage(page)}
-                              className={`h-9 w-9 ${
-                                currentPage === page
-                                  ? "bg-purple-600 hover:bg-purple-700 text-white"
-                                  : ""
+                      return (
+                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                          {eventsForDate.map((event) => (
+                            <div
+                              key={event.id}
+                              onClick={() => setSelectedEvent(event)}
+                              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                selectedEvent?.id === event.id
+                                  ? "border-violet-500 bg-violet-50"
+                                  : "border-gray-200 hover:border-violet-300 hover:bg-violet-50/50"
                               }`}
                             >
-                              {page}
-                            </Button>
+                              <div className="flex items-start gap-3">
+                                <div className="w-2 h-2 rounded-full bg-violet-600 mt-2 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                                    {event.title}
+                                  </h4>
+                                  <div className="space-y-1.5 text-sm text-gray-600">
+                                    <div className="flex items-center gap-2">
+                                      <Clock className="h-4 w-4" />
+                                      <span>{event.time}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <MapPin className="h-4 w-4" />
+                                      <span className="truncate">{event.location}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           ))}
                         </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="text-center py-12">
+                      <CalendarIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm text-gray-500">
+                        Choose event date
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setCurrentPage((prev) =>
-                              Math.min(
-                                prev + 1,
-                                Math.ceil(upcomingEvents.length / eventsPerPage)
-                              )
-                            )
-                          }
-                          disabled={
-                            currentPage ===
-                            Math.ceil(upcomingEvents.length / eventsPerPage)
-                          }
-                          className="h-9"
-                        >
-                          Next
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </Button>
+              {/* Event Detail - Right Column (1/3) - Top Card (from upcoming events) */}
+              {selectedEvent ? (
+                <Card className="border-0 shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <div className="p-1.5 bg-purple-100 rounded-lg">
+                        <CalendarIcon className="h-4 w-4 text-purple-600" />
                       </div>
-                    )}
+                      Event Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <div className="space-y-4">
+                      {/* Event Image - Always show, with placeholder if no image */}
+                      <div className="relative h-48 w-full overflow-hidden rounded-lg bg-gray-200">
+                        {selectedEvent.image ? (
+                          <Image
+                            src={selectedEvent.image}
+                            alt={selectedEvent.title}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 100vw, 33vw"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                            <div className="text-center">
+                              <div className="w-16 h-16 mx-auto mb-2 bg-gray-300 rounded-lg flex items-center justify-center">
+                                <CalendarIcon className="h-8 w-8 text-gray-500" />
+                              </div>
+                              <p className="text-sm text-gray-500 font-medium">No Image</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">
+                          {selectedEvent.title}
+                        </h3>
+                        {selectedEvent.description && (
+                          <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                            {selectedEvent.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <CalendarIcon className="h-4 w-4 text-gray-400" />
+                          <span>
+                            {new Date(selectedEvent.date).toLocaleDateString("en-US", {
+                              weekday: "long",
+                              month: "long",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <Clock className="h-4 w-4 text-gray-400" />
+                          <span>{selectedEvent.time}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <MapPin className="h-4 w-4 text-gray-400" />
+                          <span>{selectedEvent.location}</span>
+                        </div>
+                        {selectedEvent.community && (
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <Users className="h-4 w-4 text-gray-400" />
+                            <span>{selectedEvent.community}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="pt-4 border-t">
+                        <Link href={`/events/${selectedEvent.id}`} className="w-full">
+                          <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white">
+                            View Full Details
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
+              ) : (
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4 pt-0 flex items-center justify-center min-h-[400px]">
+                    <div className="text-center text-gray-400">
+                      <CalendarIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Choose event to view</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-                {/* Saved Events Section */}
+              {/* Saved Events Section - Spans from calendar to upcoming events (cols 1-2) */}
+              <div className="lg:col-span-2 lg:col-start-1 lg:row-start-2">
+                {/* Saved Events List - Full width */}
                 <Card className="border-0 shadow-sm">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
@@ -1098,33 +1373,49 @@ export default function DashboardPage() {
                           <SelectValue placeholder="Sort by date" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="soonest">Soonest First</SelectItem>
-                          <SelectItem value="oldest">Oldest First</SelectItem>
+                          <SelectItem value="saved-date-desc">Saved Date (Newest)</SelectItem>
+                          <SelectItem value="saved-date-asc">Saved Date (Oldest)</SelectItem>
+                          <SelectItem value="event-date-asc">Event Date (Soonest)</SelectItem>
+                          <SelectItem value="event-date-desc">Event Date (Farthest)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
-                    {paginatedSavedEvents.length > 0 ? (
-                      <div className="space-y-3">
+                    {isLoadingSavedEvents ? (
+                      <div className="text-center py-12">
+                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Bookmark className="h-10 w-10 text-gray-400 animate-pulse" />
+                        </div>
+                        <p className="text-sm text-gray-600">Loading saved events...</p>
+                      </div>
+                    ) : paginatedSavedEvents.length > 0 ? (
+                      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                         {paginatedSavedEvents.map((event) => (
                           <div
                             key={event.id}
-                            className="flex items-center justify-between gap-4 p-3 rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50/50 transition-all group"
+                              onClick={() => {
+                              setSelectedSavedEvent(event);
+                              // Keep selectedEvent from upcoming events - allow both cards to show
+                            }}
+                            className={`flex items-center justify-between gap-4 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                              selectedSavedEvent?.id === event.id
+                                ? "border-amber-500 bg-amber-50"
+                                : "border-gray-200 hover:border-amber-300 hover:bg-amber-50/50"
+                            } group`}
                           >
                             {/* Event Info */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <Link href={`/events/${event.id}`}>
-                                  <h4 className="text-sm font-semibold text-gray-900 group-hover:text-amber-600 transition-colors line-clamp-1">
-                                    {event.title}
-                                  </h4>
-                                </Link>
+                                <div className="w-2 h-2 rounded-full bg-amber-600 mt-2 flex-shrink-0" />
+                                <h4 className="text-sm font-semibold text-gray-900 group-hover:text-amber-600 transition-colors line-clamp-1">
+                                  {event.title}
+                                </h4>
                                 <Badge
                                   variant="secondary"
                                   className="text-xs flex-shrink-0"
                                 >
-                                  {event.type}
+                                  {event.category}
                                 </Badge>
                               </div>
 
@@ -1156,7 +1447,7 @@ export default function DashboardPage() {
 
                             {/* Action Buttons */}
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              <Link href={`/events/${event.id}`}>
+                              <Link href={`/events/${event.id}`} onClick={(e) => e.stopPropagation()}>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1169,7 +1460,10 @@ export default function DashboardPage() {
                                 variant="ghost"
                                 size="sm"
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => toggleSaveEvent(event.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSaveEvent(event.id);
+                                }}
                               >
                                 Remove
                               </Button>
@@ -1271,39 +1565,97 @@ export default function DashboardPage() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Event Detail - Right Column (1/3) - Bottom Card (from saved events) - Positioned at same row as saved events section */}
+              <div className="lg:col-start-3 lg:col-span-1 lg:row-start-2">
+                {selectedSavedEvent ? (
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        <div className="p-1.5 bg-amber-100 rounded-lg">
+                          <Bookmark className="h-4 w-4 text-amber-600" />
+                        </div>
+                        Event Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0">
+                      <div className="space-y-4">
+                        {/* Event Image - Always show, with placeholder if no image */}
+                        <div className="relative h-48 w-full overflow-hidden rounded-lg bg-gray-200">
+                          {selectedSavedEvent.image ? (
+                            <Image
+                              src={selectedSavedEvent.image}
+                              alt={selectedSavedEvent.title}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 100vw, 33vw"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                              <div className="text-center">
+                                <div className="w-16 h-16 mx-auto mb-2 bg-gray-300 rounded-lg flex items-center justify-center">
+                                  <CalendarIcon className="h-8 w-8 text-gray-500" />
+                                </div>
+                                <p className="text-sm text-gray-500 font-medium">No Image</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-900 mb-2">
+                            {selectedSavedEvent.title}
+                          </h3>
+                          {selectedSavedEvent.description && (
+                            <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                              {selectedSavedEvent.description}
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <CalendarIcon className="h-4 w-4 text-gray-400" />
+                            <span>
+                              {new Date(selectedSavedEvent.date).toLocaleDateString("en-US", {
+                                weekday: "long",
+                                month: "long",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <Clock className="h-4 w-4 text-gray-400" />
+                            <span>{selectedSavedEvent.time}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <MapPin className="h-4 w-4 text-gray-400" />
+                            <span>{selectedSavedEvent.location}</span>
+                          </div>
+                          {selectedSavedEvent.community && (
+                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                              <Users className="h-4 w-4 text-gray-400" />
+                              <span>{selectedSavedEvent.community}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="pt-4 border-t">
+                          <Link href={`/events/${selectedSavedEvent.id}`} className="w-full">
+                            <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white">
+                              View Full Details
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+              </div>
             </div>
           </TabsContent>
+          
 
           {/* Communities Tab - Enhanced community cards with Created and Joined sections */}
           <TabsContent value="communities" className="space-y-6">
-            {/* Create Community CTA */}
-            <Card className="border-2 border-dashed border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-purple-100 rounded-lg">
-                      <Building2 className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                        Start Your Own Community
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        Create a space for like-minded people to connect and
-                        grow together
-                      </p>
-                    </div>
-                  </div>
-                  <Link href="/create-community">
-                    <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Community
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Communities Created Section */}
             {createdCommunities.length > 0 && (
               <Card className="border-0 shadow-sm">
@@ -1314,7 +1666,7 @@ export default function DashboardPage() {
                         <div className="p-1.5 bg-purple-100 rounded-lg">
                           <Crown className="h-4 w-4 text-purple-600" />
                         </div>
-                        Communities I Created ({createdCommunities.length})
+                        Created Communities ({createdCommunities.length})
                       </CardTitle>
                       <CardDescription className="text-sm text-gray-500 mt-1">
                         Communities you created and manage
@@ -1323,7 +1675,7 @@ export default function DashboardPage() {
                     <Link href="/create-community">
                       <Button variant="outline" size="sm">
                         <Plus className="h-3 w-3 mr-1" />
-                        Create Another
+                        Create Community
                       </Button>
                     </Link>
                   </div>
@@ -1337,107 +1689,113 @@ export default function DashboardPage() {
                           Loading communities...
                         </p>
                       </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {createdCommunities
+                        .slice(
+                          (createdCommunitiesPage - 1) * communitiesPerPage,
+                          createdCommunitiesPage * communitiesPerPage
+                        )
+                        .map((community) => (
+                          <Card
+                            key={community.id}
+                            className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-purple-200 bg-purple-50/30"
+                          >
+                            <CardContent className="p-5">
+                              {/* Community Avatar and Info */}
+                              <div className="flex items-start gap-3 mb-4">
+                                <Avatar className="h-14 w-14 ring-2 ring-purple-200">
+                                  <AvatarImage
+                                    src={
+                                      community.logo_url || "/placeholder.svg"
+                                    }
+                                  />
+                                  <AvatarFallback className="bg-gradient-to-r from-purple-500 to-blue-600 text-white font-bold">
+                                    {community.name.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+
+                                <div className="flex-1 min-w-0">
+                                  <Link href={`/community/${community.id}`}>
+                                    <h3 className="text-base font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2">
+                                      {community.name}
+                                    </h3>
+                                  </Link>
+                                  <Badge variant="secondary" className="mt-1 text-xs">
+                                    <Crown className="h-3 w-3 mr-1" />
+                                    Creator
+                                  </Badge>
+                                </div>
+                              </div>
+
+                              {/* Description */}
+                              {community.description && (
+                                <p className="text-sm text-gray-600 line-clamp-2 mb-4">
+                                  {community.description}
+                                </p>
+                              )}
+
+                              {/* Stats */}
+                              <div className="space-y-2 mb-4">
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <Users className="h-4 w-4" />
+                                  <span>
+                                    {community.member_count || community.members || 0} members
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <CalendarIcon className="h-4 w-4" />
+                                  <span>
+                                    {community.upcomingEvents || 0} upcoming events
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex gap-2">
+                                <Link
+                                  href={`/community/${community.id}`}
+                                  className="flex-1"
+                                >
+                                  <Button
+                                    variant="outline"
+                                    className="w-full"
+                                  >
+                                    View
+                                  </Button>
+                                </Link>
+                                <Link
+                                  href={`/community-admin/${community.id}`}
+                                  className="flex-1"
+                                >
+                                  <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                                    Manage
+                                  </Button>
+                                </Link>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
                     </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {createdCommunities
-                          .slice(
-                            (createdCommunitiesPage - 1) * communitiesPerPage,
-                            createdCommunitiesPage * communitiesPerPage
-                          )
-                          .map((community) => (
-                            <Card
-                              key={community.id}
-                              className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-purple-200 bg-purple-50/30"
-                            >
-                              <CardContent className="p-5">
-                                {/* Community Avatar and Info */}
-                                <div className="flex items-start gap-3 mb-4">
-                                  <Avatar className="h-14 w-14 ring-2 ring-purple-200">
-                                    <AvatarImage
-                                      src={
-                                        community.logo_url || "/placeholder.svg"
-                                      }
-                                    />
-                                    <AvatarFallback className="bg-gradient-to-r from-purple-500 to-blue-600 text-white font-bold">
-                                      {community.name.charAt(0)}
-                                    </AvatarFallback>
-                                  </Avatar>
-
-                                  <div className="flex-1 min-w-0">
-                                    <Link href={`/community/${community.id}`}>
-                                      <h3 className="text-base font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2">
-                                        {community.name}
-                                      </h3>
-                                    </Link>
-                                    <Badge variant="secondary" className="mt-1 text-xs">
-                                      <Crown className="h-3 w-3 mr-1" />
-                                      Creator
-                                    </Badge>
-                                  </div>
-                                </div>
-
-                                {/* Description */}
-                                {community.description && (
-                                  <p className="text-sm text-gray-600 line-clamp-2 mb-4">
-                                    {community.description}
-                                  </p>
-                                )}
-
-                                {/* Stats */}
-                                <div className="space-y-2 mb-4">
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <Users className="h-4 w-4" />
-                                    <span>
-                                      {community.member_count || 0} members
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="flex gap-2">
-                                  <Link
-                                    href={`/community/${community.id}`}
-                                    className="flex-1"
-                                  >
-                                    <Button
-                                      variant="outline"
-                                      className="w-full"
-                                    >
-                                      View
-                                    </Button>
-                                  </Link>
-                                  <Link
-                                    href={`/community-admin/${community.id}`}
-                                    className="flex-1"
-                                  >
-                                    <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-                                      Manage
-                                    </Button>
-                                  </Link>
-                                </div>
-                              </CardContent>
-                            </Card>
-                            ))}
+                    {createdCommunities.length > communitiesPerPage && (
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <PaginationControls
+                          currentPage={createdCommunitiesPage}
+                          totalPages={Math.ceil(
+                            createdCommunities.length / communitiesPerPage
+                          )}
+                          onPageChange={setCreatedCommunitiesPage}
+                          itemsPerPage={communitiesPerPage}
+                          totalItems={createdCommunities.length}
+                        />
                       </div>
-                      {createdCommunities.length > communitiesPerPage && (
-                        <div className="mt-6 pt-4 border-t border-gray-200">
-                          <PaginationControls
-                            currentPage={createdCommunitiesPage}
-                            totalPages={Math.ceil(
-                              createdCommunities.length / communitiesPerPage
-                            )}
-                            onPageChange={setCreatedCommunitiesPage}
-                            itemsPerPage={communitiesPerPage}
-                            totalItems={createdCommunities.length}
-                          />
-                        </div>
-                      )}
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
             )}
 
             {/* Communities Joined Section */}
@@ -1494,86 +1852,89 @@ export default function DashboardPage() {
                 ) : (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {joinedCommunities.map((community) => (
-                        <Card
-                          key={community.id}
-                          className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-gray-200"
-                        >
-                          <CardContent className="p-5">
-                            {/* Community Avatar and Info */}
-                            <div className="flex items-start gap-3 mb-4">
-                              <Avatar className="h-14 w-14 ring-2 ring-blue-100">
-                                <AvatarImage
-                                  src={community.logo_url || "/placeholder.svg"}
-                                />
-                                <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold">
-                                  {community.name.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
+                      {joinedCommunities
+                        .slice(
+                          (joinedCommunitiesPage - 1) * communitiesPerPage,
+                          joinedCommunitiesPage * communitiesPerPage
+                        )
+                        .map((community) => (
+                          <Card
+                            key={community.id}
+                            className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-gray-200"
+                          >
+                            <CardContent className="p-5">
+                              {/* Community Avatar and Info */}
+                              <div className="flex items-start gap-3 mb-4">
+                                <Avatar className="h-14 w-14 ring-2 ring-blue-100">
+                                  <AvatarImage
+                                    src={community.logo_url || "/placeholder.svg"}
+                                  />
+                                  <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold">
+                                    {community.name.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
 
-                              <div className="flex-1 min-w-0">
-                                <Link href={`/community/${community.id}`}>
-                                  <h3 className="text-base font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2">
-                                    {community.name}
-                                  </h3>
-                                </Link>
-                                <Badge variant="secondary" className="mt-1 text-xs">
-                                  {community.role === "admin" && (
-                                    <Crown className="h-3 w-3 mr-1" />
-                                  )}
-                                  {community.role === "admin"
-                                    ? "Admin"
-                                    : community.role === "moderator"
-                                    ? "Moderator"
-                                    : "Member"}
-                                </Badge>
+                                <div className="flex-1 min-w-0">
+                                  <Link href={`/community/${community.id}`}>
+                                    <h3 className="text-base font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2">
+                                      {community.name}
+                                    </h3>
+                                  </Link>
+                                  <Badge variant="secondary" className="mt-1 text-xs">
+                                    {community.role === "admin" && (
+                                      <Crown className="h-3 w-3 mr-1" />
+                                    )}
+                                    {community.role === "admin"
+                                      ? "Admin"
+                                      : community.role === "moderator"
+                                      ? "Moderator"
+                                      : "Member"}
+                                  </Badge>
+                                </div>
                               </div>
-                            </div>
 
-                            {/* Description */}
-                            {community.description && (
-                              <p className="text-sm text-gray-600 line-clamp-2 mb-4">
-                                {community.description}
-                              </p>
-                            )}
+                              {/* Description */}
+                              {community.description && (
+                                <p className="text-sm text-gray-600 line-clamp-2 mb-4">
+                                  {community.description}
+                                </p>
+                              )}
 
-                            {/* Stats */}
-                            <div className="space-y-2 mb-4">
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Users className="h-4 w-4" />
-                                <span>
-                                  {community.member_count || 0} members
-                                </span>
+                              {/* Stats */}
+                              <div className="space-y-2 mb-4">
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <Users className="h-4 w-4" />
+                                  <span>
+                                    {community.member_count || 0} members
+                                  </span>
+                                </div>
                               </div>
-                            </div>
 
-                            {/* Action Buttons */}
-                            <div className="flex gap-2">
-                              <Link
-                                href={`/community/${community.id}`}
-                                className="flex-1"
-                              >
-                                <Button
-                                  variant="outline"
-                                  className="w-full"
-                                >
-                                  View
-                                </Button>
-                              </Link>
-                              {community.role === "admin" && (
+                              {/* Action Buttons */}
+                              <div className="flex gap-2">
                                 <Link
-                                  href={`/community-admin/${community.id}`}
+                                  href={`/community/${community.id}`}
                                   className="flex-1"
                                 >
-                                  <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-                                    Manage
+                                  <Button variant="outline" className="w-full">
+                                    View
                                   </Button>
                                 </Link>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                                {/* Show Manage button if user is admin with status = true or null */}
+                                {community.role === "admin" && (community.status === true || community.status === null) && (
+                                  <Link
+                                    href={`/community-admin/${community.id}`}
+                                    className="flex-1"
+                                  >
+                                    <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                                      Manage
+                                    </Button>
+                                  </Link>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
                     </div>
                     {joinedCommunities.length > communitiesPerPage && (
                       <div className="mt-6 pt-4 border-t border-gray-200">
@@ -1813,9 +2174,10 @@ export default function DashboardPage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
+        </div>
 
       <EnhancedChatbotWidget context="dashboard" size="normal" />
-    </div>
+      </div>
+    </>
   );
 }

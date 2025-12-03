@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,14 +16,18 @@ import {
   ChevronDown,
   Users,
   Clock,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { getSupabaseBrowser } from "@/lib/supabase/client"
+import { toast } from "sonner"
 
 interface JoinRequest {
   id: string
+  userId: string
   userName: string
   userEmail: string
   userAvatar: string
@@ -34,7 +38,11 @@ interface JoinRequest {
   joinReason?: string
 }
 
-export default function CommunityAdminRequestsPage() {
+export default function CommunityAdminRequestsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
     from: undefined,
     to: undefined
@@ -43,96 +51,88 @@ export default function CommunityAdminRequestsPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
   const [statusFilter, setStatusFilter] = useState<string>("pending")
-  const [requests, setRequests] = useState<JoinRequest[]>([
-    {
-      id: "1",
-      userName: "Sarah Johnson",
-      userEmail: "sarah.johnson@email.com",
-      userAvatar: "/placeholder-user.jpg",
-      requestedAt: "2024-01-15T10:30:00Z",
-      status: "pending",
-      message: "Hi! I'm really interested in joining this tech community. I'm a software developer with 3 years of experience.",
-      userBio: "Full-stack developer passionate about React and Node.js",
-      joinReason: "Looking to connect with other developers and learn new technologies"
-    },
-    {
-      id: "2",
-      userName: "Mike Chen",
-      userEmail: "mike.chen@email.com",
-      userAvatar: "/placeholder-user.jpg",
-      requestedAt: "2024-01-14T16:45:00Z",
-      status: "pending",
-      message: "Hello! I heard about this community from a friend and would love to be part of it.",
-      userBio: "Product Manager at a startup",
-      joinReason: "Want to learn from experienced tech professionals"
-    },
-    {
-      id: "3",
-      userName: "Alex Rodriguez",
-      userEmail: "alex.rodriguez@email.com",
-      userAvatar: "/placeholder-user.jpg",
-      requestedAt: "2024-01-14T11:15:00Z",
-      status: "pending",
-      message: "Excited to join this community! I'm working on AI/ML projects.",
-      userBio: "Data Scientist specializing in machine learning",
-      joinReason: "Seeking collaboration opportunities and knowledge sharing"
-    },
-    {
-      id: "4",
-      userName: "Emily Davis",
-      userEmail: "emily.davis@email.com",
-      userAvatar: "/placeholder-user.jpg",
-      requestedAt: "2024-01-13T14:20:00Z",
-      status: "approved",
-      message: "Hi there! I'm a UX designer looking to connect with tech communities.",
-      userBio: "Senior UX Designer with 5 years experience",
-      joinReason: "Want to understand developer perspectives better"
-    },
-    {
-      id: "5",
-      userName: "David Wilson",
-      userEmail: "david.wilson@email.com",
-      userAvatar: "/placeholder-user.jpg",
-      requestedAt: "2024-01-13T09:30:00Z",
-      status: "rejected",
-      message: "Hello! I'm interested in joining your community.",
-      userBio: "Marketing professional",
-      joinReason: "Looking to network with tech professionals"
-    },
-    {
-      id: "6",
-      userName: "Lisa Thompson",
-      userEmail: "lisa.thompson@email.com",
-      userAvatar: "/placeholder-user.jpg",
-      requestedAt: "2024-01-12T20:00:00Z",
-      status: "pending",
-      message: "Hi! I'm a cybersecurity analyst and would love to be part of this community.",
-      userBio: "Cybersecurity Analyst at Fortune 500 company",
-      joinReason: "Interested in sharing security knowledge and best practices"
-    },
-    {
-      id: "7",
-      userName: "James Brown",
-      userEmail: "james.brown@email.com",
-      userAvatar: "/placeholder-user.jpg",
-      requestedAt: "2024-01-12T15:45:00Z",
-      status: "pending",
-      message: "Hello! I'm a DevOps engineer looking to connect with the community.",
-      userBio: "Senior DevOps Engineer",
-      joinReason: "Want to learn about latest DevOps practices"
-    },
-    {
-      id: "8",
-      userName: "Maria Garcia",
-      userEmail: "maria.garcia@email.com",
-      userAvatar: "/placeholder-user.jpg",
-      requestedAt: "2024-01-11T12:30:00Z",
-      status: "approved",
-      message: "Hi! I'm a mobile app developer and excited to join this community.",
-      userBio: "Mobile App Developer (iOS & Android)",
-      joinReason: "Looking to collaborate on mobile projects"
+  const [requests, setRequests] = useState<JoinRequest[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [communityId, setCommunityId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadParams = async () => {
+      const resolvedParams = await params
+      setCommunityId(resolvedParams.id)
+      loadJoinRequests(resolvedParams.id)
     }
-  ])
+    loadParams()
+  }, [params])
+
+  const loadJoinRequests = async (communityId: string) => {
+    try {
+      setIsLoading(true)
+      const supabase = getSupabaseBrowser()
+      
+      // Fetch all join requests (pending, approved, rejected)
+      const { data: requestsData, error: requestsError } = await supabase
+        .from("community_members")
+        .select(`
+          id,
+          user_id,
+          joined_at,
+          status
+        `)
+        .eq("community_id", communityId)
+        .order("joined_at", { ascending: false })
+
+      if (requestsError) {
+        console.error("Error fetching join requests:", requestsError)
+        toast.error("Failed to load join requests")
+        setRequests([])
+        return
+      }
+
+      if (!requestsData || requestsData.length === 0) {
+        setRequests([])
+        return
+      }
+
+      // Fetch user data for each request
+      const userIds = requestsData.map((r: any) => r.user_id)
+      const { data: usersData, error: usersError } = await supabase
+        .from("users")
+        .select("id, username, full_name, avatar_url, email, bio")
+        .in("id", userIds)
+
+      if (usersError) {
+        console.error("Error fetching users:", usersError)
+        toast.error("Failed to load user data")
+        setRequests([])
+        return
+      }
+
+      // Map requests to JoinRequest format
+      const joinRequests: JoinRequest[] = requestsData.map((request: any) => {
+        const user = usersData?.find((u: any) => u.id === request.user_id)
+        const status = request.status === false ? "pending" : request.status === true ? "approved" : "rejected"
+        
+        return {
+          id: request.id,
+          userId: request.user_id,
+          userName: user?.full_name || user?.username || "Unknown User",
+          userEmail: user?.email || "",
+          userAvatar: user?.avatar_url || "/placeholder-user.jpg",
+          requestedAt: request.joined_at,
+          status: status as "pending" | "approved" | "rejected",
+          userBio: user?.bio || undefined
+        }
+      })
+
+      setRequests(joinRequests)
+    } catch (error) {
+      console.error("Error loading join requests:", error)
+      toast.error("Failed to load join requests")
+      setRequests([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Filter requests based on date and status
   const filteredRequests = useMemo(() => {
@@ -160,28 +160,107 @@ export default function CommunityAdminRequestsPage() {
     return filtered.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
   }, [requests, dateRange, statusFilter])
 
-  const handleApproveAll = () => {
-    setRequests(prev => prev.map(request => 
-      request.status === "pending" ? { ...request, status: "approved" as const } : request
-    ))
+  const handleApproveAll = async () => {
+    if (!communityId) return
+
+    try {
+      const supabase = getSupabaseBrowser()
+      
+      // Update all pending requests to approved
+      const { error } = await supabase
+        .from("community_members")
+        .update({ status: true })
+        .eq("community_id", communityId)
+        .eq("status", false)
+
+      if (error) {
+        console.error("Error approving all requests:", error)
+        toast.error("Failed to approve all requests")
+        return
+      }
+
+      toast.success("All requests approved")
+      await loadJoinRequests(communityId)
+    } catch (error) {
+      console.error("Error approving all requests:", error)
+      toast.error("Failed to approve all requests")
+    }
   }
 
-  const handleRejectAll = () => {
-    setRequests(prev => prev.map(request => 
-      request.status === "pending" ? { ...request, status: "rejected" as const } : request
-    ))
+  const handleRejectAll = async () => {
+    if (!communityId) return
+
+    try {
+      const supabase = getSupabaseBrowser()
+      
+      // Delete all pending requests
+      const { error } = await supabase
+        .from("community_members")
+        .delete()
+        .eq("community_id", communityId)
+        .eq("status", false)
+
+      if (error) {
+        console.error("Error rejecting all requests:", error)
+        toast.error("Failed to reject all requests")
+        return
+      }
+
+      toast.success("All requests rejected")
+      await loadJoinRequests(communityId)
+    } catch (error) {
+      console.error("Error rejecting all requests:", error)
+      toast.error("Failed to reject all requests")
+    }
   }
 
-  const handleApprove = (id: string) => {
-    setRequests(prev => prev.map(request => 
-      request.id === id ? { ...request, status: "approved" as const } : request
-    ))
+  const handleApprove = async (requestId: string) => {
+    if (!communityId) return
+
+    try {
+      const response = await fetch(`/api/community-members/${requestId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ community_id: communityId })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to approve request")
+      }
+
+      toast.success("Request approved successfully")
+      await loadJoinRequests(communityId)
+    } catch (error: any) {
+      console.error("Approve API error:", error)
+      toast.error(error.message || "Failed to approve request")
+    }
   }
 
-  const handleReject = (id: string) => {
-    setRequests(prev => prev.map(request => 
-      request.id === id ? { ...request, status: "rejected" as const } : request
-    ))
+  const handleReject = async (requestId: string) => {
+    if (!communityId) return
+
+    try {
+      const supabase = getSupabaseBrowser()
+      const { error } = await supabase
+        .from("community_members")
+        .delete()
+        .eq("id", requestId)
+        .eq("community_id", communityId)
+
+      if (error) {
+        console.error("Error rejecting request:", error)
+        toast.error("Failed to reject request")
+        return
+      }
+
+      toast.success("Request rejected")
+      await loadJoinRequests(communityId)
+    } catch (error) {
+      console.error("Error rejecting request:", error)
+      toast.error("Failed to reject request")
+    }
   }
 
   const getDateFilterText = () => {
@@ -232,7 +311,7 @@ export default function CommunityAdminRequestsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
         <div className="mb-4">
-          <Link href="/community-admin">
+          <Link href={communityId ? `/community-admin/${communityId}` : "/community-admin"}>
             <Button variant="ghost" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
@@ -394,7 +473,12 @@ export default function CommunityAdminRequestsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {filteredRequests.length === 0 ? (
+            {isLoading ? (
+              <div className="text-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-4" />
+                <p className="text-gray-600">Loading join requests...</p>
+              </div>
+            ) : filteredRequests.length === 0 ? (
               <div className="text-center py-12">
                 <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No requests found</h3>

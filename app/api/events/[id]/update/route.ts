@@ -39,6 +39,7 @@ export async function PATCH(
       is_online,
       is_public,
       max_attendees,
+      link,
     } = body;
 
     // Fetch existing event to verify ownership
@@ -100,6 +101,7 @@ export async function PATCH(
     if (is_online !== undefined) updateData.is_online = is_online;
     if (is_public !== undefined) updateData.is_public = is_public;
     if (max_attendees !== undefined) updateData.max_attendees = max_attendees;
+    if (link !== undefined) updateData.link = link;
     
     // Category is optional (may not exist in schema)
     if (category !== undefined) {

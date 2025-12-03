@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { use } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,11 +11,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { 
   ArrowLeft,
-  Calendar as CalendarIcon,
   Clock,
   MapPin,
   Users,
@@ -28,13 +25,14 @@ import {
   Globe,
   Search,
   Loader2,
-  Sparkles
+  Sparkles,
+  Wand2
 } from "lucide-react"
-import { format } from "date-fns"
 import Link from "next/link"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { ContentEnhancerDialog } from "@/components/ai/content-enhancer-dialog"
 
 interface Event {
   id: string
@@ -150,23 +148,30 @@ const categories = [
 export default function EditEventPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ eventId: string }>;
 }) {
-  const { id } = use(params);
+  const pathname = usePathname();
+  // Extract community ID from pathname: /community-admin/[communityId]/events/[eventId]/edit
+  const pathParts = pathname?.split("/") || [];
+  const communityIdIndex = pathParts.indexOf("community-admin") + 1;
+  const communityId = communityIdIndex > 0 && pathParts[communityIdIndex] ? pathParts[communityIdIndex] : null;
+  
+  // This eventId is the event ID (from nested route)
+  const { eventId } = use(params);
   const router = useRouter()
   
   const [eventData, setEventData] = useState({
     title: "",
     description: "",
     category: "",
-    date: undefined as Date | undefined,
-    startTime: "",
-    endTime: "",
+    start_time: "",
+    end_time: "",
     location: "",
     capacity: "",
     isOnline: false,
     meetingLink: "",
     isPublic: true,
+    link: "",
   })
   
   const [eventImage, setEventImage] = useState<File | null>(null)
@@ -174,6 +179,10 @@ export default function EditEventPage({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingEvent, setIsLoadingEvent] = useState(true)
   const [communityName, setCommunityName] = useState<string>("Community")
+  
+  // AI Enhancement state
+  const [enhanceDialogOpen, setEnhanceDialogOpen] = useState(false)
+  const [enhancingContentType, setEnhancingContentType] = useState<"description" | null>(null)
 
   // Location picker state
   const [searchQuery, setSearchQuery] = useState("")
@@ -198,6 +207,24 @@ export default function EditEventPage({
     setEventData((prev) => ({ ...prev, [field]: value }))
   }
 
+  // AI Enhancement handlers
+  const handleEnhanceDescription = () => {
+    if (!eventData.description.trim()) {
+      toast.error("Please enter a description first")
+      return
+    }
+    setEnhancingContentType("description")
+    setEnhanceDialogOpen(true)
+  }
+
+  const handleAcceptEnhancedContent = (enhancedContent: string) => {
+    if (enhancingContentType === "description") {
+      setEventData((prev) => ({ ...prev, description: enhancedContent }))
+    }
+    setEnhanceDialogOpen(false)
+    setEnhancingContentType(null)
+  }
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -215,7 +242,7 @@ export default function EditEventPage({
         const supabase = getSupabaseBrowser()
         
         // Check if event ID is a dummy event
-        if (id.startsWith("dummy-")) {
+        if (eventId.startsWith("dummy-")) {
           setIsLoadingEvent(false)
           return
         }
@@ -224,7 +251,7 @@ export default function EditEventPage({
         const { data: eventRecord, error: eventError } = await supabase
           .from("events")
           .select("*")
-          .eq("id", id)
+          .eq("id", eventId)
           .single()
 
         if (eventError || !eventRecord) {
@@ -277,23 +304,33 @@ export default function EditEventPage({
           }
         }
 
-        // Format dates
+        // Format dates to datetime-local format (YYYY-MM-DDTHH:mm)
         const startTime = new Date(eventRecord.start_time)
         const endTime = new Date(eventRecord.end_time)
+        
+        // Convert to datetime-local format
+        const formatDateTimeLocal = (date: Date) => {
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          const hours = String(date.getHours()).padStart(2, '0')
+          const minutes = String(date.getMinutes()).padStart(2, '0')
+          return `${year}-${month}-${day}T${hours}:${minutes}`
+        }
 
         // Set event data
         setEventData({
           title: eventRecord.title || "",
           description: eventRecord.description || "",
           category: eventRecord.category || "",
-          date: startTime,
-          startTime: startTime.toTimeString().slice(0, 5),
-          endTime: endTime.toTimeString().slice(0, 5),
+          start_time: formatDateTimeLocal(startTime),
+          end_time: formatDateTimeLocal(endTime),
           location: locationStr,
           capacity: eventRecord.max_attendees?.toString() || "",
           isOnline: isOnline,
           meetingLink: meetingLink,
           isPublic: eventRecord.is_public !== false,
+          link: eventRecord.link || "",
         })
 
         // Set image preview if exists
@@ -315,7 +352,7 @@ export default function EditEventPage({
     }
 
     loadEventData()
-  }, [id])
+  }, [eventId])
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -352,30 +389,16 @@ export default function EditEventPage({
         }
       }
 
-      // Calculate start_time and end_time if date/time changed
+      // Convert datetime-local to ISO string
       let startTime = null
       let endTime = null
       
-      if (eventData.date && eventData.startTime && eventData.endTime) {
-        const year = eventData.date.getFullYear()
-        const month = String(eventData.date.getMonth() + 1).padStart(2, '0')
-        const day = String(eventData.date.getDate()).padStart(2, '0')
-        const dateStr = `${year}-${month}-${day}`
-        
-        const [startHours, startMinutes] = eventData.startTime.split(':')
-        const startDateTimeStr = `${dateStr}T${startHours}:${startMinutes}:00`
-        startTime = new Date(startDateTimeStr).toISOString()
-        
-        const [endHours, endMinutes] = eventData.endTime.split(':')
-        const endDateTimeStr = `${dateStr}T${endHours}:${endMinutes}:00`
-        let endDateTime = new Date(endDateTimeStr)
-        
-        // If end time is earlier than or equal to start time, assume it's the next day
-        if (endDateTime <= new Date(startDateTimeStr)) {
-          endDateTime.setDate(endDateTime.getDate() + 1)
-    }
-        
-        endTime = endDateTime.toISOString()
+      if (eventData.start_time) {
+        startTime = new Date(eventData.start_time).toISOString()
+      }
+      
+      if (eventData.end_time) {
+        endTime = new Date(eventData.end_time).toISOString()
       }
 
       // Format location as JSON
@@ -413,9 +436,10 @@ export default function EditEventPage({
       if (eventData.isOnline !== undefined) updatePayload.is_online = eventData.isOnline
       if (eventData.isPublic !== undefined) updatePayload.is_public = eventData.isPublic
       if (eventData.capacity) updatePayload.max_attendees = parseInt(eventData.capacity)
+      if (eventData.link !== undefined) updatePayload.link = eventData.link || null
 
       // Update event via API
-      const response = await fetch(`/api/events/${id}/update`, {
+      const response = await fetch(`/api/events/${eventId}/update`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -434,7 +458,7 @@ export default function EditEventPage({
       
       // Redirect to event detail page
       setTimeout(() => {
-        window.location.href = `/community-admin/events/${id}`
+        window.location.href = communityId ? `/community-admin/${communityId}/events/${eventId}` : `/community-admin/events/${eventId}`
       }, 500)
     } catch (error: any) {
       console.error("Error updating event:", error)
@@ -738,7 +762,7 @@ export default function EditEventPage({
               <h1 className="text-4xl font-light text-gray-900 mb-3">Edit Event</h1>
               <p className="text-gray-600">Update your event details</p>
             </div>
-            <Link href="/community-admin/events">
+            <Link href={communityId ? `/community-admin/${communityId}/events` : "/community-admin/events"}>
               <Button variant="outline" size="icon" className="border-gray-200 hover:border-purple-300 hover:bg-purple-50">
                 <ArrowLeft className="w-4 h-4" />
               </Button>
@@ -767,23 +791,20 @@ export default function EditEventPage({
                 </div>
                 
               <div className="space-y-3">
-                <Label htmlFor="description">Description *</Label>
-                <div className="space-y-2">
-                  <Label htmlFor="category" className="text-sm text-gray-600">Category (optional)</Label>
-                  <Select value={eventData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                    <SelectTrigger className="border-gray-200 focus:border-violet-300 focus:ring-violet-200">
-                      <SelectValue placeholder="Select category (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category.toLowerCase()}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="description">Description *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEnhanceDescription}
+                    disabled={!eventData.description.trim()}
+                    className="text-xs border-purple-200 hover:bg-purple-50 hover:border-purple-300"
+                  >
+                    <Wand2 className="h-3 w-3 mr-1" />
+                    Enhance
+                  </Button>
                 </div>
-
                 <Textarea
                   id="description"
                   placeholder="Describe what your event is about, what attendees will learn or experience..."
@@ -803,57 +824,37 @@ export default function EditEventPage({
               <CardTitle className="text-xl font-medium text-gray-900">When & Where</CardTitle>
               </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
-                  <Label>Date *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal border-gray-200",
-                          !eventData.date && "text-muted-foreground",
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {eventData.date ? format(eventData.date, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={eventData.date}
-                        onSelect={(date) => handleInputChange("date", date)}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Label htmlFor="start_time" className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-purple-600" />
+                    Start Date & Time *
+                  </Label>
+                  <Input
+                    id="start_time"
+                    type="datetime-local"
+                    value={eventData.start_time}
+                    onChange={(e) => handleInputChange("start_time", e.target.value)}
+                    className="h-12 border-gray-200 focus:border-violet-300 focus:ring-violet-200"
+                    required
+                  />
                 </div>
 
                 <div className="space-y-3">
-                  <Label htmlFor="startTime">Start Time *</Label>
-                    <Input
-                      id="startTime"
-                      type="time"
-                    value={eventData.startTime}
-                    onChange={(e) => handleInputChange("startTime", e.target.value)}
-                    className="border-gray-200 focus:border-violet-300 focus:ring-violet-200"
+                  <Label htmlFor="end_time" className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-purple-600" />
+                    End Date & Time *
+                  </Label>
+                  <Input
+                    id="end_time"
+                    type="datetime-local"
+                    value={eventData.end_time}
+                    onChange={(e) => handleInputChange("end_time", e.target.value)}
+                    className="h-12 border-gray-200 focus:border-violet-300 focus:ring-violet-200"
                     required
-                    />
-                  </div>
-
-                <div className="space-y-3">
-                  <Label htmlFor="endTime">End Time *</Label>
-                    <Input
-                      id="endTime"
-                      type="time"
-                    value={eventData.endTime}
-                    onChange={(e) => handleInputChange("endTime", e.target.value)}
-                    className="border-gray-200 focus:border-violet-300 focus:ring-violet-200"
-                    required
-                    />
-                  </div>
+                  />
                 </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
@@ -866,6 +867,18 @@ export default function EditEventPage({
                     onChange={(e) => handleInputChange("capacity", e.target.value)}
                     className="border-gray-200 focus:border-violet-300 focus:ring-violet-200"
                   />
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor="link">Registration Link</Label>
+                  <Input
+                    type="url"
+                    id="link"
+                    placeholder="https://example.com/register"
+                    value={eventData.link}
+                    onChange={(e) => handleInputChange("link", e.target.value)}
+                    className="border-gray-200 focus:border-violet-300 focus:ring-violet-200"
+                  />
+                  <p className="text-xs text-gray-500">Optional: Add a link to external registration page</p>
                 </div>
               </div>
               
@@ -1095,6 +1108,24 @@ export default function EditEventPage({
                   </div>
         </form>
       </div>
+
+      {/* AI Enhancement Dialog */}
+      {enhancingContentType === "description" && (
+        <ContentEnhancerDialog
+          open={enhanceDialogOpen}
+          onOpenChange={setEnhanceDialogOpen}
+          originalContent={eventData.description}
+          contentType="description"
+          context={{
+            name: eventData.title,
+            category: communityName || "",
+          }}
+          onAccept={handleAcceptEnhancedContent}
+        />
+      )}
     </div>
   )
 }
+
+
+

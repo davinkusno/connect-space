@@ -103,6 +103,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Log for debugging
+    console.log(`[API Events] Found ${events?.length || 0} events, count: ${count || 0}, dateRange: ${dateRange}`);
+
     // Get attendee counts for each event
     const eventIds = events?.map((e: any) => e.id) || [];
     let attendeeCounts: Record<string, number> = {};
@@ -188,9 +191,12 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Log transformed events count
+    console.log(`[API Events] Transformed ${transformedEvents.length} events`);
+
     return NextResponse.json(
       {
-        events: transformedEvents,
+        events: transformedEvents || [],
         pagination: {
           page,
           pageSize,

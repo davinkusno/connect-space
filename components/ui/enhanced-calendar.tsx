@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   format,
   addMonths,
@@ -240,9 +240,44 @@ const getCategoryIcon = (category: string) => {
   }
 };
 
-export function EnhancedCalendar() {
+interface EventData {
+  id: string | number;
+  date: string | Date;
+  title?: string;
+  [key: string]: any;
+}
+
+interface EnhancedCalendarProps {
+  onDateSelect?: (date: Date) => void;
+  selectedDate?: Date;
+  showEventsList?: boolean; // Control whether to show events list below calendar
+  events?: EventData[]; // Real events data from database
+}
+
+export function EnhancedCalendar({ onDateSelect, selectedDate: externalSelectedDate, showEventsList = true, events: externalEvents }: EnhancedCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [internalSelectedDate, setInternalSelectedDate] = useState(new Date());
+  
+  // Use external selectedDate if provided, otherwise use internal state
+  const selectedDate = externalSelectedDate || internalSelectedDate;
+  
+  // Debug logging
+  useEffect(() => {
+    if (externalEvents && externalEvents.length > 0) {
+      console.log(`[Calendar] Received ${externalEvents.length} events:`, externalEvents);
+      // Log first few event dates for debugging
+      externalEvents.slice(0, 5).forEach((event, idx) => {
+        console.log(`[Calendar] Event ${idx + 1}: ${event.title}, date: ${event.date} (type: ${typeof event.date})`);
+      });
+    } else {
+      console.log('[Calendar] No external events provided, using sample data');
+    }
+  }, [externalEvents]);
+  
+  const handleDateSelect = (date: Date) => {
+    setInternalSelectedDate(date);
+    onDateSelect?.(date);
+  };
 
   // Navigation functions
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
@@ -278,15 +313,67 @@ export function EnhancedCalendar() {
 
   // Get events for the selected date
   const getEventsForDate = (date: Date) => {
-    return eventData.filter((event) => {
-      const eventDate = parseISO(event.date);
-      return isSameDay(eventDate, date);
-    });
+    // Use external events if provided, otherwise use empty array (don't use sample data in production)
+    // Only use sample data if explicitly needed for testing
+    const eventsToUse = (externalEvents && externalEvents.length > 0) ? externalEvents : [];
+    
+    // Debug: log which data source is being used
+    if (externalEvents && externalEvents.length > 0) {
+      console.log(`[Calendar] Using ${externalEvents.length} external events for date matching`);
+    } else {
+      console.log(`[Calendar] No external events provided (received: ${externalEvents?.length || 0} events)`);
+    }
+    
+    if (!eventsToUse || eventsToUse.length === 0) {
+      return [];
+    }
+    
+      return eventsToUse.filter((event) => {
+        let eventDate: Date;
+        if (typeof event.date === 'string') {
+          // Try parsing as ISO string first
+          try {
+            eventDate = parseISO(event.date);
+          } catch {
+            // If parseISO fails, try creating new Date
+            eventDate = new Date(event.date);
+          }
+        } else if (event.date instanceof Date) {
+          eventDate = event.date;
+        } else {
+          console.warn(`[Calendar] Invalid event date type:`, event);
+          return false;
+        }
+        
+        // Check if date is valid
+        if (isNaN(eventDate.getTime())) {
+          console.warn(`[Calendar] Invalid date for event:`, event);
+          return false;
+        }
+        
+        // Compare dates (ignore time) - normalize both to start of day
+        const eventDateOnly = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+        const targetDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const result = eventDateOnly.getTime() === targetDateOnly.getTime();
+        
+        // Debug logging for matching dates
+        if (result) {
+          console.log(`[Calendar] ✓ Match: ${format(eventDate, 'yyyy-MM-dd')} === ${format(date, 'yyyy-MM-dd')}`);
+        }
+        
+        return result;
+      });
   };
 
   // Check if a date has events
   const hasEvents = (date: Date) => {
-    return getEventsForDate(date).length > 0;
+    const events = getEventsForDate(date);
+    // Debug logging for first week only to avoid spam
+    const dateStr = format(date, 'yyyy-MM-dd');
+    if (events.length > 0) {
+      console.log(`[Calendar] ✓ Date ${dateStr} has ${events.length} events`);
+    }
+    return events.length > 0;
   };
 
   // Get events for the selected date
@@ -346,11 +433,16 @@ export function EnhancedCalendar() {
             const dayHasEvents = hasEvents(day);
             const dayEvents = getEventsForDate(day);
             const isCurrentDay = isToday(day);
+            
+            // Debug logging for first few days
+            if (i < 7 && externalEvents && externalEvents.length > 0) {
+              console.log(`[Calendar] Day ${format(day, 'yyyy-MM-dd')} - hasEvents: ${dayHasEvents}, events count: ${dayEvents.length}`);
+            }
 
             return (
               <button
                 key={i}
-                onClick={() => setSelectedDate(day)}
+                onClick={() => handleDateSelect(day)}
                 className={`
                   min-h-[70px] p-2 border-t border-r border-gray-200 
                   ${i % 7 === 0 ? "border-l" : ""} 
@@ -393,7 +485,7 @@ export function EnhancedCalendar() {
       </div>
 
       {/* Selected Date Events - Simplified */}
-      {selectedDate && (
+      {showEventsList && selectedDate && (
         <div className="mt-4 pt-4 border-t border-gray-200">
           <h4 className="text-sm font-semibold text-gray-700 mb-3">
             {format(selectedDate, "EEEE, MMMM d")}

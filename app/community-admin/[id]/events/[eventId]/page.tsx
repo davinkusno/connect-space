@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import {
@@ -227,14 +227,21 @@ const DUMMY_EVENT: Event = {
 export default function EventDetailsPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ eventId: string }>;
 }) {
+  const pathname = usePathname();
+  // Extract community ID from pathname: /community-admin/[communityId]/events/[eventId]
+  const pathParts = pathname?.split("/") || [];
+  const communityIdIndex = pathParts.indexOf("community-admin") + 1;
+  const communityId = communityIdIndex > 0 && pathParts[communityIdIndex] ? pathParts[communityIdIndex] : null;
+  
   // Unwrap params Promise (Next.js 15+)
-  const { id } = use(params);
+  // This eventId is the event ID (from nested route)
+  const { eventId } = use(params);
 
   // Create a copy of DUMMY_EVENT with the correct ID from params
-  // TODO: Fetch actual event data from Supabase based on id
-  const baseEvent = { ...DUMMY_EVENT, id: id };
+  // TODO: Fetch actual event data from Supabase based on eventId
+  const baseEvent = { ...DUMMY_EVENT, id: eventId };
 
   // Customize event data based on ID for demo purposes
   const eventTitles: Record<string, string> = {
@@ -300,8 +307,8 @@ export default function EventDetailsPage({
 
   const event = {
     ...baseEvent,
-    title: eventTitles[id] || baseEvent.title,
-    location: eventLocations[id] || baseEvent.location,
+    title: eventTitles[eventId] || baseEvent.title,
+    location: eventLocations[eventId] || baseEvent.location,
   };
 
   const router = useRouter();
@@ -311,7 +318,7 @@ export default function EventDetailsPage({
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [eventData, setEventData] = useState<Event | null>(null);
   const [isLoadingEvent, setIsLoadingEvent] = useState(true);
-  const [communityId, setCommunityId] = useState<string | null>(null);
+  const [communityIdState, setCommunityIdState] = useState<string | null>(null);
   const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
@@ -331,7 +338,7 @@ export default function EventDetailsPage({
         const supabase = getSupabaseBrowser();
         
         // Check if event ID is a dummy event
-        if (id.startsWith("dummy-")) {
+        if (eventId.startsWith("dummy-")) {
           // Use dummy event data
           setEventData(event);
           setIsLoadingEvent(false);
@@ -343,7 +350,7 @@ export default function EventDetailsPage({
         const { data: eventRecord, error: eventError } = await supabase
           .from("events")
           .select("*")
-          .eq("id", id)
+          .eq("id", eventId)
           .single();
 
         if (eventError || !eventRecord) {
@@ -354,7 +361,6 @@ export default function EventDetailsPage({
           return;
         }
 
-        // Parse location
         // Parse location - use same logic as regular event detail page
         const locationString = eventRecord.location || "";
         let locationData: any = {
@@ -455,7 +461,7 @@ export default function EventDetailsPage({
 
         // Get community_id
         const communityIdValue = eventRecord.community_id;
-        setCommunityId(communityIdValue);
+        setCommunityIdState(communityIdValue);
 
         // Fetch community data to get category
         const { data: communityData } = await supabase
@@ -542,7 +548,7 @@ export default function EventDetailsPage({
         setIsLoadingEvent(false);
 
         // Load posts
-        await loadPosts(id);
+        await loadPosts(eventId);
       } catch (error) {
         console.error("Error loading event data:", error);
         setEventData(event);
@@ -552,13 +558,13 @@ export default function EventDetailsPage({
     };
 
     loadEventData();
-  }, [id]);
+  }, [eventId]);
 
   // Load posts for the event
-  const loadPosts = async (eventId: string) => {
+  const loadPosts = async (eventIdParam: string) => {
     try {
       setIsLoadingPosts(true);
-      const response = await fetch(`/api/posts?event_id=${eventId}`);
+      const response = await fetch(`/api/posts?event_id=${eventIdParam}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -582,7 +588,7 @@ export default function EventDetailsPage({
       const supabase = getSupabaseBrowser();
       
       // Check if event ID is a dummy event
-      if (id.startsWith("dummy-")) {
+      if (eventId.startsWith("dummy-")) {
         setAttendees([]);
         setIsLoadingAttendees(false);
         return;
@@ -592,7 +598,7 @@ export default function EventDetailsPage({
       const { data: attendeesData, error: attendeesError } = await supabase
         .from("event_attendees")
         .select("id, user_id, registered_at")
-        .eq("event_id", id)
+        .eq("event_id", eventId)
         .eq("status", "going")
         .order("registered_at", { ascending: false });
 
@@ -662,7 +668,7 @@ export default function EventDetailsPage({
       return;
     }
 
-    if (!communityId || !adminUserId) {
+    if (!communityIdState || !adminUserId) {
       console.error("Missing community_id or admin_user_id");
       return;
     }
@@ -677,8 +683,8 @@ export default function EventDetailsPage({
         body: JSON.stringify({
           title: postTitle,
           content: postContent,
-          community_id: communityId,
-          event_id: id,
+          community_id: communityIdState,
+          event_id: eventId,
           is_pinned: isPinned,
         }),
       });
@@ -686,7 +692,7 @@ export default function EventDetailsPage({
       if (response.ok) {
         const data = await response.json();
         // Reload posts
-        await loadPosts(id);
+        await loadPosts(eventId);
         // Reset form
         setPostTitle("");
         setPostContent("");
@@ -776,14 +782,15 @@ export default function EventDetailsPage({
       {/* Back Button */}
       <div className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 py-3">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="hover:bg-gray-100 -ml-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Events
-          </Button>
+          <Link href={communityId ? `/community-admin/${communityId}/events` : "/community-admin/events"}>
+            <Button
+              variant="ghost"
+              className="hover:bg-gray-100 -ml-2"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Events
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -940,15 +947,22 @@ export default function EventDetailsPage({
               <Users className="h-4 w-4 mr-2" />
               View Attendees
             </Button>
+            {isAdmin && communityId && (
+              <Link href={communityId ? `/community-admin/${communityId}/events/${eventId}/edit` : `/community-admin/events/${eventId}/edit`}>
+                <Button variant="outline">
+                  <PenLine className="h-4 w-4 mr-2" />
+                  Edit Event
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Content Tabs */}
           <Tabs defaultValue="about" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="about">About</TabsTrigger>
               <TabsTrigger value="location">Location</TabsTrigger>
-              <TabsTrigger value="discussion">Discussion</TabsTrigger>
-              <TabsTrigger value="gallery">Gallery</TabsTrigger>
+              <TabsTrigger value="discussion">Announcement</TabsTrigger>
             </TabsList>
 
             <TabsContent value="about" className="space-y-6 mt-6">
@@ -1099,7 +1113,7 @@ export default function EventDetailsPage({
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <User2 className="h-5 w-5 text-violet-600" />
-                        Create Discussion Post
+                        Create Announcement
                     </CardTitle>
                     <CardDescription>
                       Share announcements and updates with event attendees
@@ -1124,7 +1138,7 @@ export default function EventDetailsPage({
                           Post Content
                         </label>
                         <textarea
-                          placeholder="Share updates, announcements, or start a discussion..."
+                          placeholder="Share updates and announcements..."
                           rows={4}
                             value={postContent}
                             onChange={(e) => setPostContent(e.target.value)}
@@ -1283,30 +1297,6 @@ export default function EventDetailsPage({
                 </Card>
               </div>
             </TabsContent>
-
-            <TabsContent value="gallery" className="space-y-6 mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Event Gallery</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {displayEvent.images.map((image, index) => (
-                      <div
-                        key={index}
-                        className="aspect-video rounded-lg overflow-hidden hover:scale-105 transition-transform cursor-pointer"
-                      >
-                        <img
-                          src={image || "/placeholder.svg"}
-                          alt={`Event image ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
         </div>
       </div>
@@ -1374,3 +1364,5 @@ export default function EventDetailsPage({
     </div>
   );
 }
+
+
