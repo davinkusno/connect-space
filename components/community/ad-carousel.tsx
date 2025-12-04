@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Megaphone, Plus } from "lucide-react";
 import {
   Carousel,
   CarouselContent,
@@ -28,12 +28,14 @@ interface AdCarouselProps {
   communityId: string;
   placement: "sidebar" | "banner" | "inline";
   autoRotateInterval?: number; // in milliseconds, default 5000 (5 seconds)
+  adSubmissionFormUrl?: string; // Google Form URL for ad submissions
 }
 
 export function AdCarousel({ 
   communityId, 
   placement, 
-  autoRotateInterval = 5000 
+  autoRotateInterval = 5000,
+  adSubmissionFormUrl = process.env.NEXT_PUBLIC_AD_SUBMISSION_FORM_URL || "https://forms.gle/YOUR_FORM_ID" // Default from env or placeholder
 }: AdCarouselProps) {
   const [ads, setAds] = useState<Ad[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -104,8 +106,46 @@ export function AdCarousel({
     return videoExtensions.some(ext => lowerUrl.includes(ext));
   };
 
-  if (isLoading || ads.length === 0) {
-    return null; // Don't show anything if no ads
+  // Show placeholder when no ads are available
+  if (!isLoading && ads.length === 0) {
+    return (
+      <Card className="border-gray-200 bg-gradient-to-br from-violet-50/50 to-blue-50/50 hover:shadow-md transition-shadow">
+        <CardContent className="p-6">
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="rounded-full bg-gradient-to-br from-violet-500 to-blue-500 p-4">
+              <Megaphone className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">
+                Advertise Here
+              </h4>
+              <p className="text-sm text-gray-600 mb-4">
+                Promote your business or event to this community
+              </p>
+            </div>
+            <Link
+              href={adSubmissionFormUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full"
+            >
+              <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-blue-500 text-white rounded-lg hover:from-violet-600 hover:to-blue-600 transition-all duration-200 shadow-sm hover:shadow-md">
+                <Plus className="h-4 w-4" />
+                <span className="text-sm font-medium">Submit Your Ad</span>
+                <ExternalLink className="h-3 w-3" />
+              </div>
+            </Link>
+            <p className="text-xs text-gray-500 mt-2">
+              Click to submit your advertisement
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
+    return null; // Don't show anything while loading
   }
 
   // If only one ad, don't use carousel
