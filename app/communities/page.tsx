@@ -55,6 +55,8 @@ import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import { CitySearch } from "@/components/ui/city-search";
+import type { City } from "@/lib/api/cities";
 import React from "react";
 import type { Community } from "@/types/community";
 
@@ -522,7 +524,7 @@ export default function DiscoverPage() {
         <FloatingElements />
 
         {/* Hero Search Section */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 shadow-lg">
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 shadow-lg relative z-[100]">
           <div className="relative max-w-7xl mx-auto px-6 py-16">
             <SmoothReveal>
               <div className="text-center mb-8">
@@ -589,85 +591,25 @@ export default function DiscoverPage() {
                   {/* Divider */}
                   <div className="w-px bg-gray-300 my-2"></div>
 
-                  {/* Location Input with Dropdown */}
-                  <div className="relative w-64">
-                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                    <Input
-                      placeholder="Choose a location"
+                  {/* Location Input with City Search */}
+                  <div className="relative w-64 z-[10001]">
+                    <CitySearch
                       value={locationQuery}
-                      onChange={(e) => setLocationQuery(e.target.value)}
-                      onClick={() => {
-                        setShowLocationDropdown(true);
+                      onCitySelect={(city) => {
+                        const cityName = city.name + (city.country ? `, ${city.country}` : '');
+                        setLocationQuery(cityName);
+                        setShowLocationDropdown(false);
                       }}
-                      onFocus={() => {
-                        setShowLocationDropdown(true);
-                      }}
-                      onBlur={() => {
-                        setTimeout(() => {
+                      placeholder="Search by city or country..."
+                      className="h-full"
+                      showCurrentLocation={true}
+                      onCurrentLocation={() => {
+                        getUserLocationCommunities((cityName) => {
+                          setLocationQuery(cityName);
                           setShowLocationDropdown(false);
-                        }, 0);
+                        });
                       }}
-                      className="pl-12 pr-4 py-4 text-lg border-0 rounded-none focus:ring-0 focus:outline-none text-gray-900 placeholder:text-gray-500 h-full"
                     />
-                    {locationQuery && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
-                        onClick={() => setLocationQuery("")}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-
-                    {/* Location Dropdown with Search */}
-                    {showLocationDropdown && (
-                      <div
-                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-[99999] max-h-80 overflow-y-auto"
-                        style={{
-                          position: "absolute",
-                          top: "100%",
-                          left: 0,
-                          right: 0,
-                          marginTop: "8px",
-                          zIndex: 99999,
-                        }}
-                      >
-                        {/* Use Current Location Button */}
-                        <button
-                          onClick={() => {
-                            getUserLocationCommunities((cityName) => {
-                              setLocationQuery(cityName);
-                              setShowLocationDropdown(false);
-                            });
-                          }}
-                          disabled={gettingLocation}
-                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors duration-200 border-b border-gray-100 disabled:opacity-50 disabled:cursor-wait"
-                          onMouseDown={(e) => e.preventDefault()}
-                        >
-                          {gettingLocation ? (
-                            <div className="w-5 h-5 border-2 border-gray-300 border-t-purple-600 rounded-full animate-spin flex-shrink-0" />
-                          ) : (
-                            <svg
-                              className="w-5 h-5 text-gray-600 flex-shrink-0"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path d="M11 18.93A7.005 7.005 0 015.07 13H3v-2h2.07A7.005 7.005 0 0111 5.07V3h2v2.07A7.005 7.005 0 0118.93 11H21v2h-2.07A7.005 7.005 0 0113 18.93V21h-2v-2.07zM12 17a5 5 0 100-10 5 5 0 000 10zm0-3a2 2 0 110-4 2 2 0 010 4z" />
-                            </svg>
-                          )}
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900">
-                              {gettingLocation
-                                ? "Getting your location..."
-                                : "Use my current location"}
-                            </div>
-                          </div>
-                        </button>
-                      </div>
-                    )}
                   </div>
 
                   {/* Search Button */}
@@ -692,7 +634,7 @@ export default function DiscoverPage() {
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-6 mt-8">
           {/* Filter Bar */}
-          <div className="bg-white border-b border-gray-200 sticky top-0 z-40 -mx-6 px-6">
+          <div className="bg-white border-b border-gray-200 sticky top-0 z-50 -mx-6 px-6">
             <div className="flex items-center justify-between gap-4 py-4 flex-wrap">
               {/* Left: View Selector and Membership Filter */}
               <div className="flex items-center gap-4 flex-wrap">
