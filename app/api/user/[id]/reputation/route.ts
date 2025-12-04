@@ -3,15 +3,15 @@ import { createServerClient } from "@/lib/supabase/server";
 import type { UserReputation } from "@/lib/points/user-points";
 
 /**
- * GET /api/user/[userId]/reputation
+ * GET /api/user/[id]/reputation
  * Get user reputation summary
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await params;
+    const { id: userId } = await params;
     const supabase = await createServerClient();
 
     // Call the database function to get reputation

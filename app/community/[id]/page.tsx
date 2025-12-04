@@ -965,12 +965,6 @@ export default function CommunityPage({
                   <Users className="h-4 w-4" />
                     <span>{memberCount.toLocaleString()} members</span>
                 </div>
-                  {community.location && (community.location.city || community.location.address) && (
-                    <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                      <span>{community.location.city || community.location.address?.split(',')[0] || "Location"}</span>
-                    </div>
-                  )}
                   {community.category && (
                     <Badge variant="secondary" className="bg-white/20 text-white border-0">
                   {community.category}

@@ -485,10 +485,6 @@ export default function DiscoverPage() {
                   <Users className="h-4 w-4 text-gray-500" />
                   <span>{community.memberCount.toLocaleString()} members</span>
                 </div>
-                <div className="flex items-center gap-2" title="Location">
-                  <MapPin className="h-4 w-4 text-gray-500" />
-                  <span>{community.location.city}</span>
-                </div>
                 <div
                   className="flex items-center gap-2"
                   title="Upcoming Events"

@@ -33,30 +33,16 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const locationInput = formData.get("location") as string;
-    const locationType = (formData.get("location_type") as string) || "physical";
     const interests = JSON.parse(formData.get("interests") as string);
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
     const profileImage = formData.get("profileImage") as File | null;
 
-    if (!locationInput || !interests || !name || !description) {
+    if (!interests || !name || !description) {
       return NextResponse.json(
         { error: "All required fields must be provided" },
         { status: 400 }
       );
-    }
-
-    // Handle location - parse and store as JSON for coordinates
-    let location: any;
-    try {
-      // Try to parse as JSON (for locations with coordinates)
-      const locationJson = JSON.parse(locationInput);
-      // Store the full JSON object with coordinates
-      location = locationJson;
-    } catch {
-      // Not JSON, use as string or create basic object
-      location = { address: locationInput };
     }
 
     let profileImageUrl = null;
@@ -151,7 +137,6 @@ export async function POST(request: NextRequest) {
         name,
         description,
         slug,
-        location,
         logo_url: profileImageUrl,
         creator_id: user.id,
         is_private: false,

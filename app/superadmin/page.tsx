@@ -85,6 +85,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { SuperAdminNav } from "@/components/navigation/superadmin-nav";
 import { AdsManagement } from "@/components/superadmin/ads-management";
+import { toast } from "sonner";
 
 // Badge data types
 export interface StoreBadge {
@@ -1172,6 +1173,30 @@ export default function SuperadminPage() {
     }
   }, [pathname]);
 
+  // Fetch reports from API
+  useEffect(() => {
+    const fetchReports = async () => {
+      setIsLoadingReports(true);
+      try {
+        const response = await fetch("/api/superadmin/reports");
+        if (!response.ok) {
+          throw new Error("Failed to fetch reports");
+        }
+        const data = await response.json();
+        setReportedCommunities(data.reports || []);
+      } catch (error) {
+        console.error("Error fetching reports:", error);
+        toast.error("Failed to load reports");
+      } finally {
+        setIsLoadingReports(false);
+      }
+    };
+
+    if (activeTab === "reports") {
+      fetchReports();
+    }
+  }, [activeTab]);
+
   // Reports management state
   const [reportSearchQuery, setReportSearchQuery] = useState("");
   const [selectedReport, setSelectedReport] = useState<any>(null);
@@ -1181,6 +1206,11 @@ export default function SuperadminPage() {
   const [inactiveSearchQuery, setInactiveSearchQuery] = useState("");
   const [currentInactivePage, setCurrentInactivePage] = useState(1);
   const [inactiveItemsPerPage] = useState(5);
+  
+  // API state for reports
+  const [reportedCommunities, setReportedCommunities] = useState<any[]>([]);
+  const [isLoadingReports, setIsLoadingReports] = useState(true);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
 
   // Report detail dialog state
   const [reportDetailPage, setReportDetailPage] = useState(1);
@@ -1242,7 +1272,7 @@ export default function SuperadminPage() {
   const paginatedCommunities = filteredCommunities.slice(startIndex, endIndex);
 
   // Filter reported communities based on search query
-  const filteredReportedCommunities = mockReportedCommunities.filter(
+  const filteredReportedCommunities = reportedCommunities.filter(
     (report) => {
       const matchesSearch =
         reportSearchQuery === "" ||
@@ -1302,6 +1332,52 @@ export default function SuperadminPage() {
     setSelectedCommunity(community);
     setIsCommunityDetailOpen(true);
     setCommunityDetailTab("overview");
+  };
+
+  // Handle report actions (suspend, dismiss, resolve)
+  const handleReportAction = async (
+    communityId: string,
+    action: "suspend" | "dismiss" | "resolve",
+    reportIds?: string[]
+  ) => {
+    setIsProcessingAction(true);
+    try {
+      const response = await fetch(`/api/superadmin/reports/${communityId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action,
+          reportIds: reportIds || [],
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to process action");
+      }
+
+      const data = await response.json();
+      toast.success(`Community ${action}ed successfully`);
+
+      // Refresh reports
+      const refreshResponse = await fetch("/api/superadmin/reports");
+      if (refreshResponse.ok) {
+        const refreshData = await refreshResponse.json();
+        setReportedCommunities(refreshData.reports || []);
+      }
+
+      // Close dialog if open
+      if (isReportDetailOpen) {
+        setIsReportDetailOpen(false);
+      }
+    } catch (error: any) {
+      console.error("Error processing report action:", error);
+      toast.error(error.message || "Failed to process action");
+    } finally {
+      setIsProcessingAction(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -1514,7 +1590,7 @@ export default function SuperadminPage() {
                   Community Reports & Moderation
                 </h3>
                 <div className="text-sm text-gray-600">
-                  Total Reports: {mockReportedCommunities.length} | Inactive:{" "}
+                  Total Reports: {reportedCommunities.length} | Inactive:{" "}
                   {mockInactiveCommunities.length}
                 </div>
               </div>
@@ -1526,7 +1602,7 @@ export default function SuperadminPage() {
                     <Ban className="h-5 w-5 text-red-600" />
                     Reported Communities
                     <Badge className="bg-red-100 text-red-700 border-red-200">
-                      {mockReportedCommunities.length} Reports
+                      {reportedCommunities.length} Reports
                     </Badge>
                   </h4>
                   <div className="relative">
@@ -1540,38 +1616,43 @@ export default function SuperadminPage() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                          Community
-                        </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                          Members
-                        </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                          Reports
-                        </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                          Last Report
-                        </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedReportedCommunities.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={5}
-                            className="text-center py-8 text-gray-500"
-                          >
-                            No reported communities found
-                          </td>
+                {isLoadingReports ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Spinner size="lg" />
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                            Community
+                          </th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                            Members
+                          </th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                            Reports
+                          </th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                            Last Report
+                          </th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                            Actions
+                          </th>
                         </tr>
-                      ) : (
+                      </thead>
+                      <tbody>
+                        {paginatedReportedCommunities.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="text-center py-8 text-gray-500"
+                            >
+                              No reported communities found
+                            </td>
+                          </tr>
+                        ) : (
                         paginatedReportedCommunities.map((report) => (
                           <tr
                             key={report.id}
@@ -1626,18 +1707,27 @@ export default function SuperadminPage() {
                                   variant="glass"
                                   size="sm"
                                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => handleReportAction(report.communityId, "suspend")}
+                                  disabled={isProcessingAction}
                                 >
-                                  <Ban className="h-4 w-4 mr-1" />
-                                  Suspend
+                                  {isProcessingAction ? (
+                                    <Spinner size="sm" />
+                                  ) : (
+                                    <>
+                                      <Ban className="h-4 w-4 mr-1" />
+                                      Suspend
+                                    </>
+                                  )}
                                 </AnimatedButton>
                               </div>
                             </td>
                           </tr>
                         ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
                 {/* Pagination for Reported Communities */}
                 {totalReportPages > 1 && (

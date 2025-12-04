@@ -12,29 +12,18 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import {
   Users,
-  Globe,
   Wand2,
   Sparkles,
   RefreshCw,
   Copy,
   Lightbulb,
-  MapPin,
 } from "lucide-react"
 import Link from "next/link"
 import { EnhanceContentButton } from "@/components/ai/enhance-content-button"
-import { LocationPicker } from "@/components/ui/location-picker"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { PageTransition } from "@/components/ui/page-transition"
 import { SmoothReveal } from "@/components/ui/smooth-reveal"
-
-interface LocationData {
-  address: string
-  lat: number | null
-  lng: number | null
-  city?: string
-  country?: string
-}
 
 export default function CreateCommunityPage() {
   const router = useRouter()
@@ -42,13 +31,9 @@ export default function CreateCommunityPage() {
     name: "",
     description: "",
     category: "",
-    location: null as LocationData | null,
-    locationType: "physical" as "physical" | "online" | "hybrid",
-    privacy: "public" as "public" | "private",
     profileImage: null as File | null,
   })
 
-  const [currentStep, setCurrentStep] = useState(1)
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [aiSuggestions, setAiSuggestions] = useState<any>(null)
@@ -86,8 +71,6 @@ export default function CreateCommunityPage() {
           params: {
             name: formData.name,
             category: formData.category,
-            locationType: formData.locationType,
-            location: formData.location?.address || "",
           },
         }),
       })
@@ -115,35 +98,11 @@ export default function CreateCommunityPage() {
       return
     }
 
-    if (formData.locationType !== "online" && !formData.location?.address) {
-      toast.error("Please select a location")
-      return
-    }
-
     setIsSubmitting(true)
 
     try {
       const formDataToSend = new FormData()
       
-      // Prepare location - can be string or JSON with coordinates
-      let locationValue: string
-      if (formData.locationType === "online") {
-        locationValue = formData.location?.address || "Online"
-      } else if (formData.location?.lat && formData.location?.lng) {
-        // Store as JSON with coordinates for better location handling
-        locationValue = JSON.stringify({
-          address: formData.location.address,
-          lat: formData.location.lat,
-          lng: formData.location.lng,
-          city: formData.location.city,
-          country: formData.location.country,
-        })
-      } else {
-        locationValue = formData.location?.address || ""
-      }
-
-      formDataToSend.append("location", locationValue)
-      formDataToSend.append("location_type", formData.locationType)
       formDataToSend.append("interests", JSON.stringify([formData.category]))
       formDataToSend.append("name", formData.name)
       formDataToSend.append("description", formData.description)
@@ -177,11 +136,6 @@ export default function CreateCommunityPage() {
     }
   }
 
-  const steps = [
-    { number: 1, title: "Basic Information" },
-    { number: 2, title: "Location & Privacy" },
-  ]
-
   return (
     <PageTransition>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
@@ -201,47 +155,9 @@ export default function CreateCommunityPage() {
             </div>
           </SmoothReveal>
 
-          {/* Progress Steps */}
-          <SmoothReveal delay={200} direction="up">
-            <div className="mb-8 bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-xl p-4 sm:p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                {steps.map((step, index) => (
-                  <React.Fragment key={step.number}>
-                    <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                      <div
-                        className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 transition-all duration-200 shadow-sm ${
-                          currentStep >= step.number
-                            ? "bg-violet-600 border-violet-600 text-white scale-110"
-                            : "border-gray-300 text-gray-500 bg-white"
-                        }`}
-                      >
-                        <span className="text-xs sm:text-sm font-medium">{step.number}</span>
-                      </div>
-                      <p
-                        className={`text-xs sm:text-sm font-semibold transition-colors duration-200 whitespace-nowrap ${
-                          currentStep >= step.number ? "text-violet-700" : "text-gray-500"
-                        }`}
-                      >
-                        {step.title}
-                      </p>
-                    </div>
-                    {index < steps.length - 1 && (
-                      <div
-                        className={`flex-1 h-0.5 mx-2 sm:mx-4 max-w-[60px] sm:max-w-none transition-colors duration-200 ${
-                          currentStep > step.number ? "bg-violet-600" : "bg-gray-300"
-                        }`}
-                      />
-                    )}
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
-          </SmoothReveal>
-
         <form onSubmit={handleSubmit}>
-          {/* Step 1: Basic Information with AI Integration */}
-          {currentStep === 1 && (
-            <SmoothReveal delay={300} direction="up">
+          {/* Basic Information with AI Integration */}
+          <SmoothReveal delay={200} direction="up">
               <Card className="border-gray-200/50 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="text-xl font-medium text-gray-900 flex items-center gap-2">
@@ -400,147 +316,15 @@ export default function CreateCommunityPage() {
                 )}
               </CardContent>
             </Card>
-            </SmoothReveal>
-          )}
-
-          {/* Step 2: Location & Privacy */}
-          {currentStep === 2 && (
-            <SmoothReveal delay={300} direction="up">
-              <Card className="border-gray-200/50 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-xl font-medium text-gray-900">Location & Privacy</CardTitle>
-                <p className="text-gray-600">Set up where your community meets and who can join</p>
-              </CardHeader>
-              <CardContent className="space-y-8">
-                <div className="space-y-4">
-                  <Label className="text-gray-700">Meeting Type *</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div
-                      className={`p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                        formData.locationType === "physical"
-                          ? "border-violet-700 bg-violet-50"
-                          : "border-gray-200 hover:border-violet-300"
-                      }`}
-                      onClick={() => handleInputChange("locationType", "physical")}
-                    >
-                      <MapPin className="h-6 w-6 mb-3 text-violet-700" />
-                      <h4 className="font-medium text-gray-900">In-Person</h4>
-                      <p className="text-sm text-gray-600">Meet at physical locations</p>
-                    </div>
-                    <div
-                      className={`p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                        formData.locationType === "online"
-                          ? "border-violet-700 bg-violet-50"
-                          : "border-gray-200 hover:border-violet-300"
-                      }`}
-                      onClick={() => handleInputChange("locationType", "online")}
-                    >
-                      <Globe className="h-6 w-6 mb-3 text-violet-700" />
-                      <h4 className="font-medium text-gray-900">Online</h4>
-                      <p className="text-sm text-gray-600">Virtual meetings and events</p>
-                    </div>
-                    <div
-                      className={`p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                        formData.locationType === "hybrid"
-                          ? "border-violet-700 bg-violet-50"
-                          : "border-gray-200 hover:border-violet-300"
-                      }`}
-                      onClick={() => handleInputChange("locationType", "hybrid")}
-                    >
-                      <Users className="h-6 w-6 mb-3 text-violet-700" />
-                      <h4 className="font-medium text-gray-900">Hybrid</h4>
-                      <p className="text-sm text-gray-600">Both online and in-person</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <Label className="text-gray-700">
-                    Location {formData.locationType !== "online" && "*"}
-                  </Label>
-                  <LocationPicker
-                    value={formData.location || undefined}
-                    onChange={(location) => handleInputChange("location", location)}
-                    locationType={formData.locationType}
-                    required={formData.locationType !== "online"}
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <Label className="text-gray-700">Privacy Settings *</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div
-                      className={`p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                        formData.privacy === "public"
-                          ? "border-violet-700 bg-violet-50"
-                          : "border-gray-200 hover:border-violet-300"
-                      }`}
-                      onClick={() => handleInputChange("privacy", "public")}
-                    >
-                      <h4 className="font-medium text-gray-900">Public</h4>
-                      <p className="text-sm text-gray-600">Anyone can find and join your community</p>
-                    </div>
-                    <div
-                      className={`p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                        formData.privacy === "private"
-                          ? "border-violet-700 bg-violet-50"
-                          : "border-gray-200 hover:border-violet-300"
-                      }`}
-                      onClick={() => handleInputChange("privacy", "private")}
-                    >
-                      <h4 className="font-medium text-gray-900">Private</h4>
-                      <p className="text-sm text-gray-600">People need approval to join</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3 pt-4 border-t border-gray-200">
-                  <Checkbox id="terms" required className="text-violet-700 border-gray-300 focus:ring-violet-200" />
-                  <Label htmlFor="terms" className="text-sm text-gray-600">
-                    I agree to the{" "}
-                    <Link href="/terms" className="text-violet-700 hover:underline">
-                      Terms of Service
-                    </Link>{" "}
-                    and{" "}
-                    <Link href="/community-guidelines" className="text-violet-700 hover:underline">
-                      Community Guidelines
-                    </Link>
-                  </Label>
-                </div>
-              </CardContent>
-            </Card>
-            </SmoothReveal>
-          )}
+          </SmoothReveal>
 
           {/* Navigation Buttons */}
           <SmoothReveal delay={400} direction="up">
-            <div className="flex justify-between mt-12">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
-              disabled={currentStep === 1}
-              className="border-gray-200 hover:border-violet-300 hover:bg-violet-50"
-            >
-              Previous
-            </Button>
-
-            {currentStep < 2 ? (
-              <Button
-                type="button"
-                onClick={() => setCurrentStep(Math.min(2, currentStep + 1))}
-                disabled={
-                  currentStep === 1 && (!formData.name || !formData.description || !formData.category)
-                }
-                className="bg-violet-700 hover:bg-violet-800 text-white"
-              >
-                Next
-              </Button>
-            ) : (
+            <div className="flex justify-end mt-12">
               <Button 
                 type="submit" 
                 className="bg-violet-700 hover:bg-violet-800 text-white"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !formData.name || !formData.description || !formData.category}
               >
                 {isSubmitting ? (
                   <>
@@ -551,8 +335,7 @@ export default function CreateCommunityPage() {
                   "Create Community"
                 )}
               </Button>
-            )}
-          </div>
+            </div>
           </SmoothReveal>
         </form>
       </div>

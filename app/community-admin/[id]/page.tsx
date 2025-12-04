@@ -1116,22 +1116,6 @@ export default function CommunityAdminPage({
                     </div>
                     )}
 
-                    {/* Location */}
-                    {(community?.location.city || community?.location.country || community?.location.address) && (
-                    <div className="self-start text-left flex items-center space-x-2 text-gray-600">
-                      <MapPin className="w-4 h-4" />
-                      <div className="text-sm text-left">
-                          {(community.location.city || community.location.country) && (
-                            <div className="font-medium">
-                              {[community.location.city, community.location.country].filter(Boolean).join(", ") || "Location not set"}
-                      </div>
-                          )}
-                          {community.location.address && (
-                            <div className="text-xs text-gray-500">{community.location.address}</div>
-                          )}
-                    </div>
-                      </div>
-                    )}
 
                     
 
