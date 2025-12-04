@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   Loader2
 } from "lucide-react"
+import { UserReputationCard } from "@/components/community/user-reputation-card"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
@@ -514,63 +515,69 @@ export default function CommunityAdminRequestsPage({
                         : "bg-red-50 border-red-200"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      {/* Left Side - User Info */}
-                      <div className="flex items-center gap-4">
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage src={request.userAvatar} alt={request.userName} />
-                          <AvatarFallback className="text-sm">
-                            {request.userName.split(' ').map(n => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        
-                        <div>
-                          <h4 className="font-semibold text-gray-900">
-                            {request.userName}
-                          </h4>
-                          <p className="text-sm text-gray-600">{request.userEmail}</p>
-                          <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-                            <Clock className="w-3 h-3" />
-                            {format(new Date(request.requestedAt), "MMM dd, yyyy 'at' h:mm a")}
+                    <div className="space-y-4">
+                      {/* User Info Row */}
+                      <div className="flex items-center justify-between">
+                        {/* Left Side - User Info */}
+                        <div className="flex items-center gap-4">
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={request.userAvatar} alt={request.userName} />
+                            <AvatarFallback className="text-sm">
+                              {request.userName.split(' ').map(n => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          
+                          <div>
+                            <h4 className="font-semibold text-gray-900">
+                              {request.userName}
+                            </h4>
+                            <p className="text-sm text-gray-600">{request.userEmail}</p>
+                            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                              <Clock className="w-3 h-3" />
+                              {format(new Date(request.requestedAt), "MMM dd, yyyy 'at' h:mm a")}
+                            </div>
                           </div>
+                        </div>
+
+                        {/* Right Side - Status and Actions */}
+                        <div className="flex items-center gap-3">
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              request.status === "pending" && "bg-yellow-100 text-yellow-700 border-yellow-200",
+                              request.status === "approved" && "bg-green-100 text-green-700 border-green-200",
+                              request.status === "rejected" && "bg-red-100 text-red-700 border-red-200"
+                            )}
+                          >
+                            {request.status}
+                          </Badge>
+
+                          {/* Actions for pending requests */}
+                          {request.status === "pending" && (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleApprove(request.id)}
+                                className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200 hover:text-green-800"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleReject(request.id)}
+                                className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200 hover:text-red-800"
+                              >
+                                <XCircle className="w-4 h-4 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      {/* Right Side - Status and Actions */}
-                      <div className="flex items-center gap-3">
-                        <Badge 
-                          variant="outline" 
-                          className={cn(
-                            request.status === "pending" && "bg-yellow-100 text-yellow-700 border-yellow-200",
-                            request.status === "approved" && "bg-green-100 text-green-700 border-green-200",
-                            request.status === "rejected" && "bg-red-100 text-red-700 border-red-200"
-                          )}
-                        >
-                          {request.status}
-                        </Badge>
-
-                        {/* Actions for pending requests */}
-                        {request.status === "pending" && (
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleApprove(request.id)}
-                              className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200 hover:text-green-800"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleReject(request.id)}
-                              className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200 hover:text-red-800"
-                            >
-                              <XCircle className="w-4 h-4 mr-1" />
-                              Reject
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                      {/* User Reputation Card */}
+                      <UserReputationCard userId={request.userId} compact={false} />
                     </div>
                   </div>
                 ))}

@@ -1,62 +1,80 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@/lib/supabase/server";
+import type { PointTransaction } from "@/lib/points/user-points";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-// GET user points
-export async function GET(request: NextRequest) {
+/**
+ * POST /api/user/points
+ * Award points to a user
+ * Requires service role or authenticated user awarding to themselves
+ */
+export async function POST(request: NextRequest) {
   try {
-    // Get user from auth header
-    const authHeader = request.headers.get("authorization");
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "No authorization token provided" },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-
-    // Verify token and get user
+    const supabase = await createServerClient();
     const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(token);
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (authError || !user) {
+    const body: PointTransaction = await request.json();
+
+    // Validate required fields
+    if (!body.user_id || !body.points || !body.point_type) {
       return NextResponse.json(
-        { error: "Invalid or expired token" },
-        { status: 401 }
+        { error: "Missing required fields: user_id, points, point_type" },
+        { status: 400 }
       );
     }
 
-    // Get user points from users table
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("points")
-      .eq("id", user.id)
+    // Check if user is awarding to themselves or using service role
+    // In production, you might want to restrict this to service role only
+    // For now, allow users to award points to themselves
+    if (session?.user.id !== body.user_id) {
+      // Check if user is admin/moderator (can award points to others)
+      const { data: isAdmin } = await supabase
+        .from("community_members")
+        .select("id")
+        .eq("user_id", session?.user.id)
+        .in("role", ["admin", "moderator"])
+        .limit(1)
+        .single();
+
+      if (!isAdmin) {
+        return NextResponse.json(
+          { error: "Unauthorized: Can only award points to yourself or need admin role" },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Insert point transaction
+    const { data, error } = await supabase
+      .from("user_points")
+      .insert({
+        user_id: body.user_id,
+        points: body.points,
+        point_type: body.point_type,
+        related_id: body.related_id || null,
+        related_type: body.related_type || null,
+        description: body.description || null,
+      })
+      .select()
       .single();
 
-    if (userError) {
-      console.error("Error fetching user points:", userError);
+    if (error) {
+      console.error("Error inserting points:", error);
       return NextResponse.json(
-        { error: "Failed to fetch user points" },
+        { error: "Failed to award points", details: error.message },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
-      points: userData?.points || 0,
-      userId: user.id,
+      success: true,
+      transaction: data,
     });
-  } catch (error) {
-    console.error("Get user points error:", error);
+  } catch (error: any) {
+    console.error("Error in points API:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", details: error.message },
       { status: 500 }
     );
   }

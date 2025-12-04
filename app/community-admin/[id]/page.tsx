@@ -29,6 +29,7 @@ import { FloatingElements } from "@/components/ui/floating-elements"
 import { toast } from "sonner"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
 import { Textarea } from "@/components/ui/textarea"
+import { UserReputationCard } from "@/components/community/user-reputation-card"
 
 // Component to fetch and display event count
 function EventCount({ communityId }: { communityId?: string }) {
@@ -1180,51 +1181,55 @@ export default function CommunityAdminPage({
                           .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
                           .slice(0, 3)
                           .map((request) => (
-                          <div key={request.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                            <Avatar className="w-10 h-10">
-                              <AvatarImage src={request.userAvatar} alt={request.userName} />
-                              <AvatarFallback className="text-sm">
-                                {request.userName.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-medium text-gray-900 truncate">
-                                  {request.userName}
-                                </h4>
-                                <div className="flex items-center gap-2">
-                                  {request.status !== 'pending' && (
-                                    <Badge className={request.status === 'approved' ? 'bg-green-100 text-green-700 border-none' : 'bg-red-100 text-red-700 border-none'}>
-                                      {request.status === 'approved' ? 'Approved' : 'Rejected'}
-                                    </Badge>
-                                  )}
+                          <div key={request.id} className="space-y-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <div className="flex items-start space-x-3">
+                              <Avatar className="w-10 h-10">
+                                <AvatarImage src={request.userAvatar} alt={request.userName} />
+                                <AvatarFallback className="text-sm">
+                                  {request.userName.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-sm font-medium text-gray-900 truncate">
+                                    {request.userName}
+                                  </h4>
+                                  <div className="flex items-center gap-2">
+                                    {request.status !== 'pending' && (
+                                      <Badge className={request.status === 'approved' ? 'bg-green-100 text-green-700 border-none' : 'bg-red-100 text-red-700 border-none'}>
+                                        {request.status === 'approved' ? 'Approved' : 'Rejected'}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                <p className="text-xs text-gray-500 truncate">{request.userEmail}</p>
+                                {request.message && (
+                                  <p className="text-xs text-gray-600 mt-1 line-clamp-2">{request.message}</p>
+                                )}
+                                <div className="mt-3 flex items-center gap-2">
+                                  <Button 
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
+                                    onClick={() => handleApprove(request.id)}
+                                    disabled={request.status !== 'pending'}
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button 
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                                    onClick={() => handleReject(request.id)}
+                                    disabled={request.status !== 'pending'}
+                                  >
+                                    Reject
+                                  </Button>
                                 </div>
                               </div>
-                              <p className="text-xs text-gray-500 truncate">{request.userEmail}</p>
-                              {request.message && (
-                                <p className="text-xs text-gray-600 mt-1 line-clamp-2">{request.message}</p>
-                              )}
-                              <div className="mt-3 flex items-center gap-2">
-                                <Button 
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
-                                  onClick={() => handleApprove(request.id)}
-                                  disabled={request.status !== 'pending'}
-                                >
-                                  Approve
-                                </Button>
-                                <Button 
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
-                                  onClick={() => handleReject(request.id)}
-                                  disabled={request.status !== 'pending'}
-                                >
-                                  Reject
-                                </Button>
-                              </div>
                             </div>
+                            {/* User Reputation - Compact View */}
+                            <UserReputationCard userId={request.userId} compact={true} />
                           </div>
                         ))}
                       </>
