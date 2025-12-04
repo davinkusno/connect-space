@@ -1161,14 +1161,14 @@ const mockInactiveCommunities = [
 export default function SuperadminPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("reports");
 
   // Sync active tab with pathname
   useEffect(() => {
     if (pathname === "/superadmin/ads") {
       setActiveTab("ads");
     } else if (pathname === "/superadmin") {
-      setActiveTab("overview");
+      setActiveTab("reports");
     }
   }, [pathname]);
 
@@ -1489,14 +1489,7 @@ export default function SuperadminPage() {
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-3 glass-effect border-0 p-2 rounded-2xl mb-8 h-14">
-              <TabsTrigger
-                value="overview"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
-              >
-                <Shield className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium">Overview</span>
-              </TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 glass-effect border-0 p-2 rounded-2xl mb-8 h-14">
               <TabsTrigger
                 value="reports"
                 className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
@@ -1512,181 +1505,6 @@ export default function SuperadminPage() {
                 <span className="font-medium">Ads</span>
               </TabsTrigger>
             </TabsList>
-
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-8">
-              <div>
-                <AnimatedCard variant="glass" className="p-6">
-                  <div className="mb-6">
-                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-4">
-                      <Users className="w-5 h-5 text-purple-600" />
-                      All Communities
-                      <Badge variant="outline" className="ml-2 bg-gray-100">
-                        {filteredCommunities.length}
-                      </Badge>
-                    </h3>
-
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <Input
-                          placeholder="Search communities..."
-                          value={communitySearchQuery}
-                          onChange={(e) =>
-                            setCommunitySearchQuery(e.target.value)
-                          }
-                          className="pl-10 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
-                        />
-                      </div>
-                      <select
-                        value={communityFilterStatus}
-                        onChange={(e) =>
-                          setCommunityFilterStatus(e.target.value)
-                        }
-                        className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200 bg-white"
-                      >
-                        <option value="all">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="suspended">Suspended</option>
-                      </select>
-                      <select
-                        value={communitySortBy}
-                        onChange={(e) => setCommunitySortBy(e.target.value)}
-                        className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
-                      >
-                        <option value="newest">Newest First</option>
-                        <option value="oldest">Oldest First</option>
-                        <option value="name">Name</option>
-                        <option value="member-count">Member Count</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Community Listings */}
-                  <div className="space-y-4">
-                    {paginatedCommunities.map((community) => (
-                      <div
-                        key={community.id}
-                        className="p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md border-gray-200 bg-white"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h5 className="text-lg font-semibold text-gray-900">
-                                {community.name}
-                              </h5>
-                              <Badge variant="outline" className="text-xs">
-                                {community.category}
-                              </Badge>
-                            </div>
-                            <p className="text-gray-600 mb-3 line-clamp-2">
-                              {community.description}
-                            </p>
-                            <div className="flex items-center gap-4 text-sm text-gray-500">
-                              <div className="flex items-center gap-1">
-                                <Users className="h-4 w-4" />
-                                <span>{community.memberCount} members</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <CalendarDays className="h-4 w-4" />
-                                <span>{community.totalEvents} events</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <CalendarDays className="h-4 w-4" />
-                                <span>
-                                  Created at{" "}
-                                  {formatDateShort(community.createdAt)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 ml-4">
-                            <AnimatedButton
-                              size="sm"
-                              onClick={() => handleViewCommunity(community)}
-                              className="h-8 px-2.5 text-xs !bg-white hover:!bg-gray-50 !text-gray-700 !border !border-gray-300 !shadow-sm !bg-gradient-to-r !from-white !to-white hover:!from-gray-50 hover:!to-gray-50"
-                            >
-                              <Eye className="h-3.5 w-3.5 mr-1" />
-                              View
-                            </AnimatedButton>
-                            {community.status !== "inactive" && (
-                              <AnimatedButton
-                                size="sm"
-                                className="!bg-rose-500 hover:!bg-rose-600 !text-white h-8 px-2.5 text-xs !bg-gradient-to-r !from-rose-500 !to-rose-500 hover:!from-rose-600 hover:!to-rose-600"
-                              >
-                                <Ban className="h-3.5 w-3.5 mr-1" />
-                                Suspend
-                              </AnimatedButton>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
-                      <div className="text-sm text-gray-500">
-                        Showing {startIndex + 1} to{" "}
-                        {Math.min(endIndex, filteredCommunities.length)} of{" "}
-                        {filteredCommunities.length} communities
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <AnimatedButton
-                          variant="glass"
-                          size="sm"
-                          onClick={() =>
-                            setCurrentPage(Math.max(1, currentPage - 1))
-                          }
-                          disabled={currentPage === 1}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                          Previous
-                        </AnimatedButton>
-                        <div className="flex items-center gap-1">
-                          {Array.from(
-                            { length: totalPages },
-                            (_, i) => i + 1
-                          ).map((page) => (
-                            <AnimatedButton
-                              key={page}
-                              variant={
-                                currentPage === page ? "default" : "glass"
-                              }
-                              size="sm"
-                              onClick={() => setCurrentPage(page)}
-                              className={
-                                currentPage === page
-                                  ? "bg-purple-600 text-white"
-                                  : "text-gray-600 hover:text-purple-600"
-                              }
-                            >
-                              {page}
-                            </AnimatedButton>
-                          ))}
-                        </div>
-                        <AnimatedButton
-                          variant="glass"
-                          size="sm"
-                          onClick={() =>
-                            setCurrentPage(
-                              Math.min(totalPages, currentPage + 1)
-                            )
-                          }
-                          disabled={currentPage === totalPages}
-                        >
-                          Next
-                          <ChevronRight className="h-4 w-4" />
-                        </AnimatedButton>
-                      </div>
-                    </div>
-                  )}
-                </AnimatedCard>
-              </div>
-            </TabsContent>
-
 
             {/* Reports Tab - Community Reports & Inactive Communities */}
             <TabsContent value="reports" className="space-y-6">
