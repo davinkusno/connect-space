@@ -22,7 +22,6 @@ import {
   Reply,
   Send,
   ImageIcon,
-  Navigation,
   Hash,
   Settings,
   Globe,
@@ -47,7 +46,6 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
-import dynamic from "next/dynamic";
 // import { FloatingChat } from "@/components/chat/floating-chat"; // Component not found
 import {
   FadeTransition,
@@ -68,12 +66,6 @@ import {
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { ReportDialog } from "@/components/community/report-dialog";
 import { AdCarousel } from "@/components/community/ad-carousel";
-
-// Dynamic import for Leaflet map
-const LeafletMap = dynamic(
-  () => import("@/components/ui/interactive-leaflet-map").then(mod => mod.InteractiveLeafletMap),
-  { ssr: false, loading: () => <div className="h-[400px] bg-gray-100 rounded-lg flex items-center justify-center">Loading map...</div> }
-);
 
 export default function CommunityPage({
   params,
@@ -132,7 +124,6 @@ export default function CommunityPage({
   // Additional UI states
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [showLocationMap, setShowLocationMap] = useState(false);
 
   // Load community data from database
   useEffect(() => {
@@ -355,9 +346,10 @@ export default function CommunityPage({
               .eq("community_id", id)
               .in("user_id", senderIds);
             
-            const roleMap = new Map(
-              (membershipsData || []).map((m: any) => [m.user_id, m.role])
-            );
+            const roleMap: Record<string, string> = {};
+            (membershipsData || []).forEach((m: any) => {
+              roleMap[m.user_id] = m.role;
+            });
 
             // Load user data for each message
             const messagesWithUsers = await Promise.all(
@@ -369,7 +361,7 @@ export default function CommunityPage({
                   .single();
 
                 // Get author role
-                const authorRole = roleMap.get(message.sender_id) || null;
+                const authorRole = roleMap[message.sender_id] || null;
                 const isCreator = message.sender_id === community?.creator_id;
 
                 // Load ALL replies for each message (not just 5)
@@ -398,9 +390,10 @@ export default function CommunityPage({
                       .in("user_id", replySenderIds)
                   : { data: [] };
 
-                const replyRoleMap = new Map(
-                  (replyMembershipsData || []).map((m: any) => [m.user_id, m.role])
-                );
+                const replyRoleMap: Record<string, string> = {};
+                (replyMembershipsData || []).forEach((m: any) => {
+                  replyRoleMap[m.user_id] = m.role;
+                });
 
                 // Load user data for replies
                 const repliesWithUsers = await Promise.all(
@@ -411,7 +404,7 @@ export default function CommunityPage({
                       .eq("id", reply.sender_id)
                       .single();
 
-                    const replyAuthorRole = replyRoleMap.get(reply.sender_id) || null;
+                    const replyAuthorRole = replyRoleMap[reply.sender_id] || null;
                     const replyIsCreator = reply.sender_id === community?.creator_id;
 
                     return {
@@ -1259,22 +1252,9 @@ export default function CommunityPage({
                           Location
                         </h4>
                         <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                          <p className="text-gray-800 mb-2">
+                          <p className="text-gray-800">
                             {community.location.address}
                           </p>
-                          <HoverScale>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                // Handle map view
-                              }}
-                              className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
-                            >
-                              <Navigation className="h-4 w-4 mr-2" />
-                              View on Map
-                            </Button>
-                          </HoverScale>
                         </div>
                       </div>
 
