@@ -134,22 +134,16 @@ export default function DiscoverPage() {
 
   const categories = [
     { value: "all", label: "All Categories", icon: "🎯", color: "bg-gray-100" },
-    {
-      value: "environmental",
-      label: "Environmental",
-      icon: "🌱",
-      color: "bg-green-100",
-    },
-    { value: "music", label: "Music", icon: "🎵", color: "bg-pink-100" },
-    { value: "sports", label: "Sports", icon: "⚽", color: "bg-blue-100" },
-    { value: "hobbies", label: "Hobbies", icon: "🎨", color: "bg-purple-100" },
-    {
-      value: "education",
-      label: "Education",
-      icon: "📚",
-      color: "bg-yellow-100",
-    },
-    { value: "art", label: "Art", icon: "🎭", color: "bg-red-100" },
+    { value: "hobbies-crafts", label: "Hobbies & Crafts", icon: "🎮", color: "bg-purple-100" },
+    { value: "sports-fitness", label: "Sports & Fitness", icon: "⚽", color: "bg-blue-100" },
+    { value: "career-business", label: "Career & Business", icon: "💼", color: "bg-indigo-100" },
+    { value: "tech-innovation", label: "Tech & Innovation", icon: "💻", color: "bg-cyan-100" },
+    { value: "arts-culture", label: "Arts & Culture", icon: "🎭", color: "bg-red-100" },
+    { value: "social-community", label: "Social & Community", icon: "🤝", color: "bg-green-100" },
+    { value: "education-learning", label: "Education & Learning", icon: "📚", color: "bg-yellow-100" },
+    { value: "travel-adventure", label: "Travel & Adventure", icon: "✈️", color: "bg-orange-100" },
+    { value: "food-drink", label: "Food & Drink", icon: "🍷", color: "bg-amber-100" },
+    { value: "entertainment", label: "Entertainment", icon: "🎉", color: "bg-pink-100" },
   ];
 
   useEffect(() => {

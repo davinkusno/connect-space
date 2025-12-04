@@ -71,26 +71,55 @@ export default function HomePage() {
 
   const categories = [
     {
-      name: "Environmental",
-      count: 876,
-      icon: "🌱",
+      name: "Hobbies & Crafts",
+      count: 2451,
+      icon: "🎮",
       gradient: "gradient-primary",
     },
-    { name: "Music", count: 1789, icon: "🎵", gradient: "gradient-secondary" },
-    { name: "Sports", count: 945, icon: "⚽", gradient: "gradient-tertiary" },
+    { name: "Sports & Fitness", count: 945, icon: "⚽", gradient: "gradient-secondary" },
+    { name: "Career & Business", count: 1234, icon: "💼", gradient: "gradient-tertiary" },
     {
-      name: "Hobbies",
-      count: 2451,
-      icon: "🎨",
+      name: "Tech & Innovation",
+      count: 1789,
+      icon: "💻",
       gradient: "gradient-quaternary",
     },
     {
-      name: "Education",
-      count: 1234,
-      icon: "📚",
+      name: "Arts & Culture",
+      count: 876,
+      icon: "🎭",
       gradient: "gradient-primary",
     },
-    { name: "Art", count: 987, icon: "🎭", gradient: "gradient-secondary" },
+    {
+      name: "Social & Community",
+      count: 567,
+      icon: "🤝",
+      gradient: "gradient-secondary",
+    },
+    {
+      name: "Education & Learning",
+      count: 1234,
+      icon: "📚",
+      gradient: "gradient-tertiary",
+    },
+    {
+      name: "Travel & Adventure",
+      count: 789,
+      icon: "✈️",
+      gradient: "gradient-quaternary",
+    },
+    {
+      name: "Food & Drink",
+      count: 634,
+      icon: "🍷",
+      gradient: "gradient-primary",
+    },
+    {
+      name: "Entertainment",
+      count: 1567,
+      icon: "🎉",
+      gradient: "gradient-secondary",
+    },
   ];
 
   return (

@@ -54,20 +54,16 @@ export default function CreateCommunityPage() {
   const [aiSuggestions, setAiSuggestions] = useState<any>(null)
 
   const categories = [
-    "Technology",
+    "Hobbies & Crafts",
     "Sports & Fitness",
+    "Career & Business",
+    "Tech & Innovation",
     "Arts & Culture",
-    "Food & Dining",
-    "Outdoors",
-    "Business",
-    "Education",
-    "Health & Wellness",
-    "Gaming",
-    "Music",
-    "Photography",
-    "Travel",
-    "Volunteering",
-    "Parenting",
+    "Social & Community",
+    "Education & Learning",
+    "Travel & Adventure",
+    "Food & Drink",
+    "Entertainment",
   ]
 
   const handleInputChange = (field: string, value: any) => {
