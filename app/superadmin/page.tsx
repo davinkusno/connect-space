@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -1216,6 +1217,14 @@ export default function SuperadminPage() {
   const [reportDetailPage, setReportDetailPage] = useState(1);
   const [reportDetailItemsPerPage] = useState(5);
 
+  // Ad requests state
+  const [adRequests, setAdRequests] = useState<any[]>([]);
+  const [isLoadingAdRequests, setIsLoadingAdRequests] = useState(true);
+  const [selectedAdRequest, setSelectedAdRequest] = useState<any>(null);
+  const [isAdRequestDialogOpen, setIsAdRequestDialogOpen] = useState(false);
+  const [adRequestFilter, setAdRequestFilter] = useState<"unread" | "all">("unread");
+  const [adRequestSort, setAdRequestSort] = useState<"desc" | "asc">("desc");
+
   // Community management state
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
   const [communityFilterStatus, setCommunityFilterStatus] = useState("all");
@@ -1227,6 +1236,12 @@ export default function SuperadminPage() {
   const [communityDetailTab, setCommunityDetailTab] = useState("overview");
   const [isAllCommunitiesDialogOpen, setIsAllCommunitiesDialogOpen] =
     useState(false);
+
+  // Activity logs state
+  const [activityFilterStatus, setActivityFilterStatus] = useState("all");
+  const [currentActivityPage, setCurrentActivityPage] = useState(1);
+  const [activityItemsPerPage] = useState(10);
+
 
   // Filter and sort communities
   const filteredCommunities = mockCommunities
@@ -1328,6 +1343,24 @@ export default function SuperadminPage() {
     inactiveEndIndex
   );
 
+  // Filter and paginate activity logs
+  const filteredActivityLogs = mockActivityLogs.filter((log) => {
+    if (activityFilterStatus === "all") {
+      return true;
+    }
+    return log.action === activityFilterStatus;
+  });
+
+  const totalActivityPages = Math.ceil(
+    filteredActivityLogs.length / activityItemsPerPage
+  );
+  const activityStartIndex = (currentActivityPage - 1) * activityItemsPerPage;
+  const activityEndIndex = activityStartIndex + activityItemsPerPage;
+  const paginatedActivityLogs = filteredActivityLogs.slice(
+    activityStartIndex,
+    activityEndIndex
+  );
+
   const handleViewCommunity = (community: any) => {
     setSelectedCommunity(community);
     setIsCommunityDetailOpen(true);
@@ -1379,6 +1412,51 @@ export default function SuperadminPage() {
       setIsProcessingAction(false);
     }
   };
+
+  // Fetch ad requests
+  useEffect(() => {
+    const fetchAdRequests = async () => {
+      setIsLoadingAdRequests(true);
+      try {
+        const response = await fetch("/api/superadmin/ads-requests");
+        if (!response.ok) {
+          throw new Error("Failed to fetch ad requests");
+        }
+        const result = await response.json();
+        setAdRequests(result.data || []);
+      } catch (error) {
+        console.error("Error fetching ad requests:", error);
+        // Fallback to empty array if fetch fails
+        setAdRequests([]);
+      } finally {
+        setIsLoadingAdRequests(false);
+      }
+    };
+
+    fetchAdRequests();
+  }, []);
+
+  // Filter and sort ad requests
+  const filteredAdRequests = adRequests
+    .filter((req) => {
+      if (adRequestFilter === "unread") {
+        return !req.is_read;
+      }
+      return true; // "all"
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      if (adRequestSort === "desc") {
+        return dateB - dateA; // Newest first
+      } else {
+        return dateA - dateB; // Oldest first
+      }
+    });
+
+  // Calculate ad request statistics
+  const unreadAdRequests = adRequests.filter((req) => !req.is_read);
+  const readAdRequests = adRequests.filter((req) => req.is_read);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("en-US", {
@@ -1567,7 +1645,19 @@ export default function SuperadminPage() {
           >
             <TabsList className="grid w-full grid-cols-2 glass-effect border-0 p-2 rounded-2xl mb-8 h-14">
               <TabsTrigger
-                value="reports"
+                value="requests"
+                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4 relative"
+              >
+                <ShoppingBag className="h-4 w-4 flex-shrink-0" />
+                <span className="font-medium">Ad Requests</span>
+                {unreadAdRequests.length > 0 && (
+                  <Badge className="bg-red-500 text-white text-xs px-1.5 py-0.5 ml-1 h-5 min-w-[20px] flex items-center justify-center">
+                    {unreadAdRequests.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="activity"
                 className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
               >
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
@@ -1581,6 +1671,580 @@ export default function SuperadminPage() {
                 <span className="font-medium">Ads</span>
               </TabsTrigger>
             </TabsList>
+
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="space-y-8">
+              <div>
+                <AnimatedCard variant="glass" className="p-6">
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-4">
+                      <Users className="w-5 h-5 text-purple-600" />
+                      All Communities
+                      <Badge variant="outline" className="ml-2 bg-gray-100">
+                        {filteredCommunities.length}
+                      </Badge>
+                    </h3>
+
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          placeholder="Search communities..."
+                          value={communitySearchQuery}
+                          onChange={(e) =>
+                            setCommunitySearchQuery(e.target.value)
+                          }
+                          className="pl-10 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                        />
+                      </div>
+                      <select
+                        value={communityFilterStatus}
+                        onChange={(e) =>
+                          setCommunityFilterStatus(e.target.value)
+                        }
+                        className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200 bg-white"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="suspended">Suspended</option>
+                      </select>
+                      <select
+                        value={communitySortBy}
+                        onChange={(e) => setCommunitySortBy(e.target.value)}
+                        className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200"
+                      >
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="name">Name</option>
+                        <option value="member-count">Member Count</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Community Listings */}
+                  <div className="space-y-4">
+                    {paginatedCommunities.map((community) => (
+                      <div
+                        key={community.id}
+                        className="p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md border-gray-200 bg-white"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h5 className="text-lg font-semibold text-gray-900">
+                                {community.name}
+                              </h5>
+                              <Badge variant="outline" className="text-xs">
+                                {community.category}
+                              </Badge>
+                            </div>
+                            <p className="text-gray-600 mb-3 line-clamp-2">
+                              {community.description}
+                            </p>
+                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                              <div className="flex items-center gap-1">
+                                <Users className="h-4 w-4" />
+                                <span>{community.memberCount} members</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <CalendarDays className="h-4 w-4" />
+                                <span>{community.totalEvents} events</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <CalendarDays className="h-4 w-4" />
+                                <span>
+                                  Created at{" "}
+                                  {formatDateShort(community.createdAt)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 ml-4">
+                            <AnimatedButton
+                              size="sm"
+                              onClick={() => handleViewCommunity(community)}
+                              className="h-8 px-2.5 text-xs !bg-white hover:!bg-gray-50 !text-gray-700 !border !border-gray-300 !shadow-sm !bg-gradient-to-r !from-white !to-white hover:!from-gray-50 hover:!to-gray-50"
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              View
+                            </AnimatedButton>
+                            {community.status !== "inactive" && (
+                              <AnimatedButton
+                                size="sm"
+                                className="!bg-rose-500 hover:!bg-rose-600 !text-white h-8 px-2.5 text-xs !bg-gradient-to-r !from-rose-500 !to-rose-500 hover:!from-rose-600 hover:!to-rose-600"
+                              >
+                                <Ban className="h-3.5 w-3.5 mr-1" />
+                                Suspend
+                              </AnimatedButton>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                      <div className="text-sm text-gray-500">
+                        Showing {startIndex + 1} to{" "}
+                        {Math.min(endIndex, filteredCommunities.length)} of{" "}
+                        {filteredCommunities.length} communities
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <AnimatedButton
+                          variant="glass"
+                          size="sm"
+                          onClick={() =>
+                            setCurrentPage(Math.max(1, currentPage - 1))
+                          }
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Previous
+                        </AnimatedButton>
+                        <div className="flex items-center gap-1">
+                          {Array.from(
+                            { length: totalPages },
+                            (_, i) => i + 1
+                          ).map((page) => (
+                            <AnimatedButton
+                              key={page}
+                              variant={
+                                currentPage === page ? "default" : "glass"
+                              }
+                              size="sm"
+                              onClick={() => setCurrentPage(page)}
+                              className={
+                                currentPage === page
+                                  ? "bg-purple-600 text-white"
+                                  : "text-gray-600 hover:text-purple-600"
+                              }
+                            >
+                              {page}
+                            </AnimatedButton>
+                          ))}
+                        </div>
+                        <AnimatedButton
+                          variant="glass"
+                          size="sm"
+                          onClick={() =>
+                            setCurrentPage(
+                              Math.min(totalPages, currentPage + 1)
+                            )
+                          }
+                          disabled={currentPage === totalPages}
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </AnimatedButton>
+                      </div>
+                    </div>
+                  )}
+                </AnimatedCard>
+              </div>
+            </TabsContent>
+
+            {/* Ad Requests Tab */}
+            <TabsContent value="requests" className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <ShoppingBag className="h-6 w-6 text-purple-600" />
+                  Ad Requests
+                </h3>
+              </div>
+
+              {/* Ad Request Status Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <AnimatedCard variant="glass" className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        Unread Requests
+                      </p>
+                      <p className="text-2xl font-bold text-yellow-600">
+                        {unreadAdRequests.length}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-yellow-100 rounded-lg">
+                      <Bell className="h-5 w-5 text-yellow-600" />
+                    </div>
+                  </div>
+                </AnimatedCard>
+
+                <AnimatedCard variant="glass" className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        Read Requests
+                      </p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {readAdRequests.length}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    </div>
+                  </div>
+                </AnimatedCard>
+
+                <AnimatedCard variant="glass" className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        Total Requests
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {adRequests.length}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-gray-100 rounded-lg">
+                      <TrendingUp className="h-5 w-5 text-gray-600" />
+                    </div>
+                  </div>
+                </AnimatedCard>
+              </div>
+
+              {/* Ad Requests List */}
+              <AnimatedCard variant="glass" className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-purple-500" />
+                    Ad Requests
+                    {unreadAdRequests.length > 0 && (
+                      <Badge className="bg-red-500 text-white">
+                        {unreadAdRequests.length} new
+                      </Badge>
+                    )}
+                  </h4>
+
+                  <div className="flex gap-2">
+                    <select
+                      value={adRequestFilter}
+                      onChange={(e) => setAdRequestFilter(e.target.value as "unread" | "all")}
+                      className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200 bg-white"
+                    >
+                      <option value="unread">Unread</option>
+                      <option value="all">All</option>
+                    </select>
+                    <select
+                      value={adRequestSort}
+                      onChange={(e) => setAdRequestSort(e.target.value as "desc" | "asc")}
+                      className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200 bg-white"
+                    >
+                      <option value="desc">Newest First</option>
+                      <option value="asc">Oldest First</option>
+                    </select>
+                  </div>
+                </div>
+
+                {isLoadingAdRequests ? (
+                  <div className="text-center py-12">
+                    <Spinner />
+                    <p className="text-gray-500 mt-4">Loading ad requests...</p>
+                  </div>
+                ) : filteredAdRequests.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="mb-4 text-gray-400">
+                      <MessageSquare className="h-12 w-12 mx-auto" />
+                    </div>
+                    <h5 className="text-xl font-medium text-gray-900 mb-2">
+                      No ad requests found
+                    </h5>
+                    <p className="text-gray-500">
+                      {adRequestFilter === "unread"
+                        ? "There are no unread ad requests at this time."
+                        : "There are no ad requests at this time."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredAdRequests.map((request) => (
+                      <div
+                        key={request.id}
+                        onClick={() => {
+                          setSelectedAdRequest(request);
+                          setIsAdRequestDialogOpen(true);
+                        }}
+                        className={`p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md cursor-pointer ${
+                          !request.is_read
+                            ? "border-purple-300 bg-purple-50/30"
+                            : "border-gray-200 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="text-lg font-semibold text-gray-900 hover:text-purple-600 transition-colors">
+                                {request.user_name || "Unknown User"}
+                              </span>
+                              {!request.is_read && (
+                                <Badge className="bg-yellow-500 text-white border-0">
+                                  New
+                                </Badge>
+                              )}
+                              {request.is_read && (
+                                <Badge variant="outline" className="text-xs text-gray-500">
+                                  Read
+                                </Badge>
+                              )}
+                            </div>
+
+                            <p className="text-gray-600 mb-3 line-clamp-2">
+                              {request.message || "No message provided"}
+                            </p>
+
+                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                              <span>{formatDate(request.created_at)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </AnimatedCard>
+            </TabsContent>
+
+            {/* Activity Logs Tab */}
+            <TabsContent value="activity" className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <Activity className="h-6 w-6 text-purple-600" />
+                  System Activity Logs
+                </h3>
+                <div className="flex gap-2 items-center">
+                  <span className="text-sm text-gray-600">Filter by:</span>
+                  <select
+                    value={activityFilterStatus}
+                    onChange={(e) => {
+                      setActivityFilterStatus(e.target.value);
+                      setCurrentActivityPage(1);
+                    }}
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-purple-300 focus:ring-purple-200 bg-white"
+                  >
+                    <option value="all">All Actions</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="suspend">Suspended</option>
+                    <option value="reactive">Reactivated</option>
+                  </select>
+                </div>
+              </div>
+
+              <AnimatedCard variant="glass" className="p-6">
+                {/* Stats Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-green-600 font-medium">
+                          Approved
+                        </p>
+                        <p className="text-2xl font-bold text-green-700">
+                          {
+                            mockActivityLogs.filter(
+                              (log) => log.action === "approved"
+                            ).length
+                          }
+                        </p>
+                      </div>
+                      <CheckCircle2 className="h-8 w-8 text-green-500" />
+                    </div>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-red-600 font-medium">
+                          Rejected
+                        </p>
+                        <p className="text-2xl font-bold text-red-700">
+                          {
+                            mockActivityLogs.filter(
+                              (log) => log.action === "rejected"
+                            ).length
+                          }
+                        </p>
+                      </div>
+                      <XCircle className="h-8 w-8 text-red-500" />
+                    </div>
+                  </div>
+                  <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-orange-600 font-medium">
+                          Suspended
+                        </p>
+                        <p className="text-2xl font-bold text-orange-700">
+                          {
+                            mockActivityLogs.filter(
+                              (log) => log.action === "suspend"
+                            ).length
+                          }
+                        </p>
+                      </div>
+                      <Ban className="h-8 w-8 text-orange-500" />
+                    </div>
+                  </div>
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-blue-600 font-medium">
+                          Reactivated
+                        </p>
+                        <p className="text-2xl font-bold text-blue-700">
+                          {
+                            mockActivityLogs.filter(
+                              (log) => log.action === "reactive"
+                            ).length
+                          }
+                        </p>
+                      </div>
+                      <RefreshCcw className="h-8 w-8 text-blue-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activity Logs Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Action
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Community
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          Date & Time
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedActivityLogs.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={3}
+                            className="text-center py-8 text-gray-500"
+                          >
+                            No activity logs found
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedActivityLogs.map((log) => (
+                          <tr
+                            key={log.id}
+                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="py-4 px-4">
+                              {getActionBadge(log.action)}
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="font-medium text-gray-900">
+                                {log.communityName}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="text-sm text-gray-700">
+                                {new Date(log.timestamp).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  }
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(log.timestamp).toLocaleTimeString(
+                                  "en-US",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalActivityPages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                    <div className="text-sm text-gray-600">
+                      Showing {activityStartIndex + 1} to{" "}
+                      {Math.min(activityEndIndex, filteredActivityLogs.length)}{" "}
+                      of {filteredActivityLogs.length} logs
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <AnimatedButton
+                        variant="glass"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentActivityPage((prev) =>
+                            Math.max(1, prev - 1)
+                          )
+                        }
+                        disabled={currentActivityPage === 1}
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </AnimatedButton>
+                      <div className="flex items-center gap-1">
+                        {Array.from(
+                          { length: totalActivityPages },
+                          (_, i) => i + 1
+                        )
+                          .filter(
+                            (page) =>
+                              page === 1 ||
+                              page === totalActivityPages ||
+                              Math.abs(page - currentActivityPage) <= 1
+                          )
+                          .map((page, index, array) => (
+                            <div key={page} className="flex items-center">
+                              {index > 0 && array[index - 1] !== page - 1 && (
+                                <span className="px-2 text-gray-400">...</span>
+                              )}
+                              <button
+                                onClick={() => setCurrentActivityPage(page)}
+                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                                  currentActivityPage === page
+                                    ? "bg-purple-600 text-white"
+                                    : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                      <AnimatedButton
+                        variant="glass"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentActivityPage((prev) =>
+                            Math.min(totalActivityPages, prev + 1)
+                          )
+                        }
+                        disabled={currentActivityPage === totalActivityPages}
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </AnimatedButton>
+                    </div>
+                  </div>
+                )}
+              </AnimatedCard>
+            </TabsContent>
 
             {/* Reports Tab - Community Reports & Inactive Communities */}
             <TabsContent value="reports" className="space-y-6">
@@ -2549,6 +3213,68 @@ export default function SuperadminPage() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Ad Request Detail Dialog */}
+      <Dialog open={isAdRequestDialogOpen} onOpenChange={setIsAdRequestDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              Ad Request Details
+            </DialogTitle>
+            <DialogDescription>
+              View the details of this ad request
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedAdRequest && (
+            <div className="space-y-6 mt-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">User Name</Label>
+                <p className="text-base text-gray-900">{selectedAdRequest.user_name || "Unknown User"}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">Email</Label>
+                <p className="text-base text-gray-900 break-all">{selectedAdRequest.email || "No email provided"}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">Message</Label>
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-base text-gray-700 whitespace-pre-wrap">
+                    {selectedAdRequest.message || "No message provided"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">Request Date</Label>
+                <p className="text-base text-gray-900">{formatDate(selectedAdRequest.created_at)}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">Status</Label>
+                <div>
+                  {selectedAdRequest.is_read ? (
+                    <Badge className="bg-green-500 text-white">Read</Badge>
+                  ) : (
+                    <Badge className="bg-yellow-500 text-white">Unread</Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsAdRequestDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

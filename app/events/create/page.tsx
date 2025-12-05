@@ -46,11 +46,13 @@ export default function CreateEventPage() {
     is_online: false,
     max_attendees: "",
     image_url: "",
+    link: "",
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
-  const [aiSuggestions, setAiSuggestions] = useState<any>(null);
+  const [enhanceDialogOpen, setEnhanceDialogOpen] = useState(false);
+  const [enhancingContentType, setEnhancingContentType] = useState<"description" | null>(null);
+  const [isEnhancing, setIsEnhancing] = useState(false);
 
   useEffect(() => {
     loadCommunity();
@@ -66,42 +68,19 @@ export default function CreateEventPage() {
     setFormData((prev) => ({ ...prev, location: location.address }));
   }, []);
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const generateDescription = async () => {
-    if (!formData.title) {
-      toast.error("Please enter an event title first");
+  // AI Enhancement handlers (only for description)
+  const handleEnhanceDescription = () => {
+    if (!formData.description.trim()) {
+      toast.error("Please enter a description first");
       return;
     }
 
-    setIsGeneratingDescription(true);
-    try {
-      const response = await fetch("/api/ai/generate-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "event-description",
-          params: {
-            title: formData.title,
-            category: community?.name || "",
-          },
-        }),
-      });
-
-      if (response.ok) {
-      const data = await response.json();
-        setFormData((prev) => ({ ...prev, description: data.description }));
-        setAiSuggestions(data);
-        toast.success("Description generated successfully!");
-      }
-    } catch (error) {
-      console.error("Failed to generate description:", error);
-      toast.error("Failed to generate description");
-    } finally {
-      setIsGeneratingDescription(false);
+  const handleAcceptEnhancedContent = (enhancedContent: string) => {
+    if (enhancingContentType === "description") {
+      setFormData((prev) => ({ ...prev, description: enhancedContent }));
     }
+    setEnhanceDialogOpen(false);
+    setEnhancingContentType(null);
   };
 
   const loadCommunity = async () => {
@@ -217,16 +196,22 @@ export default function CreateEventPage() {
         throw new Error(data.error || "Failed to create event");
       }
 
-      toast.success("Event created successfully!");
+      // Show success notification
+      toast.success("Event successfully created!", {
+        duration: 3000,
+      });
       
-      // Redirect to community page with events tab to show the new event
-      if (communityId) {
-        router.push(`/community/${communityId}?tab=events`);
-      } else if (data.id) {
-        router.push(`/events/${data.id}`);
-      } else {
-        router.push("/events");
-      }
+      // Wait a moment for user to see the notification, then redirect
+      setTimeout(() => {
+        // Redirect to community page with events tab to show the new event
+        if (communityId) {
+          router.push(`/community/${communityId}?tab=events`);
+        } else if (data.id) {
+          router.push(`/events/${data.id}`);
+        } else {
+          router.push("/events");
+        }
+      }, 500);
     } catch (error: any) {
       console.error("Error creating event:", error);
       toast.error(error.message || "Failed to create event");
@@ -418,20 +403,15 @@ export default function CreateEventPage() {
                 </div>
               </div>
 
-                {/* Title */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="title" className="text-gray-700">
-                    Event Title *
-                  </Label>
-                    <EnhanceContentButton
-                      content={formData.title}
-                      contentType="title"
-                      onEnhanced={(enhanced) => handleInputChange("title", enhanced)}
-                      context={{ category: community?.name || "" }}
-                      disabled={!formData.title}
-                    />
-                </div>
+              {/* Divider */}
+              <div className="border-t border-gray-200"></div>
+
+              {/* Title Section */}
+              <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
+                <Label htmlFor="title" className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-purple-600" />
+                  Event Title *
+                </Label>
                 <Input
                   id="title"
                     placeholder="e.g., Tech Meetup: Building Modern Web Apps"
@@ -467,21 +447,12 @@ export default function CreateEventPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                        onClick={generateDescription}
-                        disabled={!formData.title || isGeneratingDescription}
-                        className="border-violet-200 text-violet-600 hover:bg-violet-50"
-                      >
-                        {isGeneratingDescription ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Wand2 className="h-4 w-4 mr-2" />
-                            Generate with AI
-                          </>
-                        )}
+                      onClick={handleEnhanceDescription}
+                      disabled={!formData.description.trim() || isEnhancing}
+                      className="text-xs border-purple-200 hover:bg-purple-50 hover:border-purple-300"
+                    >
+                      <Wand2 className="h-3 w-3 mr-1" />
+                      Enhance
                     </Button>
                   </div>
                 </div>
@@ -682,35 +653,55 @@ export default function CreateEventPage() {
                 </div>
                 )}
 
-                {/* Max Attendees */}
-                <div className="space-y-3">
-                  <Label htmlFor="max_attendees" className="text-gray-700 flex items-center gap-2">
-                    <Users className="h-4 w-4 text-violet-600" />
-                    Max Attendees
-                    <span className="text-sm font-normal text-gray-500">(optional)</span>
-                  </Label>
-                  <Input
-                    id="max_attendees"
-                    type="number"
-                    placeholder="No limit"
-                    value={formData.max_attendees}
-                    onChange={(e) => handleInputChange("max_attendees", e.target.value)}
-                    className="border-gray-200 focus:border-violet-300 focus:ring-violet-200 transition-colors duration-200"
-                    min="1"
-                  />
-                  <p className="text-sm text-gray-500 flex items-center gap-1">
-                    <span className="text-violet-600">💡</span>
-                    Leave empty for unlimited attendees
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-            </SmoothReveal>
-          )}
+              {/* Max Attendees Section */}
+              <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
+                <Label htmlFor="max_attendees" className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-purple-600" />
+                  Max Attendees
+                  <span className="text-sm font-normal text-gray-500">(optional)</span>
+                </Label>
+                <Input
+                  id="max_attendees"
+                  type="number"
+                  placeholder="No limit"
+                  value={formData.max_attendees}
+                  onChange={(e) => setFormData({ ...formData, max_attendees: e.target.value })}
+                  className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all bg-white"
+                  min="1"
+                />
+                <p className="text-sm text-gray-500 flex items-center gap-1">
+                  <span className="text-purple-600">💡</span>
+                  Leave empty for unlimited attendees
+                </p>
+              </div>
 
-          {/* Navigation Buttons */}
-          <SmoothReveal delay={400} direction="up">
-            <div className="flex justify-between mt-12">
+              {/* Registration Link Section */}
+              <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
+                <Label htmlFor="link" className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-purple-600" />
+                  Registration Link
+                  <span className="text-sm font-normal text-gray-500">(optional)</span>
+                </Label>
+                <Input
+                  type="url"
+                  id="link"
+                  placeholder="https://example.com/register"
+                  value={formData.link}
+                  onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                  className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all bg-white"
+                />
+                <p className="text-sm text-gray-500 flex items-center gap-1">
+                  <span className="text-purple-600">💡</span>
+                  Add a link to external registration page
+                </p>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-gray-200 my-8"></div>
+
+              {/* Submit Buttons */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-4 bg-gradient-to-r from-gray-50 to-purple-50/30 -mx-6 px-6 py-6 rounded-b-xl">
+                <Link href={communityId ? `/community/${communityId}` : "/events"} className="flex-1 sm:flex-initial sm:w-auto">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -759,6 +750,21 @@ export default function CreateEventPage() {
           </SmoothReveal>
         </form>
       </div>
+
+      {/* AI Enhancement Dialog */}
+      {enhancingContentType === "description" && (
+        <ContentEnhancerDialog
+          open={enhanceDialogOpen}
+          onOpenChange={setEnhanceDialogOpen}
+          originalContent={formData.description}
+          contentType="description"
+          context={{
+            name: formData.title,
+            category: community?.name || "",
+          }}
+          onAccept={handleAcceptEnhancedContent}
+        />
+      )}
     </div>
     </PageTransition>
   );

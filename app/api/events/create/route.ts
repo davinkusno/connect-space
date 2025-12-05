@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
       community_id,
       is_online,
       max_attendees,
+      link,
     } = body;
 
     // Validation
@@ -137,6 +138,7 @@ export async function POST(request: NextRequest) {
       creator_id: user.id,
       is_online: is_online || false,
       max_attendees: max_attendees ? parseInt(max_attendees.toString()) : null,
+      link: link || null,
     }
 
     // Add category if provided (column exists in schema)

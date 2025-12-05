@@ -60,10 +60,10 @@ export default function CommunityAdminSelectorPage() {
 
       // Get all communities where user is admin
       const { data: adminMemberships, error: adminError } = await supabase
-        .from("community_members")
-        .select("community_id")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
+          .from("community_members")
+          .select("community_id")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
         .eq("status", true) // Only approved admins
 
       let adminCommunityIds: string[] = []
@@ -93,8 +93,8 @@ export default function CommunityAdminSelectorPage() {
             })
           }
         })
-      }
-
+            }
+            
       // Add admin communities
       if (adminCommunities && !adminCommunitiesError) {
         adminCommunities.forEach(comm => {
@@ -104,7 +104,7 @@ export default function CommunityAdminSelectorPage() {
               ...comm,
               role: "admin" as const
             })
-          }
+            }
         })
       }
 
@@ -115,7 +115,7 @@ export default function CommunityAdminSelectorPage() {
           .from("community_members")
           .select("community_id, status")
           .in("community_id", communityIds)
-
+        
         // Count approved members (status = true or null) for each community
         const counts: Record<string, number> = {}
         memberCounts?.forEach(member => {
@@ -145,8 +145,8 @@ export default function CommunityAdminSelectorPage() {
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-4" />
             <p className="text-gray-600">Loading communities...</p>
-          </div>
-        </div>
+                          </div>
+                        </div>
       </PageTransition>
     )
   }
@@ -179,7 +179,7 @@ export default function CommunityAdminSelectorPage() {
 
   return (
     <PageTransition>
-      <FloatingElements />
+        <FloatingElements />
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="mb-8">
@@ -189,7 +189,7 @@ export default function CommunityAdminSelectorPage() {
             <p className="text-gray-600">
               Choose a community to access its admin dashboard
             </p>
-          </div>
+                    </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {communities.map((community) => (
@@ -215,9 +215,9 @@ export default function CommunityAdminSelectorPage() {
                         <AvatarImage src={community.logo_url || undefined} />
                         <AvatarFallback className="bg-purple-100 text-purple-600">
                           {community.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
                         <CardTitle className="text-lg truncate">
                           {community.name}
                         </CardTitle>
@@ -244,9 +244,9 @@ export default function CommunityAdminSelectorPage() {
                       <Users className="w-4 h-4" />
                       <span>{community.member_count || 0} members</span>
                     </div>
-                    <Button
+                    <Button 
                       variant="ghost"
-                      size="sm"
+                      size="sm" 
                       className="text-purple-600 hover:text-purple-700"
                       onClick={(e) => {
                         e.stopPropagation()
@@ -260,7 +260,7 @@ export default function CommunityAdminSelectorPage() {
                 </CardContent>
               </Card>
             ))}
-          </div>
+            </div>
 
           <div className="mt-8 text-center">
             <Link href="/community-admin/create">

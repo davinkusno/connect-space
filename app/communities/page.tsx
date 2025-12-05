@@ -230,6 +230,7 @@ export default function DiscoverPage() {
       setMembershipStatus(membershipStatusMap);
 
 
+
       // Transform database data to match Community interface
       const transformedCommunities: Community[] = (communitiesData || []).map(
         (comm) => {
