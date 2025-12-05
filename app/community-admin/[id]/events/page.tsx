@@ -113,12 +113,12 @@ export default function CommunityAdminEventsPage({
       // Verify user is admin or creator
       const isCreator = communityData.creator_id === user.id
       const { data: membership } = await supabase
-        .from("community_members")
+          .from("community_members")
         .select("role")
         .eq("community_id", id)
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle()
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .maybeSingle()
 
       if (!isCreator && !membership) {
         console.error("User is not admin or creator")
@@ -506,7 +506,7 @@ export default function CommunityAdminEventsPage({
               <h1 className="text-4xl font-bold text-gray-900 mb-2">Events Management</h1>
               <p className="text-lg text-gray-600">Manage your community events</p>
             </div>
-            <Link href="/community-admin/create">
+            <Link href={communityId ? `/events/create?community_id=${communityId}` : "/events/create"}>
               <Button className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Event
@@ -733,7 +733,7 @@ export default function CommunityAdminEventsPage({
                             <span className="text-sm text-gray-600">{event.organizer}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Link href={communityId ? `/community-admin/${communityId}/events/${event.id}` : `/events/${event.id}`}>
+                            <Link href={communityId ? `/events/${event.id}?from=community-admin&community_id=${communityId}` : `/events/${event.id}?from=community-admin`}>
                               <Button variant="outline" size="sm" className="text-purple-600 border-purple-200 hover:bg-purple-50">
                                 View Details
                                 <ChevronRight className="w-4 h-4 ml-1" />

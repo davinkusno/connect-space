@@ -361,45 +361,102 @@ export default function EventDetailsPage({
           return;
         }
 
-        // Parse location
+        // Parse location - use same logic as regular event detail page
+        const locationString = eventRecord.location || "";
         let locationData: any = {
-          venue: "Location TBD",
-          address: "Location TBD",
+          venue: "",
+          address: locationString || "", // Ensure address is always set if locationString exists
           city: "",
           lat: 0,
           lng: 0,
           isOnline: eventRecord.is_online || false,
+          meetingLink: eventRecord.is_online ? locationString : undefined,
         };
 
-        if (eventRecord.location) {
+        // Try to parse location as JSON (it might be nested JSON string)
+        if (locationString && !eventRecord.is_online) {
           try {
-            const parsed = typeof eventRecord.location === 'string' 
-              ? JSON.parse(eventRecord.location) 
-              : eventRecord.location;
+            let parsedLocationData: any = null;
             
-            if (eventRecord.is_online && parsed.meetingLink) {
-              locationData = {
-                venue: "Virtual Event",
-                address: "Online Platform",
-                city: "Online",
-                lat: 0,
-                lng: 0,
-                isOnline: true,
-                meetingLink: parsed.meetingLink,
-              };
-            } else if (parsed.venue || parsed.address) {
-              locationData = {
-                venue: parsed.venue || parsed.address || "Location TBD",
-                address: parsed.address || parsed.venue || "Location TBD",
-                city: parsed.city || "",
-                lat: parsed.lat || 0,
-                lng: parsed.lng || 0,
-                isOnline: false,
-              };
+            // Try to parse as JSON - only if it looks like JSON (starts with { or [)
+            if (typeof locationString === 'string' && (locationString.trim().startsWith('{') || locationString.trim().startsWith('['))) {
+              try {
+                parsedLocationData = JSON.parse(locationString);
+                
+                // If it's still a string after parsing, try parsing again (nested JSON)
+                if (typeof parsedLocationData === 'string' && (parsedLocationData.trim().startsWith('{') || parsedLocationData.trim().startsWith('['))) {
+                  try {
+                    parsedLocationData = JSON.parse(parsedLocationData);
+                  } catch (e) {
+                    // If second parse fails, treat as plain string
+                    parsedLocationData = null;
+                  }
+                }
+              } catch (e) {
+                // If JSON parse fails, treat as plain string
+                parsedLocationData = null;
+              }
+            } else {
+              // Not JSON, treat as plain string - ensure address is set
+              locationData.address = locationString;
+              parsedLocationData = null;
             }
-          } catch (e) {
-            console.error("Error parsing location:", e);
+
+            if (parsedLocationData && typeof parsedLocationData === 'object') {
+              // Extract address and city from parsed JSON
+              if (parsedLocationData.address) {
+                locationData.address = parsedLocationData.address;
+              } else if (typeof parsedLocationData === 'string') {
+                locationData.address = parsedLocationData;
+              }
+              
+              if (parsedLocationData.venue) {
+                locationData.venue = parsedLocationData.venue;
+              }
+              
+              if (parsedLocationData.city) {
+                locationData.city = parsedLocationData.city;
+              }
+              
+              if (parsedLocationData.lat) {
+                locationData.lat = parseFloat(parsedLocationData.lat);
+              }
+              
+              if (parsedLocationData.lng) {
+                locationData.lng = parseFloat(parsedLocationData.lng);
+              }
+            } else if (!parsedLocationData) {
+              // If not JSON, treat as plain address string
+              // Ensure address is always set to locationString
+              locationData.address = locationString;
+              
+              // Try to extract city from address (simple parsing)
+              const parts = locationString.split(',').map(p => p.trim());
+              if (parts.length > 1) {
+                // Look for city in the address parts (usually near the end)
+                // Common pattern: ..., City, Province, Country
+                // Try to find city (usually second to last or third to last)
+                if (parts.length >= 2) {
+                  // Check if there's a recognizable city name
+                  const possibleCity = parts[parts.length - 2] || parts[parts.length - 1];
+                  if (possibleCity && !possibleCity.match(/^\d+$/)) { // Not just a number
+                    locationData.city = possibleCity;
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.warn("Location parsing failed, using raw string:", error);
+            // Always ensure address is set to locationString if parsing fails
+            locationData.address = locationString || "";
           }
+        } else if (locationString && eventRecord.is_online) {
+          // For online events, location is the meeting link
+          locationData.meetingLink = locationString;
+          locationData.address = "Online Event";
+        } else if (!locationString) {
+          // If location is empty, ensure address is empty string (not undefined)
+          locationData.address = "";
         }
 
         // Get community_id
@@ -537,7 +594,7 @@ export default function EventDetailsPage({
         return;
       }
 
-      // Fetch attendees with status "going" (which means "Attending")
+      // Fetch attendees with status "going" (which means "Interested to join")
       const { data: attendeesData, error: attendeesError } = await supabase
         .from("event_attendees")
         .select("id, user_id, registered_at")
@@ -795,7 +852,7 @@ export default function EventDetailsPage({
               </div>
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                  <span>{displayEvent.registered} attending</span>
+                  <span>{displayEvent.registered} interested</span>
               </div>
             </div>
           </div>
@@ -821,11 +878,11 @@ export default function EventDetailsPage({
             <div className="ml-auto flex w-full items-center justify-between gap-2 md:w-auto md:justify-start">
               {isRegistered ? (
                 <>
-                  {/* "You're going!" Badge */}
+                  {/* "Interested to join" Badge */}
                   <div className="flex items-center gap-2 pl-3 sm:flex">
                     <Badge className="bg-green-100 text-green-700 border-green-200 px-3 py-1.5 text-sm font-medium rounded-full">
                       <Check className="h-3 w-3 mr-1" />
-                      <span className="truncate px-0.5">You're going!</span>
+                      <span className="truncate px-0.5">Interested to join</span>
                     </Badge>
                   </div>
 
@@ -1253,7 +1310,7 @@ export default function EventDetailsPage({
               Event Attendees
             </DialogTitle>
             <DialogDescription>
-              People who are attending this event
+              People who are interested in this event
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4">

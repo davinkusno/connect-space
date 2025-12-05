@@ -738,7 +738,7 @@ export default function CommunityAdminEventsPage() {
                             <span className="text-sm text-gray-600">{event.organizer}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Link href={`/events/${event.id}`}>
+                            <Link href={`/events/${event.id}?from=community-admin`}>
                               <Button variant="outline" size="sm" className="text-purple-600 border-purple-200 hover:bg-purple-50">
                                 View Details
                                 <ChevronRight className="w-4 h-4 ml-1" />

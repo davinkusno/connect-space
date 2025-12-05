@@ -15,6 +15,7 @@ import {
   Users,
   Calendar,
   MessageCircle,
+  Share2,
   Bell,
   UserPlus,
   UserMinus,
@@ -46,6 +47,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
+import dynamic from "next/dynamic";
 // import { FloatingChat } from "@/components/chat/floating-chat"; // Component not found
 import {
   FadeTransition,
@@ -60,9 +62,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ButtonPulse,
   HoverScale,
 } from "@/components/ui/micro-interactions";
+
+// Dynamic import for Leaflet map
+const LeafletMap = dynamic(
+  () => import("@/components/ui/interactive-leaflet-map").then(mod => mod.InteractiveLeafletMap),
+  { ssr: false, loading: () => <div className="h-[400px] bg-gray-100 rounded-lg flex items-center justify-center">Loading map...</div> }
+);
+
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { ReportDialog } from "@/components/community/report-dialog";
 import { AdCarousel } from "@/components/community/ad-carousel";
@@ -84,6 +103,7 @@ export default function CommunityPage({
   const [isJoining, setIsJoining] = useState(false);
   const [membershipStatus, setMembershipStatus] = useState<"approved" | "pending" | null>(null); // Track membership status
   const [showPendingDialog, setShowPendingDialog] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "about");
   
   // Tab-specific data
@@ -129,6 +149,8 @@ export default function CommunityPage({
   useEffect(() => {
     loadCommunityData();
   }, [id]);
+  
+  // Community data is already loaded in community state
 
   // Community data is already loaded in community state
 
@@ -430,7 +452,7 @@ export default function CommunityPage({
             setDiscussions(messagesWithUsers);
             } else {
             setDiscussions([]);
-          }
+            }
           break;
 
         case "events":
@@ -522,12 +544,12 @@ export default function CommunityPage({
         default:
           break;
       }
-    } catch (error) {
+      } catch (error) {
       console.error("Error loading tab data:", error);
-    } finally {
+      } finally {
       setIsLoadingTab(false);
-    }
-  };
+      }
+    };
 
   const handleJoinCommunity = async () => {
     if (!currentUser) {
@@ -573,22 +595,11 @@ export default function CommunityPage({
         }
       }
 
+      // This function is only for joining, leaving is handled separately
       if (isMember) {
-        // Leave community
-        const { error } = await supabase
-          .from("community_members")
-          .delete()
-          .eq("community_id", id)
-          .eq("user_id", currentUser.id);
-
-        if (error) throw error;
-
-        setIsMember(false);
-        setUserRole(null);
-        setMemberCount(prev => prev - 1);
-        toast.success("You've left the community");
-        loadTabData(activeTab); // Reload tab data
-    } else {
+        // Should not reach here - leave is handled by handleLeaveCommunity
+        return;
+      } else {
         // Join community (check if private)
         if (community.is_private) {
           // For private communities, try to create join request
@@ -688,6 +699,54 @@ export default function CommunityPage({
       } else {
         toast.error(errorMessage || "Failed to join community. Please try again.");
       }
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const handleLeaveCommunity = async () => {
+    if (!currentUser) {
+      toast.error("Please log in to leave this community");
+      return;
+    }
+
+    try {
+      setIsJoining(true);
+      const supabase = getSupabaseBrowser();
+
+      if (!supabase) {
+        throw new Error("Failed to initialize Supabase client");
+      }
+
+      // Delete from community_members table
+      const { error } = await supabase
+        .from("community_members")
+        .delete()
+        .eq("community_id", id)
+        .eq("user_id", currentUser.id);
+
+      if (error) {
+        console.error("Error leaving community:", error);
+        throw error;
+      }
+
+      // Update local state
+      setIsMember(false);
+      setUserRole(null);
+      setMembershipStatus(null);
+      setMemberCount(prev => Math.max(0, prev - 1));
+      
+      toast.success("You've left the community");
+      setShowLeaveDialog(false);
+      
+      // Reload tab data
+      loadTabData(activeTab);
+      
+      // Refresh the page to update UI
+      router.refresh();
+    } catch (error: any) {
+      console.error("Error leaving community:", error);
+      toast.error(error?.message || "Failed to leave community. Please try again.");
     } finally {
       setIsJoining(false);
     }
@@ -1001,13 +1060,13 @@ export default function CommunityPage({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center gap-3">
-              {userRole === "creator" ? (
+              {userRole === "creator" || userRole === "admin" ? (
               <Button
                   disabled
                   className="bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed"
-                >
+              >
                   <Crown className="h-4 w-4 mr-2" />
-                  Your Community
+                  {userRole === "creator" ? "Your Community" : "Community Admin"}
               </Button>
               ) : membershipStatus === "approved" && isMember ? (
                 <div className="px-4 py-2 bg-green-50 text-green-700 rounded-md border border-green-200 flex items-center">
@@ -1039,9 +1098,9 @@ export default function CommunityPage({
                 </Button>
               )}
               
-              {isMember && membershipStatus === "approved" && userRole !== "creator" && (
+              {isMember && membershipStatus === "approved" && userRole !== "creator" && userRole !== "admin" && (
                   <Button
-                  onClick={handleJoinCommunity}
+                  onClick={() => setShowLeaveDialog(true)}
                     variant="outline"
                   className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
                   >
@@ -1052,16 +1111,38 @@ export default function CommunityPage({
               
                     <Button
                       variant="outline"
-                className="border-gray-200 hover:bg-gray-50 hover:border-red-200 hover:text-red-600"
-                onClick={() => {
-                  setReportType("community");
-                  setReportTargetId(id);
-                  setReportTargetName(community.name);
-                  setReportDialogOpen(true);
+                className="border-gray-200 hover:bg-gray-50"
+                onClick={async () => {
+                  const url = window.location.href;
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({
+                        title: community.name,
+                        text: `Check out ${community.name} on ConnectSpace!`,
+                        url: url,
+                      });
+                      toast.success("Shared successfully!");
+                    } else {
+                      // Fallback: Copy to clipboard
+                      await navigator.clipboard.writeText(url);
+                      toast.success("Link copied to clipboard!");
+                    }
+                  } catch (error: any) {
+                    // User cancelled or error occurred
+                    if (error.name !== "AbortError") {
+                      // Fallback: Copy to clipboard
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        toast.success("Link copied to clipboard!");
+                      } catch (clipboardError) {
+                        toast.error("Failed to share. Please copy the URL manually.");
+                      }
+                    }
+                  }
                 }}
               >
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Report
+                <Share2 className="h-4 w-4 mr-2" />
+                Share
                     </Button>
                 </div>
           </div>
@@ -1255,6 +1336,19 @@ export default function CommunityPage({
                           <p className="text-gray-800">
                             {community.location.address}
                           </p>
+                          <HoverScale>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Handle map view
+                              }}
+                              className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
+                            >
+                              <Navigation className="h-4 w-4 mr-2" />
+                              View on Map
+                            </Button>
+                          </HoverScale>
                         </div>
                       </div>
 
@@ -1703,30 +1797,50 @@ export default function CommunityPage({
                                       <Clock className="h-4 w-4 text-violet-600 flex-shrink-0" />
                                       <span className="font-medium">{timeRange}</span>
                                     </div>
-                                    
-                                    {event.location && (
-                                      <div className="flex items-center gap-2 text-gray-700">
-                                        <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                                        <span className="truncate">{event.location}</span>
+                                    <div className="flex-1">
+                                      <div className="font-medium">
+                                        {startDate.toLocaleDateString("en-US", {
+                                          weekday: "long",
+                                          month: "long",
+                                          day: "numeric",
+                                        })}
                                       </div>
-                                    )}
-                                    
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                      {event.is_online && (
-                                        <div className="flex items-center gap-1.5 text-gray-600">
-                                          <Globe className="h-3.5 w-3.5 text-green-600" />
-                                          <span className="text-xs">Online</span>
-                                        </div>
-                                      )}
-                                      {event.max_attendees && (
-                                        <div className="flex items-center gap-1.5 text-gray-600">
-                                          <Users className="h-3.5 w-3.5 text-amber-600" />
-                                          <span className="text-xs">Max {event.max_attendees}</span>
-                                        </div>
-                                      )}
+                                      <div className="text-xs text-gray-500">
+                                        {startDate.toLocaleTimeString("en-US", {
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                        })} - {endDate.toLocaleTimeString("en-US", {
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                        })}
+                                      </div>
                                     </div>
                                   </div>
+                                  
+                                  {event.location && (
+                                    <div className="flex items-center gap-2 text-gray-700">
+                                      <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
+                                    <MapPin className="h-4 w-4" />
+                                      </div>
+                                      <span className="flex-1 truncate">{event.location}</span>
+                                    </div>
+                                  )}
+                                  
+                                  {event.is_online && (
+                                    <div className="flex items-center gap-2 text-gray-700">
+                                      <div className="p-1.5 rounded-lg bg-green-100 text-green-600">
+                                        <Globe className="h-4 w-4" />
+                                      </div>
+                                      <span className="flex-1">Online Event</span>
+                                    </div>
+                                  )}
+                                  
+                                  {event.max_attendees && (
+                                    <div className="flex items-center gap-2 text-gray-700">
+                                      <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
+                                  <Users className="h-4 w-4" />
                                 </div>
+                                      <span className="flex-1">Max {event.max_attendees} attendees</span>
                               </div>
                             </CardContent>
                           </Card>
@@ -1959,6 +2073,7 @@ export default function CommunityPage({
                                     year: "numeric",
                                   })}
                                 </p>
+                              </div>
                               </div>
                             </div>
                           </div>

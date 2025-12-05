@@ -102,10 +102,10 @@ export function EnhancedEventCard({
                   className={`text-xs ${getStatusColor(event.status)}`}
                 >
                   {event.status === "attending"
-                    ? "Attending"
+                    ? "Interested"
                     : event.status === "saved"
                     ? "Saved"
-                    : "Not Going"}
+                    : "Not Interested"}
                 </Badge>
               </div>
               <div className="absolute bottom-1 left-1 bg-white/90 backdrop-blur-sm rounded-lg px-1.5 py-0.5 text-xs font-medium text-gray-900">
@@ -214,10 +214,10 @@ export function EnhancedEventCard({
         <div className="absolute bottom-3 right-3">
           <Badge className={getStatusColor(event.status)}>
             {event.status === "attending"
-              ? "✓ Attending"
+              ? "✓ Interested"
               : event.status === "saved"
               ? "🔖 Saved"
-              : "✗ Not Going"}
+              : "✗ Not Interested"}
           </Badge>
         </div>
       </div>

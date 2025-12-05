@@ -13,14 +13,23 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InteractiveLeafletMap } from "@/components/ui/interactive-leaflet-map";
-import { CalendarIntegration } from "@/components/ui/calendar-integration";
 import { EventDiscussion } from "@/components/events/event-discussion";
 import { UpdateRsvpDialog } from "@/components/events/update-rsvp-dialog";
 import { AttendeesDialog } from "@/components/events/attendees-dialog";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   MapPin,
   Calendar,
@@ -79,6 +88,7 @@ interface Event {
   images: string[];
   tags: string[];
   website?: string;
+  link?: string;
   communities?: {
     id: string;
     name: string;
@@ -113,6 +123,9 @@ export default function EventDetailsPage({
   const { id } = use(params);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromCommunityAdmin = searchParams.get("from") === "community-admin";
+  const communityId = searchParams.get("community_id");
   const [event, setEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +137,11 @@ export default function EventDetailsPage({
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [unsaveEventId, setUnsaveEventId] = useState<string | null>(null);
+  const [isUnsaveDialogOpen, setIsUnsaveDialogOpen] = useState(false);
+  const [isRemoveInterestDialogOpen, setIsRemoveInterestDialogOpen] = useState(false);
 
   // Fetch event data from Supabase
   useEffect(() => {
@@ -148,17 +166,11 @@ export default function EventDetailsPage({
               name,
               logo_url,
               creator_id
-            ),
-            creator:creator_id (
-              id,
-              username,
-              full_name,
-              avatar_url
             )
           `)
           .eq("id", id)
           .single();
-
+        
         if (eventError) {
           console.error("Error fetching event:", eventError);
           setError("Event not found");
@@ -170,6 +182,20 @@ export default function EventDetailsPage({
           setError("Event not found");
           setIsLoading(false);
           return;
+        }
+
+        // Fetch creator profile separately
+        let creatorData: any = null;
+        if (eventData.creator_id) {
+          const { data: creator, error: creatorError } = await supabase
+            .from("profiles")
+            .select("id, full_name, username, avatar_url")
+            .eq("id", eventData.creator_id)
+            .single();
+          
+          if (!creatorError && creator) {
+            creatorData = creator;
+          }
         }
 
         // Fetch additional data in parallel
@@ -205,6 +231,35 @@ export default function EventDetailsPage({
         ]);
 
         const registeredCount = attendeesResult.count || 0;
+
+        // Check if current user has RSVP'd to this event
+        if (user) {
+          const { data: userRsvp } = await supabase
+            .from("event_attendees")
+            .select("id, status")
+            .eq("event_id", id)
+            .eq("user_id", user.id)
+            .in("status", ["going", "maybe"])
+            .maybeSingle();
+          
+          if (userRsvp) {
+            setIsRegistered(true);
+          }
+
+          // Check if event is saved
+          const { data: savedData, error: savedError } = await supabase
+            .from("event_save")
+            .select("id")
+            .eq("event_id", id)
+            .eq("user_id", user.id)
+            .maybeSingle();
+          
+          if (savedError) {
+            console.error("Error checking save status:", savedError);
+          } else if (savedData) {
+            setIsSaved(true);
+          }
+        }
 
         // Check if user is admin/creator of the community
         if (user && eventData.communities) {
@@ -253,7 +308,7 @@ export default function EventDetailsPage({
         const locationString = eventData.location || "";
         let parsedLocation = {
           venue: "",
-          address: locationString,
+          address: locationString || "", // Ensure address is always set if locationString exists
           city: "",
           lat: 0,
           lng: 0,
@@ -266,20 +321,27 @@ export default function EventDetailsPage({
           try {
             let locationData: any = null;
             
-            // Try to parse as JSON
-            try {
-              locationData = typeof locationString === 'string' ? JSON.parse(locationString) : locationString;
-              
-              // If it's still a string after parsing, try parsing again (nested JSON)
-              if (typeof locationData === 'string') {
-                try {
-                  locationData = JSON.parse(locationData);
-                } catch (e) {
-                  // If second parse fails, use the first parsed string
+            // Try to parse as JSON - only if it looks like JSON (starts with { or [)
+            if (typeof locationString === 'string' && (locationString.trim().startsWith('{') || locationString.trim().startsWith('['))) {
+              try {
+                locationData = JSON.parse(locationString);
+                
+                // If it's still a string after parsing, try parsing again (nested JSON)
+                if (typeof locationData === 'string' && (locationData.trim().startsWith('{') || locationData.trim().startsWith('['))) {
+                  try {
+                    locationData = JSON.parse(locationData);
+                  } catch (e) {
+                    // If second parse fails, treat as plain string
+                    locationData = null;
+                  }
                 }
+              } catch (e) {
+                // If JSON parse fails, treat as plain string
+                locationData = null;
               }
-            } catch (e) {
-              // If JSON parse fails, treat as plain string
+            } else {
+              // Not JSON, treat as plain string - ensure address is set
+              parsedLocation.address = locationString;
               locationData = null;
             }
 
@@ -302,14 +364,16 @@ export default function EventDetailsPage({
               if (locationData.lng) {
                 parsedLocation.lng = parseFloat(locationData.lng);
               }
-            } else {
+            } else if (!locationData) {
               // If not JSON, treat as plain address string
+              // Ensure address is always set to locationString
+              parsedLocation.address = locationString;
+              
               // Try to extract city from address (simple parsing)
               const parts = locationString.split(',').map(p => p.trim());
               if (parts.length > 1) {
                 // Look for city in the address parts (usually near the end)
                 // Common pattern: ..., City, Province, Country
-                parsedLocation.address = locationString;
                 // Try to find city (usually second to last or third to last)
                 if (parts.length >= 2) {
                   // Check if there's a recognizable city name
@@ -355,8 +419,16 @@ export default function EventDetailsPage({
             }
           } catch (error) {
             console.warn("Location parsing failed, using raw string:", error);
-            parsedLocation.address = locationString;
+            // Always ensure address is set to locationString if parsing fails
+            parsedLocation.address = locationString || "";
           }
+        } else if (locationString && eventData.is_online) {
+          // For online events, location is the meeting link
+          parsedLocation.meetingLink = locationString;
+          parsedLocation.address = "Online Event";
+        } else if (!locationString) {
+          // If location is empty, ensure address is empty string (not undefined)
+          parsedLocation.address = "";
         }
 
         // Transform database event to component Event format
@@ -376,8 +448,8 @@ export default function EventDetailsPage({
           }),
           location: parsedLocation,
           organizer: {
-            name: (eventData.creator as any)?.full_name || (eventData.creator as any)?.username || "Organizer",
-            image: (eventData.creator as any)?.avatar_url || "",
+            name: creatorData?.full_name || creatorData?.username || "Organizer",
+            image: creatorData?.avatar_url || "",
             verified: true,
           },
           category: eventData.category || "General",
@@ -389,6 +461,7 @@ export default function EventDetailsPage({
           image: eventData.image_url || "",
           images: eventData.image_url ? [eventData.image_url] : [],
           tags: eventData.category ? [eventData.category] : [],
+          link: eventData.link || undefined,
           communities: eventData.communities as any,
           relatedEvents: relatedEvents,
           organizerEvents: organizerEvents,
@@ -458,7 +531,7 @@ export default function EventDetailsPage({
     }
   };
 
-  const handleAttendClick = () => {
+  const handleInterestedClick = async () => {
     if (!event) return;
     
     // Check if user is logged in
@@ -468,14 +541,71 @@ export default function EventDetailsPage({
       return;
     }
 
-    // Directly set as registered (works for both online and onsite)
-    setIsRegistered(true);
-    // Optionally scroll to location tab for online events
-    if (event.location.isOnline) {
-      const locationTab = document.querySelector('[value="location"]');
-      if (locationTab) {
-        (locationTab as HTMLElement).click();
+    if (isRegistered) {
+      // Show confirmation dialog for removing interest
+      setIsRemoveInterestDialogOpen(true);
+    } else {
+      // Add RSVP (POST)
+      await performAddInterest();
+    }
+  };
+
+  const performAddInterest = async () => {
+    if (!event) return;
+
+    try {
+      const response = await fetch(`/api/events/${event.id}/rsvp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to RSVP");
       }
+
+      const data = await response.json();
+      
+      // Update state
+      setIsRegistered(true);
+      console.log("RSVP successful:", data);
+      
+      // Refresh the page to update the UI and calendar
+      router.refresh();
+    } catch (error: any) {
+      console.error("Error adding interest:", error);
+      alert(error.message || "Failed to update RSVP");
+    }
+  };
+
+  const handleRemoveInterest = async () => {
+    if (!event) return;
+
+    try {
+      const response = await fetch(`/api/events/${event.id}/rsvp`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to remove RSVP");
+      }
+
+      // Update state
+      setIsRegistered(false);
+      setIsRemoveInterestDialogOpen(false);
+      console.log("RSVP removed successfully");
+      
+      // Refresh the page to update the UI and calendar
+      router.refresh();
+    } catch (error: any) {
+      console.error("Error removing RSVP:", error);
+      alert(error.message || "Failed to update RSVP");
     }
   };
 
@@ -485,19 +615,84 @@ export default function EventDetailsPage({
     // For now, just update the state
   };
 
-  const handleSaveEvent = () => {
+  const handleSaveEvent = async () => {
     if (!event) return;
     
     // Check if user is logged in
     if (!isLoggedIn) {
-      // Redirect to login/register page with return URL
       router.push("/auth/login?redirect=/events/" + event.id);
       return;
     }
 
-    // Toggle save state
-    // TODO: Implement actual save/bookmark functionality with Supabase
-    console.log("Event saved/bookmarked");
+    if (isSaved) {
+      // Unsave event directly (no confirmation needed for button click)
+      await performUnsaveEvent(event.id);
+    } else {
+      // Save event
+      await performSaveEvent(event.id);
+    }
+  };
+
+  const performSaveEvent = async (eventId: string) => {
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/save`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to save event");
+      }
+
+      setIsSaved(true);
+      
+      // Dispatch custom event to notify events page to refresh saved events
+      window.dispatchEvent(new CustomEvent('eventSaved', { detail: { eventId } }));
+    } catch (error: any) {
+      console.error("Error saving event:", error);
+      alert(error.message || "Failed to save event");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const performUnsaveEvent = async (eventId: string) => {
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/save`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to unsave event");
+      }
+
+      setIsSaved(false);
+      
+      // Dispatch custom event to notify events page to refresh saved events
+      window.dispatchEvent(new CustomEvent('eventUnsaved', { detail: { eventId } }));
+    } catch (error: any) {
+      console.error("Error unsaving event:", error);
+      alert(error.message || "Failed to unsave event");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUnsaveEvent = async () => {
+    if (!unsaveEventId) return;
+
+    await performUnsaveEvent(unsaveEventId);
+    setIsUnsaveDialogOpen(false);
+    setUnsaveEventId(null);
   };
 
   // Filter related events based on matching tags
@@ -530,7 +725,6 @@ export default function EventDetailsPage({
   const availableSpots = event ? event.capacity - event.registered : 0;
   const registrationPercentage = event ? (event.registered / event.capacity) * 100 : 0;
 
-  const [showBanner, setShowBanner] = useState(true);
 
   // Show loading state
   if (isLoading || isCheckingAuth) {
@@ -564,14 +758,26 @@ export default function EventDetailsPage({
       {/* Back Button */}
       <div className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 py-3">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="hover:bg-gray-100 -ml-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Events
-          </Button>
+          {fromCommunityAdmin ? (
+            <Link href={communityId ? `/community-admin/${communityId}/events` : "/community-admin/events"}>
+              <Button
+                variant="ghost"
+                className="hover:bg-gray-100 -ml-2"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Community Admin Events
+              </Button>
+            </Link>
+          ) : (
+            <Button
+              variant="ghost"
+              onClick={() => router.back()}
+              className="hover:bg-gray-100 -ml-2"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Events
+            </Button>
+          )}
         </div>
       </div>
 
@@ -617,28 +823,12 @@ export default function EventDetailsPage({
               </div>
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                <span>{event.registered} attending</span>
+                <span>{event.registered} interested</span>
               </div>
             </div>
-
-            <p className="text-lg text-white/90 mb-8 max-w-3xl leading-relaxed">
-              {event.description}
-            </p>
           </div>
         </div>
 
-        {/* Floating Action Buttons */}
-        <div className="absolute top-6 right-6 flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30"
-            onClick={handleSaveEvent}
-            disabled={isCheckingAuth}
-          >
-            <Heart className="h-4 w-4" />
-          </Button>
-        </div>
       </div>
 
       {/* Sticky Action Bar */}
@@ -669,25 +859,33 @@ export default function EventDetailsPage({
                 </>
               ) : isRegistered ? (
                 <>
-                  {/* "You're going!" Badge */}
+                  {/* "Interested to join" Badge - Left side */}
                   <div className="flex items-center gap-2 pl-3 sm:flex">
                     <Badge className="bg-green-100 text-green-700 border-green-200 px-3 py-1.5 text-sm font-medium rounded-full">
                       <Check className="h-3 w-3 mr-1" />
-                      <span className="truncate px-0.5">You're going!</span>
+                      <span className="truncate px-0.5">Interested to join</span>
                     </Badge>
                   </div>
 
-                  {/* Action Buttons */}
+                  {/* Save Button - Right side (always visible) */}
                   <div className="flex flex-1 items-center gap-2 sm:flex-initial">
                     <div className="flex w-full min-w-0 items-center gap-2">
-                      {/* Edit RSVP Button */}
                       <Button
-                        variant="ghost"
-                        className="hover:bg-gray-100 text-gray-700 px-6 py-4 rounded-full flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max"
-                        onClick={() => setIsUpdateRsvpOpen(true)}
+                        className={isSaved 
+                          ? "border-violet-600 text-violet-600 bg-violet-50 hover:bg-violet-100 px-6 py-5 rounded-none flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          : "bg-violet-600 hover:bg-violet-700 text-white px-6 py-5 rounded-none flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        }
+                        onClick={handleSaveEvent}
+                        disabled={isCheckingAuth || isSaving}
+                        variant={isSaved ? "outline" : "default"}
                       >
-                        <PenLine className="h-5 w-5 mr-2" />
-                        <span className="truncate">Edit RSVP</span>
+                        <span className="truncate">
+                          {isSaving 
+                            ? (isSaved ? "Unsaving..." : "Saving...")
+                            : isSaved 
+                            ? "Saved" 
+                            : "Save"}
+                        </span>
                       </Button>
                     </div>
                   </div>
@@ -697,48 +895,28 @@ export default function EventDetailsPage({
                   {/* Badges */}
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col gap-2 md:flex-row">
-                      {/* Price Badge */}
-                      <Badge
-                        variant="outline"
-                        className="border-gray-300 text-gray-700 px-3 py-1.5 text-sm font-medium"
-                      >
-                        {event.price.type === "free"
-                          ? "FREE"
-                          : `$${event.price.amount}`}
-                      </Badge>
-                      {/* Spots Left Badge */}
-                      <Badge className="bg-orange-100 text-orange-700 border-orange-200 px-3 py-1.5 text-sm font-medium">
-                        {availableSpots} spots left
-                      </Badge>
                     </div>
                   </div>
 
                   {/* Action Buttons */}
                   <div className="flex flex-1 items-center gap-2 sm:flex-initial">
                     <div className="flex w-full min-w-0 items-center gap-2">
-                      {/* Bookmark Button */}
+                      {/* Save Button - Replaces Interested to join */}
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-10 w-10 rounded-full hover:bg-gray-100"
+                        className={isSaved 
+                          ? "border-violet-600 text-violet-600 bg-violet-50 hover:bg-violet-100 px-6 py-5 rounded-none flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          : "bg-violet-600 hover:bg-violet-700 text-white px-6 py-5 rounded-none flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        }
                         onClick={handleSaveEvent}
-                        disabled={isCheckingAuth}
-                      >
-                        <Bookmark className="h-5 w-5 text-gray-700" />
-                      </Button>
-
-                      {/* Attend Button */}
-                      <Button
-                        className="bg-violet-600 hover:bg-violet-700 text-white px-6 py-5 rounded-full flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        onClick={handleAttendClick}
-                        disabled={isCheckingAuth}
+                        disabled={isCheckingAuth || isSaving}
+                        variant={isSaved ? "outline" : "default"}
                       >
                         <span className="truncate">
-                          {isCheckingAuth
-                            ? "Loading..."
-                            : event.location.isOnline
-                            ? "Attend online"
-                            : "Attend onsite"}
+                          {isSaving 
+                            ? (isSaved ? "Unsaving..." : "Saving...")
+                            : isSaved 
+                            ? "Saved" 
+                            : "Save"}
                         </span>
                       </Button>
                     </div>
@@ -750,122 +928,31 @@ export default function EventDetailsPage({
         </div>
       </div>
 
-      {/* Organizer Banner - Only for non-admin users */}
-      {!isAdmin && showBanner && (
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="relative flex w-full overflow-visible flex-col md:flex-row md:items-center md:justify-between bg-gradient-to-r from-violet-600 to-purple-600 rounded-3xl shadow-lg">
-            {/* Content Section */}
-            <div className="w-full shrink-0 md:min-h-px md:min-w-px md:grow md:basis-0">
-              <div className="relative">
-                <div className="flex w-full flex-col items-start justify-start gap-2 p-5 md:py-4 md:pl-6 pb-4 md:pr-3">
-                  <div className="flex w-full flex-col items-start justify-center gap-2">
-                    <div className="flex w-full items-center gap-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <h4 className="pr-2 text-white text-base font-semibold">
-                          Become a community admin: create an event and
-                          community today!
-                        </h4>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {/* Close button for mobile */}
-                <div className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-white shadow-md md:hidden">
-                  <button
-                    className="flex size-full items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-gray-300"
-                    aria-label="Dismiss banner"
-                    onClick={() => setShowBanner(false)}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="text-gray-600"
-                      aria-hidden="true"
-                    >
-                      <path d="M18 6 6 18"></path>
-                      <path d="m6 6 12 12"></path>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* CTA Section */}
-            <div className="w-full shrink-0 md:flex md:w-auto md:items-center md:self-stretch">
-              <div className="flex flex-col items-start gap-5 px-5 pb-3 pt-4 md:shrink-0 md:flex-row md:items-center md:pl-3 md:py-4 md:pr-6">
-                <div className="flex w-full flex-col-reverse items-start gap-1.5 md:w-auto md:flex-row md:items-center md:gap-0">
-                  <div className="flex w-full flex-col items-start md:w-auto md:pl-1.5">
-                    <Link href="/events/create">
-                      <Button className="inline-flex items-center justify-center rounded-full max-w-full min-w-0 relative bg-white text-violet-600 hover:bg-gray-50 border-0 shadow-md hover:shadow-lg active:shadow-sm transition-all duration-150 gap-2 text-sm font-medium px-5 py-2.5 w-full md:w-auto">
-                        <span className="relative z-10 flex min-w-0 max-w-full items-center justify-center overflow-hidden">
-                          <span className="flex min-w-0 max-w-full items-center justify-center overflow-hidden">
-                            <span className="flex min-w-0 max-w-full flex-col items-center justify-center overflow-hidden">
-                              <span className="block min-w-0 max-w-full truncate">
-                                Register now
-                              </span>
-                            </span>
-                          </span>
-                        </span>
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-                {/* Close button for desktop */}
-                <button
-                  className="ml-1.5 hidden items-center justify-center rounded-lg p-2 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30 md:flex"
-                  onClick={() => setShowBanner(false)}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="text-white"
-                    aria-hidden="true"
-                  >
-                    <path d="M18 6 6 18"></path>
-                    <path d="m6 6 12 12"></path>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="space-y-8">
-          {/* Quick Actions */}
-          <div className="flex flex-wrap gap-3">
-            <CalendarIntegration
-              event={{
-                title: event.title,
-                description: event.description,
-                startDate: `${event.date}T${event.time}`,
-                endDate: `${event.date}T${event.endTime}`,
-                location: event.location,
-                organizer: event.organizer.name,
-              }}
-              variant="default"
-            />
-            <Button variant="outline" onClick={() => setIsAttendeesOpen(true)}>
-              <Users className="h-4 w-4 mr-2" />
-              View Attendees
-            </Button>
-          </div>
+        <div className="space-y-6">
+          {/* Interested to Join Button - Above Tabs */}
+          {!isAdmin && (
+            <div className="flex items-center">
+              <Button
+                className={isRegistered 
+                  ? "border-violet-600 text-violet-600 bg-violet-50 hover:bg-violet-100 px-6 py-5 rounded-none shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  : "bg-violet-600 hover:bg-violet-700 text-white px-6 py-5 rounded-none shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                }
+                onClick={handleInterestedClick}
+                disabled={isCheckingAuth}
+                variant={isRegistered ? "outline" : "default"}
+              >
+                <span className="truncate">
+                  {isCheckingAuth 
+                    ? "Loading..." 
+                    : isRegistered 
+                    ? "Event you're interested in" 
+                    : "Interested to join"}
+                </span>
+              </Button>
+            </div>
+          )}
 
           {/* Content Tabs */}
           <Tabs defaultValue="about" className="w-full">
@@ -892,6 +979,31 @@ export default function EventDetailsPage({
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Registration Link */}
+              {event.link && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Globe className="h-5 w-5" />
+                      Registration Link
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-3">
+                      <ExternalLink className="h-4 w-4 text-gray-400" />
+                      <Link
+                        href={event.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-violet-600 hover:text-violet-700 hover:underline break-all"
+                      >
+                        {event.link}
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Tags */}
               <Card>
@@ -1010,7 +1122,7 @@ export default function EventDetailsPage({
                               <div className="flex items-center justify-between mt-3 pt-3 border-t">
                                 <div className="flex items-center gap-1 text-sm text-gray-600">
                                   <Users className="h-4 w-4" />
-                                  <span>{orgEvent.attendees} attending</span>
+                                  <span>{orgEvent.attendees} interested</span>
                                 </div>
                                 <Badge
                                   variant="outline"
@@ -1206,10 +1318,6 @@ export default function EventDetailsPage({
                           </div>
                         </div>
 
-                        {/* Add to Calendar Button */}
-                        <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white rounded-full py-6 shadow-md hover:shadow-lg transition-all">
-                          Add to calendar
-                        </Button>
                       </>
                     ) : (
                       <>
@@ -1227,10 +1335,14 @@ export default function EventDetailsPage({
                           </p>
                           <Button
                             size="lg"
-                            className="bg-violet-600 hover:bg-violet-700 text-white px-8 py-6 rounded-full shadow-md hover:shadow-lg transition-all"
-                            onClick={handleAttendClick}
+                            className={isRegistered
+                              ? "border-violet-600 text-violet-600 bg-violet-50 hover:bg-violet-100 px-8 py-6 rounded-full shadow-md hover:shadow-lg transition-all"
+                              : "bg-violet-600 hover:bg-violet-700 text-white px-8 py-6 rounded-full shadow-md hover:shadow-lg transition-all"
+                            }
+                            onClick={handleInterestedClick}
+                            variant={isRegistered ? "outline" : "default"}
                           >
-                            Attend online
+                            {isRegistered ? "Event you're interested in" : "Interested to join"}
                           </Button>
                         </div>
 
@@ -1349,6 +1461,49 @@ export default function EventDetailsPage({
         maxAttendees={event.capacity}
         eventTitle={event.title}
       />
+
+      {/* Unsave Confirmation Dialog */}
+      <AlertDialog open={isUnsaveDialogOpen} onOpenChange={setIsUnsaveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure to unsave?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This event will be removed from your saved events list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleUnsaveEvent}
+              disabled={isSaving}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isSaving ? "Unsaving..." : "Yes, unsave"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Remove Interest Confirmation Dialog */}
+      <AlertDialog open={isRemoveInterestDialogOpen} onOpenChange={setIsRemoveInterestDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure to remove event from your interest list?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This event will be removed from your interested events list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveInterest}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

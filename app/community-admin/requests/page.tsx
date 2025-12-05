@@ -138,10 +138,8 @@ export default function CommunityAdminRequestsPage() {
   const filteredRequests = useMemo(() => {
     let filtered = requests
 
-    // Status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(request => request.status === statusFilter)
-    }
+    // Status filter (always filter, no "all" option)
+    filtered = filtered.filter(request => request.status === statusFilter)
 
     // Date filter
     if (dateRange.from || dateRange.to) {
@@ -254,11 +252,6 @@ export default function CommunityAdminRequestsPage() {
                 Manage community join requests and member approvals
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <Badge variant="secondary" className="px-3 py-1">
-                {pendingCount} pending
-              </Badge>
-            </div>
           </div>
         </div>
 
@@ -272,7 +265,6 @@ export default function CommunityAdminRequestsPage() {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
@@ -398,7 +390,7 @@ export default function CommunityAdminRequestsPage() {
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>All Requests ({filteredRequests.length})</span>
+              <span>Requests ({filteredRequests.length})</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
