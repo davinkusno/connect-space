@@ -80,9 +80,12 @@ import {
   Flame,
   MessageCircle,
   CalendarDays,
+  Megaphone,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { SuperAdminNav } from "@/components/navigation/superadmin-nav";
+import { AdsManagement } from "@/components/superadmin/ads-management";
 
 // Badge data types
 export interface StoreBadge {
@@ -1157,7 +1160,18 @@ const mockInactiveCommunities = [
 ];
 
 export default function SuperadminPage() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const router = useRouter();
+  const pathname = usePathname();
+  const [activeTab, setActiveTab] = useState("reports");
+
+  // Sync active tab with pathname
+  useEffect(() => {
+    if (pathname === "/superadmin/ads") {
+      setActiveTab("ads");
+    } else if (pathname === "/superadmin") {
+      setActiveTab("reports");
+    }
+  }, [pathname]);
 
   // Reports management state
   const [reportSearchQuery, setReportSearchQuery] = useState("");
@@ -1241,23 +1255,6 @@ export default function SuperadminPage() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedCommunities = filteredCommunities.slice(startIndex, endIndex);
-
-  // Filter activity logs based on status
-  const filteredActivityLogs = mockActivityLogs.filter((log) => {
-    if (activityFilterStatus === "all") return true;
-    return log.action === activityFilterStatus;
-  });
-
-  // Pagination for activity logs
-  const totalActivityPages = Math.ceil(
-    filteredActivityLogs.length / activityItemsPerPage
-  );
-  const activityStartIndex = (currentActivityPage - 1) * activityItemsPerPage;
-  const activityEndIndex = activityStartIndex + activityItemsPerPage;
-  const paginatedActivityLogs = filteredActivityLogs.slice(
-    activityStartIndex,
-    activityEndIndex
-  );
 
   // Filter reported communities based on search query
   const filteredReportedCommunities = mockReportedCommunities.filter(
@@ -1552,14 +1549,7 @@ export default function SuperadminPage() {
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-4 glass-effect border-0 p-2 rounded-2xl mb-8 h-14">
-              <TabsTrigger
-                value="overview"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
-              >
-                <Shield className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium">Overview</span>
-              </TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 glass-effect border-0 p-2 rounded-2xl mb-8 h-14">
               <TabsTrigger
                 value="requests"
                 className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4 relative"
@@ -1576,15 +1566,15 @@ export default function SuperadminPage() {
                 value="activity"
                 className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
               >
-                <Activity className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium">Activity</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="reports"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
-              >
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                 <span className="font-medium">Reports</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="ads"
+                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
+              >
+                <Megaphone className="h-4 w-4 flex-shrink-0" />
+                <span className="font-medium">Ads</span>
               </TabsTrigger>
             </TabsList>
 
@@ -2462,16 +2452,12 @@ export default function SuperadminPage() {
                             </td>
                             <td className="py-4 px-4">
                               {community.reactivationRequested ? (
-                                <div className="flex flex-col gap-2">
-                                  <AnimatedButton
-                                    variant="glass"
-                                    size="sm"
-                                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                  >
-                                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                                    Approve
-                                  </AnimatedButton>
-                                </div>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs text-yellow-600 border-yellow-300"
+                                >
+                                  Reactivation Requested
+                                </Badge>
                               ) : (
                                 <Badge
                                   variant="outline"
@@ -2531,6 +2517,11 @@ export default function SuperadminPage() {
                   </div>
                 )}
               </AnimatedCard>
+            </TabsContent>
+
+            {/* Ads Tab */}
+            <TabsContent value="ads" className="space-y-6">
+              <AdsManagement />
             </TabsContent>
           </Tabs>
         </div>

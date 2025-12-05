@@ -382,6 +382,8 @@ export default function EventDetailsPage({
                     parsedLocation.city = possibleCity;
                   }
                 }
+              } else {
+                parsedLocation.address = locationString;
               }
             }
 

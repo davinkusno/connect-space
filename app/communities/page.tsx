@@ -24,6 +24,9 @@ import {
   Calendar,
   X,
   Award,
+  CheckCircle2,
+  Clock,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -49,10 +52,11 @@ const LeafletCommunitiesMap = dynamic(
   }
 );
 import { AnimatedCounter } from "@/components/ui/animated-counter";
-import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import { CitySearch } from "@/components/ui/city-search";
+import type { City } from "@/lib/api/cities";
 import React from "react";
 import type { Community } from "@/types/community";
 
@@ -70,7 +74,12 @@ export default function DiscoverPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [membershipFilter, setMembershipFilter] = useState<"all" | "joined" | "pending" | "not_joined">("all");
   const [gettingLocation, setGettingLocation] = useState(false);
+  
+  // Membership status tracking
+  const [membershipStatus, setMembershipStatus] = useState<Record<string, "joined" | "pending" | "not_joined">>({});
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Get user's current location with callback
   const getUserLocationCommunities = (callback?: (city: string) => void) => {
@@ -125,22 +134,16 @@ export default function DiscoverPage() {
 
   const categories = [
     { value: "all", label: "All Categories", icon: "🎯", color: "bg-gray-100" },
-    {
-      value: "environmental",
-      label: "Environmental",
-      icon: "🌱",
-      color: "bg-green-100",
-    },
-    { value: "music", label: "Music", icon: "🎵", color: "bg-pink-100" },
-    { value: "sports", label: "Sports", icon: "⚽", color: "bg-blue-100" },
-    { value: "hobbies", label: "Hobbies", icon: "🎨", color: "bg-purple-100" },
-    {
-      value: "education",
-      label: "Education",
-      icon: "📚",
-      color: "bg-yellow-100",
-    },
-    { value: "art", label: "Art", icon: "🎭", color: "bg-red-100" },
+    { value: "hobbies-crafts", label: "Hobbies & Crafts", icon: "🎮", color: "bg-purple-100" },
+    { value: "sports-fitness", label: "Sports & Fitness", icon: "⚽", color: "bg-blue-100" },
+    { value: "career-business", label: "Career & Business", icon: "💼", color: "bg-indigo-100" },
+    { value: "tech-innovation", label: "Tech & Innovation", icon: "💻", color: "bg-cyan-100" },
+    { value: "arts-culture", label: "Arts & Culture", icon: "🎭", color: "bg-red-100" },
+    { value: "social-community", label: "Social & Community", icon: "🤝", color: "bg-green-100" },
+    { value: "education-learning", label: "Education & Learning", icon: "📚", color: "bg-yellow-100" },
+    { value: "travel-adventure", label: "Travel & Adventure", icon: "✈️", color: "bg-orange-100" },
+    { value: "food-drink", label: "Food & Drink", icon: "🍷", color: "bg-amber-100" },
+    { value: "entertainment", label: "Entertainment", icon: "🎉", color: "bg-pink-100" },
   ];
 
   useEffect(() => {
@@ -150,6 +153,11 @@ export default function DiscoverPage() {
   const loadData = async () => {
     try {
       const supabase = getSupabaseBrowser();
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+      
       // Fetch communities from database with category relationship
       // Fetch all communities (both public and private) - we'll filter by privacy later if needed
       const { data: communitiesData, error } = await supabase
@@ -169,7 +177,8 @@ export default function DiscoverPage() {
           member_count,
           created_at,
           location,
-          is_private
+          is_private,
+          creator_id
         `)
         .order("created_at", { ascending: false });
 
@@ -178,6 +187,48 @@ export default function DiscoverPage() {
         toast.error("Failed to load communities");
         return;
       }
+      
+      // Fetch membership status for current user if logged in
+      const membershipStatusMap: Record<string, "joined" | "pending" | "not_joined"> = {};
+      if (user) {
+        const communityIds = (communitiesData || []).map((c: any) => c.id);
+        if (communityIds.length > 0) {
+          const { data: memberships } = await supabase
+            .from("community_members")
+            .select("community_id, status")
+            .eq("user_id", user.id)
+            .in("community_id", communityIds);
+          
+          // Initialize all as not_joined
+          communityIds.forEach((id: string) => {
+            membershipStatusMap[id] = "not_joined";
+          });
+          
+          // Check if user is creator
+          (communitiesData || []).forEach((comm: any) => {
+            if (comm.creator_id === user.id) {
+              membershipStatusMap[comm.id] = "joined";
+            }
+          });
+          
+          // Update based on memberships
+          (memberships || []).forEach((membership: any) => {
+            if (membership.status === false) {
+              membershipStatusMap[membership.community_id] = "pending";
+            } else if (membership.status === true || membership.status === null) {
+              membershipStatusMap[membership.community_id] = "joined";
+            }
+          });
+        }
+      } else {
+        // User not logged in - all communities are not_joined
+        (communitiesData || []).forEach((comm: any) => {
+          membershipStatusMap[comm.id] = "not_joined";
+        });
+      }
+      
+      setMembershipStatus(membershipStatusMap);
+
 
 
       // Transform database data to match Community interface
@@ -238,7 +289,6 @@ export default function DiscoverPage() {
             lastActivity: comm.created_at, // Can be updated with actual last activity
             engagementScore: 70, // Can be calculated based on various metrics
             isRecommended: false,
-            recommendationScore: 0,
             isVerified: false, // Add verification field to database if needed
             isNew:
               new Date(comm.created_at).getTime() >
@@ -313,8 +363,16 @@ export default function DiscoverPage() {
       );
     }
 
+    // Membership filter
+    if (membershipFilter !== "all" && currentUser) {
+      filtered = filtered.filter((community) => {
+        const status = membershipStatus[community.id] || "not_joined";
+        return status === membershipFilter;
+      });
+    }
+
     return filtered;
-  }, [communities, searchQuery, locationQuery, selectedCategory]);
+  }, [communities, searchQuery, locationQuery, selectedCategory, membershipFilter, membershipStatus, currentUser]);
 
   const toggleSaveCommunity = useCallback((communityId: string) => {
     setSavedCommunities((prev) =>
@@ -333,7 +391,7 @@ export default function DiscoverPage() {
   // Reset to page 1 when search/filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, locationQuery, selectedCategory]);
+  }, [searchQuery, locationQuery, selectedCategory, membershipFilter]);
 
   const EnhancedCommunityCard = React.memo(
     ({
@@ -345,8 +403,17 @@ export default function DiscoverPage() {
     }) => {
       const isSaved = savedCommunities.includes(community.id);
 
+      // Determine border color based on membership status
+      const getBorderColor = () => {
+        if (!currentUser) return "border-gray-200";
+        const status = membershipStatus[community.id];
+        if (status === "joined") return "border-green-500 border-2";
+        if (status === "pending") return "border-amber-500 border-2";
+        return "border-gray-200";
+      };
+
       return (
-        <Card className="bg-white rounded-2xl overflow-hidden group w-full h-full flex flex-col shadow-md hover:shadow-xl transition-all duration-300 ease-in-out transform hover:-translate-y-1">
+        <Card className={cn("bg-white rounded-2xl overflow-hidden group w-full h-full flex flex-col shadow-md hover:shadow-xl transition-all duration-300 ease-in-out transform hover:-translate-y-1", getBorderColor())}>
           <div className="relative overflow-hidden">
             <Image
               src={community.image}
@@ -356,12 +423,24 @@ export default function DiscoverPage() {
               className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-            <div className="absolute top-4 left-4">
-              <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-none shadow-md">
-                {community.category}
-              </Badge>
-            </div>
-            <div className="absolute top-4 right-4">
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+              {/* Membership Status Badge on Image */}
+              {currentUser && membershipStatus[community.id] && (
+                <>
+                  {membershipStatus[community.id] === "joined" && (
+                    <Badge className="bg-green-500/90 backdrop-blur-sm text-white border border-green-300 text-xs font-semibold px-2 py-0.5 flex items-center gap-1 shadow-md">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Joined
+                    </Badge>
+                  )}
+                  {membershipStatus[community.id] === "pending" && (
+                    <Badge className="bg-amber-500/90 backdrop-blur-sm text-white border border-amber-300 text-xs font-semibold px-2 py-0.5 flex items-center gap-1 shadow-md">
+                      <Clock className="h-3 w-3" />
+                      Pending
+                    </Badge>
+                  )}
+                </>
+              )}
               <Button
                 size="icon"
                 className={`rounded-full backdrop-blur-sm bg-white/30 hover:bg-white/50 text-white hover:text-red-500 transition-colors h-9 w-9 ${
@@ -376,10 +455,6 @@ export default function DiscoverPage() {
               </Button>
             </div>
             <div className="absolute bottom-4 right-4 flex items-center gap-2 text-white">
-              <div className="flex items-center gap-1 backdrop-blur-sm bg-black/30 px-2 py-1 rounded-full text-xs">
-                <Star className="h-3 w-3 text-yellow-400 fill-current" />
-                <span>{community.averageRating}</span>
-              </div>
               <div className="flex items-center gap-1 backdrop-blur-sm bg-black/30 px-2 py-1 rounded-full text-xs">
                 <Users className="h-3 w-3" />
                 <span>{community.memberCount.toLocaleString()}</span>
@@ -415,12 +490,6 @@ export default function DiscoverPage() {
                   <MapPin className="h-4 w-4 text-gray-500" />
                   <span>{community.location.city}</span>
                 </div>
-                <div className="flex items-center gap-2" title="Rating">
-                  <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                  <span>
-                    {community.averageRating} ({community.activityLevel})
-                  </span>
-                </div>
                 <div
                   className="flex items-center gap-2"
                   title="Upcoming Events"
@@ -428,24 +497,6 @@ export default function DiscoverPage() {
                   <Calendar className="h-4 w-4 text-gray-500" />
                   <span>{community.upcomingEvents} upcoming events</span>
                 </div>
-              </div>
-
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2">
-                {community.tags.slice(0, 3).map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="outline"
-                    className="text-xs font-normal"
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-                {community.tags.length > 3 && (
-                  <Badge variant="outline" className="text-xs font-normal">
-                    +{community.tags.length - 3} more
-                  </Badge>
-                )}
               </div>
             </div>
             <div className="pt-4 mt-auto border-t border-gray-200/80">
@@ -468,7 +519,7 @@ export default function DiscoverPage() {
         <FloatingElements />
 
         {/* Hero Search Section */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 shadow-lg">
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 shadow-lg relative z-[100]">
           <div className="relative max-w-7xl mx-auto px-6 py-16">
             <SmoothReveal>
               <div className="text-center mb-8">
@@ -535,85 +586,25 @@ export default function DiscoverPage() {
                   {/* Divider */}
                   <div className="w-px bg-gray-300 my-2"></div>
 
-                  {/* Location Input with Dropdown */}
-                  <div className="relative w-64">
-                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                    <Input
-                      placeholder="Choose a location"
+                  {/* Location Input with City Search */}
+                  <div className="relative w-64 z-[10001]">
+                    <CitySearch
                       value={locationQuery}
-                      onChange={(e) => setLocationQuery(e.target.value)}
-                      onClick={() => {
-                        setShowLocationDropdown(true);
+                      onCitySelect={(city) => {
+                        const cityName = city.name + (city.country ? `, ${city.country}` : '');
+                        setLocationQuery(cityName);
+                        setShowLocationDropdown(false);
                       }}
-                      onFocus={() => {
-                        setShowLocationDropdown(true);
-                      }}
-                      onBlur={() => {
-                        setTimeout(() => {
+                      placeholder="Search by city or country..."
+                      className="h-full"
+                      showCurrentLocation={true}
+                      onCurrentLocation={() => {
+                        getUserLocationCommunities((cityName) => {
+                          setLocationQuery(cityName);
                           setShowLocationDropdown(false);
-                        }, 0);
+                        });
                       }}
-                      className="pl-12 pr-4 py-4 text-lg border-0 rounded-none focus:ring-0 focus:outline-none text-gray-900 placeholder:text-gray-500 h-full"
                     />
-                    {locationQuery && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
-                        onClick={() => setLocationQuery("")}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-
-                    {/* Location Dropdown with Search */}
-                    {showLocationDropdown && (
-                      <div
-                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-[99999] max-h-80 overflow-y-auto"
-                        style={{
-                          position: "absolute",
-                          top: "100%",
-                          left: 0,
-                          right: 0,
-                          marginTop: "8px",
-                          zIndex: 99999,
-                        }}
-                      >
-                        {/* Use Current Location Button */}
-                        <button
-                          onClick={() => {
-                            getUserLocationCommunities((cityName) => {
-                              setLocationQuery(cityName);
-                              setShowLocationDropdown(false);
-                            });
-                          }}
-                          disabled={gettingLocation}
-                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors duration-200 border-b border-gray-100 disabled:opacity-50 disabled:cursor-wait"
-                          onMouseDown={(e) => e.preventDefault()}
-                        >
-                          {gettingLocation ? (
-                            <div className="w-5 h-5 border-2 border-gray-300 border-t-purple-600 rounded-full animate-spin flex-shrink-0" />
-                          ) : (
-                            <svg
-                              className="w-5 h-5 text-gray-600 flex-shrink-0"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path d="M11 18.93A7.005 7.005 0 015.07 13H3v-2h2.07A7.005 7.005 0 0111 5.07V3h2v2.07A7.005 7.005 0 0118.93 11H21v2h-2.07A7.005 7.005 0 0113 18.93V21h-2v-2.07zM12 17a5 5 0 100-10 5 5 0 000 10zm0-3a2 2 0 110-4 2 2 0 010 4z" />
-                            </svg>
-                          )}
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900">
-                              {gettingLocation
-                                ? "Getting your location..."
-                                : "Use my current location"}
-                            </div>
-                          </div>
-                        </button>
-                      </div>
-                    )}
                   </div>
 
                   {/* Search Button */}
@@ -638,24 +629,47 @@ export default function DiscoverPage() {
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-6 mt-8">
           {/* Filter Bar */}
-          <div className="bg-white border-b border-gray-200 sticky top-0 z-40 -mx-6 px-6">
-            <div className="flex items-center justify-between gap-4 py-4">
-              {/* Left: View Selector */}
-              <div className="flex-shrink-0">
-                <Select
-                  value={viewMode}
-                  onValueChange={(value: "grid" | "list" | "map") =>
-                    setViewMode(value)
-                  }
-                >
-                  <SelectTrigger className="w-[150px] h-10 border-gray-300 rounded-lg font-medium">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="grid">Grid View</SelectItem>
-                    <SelectItem value="map">Map View</SelectItem>
-                  </SelectContent>
-                </Select>
+          <div className="bg-white border-b border-gray-200 sticky top-0 z-50 -mx-6 px-6">
+            <div className="flex items-center justify-between gap-4 py-4 flex-wrap">
+              {/* Left: View Selector and Membership Filter */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex-shrink-0">
+                  <Select
+                    value={viewMode}
+                    onValueChange={(value: "grid" | "list" | "map") =>
+                      setViewMode(value)
+                    }
+                  >
+                    <SelectTrigger className="w-[150px] h-10 border-gray-300 rounded-lg font-medium">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="grid">Grid View</SelectItem>
+                      <SelectItem value="map">Map View</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Membership Filter - Only show if user is logged in */}
+                {currentUser && (
+                  <div className="flex-shrink-0">
+                    <Select
+                      value={membershipFilter}
+                      onValueChange={(value: "all" | "joined" | "pending" | "not_joined") =>
+                        setMembershipFilter(value)
+                      }
+                    >
+                      <SelectTrigger className="w-[160px] h-10 border-gray-300 rounded-lg font-medium">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Communities</SelectItem>
+                        <SelectItem value="joined">My Communities</SelectItem>
+                        <SelectItem value="pending">Pending Requests</SelectItem>
+                        <SelectItem value="not_joined">Not Joined</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               {/* Center: Categories (Horizontal Scroll - Centered) */}
@@ -694,7 +708,7 @@ export default function DiscoverPage() {
                     </SmoothReveal>
                   ))}
                 </StaggerContainer>
-                {filteredCommunities.length > itemsPerPage && (
+                {totalPages > 1 && (
                   <div className="mt-8">
                     <PaginationControls
                       currentPage={currentPage}
@@ -727,8 +741,6 @@ export default function DiscoverPage() {
             )}
           </div>
         </div>
-
-        <EnhancedChatbotWidget />
       </div>
     </PageTransition>
   );

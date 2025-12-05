@@ -146,6 +146,7 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
   // Super Admin routes (super admins only)
   { path: "/superadmin", allowedRoles: ["super_admin"] },
   { path: "/superadmin/badges", allowedRoles: ["super_admin"] },
+  { path: "/superadmin/ads", allowedRoles: ["super_admin"] },
 
   // Test routes (all authenticated users)
   {

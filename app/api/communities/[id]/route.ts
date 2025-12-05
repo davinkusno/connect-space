@@ -1,6 +1,6 @@
 import type { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
-import { validateRequest, formatResponse, formatError, applyRateLimit, requireAuth } from "@/lib/api/utils"
+import { validateRequest, formatResponse, formatError, requireAuth } from "@/lib/api/utils"
 import { communityIdSchema, updateCommunitySchema } from "@/lib/api/types"
 
 /**
@@ -10,12 +10,6 @@ import { communityIdSchema, updateCommunitySchema } from "@/lib/api/types"
  */
 export async function GET(req: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
   try {
-    // Apply rate limiting
-    const rateLimited = await applyRateLimit(req)
-    if (!rateLimited) {
-      return formatError("RATE_LIMIT_EXCEEDED", "Too many requests, please try again later", null, 429)
-    }
-
     // Validate community ID
     const { success, error } = await validateRequest(req, communityIdSchema.parse({ id: params.id }))
 
@@ -23,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return formatError(error!.code, error!.message, error!.details)
     }
 
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Get user session (optional)
     const {
@@ -120,12 +114,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
  */
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
   try {
-    // Apply rate limiting
-    const rateLimited = await applyRateLimit(req)
-    if (!rateLimited) {
-      return formatError("RATE_LIMIT_EXCEEDED", "Too many requests, please try again later", null, 429)
-    }
-
     // Validate community ID
     const validId = communityIdSchema.safeParse({ id: params.id })
     if (!validId.success) {
@@ -140,7 +128,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
 
     // Check authentication
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
     let session
 
     try {
@@ -191,12 +179,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
  */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
   try {
-    // Apply rate limiting
-    const rateLimited = await applyRateLimit(req)
-    if (!rateLimited) {
-      return formatError("RATE_LIMIT_EXCEEDED", "Too many requests, please try again later", null, 429)
-    }
-
     // Validate community ID
     const validId = communityIdSchema.safeParse({ id: params.id })
     if (!validId.success) {
@@ -204,7 +186,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     // Check authentication
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
     let session
 
     try {

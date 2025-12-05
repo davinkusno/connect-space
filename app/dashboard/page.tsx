@@ -51,8 +51,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { PaginationControls } from "@/components/ui/pagination-controls";
-import { DailySummaryWidget } from "@/components/daily-summary/daily-summary-widget";
-import { RecommendationPanel } from "@/components/ai/recommendation-panel";
 
 // Import new enhanced components
 import { EnhancedEventCard } from "@/components/dashboard/enhanced-event-card";
@@ -1423,7 +1421,7 @@ export default function DashboardPage() {
                                 <div className="flex items-center gap-1">
                                   <CalendarIcon className="h-3 w-3" />
                                   <span>
-                                    {new Date(event.date).toLocaleDateString(
+                                    {new Date(event.start_time || event.date).toLocaleDateString(
                                       "en-US",
                                       {
                                         month: "short",
@@ -1434,12 +1432,12 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
-                                  <span>{event.time}</span>
+                                  <span>{event.time || new Date(event.start_time || event.date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <MapPin className="h-3 w-3" />
                                   <span className="truncate max-w-[200px]">
-                                    {event.location}
+                                    {event.location || "Location TBD"}
                                   </span>
                                 </div>
                               </div>
@@ -2060,55 +2058,9 @@ export default function DashboardPage() {
             </Card>
           </TabsContent>
 
-          {/* Insights Tab - AI-powered insights and recommendations */}
+          {/* Insights Tab */}
           <TabsContent value="insights" className="space-y-6">
-            {/* Daily Summary - Full Version */}
-            <DailySummaryWidget
-              userId="current-user"
-              compact={false}
-              className="mb-6"
-            />
 
-            {/* AI Recommendations */}
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <div className="p-1.5 bg-amber-100 rounded-lg">
-                    <Lightbulb className="h-4 w-4 text-amber-600" />
-                  </div>
-                  Personalized Recommendations
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <RecommendationPanel
-                  userId="current-user"
-                  userProfile={{
-                    interests: [
-                      {
-                        topic: "Education",
-                        strength: 0.9,
-                        category: "Education",
-                      },
-                      {
-                        topic: "Sports",
-                        strength: 0.8,
-                        category: "Sports",
-                      },
-                      { topic: "Art", strength: 0.7, category: "Art" },
-                    ],
-                    joinedCommunities: ["Tech Innovators", "Startup Founders"],
-                    location: "New York",
-                    goals: [
-                      "Learn new skills",
-                      "Network with peers",
-                      "Find mentors",
-                    ],
-                  }}
-                  maxRecommendations={6}
-                  showExplanations={true}
-                />
-              </CardContent>
-            </Card>
 
             {/* Engagement Analytics */}
             <Card className="border-0 shadow-sm">

@@ -1,6 +1,6 @@
 import type { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
-import { validateRequest, formatResponse, formatError, applyRateLimit } from "@/lib/api/utils"
+import { validateRequest, formatResponse, formatError } from "@/lib/api/utils"
 import { communityQuerySchema, createCommunitySchema } from "@/lib/api/types"
 
 /**
@@ -10,11 +10,6 @@ import { communityQuerySchema, createCommunitySchema } from "@/lib/api/types"
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
-    // Apply rate limiting
-    const rateLimited = await applyRateLimit(req)
-    if (!rateLimited) {
-      return formatError("RATE_LIMIT_EXCEEDED", "Too many requests, please try again later", null, 429)
-    }
 
     // Validate query parameters
     const { success, data: query, error } = await validateRequest(req, communityQuerySchema)
@@ -25,7 +20,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const { page = 1, pageSize = 10, search, category, sortBy = "created_at", sortOrder = "desc" } = query!
 
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Calculate pagination values
     const from = (page - 1) * pageSize
@@ -108,13 +103,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    // Apply rate limiting
-    const rateLimited = await applyRateLimit(req)
-    if (!rateLimited) {
-      return formatError("RATE_LIMIT_EXCEEDED", "Too many requests, please try again later", null, 429)
-    }
-
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Check authentication
     const {

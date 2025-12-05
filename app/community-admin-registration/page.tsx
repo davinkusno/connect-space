@@ -38,12 +38,16 @@ interface City {
 
 // Predefined interest categories
 const INTEREST_CATEGORIES = [
-  "Environmental",
-  "Music",
-  "Sports",
-  "Hobbies",
-  "Education",
-  "Art",
+  "Hobbies & Crafts",
+  "Sports & Fitness",
+  "Career & Business",
+  "Tech & Innovation",
+  "Arts & Culture",
+  "Social & Community",
+  "Education & Learning",
+  "Travel & Adventure",
+  "Food & Drink",
+  "Entertainment",
 ];
 
 export default function CommunityAdminRegistrationPage() {

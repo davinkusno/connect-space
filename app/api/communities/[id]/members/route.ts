@@ -1,6 +1,6 @@
 import type { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
-import { validateRequest, formatResponse, formatError, applyRateLimit, requireAuth } from "@/lib/api/utils"
+import { validateRequest, formatResponse, formatError, requireAuth } from "@/lib/api/utils"
 import { communityIdSchema, communityQuerySchema } from "@/lib/api/types"
 import { z } from "zod"
 
@@ -16,12 +16,6 @@ const memberQuerySchema = communityQuerySchema.extend({
  */
 export async function GET(req: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
   try {
-    // Apply rate limiting
-    const rateLimited = await applyRateLimit(req)
-    if (!rateLimited) {
-      return formatError("RATE_LIMIT_EXCEEDED", "Too many requests, please try again later", null, 429)
-    }
-
     // Validate community ID
     const validId = communityIdSchema.safeParse({ id: params.id })
     if (!validId.success) {
@@ -37,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     const { page = 1, pageSize = 10, search, role, sortBy = "joined_at", sortOrder = "desc" } = query!
 
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Check if community exists and if it's private
     const { data: community, error: communityError } = await supabase
@@ -139,12 +133,6 @@ const addMemberSchema = z.object({
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
   try {
-    // Apply rate limiting
-    const rateLimited = await applyRateLimit(req)
-    if (!rateLimited) {
-      return formatError("RATE_LIMIT_EXCEEDED", "Too many requests, please try again later", null, 429)
-    }
-
     // Validate community ID
     const validId = communityIdSchema.safeParse({ id: params.id })
     if (!validId.success) {
@@ -159,7 +147,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     // Check authentication
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
     let session
 
     try {

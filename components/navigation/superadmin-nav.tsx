@@ -30,6 +30,8 @@ import {
   AlertTriangle,
   Shield,
   ChevronDown,
+  Megaphone,
+  ShoppingBag,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -145,7 +147,7 @@ export function SuperAdminNav() {
               </div>
             </Link>
 
-            {/* Right Section - User Menu */}
+            {/* Right Section - Navigation & User Menu */}
             <div className="flex items-center gap-4">
               {/* User Dropdown */}
               {!isLoading && user && (
@@ -184,6 +186,13 @@ export function SuperAdminNav() {
                         </Badge>
                       </div>
                     </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/superadmin/ads" className="cursor-pointer">
+                        <Megaphone className="mr-2 h-4 w-4" />
+                        <span>Ads Management</span>
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => setShowLogoutDialog(true)}
