@@ -98,6 +98,13 @@ export default function CreateCommunityPage() {
       return
     }
 
+    // Validate description word count (max 500 words)
+    const wordCount = formData.description.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (wordCount > 500) {
+      toast.error(`Description must be 500 words or less. Current word count: ${wordCount}`)
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -264,7 +271,15 @@ export default function CreateCommunityPage() {
                     required
                   />
                   <div className="flex justify-between items-center">
-                    <p className="text-sm text-gray-500">{formData.description.length}/500 characters</p>
+                    {(() => {
+                      const wordCount = formData.description.trim().split(/\s+/).filter(word => word.length > 0).length;
+                      const isOverLimit = wordCount > 500;
+                      return (
+                        <p className={`text-sm ${isOverLimit ? "text-red-500 font-medium" : "text-gray-500"}`}>
+                          {wordCount}/500 words {isOverLimit && "(exceeds limit)"}
+                        </p>
+                      );
+                    })()}
                     {aiSuggestions && (
                       <Button
                         type="button"

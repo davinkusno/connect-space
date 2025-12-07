@@ -22,7 +22,6 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
   // Routes that don't require onboarding check
   const publicRoutes = [
     "/onboarding",
-    "/onboarding/role",
     "/auth/login",
     "/auth/signup",
     "/auth/callback",
@@ -63,13 +62,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
       if (response.ok) {
         const data = await response.json();
 
-        // Check 1: Has user selected their role?
-        if (!data.roleSelected) {
-          router.push("/onboarding/role");
-          return;
-        }
-
-        // Check 2: Has user completed onboarding based on their role?
+        // Check if user has completed onboarding
         if (!data.onboardingCompleted) {
           // Community admin goes to community registration
           if (data.userType === "community_admin") {

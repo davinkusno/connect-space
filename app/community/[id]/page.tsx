@@ -41,6 +41,7 @@ import {
   Save,
   Sparkles,
   AlertTriangle,
+  Navigation,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -964,9 +965,9 @@ export default function CommunityPage({
             <Link href="/communities">
               <Button>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-              Browse Communities
-            </Button>
-          </Link>
+                Browse Communities
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
@@ -1832,29 +1833,32 @@ export default function CommunityPage({
                                   {event.max_attendees && (
                                     <div className="flex items-center gap-2 text-gray-700">
                                       <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
-                                  <Users className="h-4 w-4" />
-                                </div>
+                                        <Users className="h-4 w-4" />
+                                      </div>
                                       <span className="flex-1">Max {event.max_attendees} attendees</span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </CardContent>
-                          </Card>
-                        </Link>
+                          </CardContent>
+                        </Card>
+                      </Link>
                       );
                     })}
                   </div>
-                          {upcomingEvents.length > eventsPerPage && (
-                            <div className="mt-4 pt-4 border-t border-gray-200">
+                  {upcomingEvents.length > eventsPerPage && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
                       <PaginationControls
-                                currentPage={upcomingEventsPage}
-                                totalPages={Math.ceil(upcomingEvents.length / eventsPerPage)}
-                                onPageChange={setUpcomingEventsPage}
+                        currentPage={upcomingEventsPage}
+                        totalPages={Math.ceil(upcomingEvents.length / eventsPerPage)}
+                        onPageChange={setUpcomingEventsPage}
                         itemsPerPage={eventsPerPage}
-                                totalItems={upcomingEvents.length}
-                              />
-                            </div>
-                          )}
-                        </>
-                      )}
+                        totalItems={upcomingEvents.length}
+                      />
+                    </div>
+                  )}
+                  </>
+                )}
                     </div>
 
                     {/* Past Events Section */}
@@ -1988,8 +1992,8 @@ export default function CommunityPage({
                             />
                           </div>
                         )}
-                    </div>
-                  )}
+                      </div>
+                    )}
                   </>
                 )}
               </TabsContent>
@@ -2067,7 +2071,6 @@ export default function CommunityPage({
                                     year: "numeric",
                                   })}
                                 </p>
-                              </div>
                               </div>
                             </div>
                           </div>

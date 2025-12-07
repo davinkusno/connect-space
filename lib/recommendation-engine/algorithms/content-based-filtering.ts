@@ -68,7 +68,8 @@ export class ContentBasedFilteringAlgorithm {
       })
     }
 
-    // Location proximity
+    // Location proximity (only if both user and community have location)
+    // For online communities without location, this factor is skipped
     if (user.location && community.location) {
       const locationScore = this.calculateLocationScore(user, community)
       if (locationScore.score > 0) {
@@ -81,6 +82,17 @@ export class ContentBasedFilteringAlgorithm {
           evidence: { distance: locationScore.distance, score: locationScore.score },
         })
       }
+    } else if (!community.location && interestScore.score > 0) {
+      // For online communities without location, boost interest matching slightly
+      // This ensures online communities aren't penalized for not having location
+      totalScore += interestScore.score * 0.1 // Small boost for online communities
+      totalWeight += 0.1
+      reasons.push({
+        type: "interest_match",
+        description: `Online community - matches your interests`,
+        weight: 0.1,
+        evidence: { isOnline: true, matchedInterests: interestScore.matchedInterests },
+      })
     }
 
     // Activity level matching

@@ -38,6 +38,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         { count: "exact" },
       )
       .eq("is_private", false)
+      // Filter out suspended communities from public view
+      .or("status.is.null,status.eq.active")
 
     // Apply filters
     if (search) {

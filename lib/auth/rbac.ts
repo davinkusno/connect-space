@@ -34,10 +34,6 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     path: "/onboarding",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
-  {
-    path: "/onboarding/role",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
 
   // User routes (regular users and above)
   {

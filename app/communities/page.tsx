@@ -158,9 +158,23 @@ export default function DiscoverPage() {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
       
-      // Fetch communities from database with category relationship
-      // Fetch all communities (both public and private) - we'll filter by privacy later if needed
-      const { data: communitiesData, error } = await supabase
+      // Fetch recommended community IDs if user is logged in
+      let recommendedCommunityIds: string[] = [];
+      if (user) {
+        try {
+          const response = await fetch("/api/communities/recommendations");
+          if (response.ok) {
+            const data = await response.json();
+            recommendedCommunityIds = data.recommendedCommunityIds || [];
+          }
+        } catch (error) {
+          console.error("Error fetching recommendations:", error);
+          // Continue with all communities if recommendations fail
+        }
+      }
+      
+      // Build query for communities
+      let query = supabase
         .from("communities")
         .select(
           `
@@ -178,65 +192,122 @@ export default function DiscoverPage() {
           created_at,
           location,
           is_private,
-          creator_id
+          creator_id,
+          status
         `)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching communities:", error);
-        toast.error("Failed to load communities");
+        .or("status.is.null,status.eq.active");
+      
+      // If user is logged in and we have recommendations, filter by recommended IDs
+      // This ensures only suggested communities are shown
+      if (user && recommendedCommunityIds.length > 0) {
+        query = query.in("id", recommendedCommunityIds);
+      } else if (user && recommendedCommunityIds.length === 0) {
+        // If user is logged in but has no recommendations (new user), show popular communities
+        query = query.eq("is_private", false);
+      } else {
+        // If user is not logged in, show all public communities
+        query = query.eq("is_private", false);
+      }
+      
+      // Apply ordering based on whether we have recommendations
+      if (user && recommendedCommunityIds.length > 0) {
+        // For recommended communities, fetch without ordering (we'll sort by recommendation order)
+        const { data: communitiesData, error } = await query;
+        
+        if (error) {
+          console.error("Error fetching communities:", error);
+          toast.error("Failed to load communities");
+          return;
+        }
+        
+        // Sort communities to match recommendation order
+        const sortedCommunities = (communitiesData || []).sort((a: any, b: any) => {
+          const aIndex = recommendedCommunityIds.indexOf(a.id);
+          const bIndex = recommendedCommunityIds.indexOf(b.id);
+          if (aIndex === -1 && bIndex === -1) return 0;
+          if (aIndex === -1) return 1;
+          if (bIndex === -1) return -1;
+          return aIndex - bIndex;
+        });
+        
+        // Process the sorted communities
+        await processCommunitiesData(sortedCommunities, user, supabase);
+        return;
+      } else {
+        // For non-recommended or non-logged-in users, order by member count
+        const { data: communitiesData, error } = await query
+          .order("member_count", { ascending: false });
+        
+        if (error) {
+          console.error("Error fetching communities:", error);
+          toast.error("Failed to load communities");
+          return;
+        }
+        
+        await processCommunitiesData(communitiesData, user, supabase);
         return;
       }
-      
-      // Fetch membership status for current user if logged in
-      const membershipStatusMap: Record<string, "joined" | "pending" | "not_joined"> = {};
-      if (user) {
-        const communityIds = (communitiesData || []).map((c: any) => c.id);
-        if (communityIds.length > 0) {
-          const { data: memberships } = await supabase
-            .from("community_members")
-            .select("community_id, status")
-            .eq("user_id", user.id)
-            .in("community_id", communityIds);
-          
-          // Initialize all as not_joined
-          communityIds.forEach((id: string) => {
-            membershipStatusMap[id] = "not_joined";
-          });
-          
-          // Check if user is creator
-          (communitiesData || []).forEach((comm: any) => {
-            if (comm.creator_id === user.id) {
-              membershipStatusMap[comm.id] = "joined";
-            }
-          });
-          
-          // Update based on memberships
-          (memberships || []).forEach((membership: any) => {
-            if (membership.status === false) {
-              membershipStatusMap[membership.community_id] = "pending";
-            } else if (membership.status === true || membership.status === null) {
-              membershipStatusMap[membership.community_id] = "joined";
-            }
-          });
-        }
-      } else {
-        // User not logged in - all communities are not_joined
+    } catch (error) {
+      console.error("Failed to load data:", error);
+      toast.error("Failed to load communities");
+    }
+  };
+
+  // Helper function to process communities data
+  const processCommunitiesData = async (
+    communitiesData: any[],
+    user: any,
+    supabase: any
+  ) => {
+    // Fetch membership status for current user if logged in
+    const membershipStatusMap: Record<string, "joined" | "pending" | "not_joined"> = {};
+    if (user) {
+      const communityIds = (communitiesData || []).map((c: any) => c.id);
+      if (communityIds.length > 0) {
+        const { data: memberships } = await supabase
+          .from("community_members")
+          .select("community_id, status")
+          .eq("user_id", user.id)
+          .in("community_id", communityIds);
+        
+        // Initialize all as not_joined
+        communityIds.forEach((id: string) => {
+          membershipStatusMap[id] = "not_joined";
+        });
+        
+        // Check if user is creator
         (communitiesData || []).forEach((comm: any) => {
-          membershipStatusMap[comm.id] = "not_joined";
+          if (comm.creator_id === user.id) {
+            membershipStatusMap[comm.id] = "joined";
+          }
+        });
+        
+        // Update based on memberships
+        (memberships || []).forEach((membership: any) => {
+          if (membership.status === false) {
+            membershipStatusMap[membership.community_id] = "pending";
+          } else if (membership.status === true || membership.status === null) {
+            membershipStatusMap[membership.community_id] = "joined";
+          }
         });
       }
-      
-      setMembershipStatus(membershipStatusMap);
+    } else {
+      // User not logged in - all communities are not_joined
+      (communitiesData || []).forEach((comm: any) => {
+        membershipStatusMap[comm.id] = "not_joined";
+      });
+    }
+    
+    setMembershipStatus(membershipStatusMap);
 
-
-
-      // Transform database data to match Community interface
-      const transformedCommunities: Community[] = (communitiesData || []).map(
+    // Transform database data to match Community interface
+    const transformedCommunities: Community[] = (communitiesData || []).map(
         (comm) => {
           // Parse location - it could be a string or a JSON object
-          let location: any = {};
+          // For online communities, location may be null/empty
+          let parsedLocation: Community["location"] = undefined;
           if (comm.location) {
+            let location: any = {};
             if (typeof comm.location === "string") {
               try {
                 location = JSON.parse(comm.location);
@@ -246,6 +317,24 @@ export default function DiscoverPage() {
               }
             } else if (typeof comm.location === "object") {
               location = comm.location;
+            }
+            
+            // Only set location if we have valid coordinates or city
+            if (location.lat && location.lng) {
+              parsedLocation = {
+                lat: location.lat,
+                lng: location.lng,
+                city: location.city || location.town || location.village || location.municipality || "",
+                country: location.country || "",
+              };
+            } else if (location.city || location.town || location.village || location.municipality) {
+              // If we have city but no coordinates, still include it
+              parsedLocation = {
+                lat: 0,
+                lng: 0,
+                city: location.city || location.town || location.village || location.municipality || "",
+                country: location.country || "",
+              };
             }
           }
 
@@ -260,22 +349,7 @@ export default function DiscoverPage() {
             tags: [], // Tags column doesn't exist in database yet
             memberCount: comm.member_count || 0,
             averageRating: 4.5, // Default rating (can be calculated from reviews if you have them)
-            location: {
-              lat: location.lat || 0,
-              lng: location.lng || 0,
-              city:
-                location.city ||
-                location.town ||
-                location.village ||
-                location.municipality ||
-                "",
-              country: location.country || "",
-              address:
-                location.address ||
-                location.display_name ||
-                (typeof comm.location === "string" ? comm.location : "") ||
-                "",
-            },
+            location: parsedLocation,
             activityLevel: "medium", // Can be calculated based on recent activity
             image:
               comm.banner_url ||
@@ -300,33 +374,29 @@ export default function DiscoverPage() {
         }
       );
 
-      // Fetch event counts for each community
-      const communityIds = transformedCommunities.map((c) => c.id);
-      if (communityIds.length > 0) {
-        const { data: eventsData } = await supabase
-          .from("events")
-          .select("community_id")
-          .in("community_id", communityIds)
-          .gte("start_time", new Date().toISOString());
+    // Fetch event counts for each community
+    const communityIds = transformedCommunities.map((c) => c.id);
+    if (communityIds.length > 0) {
+      const { data: eventsData } = await supabase
+        .from("events")
+        .select("community_id")
+        .in("community_id", communityIds)
+        .gte("start_time", new Date().toISOString());
 
-        // Count events per community
-        const eventCounts: Record<string, number> = {};
-        (eventsData || []).forEach((event: any) => {
-          eventCounts[event.community_id] =
-            (eventCounts[event.community_id] || 0) + 1;
-        });
+      // Count events per community
+      const eventCounts: Record<string, number> = {};
+      (eventsData || []).forEach((event: any) => {
+        eventCounts[event.community_id] =
+          (eventCounts[event.community_id] || 0) + 1;
+      });
 
-        // Update event counts
-        transformedCommunities.forEach((comm) => {
-          comm.upcomingEvents = eventCounts[comm.id] || 0;
-        });
-      }
-
-      setCommunities(transformedCommunities);
-    } catch (error) {
-      console.error("Failed to load data:", error);
-      toast.error("Failed to load communities");
+      // Update event counts
+      transformedCommunities.forEach((comm) => {
+        comm.upcomingEvents = eventCounts[comm.id] || 0;
+      });
     }
+
+    setCommunities(transformedCommunities);
   };
 
   const filteredCommunities = useMemo(() => {
@@ -520,11 +590,12 @@ export default function DiscoverPage() {
             <SmoothReveal>
               <div className="text-center mb-8">
                 <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
-                  Discover Amazing Communities
+                  {currentUser ? "Recommended Communities" : "Discover Amazing Communities"}
                 </h1>
                 <p className="text-xl text-purple-100 max-w-3xl mx-auto leading-relaxed">
-                  Join thousands of people connecting through shared interests,
-                  passions, and goals
+                  {currentUser 
+                    ? "Communities tailored just for you based on your interests and activity"
+                    : "Join thousands of people connecting through shared interests, passions, and goals"}
                 </p>
               </div>
             </SmoothReveal>

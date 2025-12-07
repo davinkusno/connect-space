@@ -106,10 +106,6 @@ export async function GET(request: NextRequest) {
 
         // Regular users: check onboarding
         if (!onboardingCompleted) {
-          // If role not selected, show role selection (optional now)
-          if (!roleSelected) {
-            return NextResponse.redirect(`${origin}/onboarding/role`);
-          }
           return NextResponse.redirect(`${origin}/onboarding`);
         }
 

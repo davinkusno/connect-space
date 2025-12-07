@@ -11,10 +11,11 @@ export async function GET(request: NextRequest) {
     
     // Check authentication
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    if (!session?.user) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("user_type")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single();
 
     if (userError || userData?.user_type !== "super_admin") {
@@ -84,7 +85,10 @@ export async function GET(request: NextRequest) {
             categories(name),
             member_count,
             created_at,
-            creator_id
+            creator_id,
+            status,
+            suspended_at,
+            suspension_reason
           `)
           .eq("id", communityId)
           .single();
@@ -128,6 +132,9 @@ export async function GET(request: NextRequest) {
           reportCount: 0,
           lastReportDate: report.created_at,
           status: "pending",
+          communityStatus: community.status || "active",
+          suspendedAt: community.suspended_at,
+          suspensionReason: community.suspension_reason,
           reports: [],
           communityDetails: {
             memberCount: community.member_count || 0,

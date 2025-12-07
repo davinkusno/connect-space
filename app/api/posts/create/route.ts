@@ -40,33 +40,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!community_id || !event_id) {
+    if (!community_id) {
       return NextResponse.json(
-        { error: "Community ID and Event ID are required" },
+        { error: "Community ID is required" },
         { status: 400 }
       );
     }
 
-    // Verify event exists and get community_id from event
-    const { data: event, error: eventError } = await supabase
-      .from("events")
-      .select("community_id")
-      .eq("id", event_id)
-      .single();
+    // If event_id is provided, verify it exists and matches community
+    if (event_id) {
+      const { data: event, error: eventError } = await supabase
+        .from("events")
+        .select("community_id")
+        .eq("id", event_id)
+        .single();
 
-    if (eventError || !event) {
-      return NextResponse.json(
-        { error: "Event not found" },
-        { status: 404 }
-      );
-    }
+      if (eventError || !event) {
+        return NextResponse.json(
+          { error: "Event not found" },
+          { status: 404 }
+        );
+      }
 
-    // Verify community_id matches
-    if (event.community_id !== community_id) {
-      return NextResponse.json(
-        { error: "Community ID does not match event's community" },
-        { status: 400 }
-      );
+      // Verify community_id matches
+      if (event.community_id !== community_id) {
+        return NextResponse.json(
+          { error: "Community ID does not match event's community" },
+          { status: 400 }
+        );
+      }
     }
 
     // Check if user is admin of the community
@@ -115,6 +117,27 @@ export async function POST(request: NextRequest) {
         { error: "Failed to create post", details: postError.message },
         { status: 500 }
       );
+    }
+
+    // Update community's last activity date and type
+    const now = new Date().toISOString();
+    const updateData: any = {
+      last_activity_date: now,
+      last_activity_type: "announcement",
+    };
+    
+    // Only update status if the column exists (for backward compatibility)
+    // Status will be set to 'active' if the column exists
+    updateData.status = "active";
+    
+    const { error: updateError } = await supabase
+      .from("communities")
+      .update(updateData)
+      .eq("id", community_id);
+
+    if (updateError) {
+      // Log error but don't fail the request - activity tracking is secondary
+      console.error("Error updating community activity:", updateError);
     }
 
     return NextResponse.json(

@@ -131,8 +131,10 @@ Write a description that:
 1. Explains the community purpose
 2. Covers the topics: ${safeTags || "general interests"}
 3. Describes activities
-4. Is 100-300 words
+4. Is EXACTLY 100-500 words (MUST NOT exceed 500 words)
 5. Uses professional language
+
+IMPORTANT: The description MUST be 500 words or less. If it exceeds 500 words, truncate it to exactly 500 words.
 
 Return JSON with:
 - description: string (required)
@@ -154,11 +156,23 @@ Return JSON with:
       return NextResponse.json(createFallbackDescription())
     }
 
-    // Ensure all fields are properly formatted
+    // Helper function to count words and truncate to 500 words
+    const truncateToWords = (text: string, maxWords: number = 500): string => {
+      const words = text.trim().split(/\s+/);
+      if (words.length <= maxWords) {
+        return text;
+      }
+      return words.slice(0, maxWords).join(" ") + "...";
+    };
+
+    // Ensure all fields are properly formatted and truncate description to 500 words
+    const description = String(result.description || "");
+    const truncatedDescription = truncateToWords(description, 500);
+    
     const validatedResult = {
-      description: String(result.description || ""),
+      description: truncatedDescription,
       alternativeDescriptions: Array.isArray(result.alternativeDescriptions) 
-        ? result.alternativeDescriptions.map(String) 
+        ? result.alternativeDescriptions.map((alt: string) => truncateToWords(String(alt), 500))
         : [],
       suggestedTags: Array.isArray(result.suggestedTags) 
         ? result.suggestedTags.map(String) 
@@ -282,16 +296,38 @@ async function generateEventDescription(params: any) {
   - Highlights key benefits and outcomes
   - Attracts the right audience
   - Is engaging and informative
-  - Is 150-400 words
+  - Is EXACTLY 150-500 words (MUST NOT exceed 500 words)
+  
+  IMPORTANT: The description MUST be 500 words or less. If it exceeds 500 words, truncate it to exactly 500 words.
   
   Also identify the target audience and expected outcomes.`
+
+    // Helper function to count words and truncate to 500 words
+    const truncateToWords = (text: string, maxWords: number = 500): string => {
+      const words = text.trim().split(/\s+/);
+      if (words.length <= maxWords) {
+        return text;
+      }
+      return words.slice(0, maxWords).join(" ") + "...";
+    };
 
     try {
     const result = await aiClient.generateObject(prompt, EventDescriptionSchema, {
       systemPrompt:
-        "You are an expert event organizer who creates compelling event descriptions that drive registrations.",
+        "You are an expert event organizer who creates compelling event descriptions that drive registrations. Always keep descriptions under 500 words.",
     })
-    return NextResponse.json(result)
+    
+    // Truncate description to 500 words if it exceeds
+    const description = result.description ? truncateToWords(String(result.description), 500) : "";
+    const truncatedResult = {
+      ...result,
+      description,
+      alternativeDescriptions: result.alternativeDescriptions 
+        ? result.alternativeDescriptions.map((alt: string) => truncateToWords(String(alt), 500))
+        : [],
+    };
+    
+    return NextResponse.json(truncatedResult)
     } catch (aiError: any) {
       // If AI generation fails, return fallback immediately without throwing
       console.warn("AI generation failed, using fallback:", aiError?.message || aiError)

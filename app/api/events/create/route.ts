@@ -60,6 +60,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate description word count (max 500 words)
+    const wordCount = description.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (wordCount > 500) {
+      return NextResponse.json(
+        { error: "Description must be 500 words or less. Current word count: " + wordCount },
+        { status: 400 }
+      );
+    }
+
     if (!start_time || !end_time) {
       return NextResponse.json(
         { error: "Start time and end time are required" },
@@ -186,6 +195,27 @@ export async function POST(request: NextRequest) {
       community_id: event.community_id,
       creator_id: event.creator_id
     });
+
+    // Update community's last activity date and type
+    const now = new Date().toISOString();
+    const updateData: any = {
+      last_activity_date: now,
+      last_activity_type: "event",
+    };
+    
+    // Only update status if the column exists (for backward compatibility)
+    // Status will be set to 'active' if the column exists
+    updateData.status = "active";
+    
+    const { error: updateError } = await supabase
+      .from("communities")
+      .update(updateData)
+      .eq("id", community_id);
+
+    if (updateError) {
+      // Log error but don't fail the request - activity tracking is secondary
+      console.error("Error updating community activity:", updateError);
+    }
 
     // Return event directly for easier frontend handling
     return NextResponse.json(event, { status: 200 });

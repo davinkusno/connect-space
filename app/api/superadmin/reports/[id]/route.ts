@@ -15,10 +15,11 @@ export async function PATCH(
     
     // Check authentication
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    if (!session?.user) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -29,7 +30,7 @@ export async function PATCH(
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("user_type")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single();
 
     if (userError || userData?.user_type !== "super_admin") {
@@ -43,10 +44,10 @@ export async function PATCH(
     const { action, reportIds, reviewNotes } = body;
 
     // Validate action
-    const validActions = ["suspend", "dismiss", "resolve"];
+    const validActions = ["suspend", "dismiss", "resolve", "reactivate"];
     if (!action || !validActions.includes(action)) {
       return NextResponse.json(
-        { error: "Invalid action. Must be one of: suspend, dismiss, resolve" },
+        { error: "Invalid action. Must be one of: suspend, dismiss, resolve, reactivate" },
         { status: 400 }
       );
     }
@@ -75,18 +76,26 @@ export async function PATCH(
     switch (action) {
       case "suspend":
         newStatus = "resolved";
-        // Suspend the community (you may need to add a status field to communities table)
+        // Suspend the community - update status, suspended_at, and suspension_reason
+        const now = new Date().toISOString();
+        const suspensionReason = reviewNotes || "Suspended by super admin due to community reports";
+        
         const { error: suspendError } = await supabase
           .from("communities")
           .update({
-            // If you have a status field, update it here
-            // status: "suspended",
-            updated_at: new Date().toISOString(),
+            status: "suspended",
+            suspended_at: now,
+            suspension_reason: suspensionReason,
+            updated_at: now,
           })
           .eq("id", communityId);
 
         if (suspendError) {
           console.error("Error suspending community:", suspendError);
+          return NextResponse.json(
+            { error: "Failed to suspend community", details: suspendError.message },
+            { status: 500 }
+          );
         }
         break;
       case "dismiss":
@@ -94,6 +103,29 @@ export async function PATCH(
         break;
       case "resolve":
         newStatus = "resolved";
+        break;
+      case "reactivate":
+        newStatus = "resolved";
+        // Reactivate the community - clear suspension fields and set status to active
+        const reactivateNow = new Date().toISOString();
+        const { error: reactivateError } = await supabase
+          .from("communities")
+          .update({
+            status: "active",
+            suspended_at: null,
+            suspension_reason: null,
+            last_activity_date: reactivateNow,
+            updated_at: reactivateNow,
+          })
+          .eq("id", communityId);
+
+        if (reactivateError) {
+          console.error("Error reactivating community:", reactivateError);
+          return NextResponse.json(
+            { error: "Failed to reactivate community", details: reactivateError.message },
+            { status: 500 }
+          );
+        }
         break;
       default:
         return NextResponse.json(
@@ -110,7 +142,7 @@ export async function PATCH(
         .from("reports")
         .update({
           status: newStatus,
-          reviewed_by: session.user.id,
+          reviewed_by: user.id,
           review_notes: reviewNotes || null,
           resolved_at: action === "resolve" || action === "suspend" ? new Date().toISOString() : null,
           updated_at: new Date().toISOString(),
@@ -132,7 +164,7 @@ export async function PATCH(
         .from("reports")
         .update({
           status: newStatus,
-          reviewed_by: session.user.id,
+          reviewed_by: user.id,
           review_notes: reviewNotes || null,
           resolved_at: action === "resolve" || action === "suspend" ? new Date().toISOString() : null,
           updated_at: new Date().toISOString(),

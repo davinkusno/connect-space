@@ -45,6 +45,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate description word count (max 500 words)
+    const wordCount = description.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (wordCount > 500) {
+      return NextResponse.json(
+        { error: "Description must be 500 words or less. Current word count: " + wordCount },
+        { status: 400 }
+      );
+    }
+
     let profileImageUrl = null;
 
     // Handle profile image upload if provided (using service role for bypassing RLS)

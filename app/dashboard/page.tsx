@@ -49,7 +49,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { EnhancedChatbotWidget } from "@/components/ai/enhanced-chatbot-widget";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 
 // Import new enhanced components
@@ -2127,8 +2126,6 @@ export default function DashboardPage() {
           </TabsContent>
         </Tabs>
         </div>
-
-      <EnhancedChatbotWidget context="dashboard" size="normal" />
       </div>
     </>
   );

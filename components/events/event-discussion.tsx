@@ -203,25 +203,25 @@ export function EventDiscussion({
 
     setIsSubmitting(true);
     try {
-      const supabase = getSupabaseBrowser();
-      
-      const { data, error } = await supabase
-        .from("posts")
-        .insert({
+      // Use API endpoint to ensure community activity is tracked
+      const response = await fetch("/api/posts/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           title: newAnnouncementTitle.trim(),
           content: newAnnouncementContent.trim(),
-          author_id: currentUser.id,
           community_id: communityId,
           event_id: eventId || null,
           is_pinned: isPinned,
-        })
-        .select()
-        .single();
+        }),
+      });
 
-      if (error) {
-        console.error("Error creating announcement:", error);
-        toast.error("Failed to create announcement");
-        return;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create announcement");
       }
 
       toast.success("Announcement created successfully!");
@@ -229,9 +229,9 @@ export function EventDiscussion({
       setNewAnnouncementContent("");
       setIsPinned(false);
       loadAnnouncements(); // Reload announcements
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating announcement:", error);
-      toast.error("Failed to create announcement");
+      toast.error(error.message || "Failed to create announcement");
     } finally {
       setIsSubmitting(false);
     }

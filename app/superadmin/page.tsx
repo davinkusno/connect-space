@@ -1009,157 +1009,6 @@ const mockReportedCommunities = [
   },
 ];
 
-// Mock data for inactive communities (no activity for 1+ months)
-const mockInactiveCommunities = [
-  {
-    id: "inactive-001",
-    communityId: "comm-020",
-    communityName: "Abandoned Tech Forum",
-    category: "Technology",
-    memberCount: 45,
-    lastActivity: "2025-09-15T14:30:00Z",
-    lastActivityType: "event",
-    inactiveDays: 68,
-    createdAt: "2025-06-01T10:00:00Z",
-    status: "suspended",
-    reactivationRequested: true,
-    requestedAt: "2025-11-20T10:00:00Z",
-    admin: {
-      name: "Inactive Admin",
-      email: "inactive1@example.com",
-    },
-    lastEvent: {
-      title: "Tech Talk: AI Future",
-      date: "2025-09-15T14:30:00Z",
-    },
-    lastAnnouncement: {
-      title: "Community Update",
-      date: "2025-09-10T10:00:00Z",
-    },
-  },
-  {
-    id: "inactive-002",
-    communityId: "comm-021",
-    communityName: "Dead Gaming Community",
-    category: "Gaming",
-    memberCount: 128,
-    lastActivity: "2025-10-10T09:20:00Z",
-    lastActivityType: "announcement",
-    inactiveDays: 43,
-    createdAt: "2025-05-20T15:45:00Z",
-    status: "suspended",
-    reactivationRequested: false,
-    admin: {
-      name: "Game Master",
-      email: "gamemaster@example.com",
-    },
-    lastEvent: {
-      title: "Gaming Tournament",
-      date: "2025-10-05T18:00:00Z",
-    },
-    lastAnnouncement: {
-      title: "Server maintenance notice",
-      date: "2025-10-10T09:20:00Z",
-    },
-  },
-  {
-    id: "inactive-003",
-    communityId: "comm-022",
-    communityName: "Silent Book Club",
-    category: "Literature",
-    memberCount: 67,
-    lastActivity: "2025-09-20T11:15:00Z",
-    lastActivityType: "event",
-    inactiveDays: 63,
-    createdAt: "2025-04-15T12:30:00Z",
-    status: "suspended",
-    reactivationRequested: true,
-    requestedAt: "2025-11-21T14:30:00Z",
-    admin: {
-      name: "Book Lover",
-      email: "booklover@example.com",
-    },
-    lastEvent: {
-      title: "Book Discussion: 1984",
-      date: "2025-09-20T11:15:00Z",
-    },
-    lastAnnouncement: {
-      title: "New reading list",
-      date: "2025-09-15T09:00:00Z",
-    },
-  },
-  {
-    id: "inactive-004",
-    communityId: "comm-023",
-    communityName: "Forgotten Fitness Group",
-    category: "Health",
-    memberCount: 93,
-    lastActivity: "2025-10-01T07:45:00Z",
-    lastActivityType: "announcement",
-    inactiveDays: 52,
-    createdAt: "2025-07-10T08:00:00Z",
-    status: "suspended",
-    reactivationRequested: false,
-    admin: {
-      name: "Fitness Coach",
-      email: "coach@example.com",
-    },
-    lastEvent: {
-      title: "Morning Yoga Session",
-      date: "2025-09-28T06:00:00Z",
-    },
-    lastAnnouncement: {
-      title: "Workout tips for beginners",
-      date: "2025-10-01T07:45:00Z",
-    },
-  },
-  {
-    id: "inactive-005",
-    communityId: "comm-024",
-    communityName: "Dormant Music Lovers",
-    category: "Music",
-    memberCount: 156,
-    lastActivity: "2025-09-25T16:00:00Z",
-    lastActivityType: "event",
-    inactiveDays: 58,
-    createdAt: "2025-03-05T14:20:00Z",
-    status: "suspended",
-    reactivationRequested: true,
-    requestedAt: "2025-11-19T16:45:00Z",
-    admin: {
-      name: "Music Director",
-      email: "music@example.com",
-    },
-    lastEvent: {
-      title: "Live Music Showcase",
-      date: "2025-09-25T16:00:00Z",
-    },
-    lastAnnouncement: {
-      title: "New playlist recommendations",
-      date: "2025-09-22T12:00:00Z",
-    },
-  },
-  {
-    id: "inactive-006",
-    communityId: "comm-025",
-    communityName: "Stale Photography Hub",
-    category: "Photography",
-    memberCount: 201,
-    lastActivity: "2025-10-05T13:30:00Z",
-    inactiveDays: 48,
-    createdAt: "2025-02-14T10:15:00Z",
-    status: "inactive",
-    admin: {
-      name: "Photo Pro",
-      email: "photopro@example.com",
-    },
-    lastPost: {
-      title: "Photo challenge results",
-      date: "2025-10-05T13:30:00Z",
-    },
-  },
-];
-
 export default function SuperadminPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -1193,8 +1042,26 @@ export default function SuperadminPage() {
       }
     };
 
+    const fetchInactiveCommunities = async () => {
+      setIsLoadingInactive(true);
+      try {
+        const response = await fetch("/api/superadmin/inactive-communities");
+        if (!response.ok) {
+          throw new Error("Failed to fetch inactive communities");
+        }
+        const data = await response.json();
+        setInactiveCommunities(data.communities || []);
+      } catch (error) {
+        console.error("Error fetching inactive communities:", error);
+        toast.error("Failed to load inactive communities");
+      } finally {
+        setIsLoadingInactive(false);
+      }
+    };
+
     if (activeTab === "reports") {
       fetchReports();
+      fetchInactiveCommunities();
     }
   }, [activeTab]);
 
@@ -1212,6 +1079,10 @@ export default function SuperadminPage() {
   const [reportedCommunities, setReportedCommunities] = useState<any[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(true);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
+  
+  // API state for inactive communities
+  const [inactiveCommunities, setInactiveCommunities] = useState<any[]>([]);
+  const [isLoadingInactive, setIsLoadingInactive] = useState(true);
 
   // Report detail dialog state
   const [reportDetailPage, setReportDetailPage] = useState(1);
@@ -1318,7 +1189,7 @@ export default function SuperadminPage() {
 
   // Sort inactive communities by inactive days (longest first)
   // Filter and sort inactive communities
-  const filteredInactiveCommunities = mockInactiveCommunities.filter(
+  const filteredInactiveCommunities = inactiveCommunities.filter(
     (community) =>
       community.communityName
         .toLowerCase()
@@ -1367,10 +1238,10 @@ export default function SuperadminPage() {
     setCommunityDetailTab("overview");
   };
 
-  // Handle report actions (suspend, dismiss, resolve)
+  // Handle report actions (suspend, dismiss, resolve, reactivate)
   const handleReportAction = async (
     communityId: string,
-    action: "suspend" | "dismiss" | "resolve",
+    action: "suspend" | "dismiss" | "resolve" | "reactivate",
     reportIds?: string[]
   ) => {
     setIsProcessingAction(true);
@@ -1394,11 +1265,18 @@ export default function SuperadminPage() {
       const data = await response.json();
       toast.success(`Community ${action}ed successfully`);
 
-      // Refresh reports
-      const refreshResponse = await fetch("/api/superadmin/reports");
-      if (refreshResponse.ok) {
-        const refreshData = await refreshResponse.json();
-        setReportedCommunities(refreshData.reports || []);
+      // Refresh reports if action was on a reported community
+      if (action === "suspend" || action === "dismiss" || action === "resolve") {
+        const refreshResponse = await fetch("/api/superadmin/reports");
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json();
+          setReportedCommunities(refreshData.reports || []);
+        }
+      }
+
+      // Refresh inactive communities if action was reactivate
+      if (action === "reactivate") {
+        fetchInactiveCommunities();
       }
 
       // Close dialog if open
@@ -2255,7 +2133,7 @@ export default function SuperadminPage() {
                 </h3>
                 <div className="text-sm text-gray-600">
                   Total Reports: {reportedCommunities.length} | Inactive:{" "}
-                  {mockInactiveCommunities.length}
+                  {inactiveCommunities.length}
                 </div>
               </div>
 
@@ -2323,11 +2201,21 @@ export default function SuperadminPage() {
                             className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                           >
                             <td className="py-4 px-4">
-                              <div className="font-medium text-gray-900">
-                                {report.communityName}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {report.communityDetails.admin.name}
+                              <div className="flex items-center gap-2">
+                                <div>
+                                  <div className="font-medium text-gray-900">
+                                    {report.communityName}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {report.communityDetails.admin.name}
+                                  </div>
+                                </div>
+                                {report.communityStatus === "suspended" && (
+                                  <Badge className="bg-red-500 text-white text-xs">
+                                    <Ban className="h-3 w-3 mr-1" />
+                                    Suspended
+                                  </Badge>
+                                )}
                               </div>
                             </td>
                             <td className="py-4 px-4">
@@ -2367,22 +2255,41 @@ export default function SuperadminPage() {
                                   <Eye className="h-4 w-4 mr-1" />
                                   View
                                 </AnimatedButton>
-                                <AnimatedButton
-                                  variant="glass"
-                                  size="sm"
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  onClick={() => handleReportAction(report.communityId, "suspend")}
-                                  disabled={isProcessingAction}
-                                >
-                                  {isProcessingAction ? (
-                                    <Spinner size="sm" />
-                                  ) : (
-                                    <>
-                                      <Ban className="h-4 w-4 mr-1" />
-                                      Suspend
-                                    </>
-                                  )}
-                                </AnimatedButton>
+                                {report.communityStatus === "suspended" ? (
+                                  <AnimatedButton
+                                    variant="glass"
+                                    size="sm"
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    onClick={() => handleReportAction(report.communityId, "reactivate")}
+                                    disabled={isProcessingAction}
+                                  >
+                                    {isProcessingAction ? (
+                                      <Spinner size="sm" />
+                                    ) : (
+                                      <>
+                                        <RotateCcw className="h-4 w-4 mr-1" />
+                                        Reactivate
+                                      </>
+                                    )}
+                                  </AnimatedButton>
+                                ) : (
+                                  <AnimatedButton
+                                    variant="glass"
+                                    size="sm"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => handleReportAction(report.communityId, "suspend")}
+                                    disabled={isProcessingAction}
+                                  >
+                                    {isProcessingAction ? (
+                                      <Spinner size="sm" />
+                                    ) : (
+                                      <>
+                                        <Ban className="h-4 w-4 mr-1" />
+                                        Suspend
+                                      </>
+                                    )}
+                                  </AnimatedButton>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -2497,7 +2404,18 @@ export default function SuperadminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedInactiveCommunities.length === 0 ? (
+                      {isLoadingInactive ? (
+                        <tr>
+                          <td
+                            colSpan={5}
+                            className="text-center py-12"
+                          >
+                            <div className="flex items-center justify-center">
+                              <Spinner size="lg" />
+                            </div>
+                          </td>
+                        </tr>
+                      ) : paginatedInactiveCommunities.length === 0 ? (
                         <tr>
                           <td
                             colSpan={5}
@@ -2559,21 +2477,39 @@ export default function SuperadminPage() {
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              {community.reactivationRequested ? (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs text-yellow-600 border-yellow-300"
+                              <div className="flex items-center gap-2">
+                                {community.reactivationRequested ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs text-yellow-600 border-yellow-300"
+                                  >
+                                    Reactivation Requested
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs text-gray-400"
+                                  >
+                                    No request
+                                  </Badge>
+                                )}
+                                <AnimatedButton
+                                  variant="glass"
+                                  size="sm"
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  onClick={() => handleReportAction(community.id, "reactivate")}
+                                  disabled={isProcessingAction}
                                 >
-                                  Reactivation Requested
-                                </Badge>
-                              ) : (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs text-gray-400"
-                                >
-                                  No request
-                                </Badge>
-                              )}
+                                  {isProcessingAction ? (
+                                    <Spinner size="sm" />
+                                  ) : (
+                                    <>
+                                      <RotateCcw className="h-4 w-4 mr-1" />
+                                      Reactivate
+                                    </>
+                                  )}
+                                </AnimatedButton>
+                              </div>
                             </td>
                           </tr>
                         ))

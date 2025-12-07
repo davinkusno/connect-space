@@ -34,7 +34,9 @@ Based on the community name "${name}" and the selected interests (${interests.jo
 - Includes a call to action to join
 - Uses the community name "${name}" naturally in the description
 
-Write a description that would make people want to join this specific community.`;
+Write a description that would make people want to join this specific community.
+
+IMPORTANT: The description MUST be 500 words or less. Keep it concise and engaging.`;
 
     try {
       const description = await aiClient.generateText(
@@ -42,7 +44,7 @@ Write a description that would make people want to join this specific community.
         {
           systemPrompt:
             "You are a community manager expert who writes compelling community descriptions that attract engaged members.",
-          maxTokens: 300,
+          maxTokens: 600, // Increased to allow up to 500 words
           temperature: 0.7,
         }
       );
@@ -51,7 +53,18 @@ Write a description that would make people want to join this specific community.
         throw new Error("No description generated");
       }
 
-      return NextResponse.json({ description });
+      // Helper function to truncate to 500 words
+      const truncateToWords = (text: string, maxWords: number = 500): string => {
+        const words = text.trim().split(/\s+/);
+        if (words.length <= maxWords) {
+          return text;
+        }
+        return words.slice(0, maxWords).join(" ") + "...";
+      };
+
+      const truncatedDescription = truncateToWords(description, 500);
+
+      return NextResponse.json({ description: truncatedDescription });
     } catch (error) {
       console.error("AI generation failed, using fallback:", error);
 
