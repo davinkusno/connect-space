@@ -104,3 +104,77 @@ export interface RecommendationOptions {
     popularity?: number
   }
 }
+
+// Event Recommendation Types
+export interface Event {
+  id: string
+  title: string
+  description: string
+  category: string
+  tags: string[]
+  communityId: string
+  communityName?: string
+  creatorId: string
+  location?: {
+    lat: number
+    lng: number
+    city: string
+    address: string
+    venue?: string
+  }
+  isOnline: boolean
+  startTime: Date
+  endTime: Date
+  maxAttendees: number | null
+  currentAttendees: number
+  createdAt: Date
+  imageUrl?: string
+  contentTopics: string[]
+}
+
+export interface EventRecommendationScore {
+  eventId: string
+  score: number
+  confidence: number
+  method: string
+  reasons: EventRecommendationReason[]
+}
+
+export interface EventRecommendationReason {
+  type:
+    | "interest_match"
+    | "community_member"
+    | "location_proximity"
+    | "similar_users"
+    | "popularity"
+    | "timing"
+    | "social_connection"
+  description: string
+  weight: number
+  evidence: any
+}
+
+export interface EventRecommendationResult {
+  recommendations: EventRecommendationScore[]
+  metadata: {
+    totalEvents: number
+    algorithmsUsed: string[]
+    processingTime: number
+    diversityScore: number
+  }
+}
+
+export interface EventRecommendationOptions {
+  maxRecommendations?: number
+  includePopular?: boolean
+  diversityWeight?: number
+  dateRangeFilter?: "all" | "today" | "week" | "month"
+  includeOnlineOnly?: boolean
+  includeInPersonOnly?: boolean
+  algorithmWeights?: {
+    collaborative?: number
+    contentBased?: number
+    popularity?: number
+    community?: number
+  }
+}

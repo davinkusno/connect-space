@@ -29,6 +29,7 @@ export function CitySearch({
   const [countries, setCountries] = useState<Country[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -138,9 +139,9 @@ export function CitySearch({
   }, {} as Record<string, City[]>);
 
   return (
-    <div className={cn("relative w-full", className)} style={{ zIndex: 10000 }}>
-      <div className="relative">
-        <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 z-10" />
+    <div className={cn("relative w-full", className)}>
+      <div className="relative h-full">
+        <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 z-10 pointer-events-none" />
         <Input
           ref={inputRef}
           type="text"
@@ -152,7 +153,7 @@ export function CitySearch({
             }
           }}
           placeholder={placeholder}
-          className="pl-12 pr-10 py-4 text-lg border-0 rounded-none focus:ring-0 focus:outline-none text-gray-900 placeholder:text-gray-500 h-full"
+          className="pl-12 pr-10 py-4 text-lg border-0 rounded-none focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 text-gray-900 placeholder:text-gray-500 h-full w-full"
         />
         {query && (
           <Button
@@ -175,15 +176,7 @@ export function CitySearch({
       {showResults && (cities.length > 0 || countries.length > 0 || isSearching) && (
         <div
           ref={resultsRef}
-          className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-96 overflow-y-auto"
-          style={{
-            position: "absolute",
-            top: "100%",
-            left: 0,
-            right: 0,
-            marginTop: "8px",
-            zIndex: 99999,
-          }}
+          className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-96 overflow-y-auto z-[9999]"
         >
           {isSearching ? (
             <div className="p-4 text-center">

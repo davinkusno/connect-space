@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import {
   Star,
   Search,
   ChevronRight,
+  ChevronLeft,
   Map,
   Calendar,
   X,
@@ -78,6 +79,9 @@ export default function DiscoverPage() {
   // Membership status tracking
   const [membershipStatus, setMembershipStatus] = useState<Record<string, "joined" | "pending" | "not_joined">>({});
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
 
   // Get user's current location with callback
   const getUserLocationCommunities = (callback?: (city: string) => void) => {
@@ -132,15 +136,15 @@ export default function DiscoverPage() {
 
   const categories = [
     { value: "all", label: "All Categories", icon: "🎯", color: "bg-gray-100" },
-    { value: "hobbies-crafts", label: "Hobbies & Crafts", icon: "🎮", color: "bg-purple-100" },
-    { value: "sports-fitness", label: "Sports & Fitness", icon: "⚽", color: "bg-blue-100" },
-    { value: "career-business", label: "Career & Business", icon: "💼", color: "bg-indigo-100" },
-    { value: "tech-innovation", label: "Tech & Innovation", icon: "💻", color: "bg-cyan-100" },
-    { value: "arts-culture", label: "Arts & Culture", icon: "🎭", color: "bg-red-100" },
-    { value: "social-community", label: "Social & Community", icon: "🤝", color: "bg-green-100" },
-    { value: "education-learning", label: "Education & Learning", icon: "📚", color: "bg-yellow-100" },
-    { value: "travel-adventure", label: "Travel & Adventure", icon: "✈️", color: "bg-orange-100" },
-    { value: "food-drink", label: "Food & Drink", icon: "🍷", color: "bg-amber-100" },
+    { value: "hobbies & crafts", label: "Hobbies & Crafts", icon: "🎮", color: "bg-purple-100" },
+    { value: "sports & fitness", label: "Sports & Fitness", icon: "⚽", color: "bg-blue-100" },
+    { value: "career & business", label: "Career & Business", icon: "💼", color: "bg-indigo-100" },
+    { value: "tech & innovation", label: "Tech & Innovation", icon: "💻", color: "bg-cyan-100" },
+    { value: "arts & culture", label: "Arts & Culture", icon: "🎭", color: "bg-red-100" },
+    { value: "social & community", label: "Social & Community", icon: "🤝", color: "bg-green-100" },
+    { value: "education & learning", label: "Education & Learning", icon: "📚", color: "bg-yellow-100" },
+    { value: "travel & adventure", label: "Travel & Adventure", icon: "✈️", color: "bg-orange-100" },
+    { value: "food & drink", label: "Food & Drink", icon: "🍷", color: "bg-amber-100" },
     { value: "entertainment", label: "Entertainment", icon: "🎉", color: "bg-pink-100" },
   ];
 
@@ -469,6 +473,29 @@ export default function DiscoverPage() {
     setCurrentPage(1);
   }, [searchQuery, locationQuery, selectedCategory, membershipFilter]);
 
+  // Check scroll position on mount and when layout changes
+  useEffect(() => {
+    const checkScroll = () => {
+      if (categoryScrollRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = categoryScrollRef.current;
+        setShowLeftArrow(scrollLeft > 0);
+        setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+      }
+    };
+
+    checkScroll();
+    // Check again after a short delay to ensure layout is complete
+    const timer = setTimeout(checkScroll, 100);
+    
+    // Also check on window resize
+    window.addEventListener("resize", checkScroll);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", checkScroll);
+    };
+  }, []); // Empty dependency array - only run on mount
+
   const EnhancedCommunityCard = React.memo(
     ({
       community,
@@ -646,7 +673,7 @@ export default function DiscoverPage() {
                   <div className="w-px bg-gray-300 my-2"></div>
 
                   {/* Location Input with City Search */}
-                  <div className="relative w-64 z-[10001]">
+                  <div className="relative w-64">
                     <CitySearch
                       value={locationQuery}
                       onCitySelect={(city) => {
@@ -732,17 +759,70 @@ export default function DiscoverPage() {
               </div>
 
               {/* Center: Categories (Horizontal Scroll - Centered) */}
-              <div className="flex-1 overflow-hidden">
-                <div className="flex items-center justify-center gap-4 overflow-x-auto scrollbar-hide">
+              <div className="flex-1 overflow-hidden min-w-0 relative">
+                {/* Left Arrow */}
+                {showLeftArrow && (
+                  <button
+                    onClick={() => {
+                      if (categoryScrollRef.current) {
+                        categoryScrollRef.current.scrollBy({
+                          left: -200,
+                          behavior: "smooth",
+                        });
+                      }
+                    }}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white border border-gray-200 rounded-full p-1.5 shadow-md transition-all"
+                    aria-label="Scroll left"
+                  >
+                    <ChevronLeft className="h-4 w-4 text-gray-600" />
+                  </button>
+                )}
+
+                {/* Right Arrow */}
+                {showRightArrow && (
+                  <button
+                    onClick={() => {
+                      if (categoryScrollRef.current) {
+                        categoryScrollRef.current.scrollBy({
+                          left: 200,
+                          behavior: "smooth",
+                        });
+                      }
+                    }}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white border border-gray-200 rounded-full p-1.5 shadow-md transition-all"
+                    aria-label="Scroll right"
+                  >
+                    <ChevronRight className="h-4 w-4 text-gray-600" />
+                  </button>
+                )}
+
+                <div
+                  ref={categoryScrollRef}
+                  className="flex items-center gap-4 overflow-x-auto scrollbar-hide px-6 py-1"
+                  onScroll={() => {
+                    if (categoryScrollRef.current) {
+                      const { scrollLeft, scrollWidth, clientWidth } = categoryScrollRef.current;
+                      setShowLeftArrow(scrollLeft > 0);
+                      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+                    }
+                  }}
+                >
                   {categories.map((category) => (
                     <button
                       key={category.value}
-                      onClick={() => setSelectedCategory(category.value)}
+                      onClick={() => {
+                        // Allow deselecting by clicking the active category again
+                        if (selectedCategory === category.value) {
+                          setSelectedCategory("all");
+                        } else {
+                          setSelectedCategory(category.value);
+                        }
+                      }}
                       className={cn(
-                        "text-sm font-medium whitespace-nowrap transition-colors",
+                        "text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 px-3 py-1.5 rounded-md",
                         selectedCategory === category.value
-                          ? "text-gray-900 underline underline-offset-8 decoration-2"
-                          : "text-gray-600 hover:text-gray-900"
+                          ? "text-gray-900 underline underline-offset-8 decoration-2 bg-gray-50"
+                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                       )}
                     >
                       {category.label}

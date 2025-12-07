@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -132,6 +132,9 @@ export default function EventsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [registrationStatus, setRegistrationStatus] = useState<Record<string | number, boolean>>({});
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch events from API
   useEffect(() => {
@@ -228,6 +231,29 @@ export default function EventsPage() {
     locationQuery,
   ]);
 
+  // Check scroll position on mount and when layout changes
+  useEffect(() => {
+    const checkScroll = () => {
+      if (categoryScrollRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = categoryScrollRef.current;
+        setShowLeftArrow(scrollLeft > 0);
+        setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+      }
+    };
+
+    checkScroll();
+    // Check again after a short delay to ensure layout is complete
+    const timer = setTimeout(checkScroll, 100);
+    
+    // Also check on window resize
+    window.addEventListener("resize", checkScroll);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", checkScroll);
+    };
+  }, []); // Empty dependency array - only run on mount
+
   // Fetch saved events from API
   const fetchSavedEvents = async () => {
     try {
@@ -280,12 +306,16 @@ export default function EventsPage() {
 
   const categories = [
     { value: "all", label: "All Categories", icon: "🎯" },
-    { value: "technology", label: "Technology", icon: "💻" },
-    { value: "business", label: "Business", icon: "💼" },
-    { value: "marketing", label: "Marketing", icon: "📈" },
-    { value: "design", label: "Design", icon: "🎨" },
-    { value: "health", label: "Health", icon: "🏥" },
-    { value: "education", label: "Education", icon: "📚" },
+    { value: "tech & innovation", label: "Tech & Innovation", icon: "💻" },
+    { value: "career & business", label: "Career & Business", icon: "💼" },
+    { value: "hobbies & crafts", label: "Hobbies & Crafts", icon: "🎨" },
+    { value: "sports & fitness", label: "Sports & Fitness", icon: "⚽" },
+    { value: "arts & culture", label: "Arts & Culture", icon: "🎭" },
+    { value: "education & learning", label: "Education & Learning", icon: "📚" },
+    { value: "social & community", label: "Social & Community", icon: "👥" },
+    { value: "travel & adventure", label: "Travel & Adventure", icon: "✈️" },
+    { value: "food & drink", label: "Food & Drink", icon: "🍔" },
+    { value: "entertainment", label: "Entertainment", icon: "🎬" },
   ];
 
   const filteredEvents = useMemo(() => {
@@ -1023,17 +1053,70 @@ export default function EventsPage() {
                 </div>
 
                 {/* Center: Categories (Horizontal Scroll - Centered) */}
-                <div className="flex-1 overflow-hidden">
-                  <div className="flex items-center justify-center gap-4 overflow-x-auto scrollbar-hide">
+                <div className="flex-1 overflow-hidden min-w-0 relative">
+                  {/* Left Arrow */}
+                  {showLeftArrow && (
+                    <button
+                      onClick={() => {
+                        if (categoryScrollRef.current) {
+                          categoryScrollRef.current.scrollBy({
+                            left: -200,
+                            behavior: "smooth",
+                          });
+                        }
+                      }}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white border border-gray-200 rounded-full p-1.5 shadow-md transition-all"
+                      aria-label="Scroll left"
+                    >
+                      <ChevronLeft className="h-4 w-4 text-gray-600" />
+                    </button>
+                  )}
+
+                  {/* Right Arrow */}
+                  {showRightArrow && (
+                    <button
+                      onClick={() => {
+                        if (categoryScrollRef.current) {
+                          categoryScrollRef.current.scrollBy({
+                            left: 200,
+                            behavior: "smooth",
+                          });
+                        }
+                      }}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white border border-gray-200 rounded-full p-1.5 shadow-md transition-all"
+                      aria-label="Scroll right"
+                    >
+                      <ChevronRight className="h-4 w-4 text-gray-600" />
+                    </button>
+                  )}
+
+                  <div
+                    ref={categoryScrollRef}
+                    className="flex items-center gap-4 overflow-x-auto scrollbar-hide px-6 py-1"
+                    onScroll={() => {
+                      if (categoryScrollRef.current) {
+                        const { scrollLeft, scrollWidth, clientWidth } = categoryScrollRef.current;
+                        setShowLeftArrow(scrollLeft > 0);
+                        setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+                      }
+                    }}
+                  >
                     {categories.map((category) => (
                       <button
                         key={category.value}
-                        onClick={() => setSelectedCategory(category.value)}
+                        onClick={() => {
+                          // Allow deselecting by clicking the active category again
+                          if (selectedCategory === category.value) {
+                            setSelectedCategory("all");
+                          } else {
+                            setSelectedCategory(category.value);
+                          }
+                        }}
                         className={cn(
-                          "text-sm font-medium whitespace-nowrap transition-colors",
+                          "text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 px-3 py-1.5 rounded-md",
                           selectedCategory === category.value
-                            ? "text-gray-900 underline underline-offset-8 decoration-2"
-                            : "text-gray-600 hover:text-gray-900"
+                            ? "text-gray-900 underline underline-offset-8 decoration-2 bg-gray-50"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                         )}
                       >
                         {category.label}
