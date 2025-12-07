@@ -62,15 +62,9 @@ export class PopularityBasedAlgorithm {
 
     // Engagement score
     const engagementScore = community.engagementScore / 100
-    score += engagementScore * 0.25
-    factors += 0.25
+    score += engagementScore * 0.35
+    factors += 0.35
     evidence.engagementScore = community.engagementScore
-
-    // Average rating
-    const ratingScore = community.averageRating / 5
-    score += ratingScore * 0.2
-    factors += 0.2
-    evidence.averageRating = community.averageRating
 
     // Recency of activity
     const daysSinceActivity = (Date.now() - community.lastActivity.getTime()) / (1000 * 60 * 60 * 24)
@@ -105,9 +99,6 @@ export class PopularityBasedAlgorithm {
     let description = `Popular community with ${community.memberCount} members`
     if (community.growthRate > 0.1) {
       description += ` and ${(community.growthRate * 100).toFixed(0)}% growth`
-    }
-    if (community.averageRating >= 4.5) {
-      description += `, highly rated (${community.averageRating}/5)`
     }
 
     return {

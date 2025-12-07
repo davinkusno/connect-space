@@ -5,7 +5,6 @@ export interface Community {
   category: string
   tags: string[]
   memberCount: number
-  averageRating: number
   location: {
     lat: number
     lng: number

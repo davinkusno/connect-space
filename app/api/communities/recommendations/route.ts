@@ -299,7 +299,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         location: location, // undefined for online communities without location
         createdAt: new Date(comm.created_at),
         lastActivity: new Date(comm.created_at), // Can be enhanced with actual last activity
-        averageRating: 4.5, // Default, can be calculated from reviews
         growthRate: 0, // Can be calculated from historical data
         engagementScore: calculateEngagementScore(comm.member_count || 0),
         contentTopics: contentTopics, // Keywords extracted from name and description

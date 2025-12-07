@@ -19,7 +19,6 @@ import {
   Star,
   Search,
   ChevronRight,
-  Heart,
   Map,
   Calendar,
   X,
@@ -69,7 +68,6 @@ export default function DiscoverPage() {
 
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
-  const [savedCommunities, setSavedCommunities] = useState<string[]>([]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6); // Set to 6 for testing recommendations
@@ -363,7 +361,6 @@ export default function DiscoverPage() {
             category: categoryName,
             tags: [], // Tags column doesn't exist in database yet
             memberCount: comm.member_count || 0,
-            averageRating: 4.5, // Default rating (can be calculated from reviews if you have them)
             location: parsedLocation,
             activityLevel: "medium", // Can be calculated based on recent activity
             image:
@@ -420,6 +417,7 @@ export default function DiscoverPage() {
     // Location filter
     if (locationQuery) {
       filtered = filtered.filter((community) => {
+        if (!community.location) return false;
         const city = community.location.city;
         return city && city.toLowerCase().includes(locationQuery.toLowerCase());
       });
@@ -459,13 +457,6 @@ export default function DiscoverPage() {
     return filtered;
   }, [communities, searchQuery, locationQuery, selectedCategory, membershipFilter, membershipStatus, currentUser]);
 
-  const toggleSaveCommunity = useCallback((communityId: string) => {
-    setSavedCommunities((prev) =>
-      prev.includes(communityId)
-        ? prev.filter((id) => id !== communityId)
-        : [...prev, communityId]
-    );
-  }, []);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredCommunities.length / itemsPerPage);
@@ -486,8 +477,6 @@ export default function DiscoverPage() {
       community: Community;
       isListView?: boolean;
     }) => {
-      const isSaved = savedCommunities.includes(community.id);
-
       // Determine border color based on membership status
       const getBorderColor = () => {
         if (!currentUser) return "border-gray-200";
@@ -526,18 +515,6 @@ export default function DiscoverPage() {
                   )}
                 </>
               )}
-              <Button
-                size="icon"
-                className={`rounded-full backdrop-blur-sm bg-white/30 hover:bg-white/50 text-white hover:text-red-500 transition-colors h-9 w-9 ${
-                  isSaved ? "text-red-500" : ""
-                }`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  toggleSaveCommunity(community.id);
-                }}
-              >
-                <Heart className={`h-5 w-5 ${isSaved ? "fill-current" : ""}`} />
-              </Button>
             </div>
             <div className="absolute bottom-4 right-4 flex items-center gap-2 text-white">
               <div className="flex items-center gap-1 backdrop-blur-sm bg-black/30 px-2 py-1 rounded-full text-xs">

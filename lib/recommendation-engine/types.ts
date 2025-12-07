@@ -53,7 +53,6 @@ export interface Community {
   }
   createdAt: Date
   lastActivity: Date
-  averageRating: number
   growthRate: number
   engagementScore: number
   contentTopics: string[]

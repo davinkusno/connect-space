@@ -1238,8 +1238,6 @@ export default function EventsPage() {
           </Tabs>
         </div>
 
-        <EnhancedChatbotWidget context="events" size="normal" />
-
         {/* Unsave Confirmation Dialog */}
         <AlertDialog open={isUnsaveDialogOpen} onOpenChange={setIsUnsaveDialogOpen}>
           <AlertDialogContent>
