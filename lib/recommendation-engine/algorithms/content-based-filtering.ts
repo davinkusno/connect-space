@@ -1,6 +1,36 @@
 import type { User, Community, RecommendationScore } from "../types"
 
+// Keywords mapping for user interests to help match with community content
+const INTEREST_KEYWORDS: Record<string, string[]> = {
+  "hobbies & crafts": ["hobby", "craft", "diy", "handmade", "creative", "maker", "gaming", "game", "collection", "collector"],
+  "sports & fitness": ["sport", "fitness", "gym", "workout", "exercise", "running", "cycling", "yoga", "athletic", "health", "basketball", "football", "soccer", "swimming", "tennis", "badminton", "volleyball"],
+  "career & business": ["career", "business", "professional", "networking", "entrepreneur", "startup", "job", "work", "corporate", "leadership", "management"],
+  "tech & innovation": ["tech", "technology", "programming", "coding", "developer", "software", "hardware", "ai", "machine learning", "data", "digital", "innovation", "computer", "it", "web", "app"],
+  "arts & culture": ["art", "culture", "museum", "gallery", "painting", "sculpture", "design", "creative", "artist", "cultural", "heritage"],
+  "social & community": ["social", "community", "volunteer", "charity", "nonprofit", "help", "support", "connect", "meetup", "gathering"],
+  "education & learning": ["education", "learning", "study", "course", "workshop", "training", "skill", "knowledge", "academic", "school", "university", "teach"],
+  "travel & adventure": ["travel", "adventure", "explore", "trip", "journey", "hiking", "outdoor", "nature", "tourism", "backpack"],
+  "food & drink": ["food", "drink", "cooking", "culinary", "restaurant", "recipe", "cuisine", "chef", "baking", "coffee", "wine", "beer"],
+  "entertainment": ["entertainment", "movie", "film", "music", "concert", "show", "theater", "performance", "fun", "party", "event"],
+  // Database category mappings
+  "environmental": ["environment", "nature", "sustainability", "green", "eco", "climate", "conservation", "wildlife", "recycling"],
+  "music": ["music", "band", "concert", "instrument", "song", "singing", "musician", "guitar", "piano", "dj"],
+  "sports": ["sport", "fitness", "athletic", "game", "team", "competition", "training"],
+  "hobbies": ["hobby", "craft", "gaming", "collection", "leisure", "pastime"],
+  "education": ["education", "learning", "teaching", "academic", "study", "course", "workshop"],
+  "art": ["art", "artist", "creative", "design", "painting", "drawing", "sculpture", "gallery"],
+}
+
 export class ContentBasedFilteringAlgorithm {
+  private enableLogging = true
+  private _loggedCommunities = false
+  
+  private log(...args: any[]) {
+    if (this.enableLogging) {
+      console.log("[CONTENT-BASED]", ...args)
+    }
+  }
+
   /**
    * Content-based recommendations using user interests and community attributes
    */
@@ -9,8 +39,15 @@ export class ContentBasedFilteringAlgorithm {
     communities: Community[],
     maxRecommendations = 10,
   ): Promise<RecommendationScore[]> {
+    this.log("=== Starting content-based filtering ===")
+    this.log("User interests:", user.interests)
+    this.log("User preferred categories:", user.preferences.preferredCategories)
+    this.log("Total communities:", communities.length)
+    this.log("User joined communities:", user.joinedCommunities.length)
+    
     // Filter out communities user has already joined
     const candidateCommunities = communities.filter((c) => !user.joinedCommunities.includes(c.id))
+    this.log("Candidate communities (excluding joined):", candidateCommunities.length)
 
     const scores = candidateCommunities.map((community) => {
       const score = this.calculateContentBasedScore(user, community)
@@ -23,7 +60,35 @@ export class ContentBasedFilteringAlgorithm {
       }
     })
 
-    return scores.sort((a, b) => b.score - a.score).slice(0, maxRecommendations)
+    // Log scores distribution
+    const withScore = scores.filter(s => s.score > 0)
+    const aboveThreshold = scores.filter(s => s.score > 0.1)
+    this.log("Communities with any score (> 0):", withScore.length)
+    this.log("Communities above threshold (> 0.1):", aboveThreshold.length)
+    
+    // Log top 5 scoring communities
+    const sortedScores = [...scores].sort((a, b) => b.score - a.score)
+    this.log("Top 5 scored communities:")
+    sortedScores.slice(0, 5).forEach((s, i) => {
+      const comm = communities.find(c => c.id === s.communityId)
+      this.log(`  ${i + 1}. ${comm?.name} - score: ${s.score.toFixed(3)}, category: ${comm?.category}`)
+    })
+    
+    // Log bottom 5 (to see what's not matching)
+    this.log("Bottom 5 scored communities (to debug non-matches):")
+    sortedScores.slice(-5).forEach((s, i) => {
+      const comm = communities.find(c => c.id === s.communityId)
+      this.log(`  ${i + 1}. ${comm?.name} - score: ${s.score.toFixed(3)}, category: ${comm?.category}`)
+    })
+
+    // Only return communities with a meaningful score (> 0.1)
+    const result = scores
+      .filter((s) => s.score > 0.1)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, maxRecommendations)
+    
+    this.log("Returning", result.length, "recommendations")
+    return result
   }
 
   private calculateContentBasedScore(
@@ -43,67 +108,70 @@ export class ContentBasedFilteringAlgorithm {
     let totalWeight = 0
     const reasons: any[] = []
 
-    // Interest matching
-    const interestScore = this.calculateInterestMatch(user.interests, community.tags, community.contentTopics)
-    if (interestScore.score > 0) {
-      totalScore += interestScore.score * 0.4
+    // FIRST: Check category match - this is the PRIMARY filter
+    const categoryMatch = this.checkCategoryMatch(user.preferences.preferredCategories, community.category)
+    
+    // If community has a proper category (not "General") and it doesn't match user's interests,
+    // give it a very low score
+    const hasCategoryMismatch = community.category !== "General" && !categoryMatch.matched
+    
+    if (categoryMatch.matched) {
+      // Category matches - give high base score
+      totalScore += 0.9 * 0.4 // High weight for category match
       totalWeight += 0.4
       reasons.push({
         type: "interest_match",
-        description: `Matches your interests: ${interestScore.matchedInterests.join(", ")}`,
-        weight: 0.4,
-        evidence: { matchedInterests: interestScore.matchedInterests, score: interestScore.score },
-      })
-    }
-
-    // Category preference
-    if (user.preferences.preferredCategories.includes(community.category)) {
-      totalScore += 0.8 * 0.2
-      totalWeight += 0.2
-      reasons.push({
-        type: "interest_match",
         description: `Matches your preferred category: ${community.category}`,
-        weight: 0.2,
-        evidence: { category: community.category },
+        weight: 0.4,
+        evidence: { category: community.category, matchedPreference: categoryMatch.matchedPreference },
       })
+    } else if (hasCategoryMismatch) {
+      // Category doesn't match and community has a specific category - heavily penalize
+      this.log(`Category mismatch: ${community.name} is "${community.category}" but user wants ${user.preferences.preferredCategories.join(", ")}`)
+      return { score: 0.05, confidence: 0.3, reasons: [] } // Return very low score
+    }
+    // For "General" category communities, continue with keyword matching
+
+    // Enhanced interest matching - only if category already matches
+    // This prevents false positives from keyword matching
+    if (categoryMatch.matched) {
+      const interestScore = this.calculateEnhancedInterestMatch(user.interests, community)
+      if (interestScore.score > 0) {
+        totalScore += interestScore.score * 0.35
+        totalWeight += 0.35
+        reasons.push({
+          type: "interest_match",
+          description: `Matches your interests: ${interestScore.matchedInterests.join(", ")}`,
+          weight: 0.35,
+          evidence: { matchedInterests: interestScore.matchedInterests, score: interestScore.score },
+        })
+      }
     }
 
     // Location proximity (only if both user and community have location)
-    // For online communities without location, this factor is skipped
-    if (user.location && community.location) {
+    if (user.location && community.location && community.location.lat !== 0 && community.location.lng !== 0) {
       const locationScore = this.calculateLocationScore(user, community)
       if (locationScore.score > 0) {
-        totalScore += locationScore.score * 0.2
-        totalWeight += 0.2
+        totalScore += locationScore.score * 0.15
+        totalWeight += 0.15
         reasons.push({
           type: "location_proximity",
           description: `Located ${locationScore.distance.toFixed(1)}km from you`,
-          weight: 0.2,
+          weight: 0.15,
           evidence: { distance: locationScore.distance, score: locationScore.score },
         })
       }
-    } else if (!community.location && interestScore.score > 0) {
-      // For online communities without location, boost interest matching slightly
-      // This ensures online communities aren't penalized for not having location
-      totalScore += interestScore.score * 0.1 // Small boost for online communities
-      totalWeight += 0.1
-      reasons.push({
-        type: "interest_match",
-        description: `Online community - matches your interests`,
-        weight: 0.1,
-        evidence: { isOnline: true, matchedInterests: interestScore.matchedInterests },
-      })
     }
 
     // Activity level matching
     const activityScore = this.calculateActivityMatch(user, community)
     if (activityScore > 0) {
-      totalScore += activityScore * 0.1
-      totalWeight += 0.1
+      totalScore += activityScore * 0.05
+      totalWeight += 0.05
       reasons.push({
         type: "activity_match",
         description: `Activity level matches your preference`,
-        weight: 0.1,
+        weight: 0.05,
         evidence: { userLevel: user.activityLevel, communityLevel: community.activityLevel },
       })
     }
@@ -112,21 +180,127 @@ export class ContentBasedFilteringAlgorithm {
     if (user.preferences.communitySize) {
       const sizeScore = this.calculateSizeMatch(user.preferences.communitySize, community.memberCount)
       if (sizeScore > 0) {
-        totalScore += sizeScore * 0.1
-        totalWeight += 0.1
+        totalScore += sizeScore * 0.05
+        totalWeight += 0.05
         reasons.push({
           type: "demographic_match",
           description: `Community size matches your preference`,
-          weight: 0.1,
+          weight: 0.05,
           evidence: { preferredSize: user.preferences.communitySize, actualSize: community.memberCount },
         })
       }
     }
 
     const finalScore = totalWeight > 0 ? totalScore / totalWeight : 0
-    const confidence = Math.min(0.9, totalWeight) // Confidence based on how many factors we could evaluate
+    const confidence = Math.min(0.9, totalWeight)
 
     return { score: finalScore, confidence, reasons }
+  }
+
+  /**
+   * Enhanced interest matching that checks community name, description, category, tags
+   */
+  private calculateEnhancedInterestMatch(
+    userInterests: string[],
+    community: Community,
+  ): { score: number; matchedInterests: string[] } {
+    const matchedInterests: string[] = []
+    let totalScore = 0
+
+    // Build searchable text from community
+    const communityText = [
+      community.name,
+      community.description,
+      community.category,
+      ...community.tags,
+      ...community.contentTopics,
+    ].join(" ").toLowerCase()
+
+    // Debug logging for first few communities
+    if (community.name && !this._loggedCommunities) {
+      this._loggedCommunities = true
+      this.log("Sample community text for matching:")
+      this.log(`  Name: ${community.name}`)
+      this.log(`  Category: ${community.category}`)
+      this.log(`  ContentTopics: ${community.contentTopics?.slice(0, 10).join(", ")}`)
+      this.log(`  User interests to match: ${userInterests.join(", ")}`)
+    }
+
+    // Get keywords for each user interest and check matches
+    // Use word boundary matching to avoid false positives
+    for (const interest of userInterests) {
+      const interestLower = interest.toLowerCase()
+      const keywords = INTEREST_KEYWORDS[interestLower] || []
+      
+      // Add the interest itself and its words as keywords
+      const interestWords = interestLower.split(/[\s&]+/).filter(w => w.length > 2)
+      const allKeywords = [...keywords, ...interestWords]
+      
+      let bestMatchScore = 0
+      
+      for (const keyword of allKeywords) {
+        // Use word boundary regex to avoid substring false matches
+        // Match whole words only (not substrings within other words)
+        const wordBoundaryRegex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+        if (wordBoundaryRegex.test(communityText)) {
+          // Exact keyword found as whole word in community text
+          bestMatchScore = Math.max(bestMatchScore, 1.0)
+        } else {
+          // Check for partial matches (e.g., "sport" matches "sports") with word boundary
+          const keywordBase = keyword.replace(/s$/, "") // Remove trailing 's'
+          if (keywordBase.length > 2) {
+            const baseRegex = new RegExp(`\\b${keywordBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i')
+            if (baseRegex.test(communityText)) {
+              bestMatchScore = Math.max(bestMatchScore, 0.8)
+            }
+          }
+        }
+      }
+      
+      if (bestMatchScore > 0) {
+        matchedInterests.push(interest)
+        totalScore += bestMatchScore
+      }
+    }
+
+    // Normalize score based on number of user interests
+    const normalizedScore = userInterests.length > 0 
+      ? Math.min(1, totalScore / userInterests.length)
+      : 0
+
+    return { score: normalizedScore, matchedInterests }
+  }
+
+  /**
+   * Check if user's preferred categories match the community category
+   */
+  private checkCategoryMatch(
+    preferredCategories: string[],
+    communityCategory: string,
+  ): { matched: boolean; matchedPreference: string | null } {
+    const categoryLower = communityCategory.toLowerCase()
+    
+    for (const pref of preferredCategories) {
+      const prefLower = pref.toLowerCase()
+      
+      // Direct match
+      if (prefLower === categoryLower) {
+        return { matched: true, matchedPreference: pref }
+      }
+      
+      // Check if category is contained in preference or vice versa
+      if (prefLower.includes(categoryLower) || categoryLower.includes(prefLower)) {
+        return { matched: true, matchedPreference: pref }
+      }
+      
+      // Check keyword-based mapping
+      const prefKeywords = INTEREST_KEYWORDS[prefLower] || []
+      if (prefKeywords.some(kw => categoryLower.includes(kw))) {
+        return { matched: true, matchedPreference: pref }
+      }
+    }
+    
+    return { matched: false, matchedPreference: null }
   }
 
   private calculateInterestMatch(
@@ -156,7 +330,7 @@ export class ContentBasedFilteringAlgorithm {
       }
     })
 
-    const score = Math.min(1, totalMatches / Math.max(userInterests.length, communityTerms.length))
+    const score = Math.min(1, totalMatches / Math.max(userInterests.length, communityTerms.length, 1))
     return { score, matchedInterests }
   }
 

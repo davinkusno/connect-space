@@ -39,7 +39,6 @@ export interface Database {
           name: string
           description: string | null
           creator_id: string
-          is_private: boolean
           created_at: string
           updated_at: string | null
           banner_url: string | null
@@ -50,7 +49,6 @@ export interface Database {
           name: string
           description?: string | null
           creator_id: string
-          is_private?: boolean
           created_at?: string
           updated_at?: string | null
           banner_url?: string | null
@@ -61,7 +59,6 @@ export interface Database {
           name?: string
           description?: string | null
           creator_id?: string
-          is_private?: boolean
           created_at?: string
           updated_at?: string | null
           banner_url?: string | null

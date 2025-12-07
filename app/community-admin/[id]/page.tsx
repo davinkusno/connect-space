@@ -320,7 +320,7 @@ export default function CommunityAdminPage({
           tags: tagsValue, // All interests as tags (can be multiple)
           createdAt: communityData.created_at ? new Date(communityData.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           isVerified: (communityData as any).is_verified || false,
-          privacy: (communityData.is_private ? "private" : "public") as "public" | "private" | "invite-only"
+          privacy: "public" as "public" | "private" | "invite-only"
       }
       
         setCommunity(actualCommunity)

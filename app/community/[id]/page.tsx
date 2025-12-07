@@ -601,26 +601,8 @@ export default function CommunityPage({
         // Should not reach here - leave is handled by handleLeaveCommunity
         return;
       } else {
-        // Join community (check if private)
-        if (community.is_private) {
-          // For private communities, try to create join request
-          // If table doesn't exist, show message to contact admin
-          const { error } = await supabase
-            .from("community_join_requests")
-            .insert({
-              community_id: id,
-              user_id: currentUser.id,
-              status: "pending"
-            });
-
-          if (error) {
-            // Table might not exist, show helpful message
-            toast.info("This is a private community. Please contact the community admin to request access.");
-          } else {
-            toast.info("Join request sent! Wait for admin approval.");
-          }
-        } else {
-          // Check if already a member (without selecting status to avoid cache issues)
+        // Join community
+        // Check if already a member (without selecting status to avoid cache issues)
           const { data: existingMember, error: checkError } = await supabase
             .from("community_members")
             .select("id")
@@ -688,7 +670,6 @@ export default function CommunityPage({
           } else {
             throw new Error("Failed to create join request. Please try again.")
           }
-        }
       }
     } catch (error: any) {
       console.error("Error joining/leaving community:", error);
@@ -1014,11 +995,6 @@ export default function CommunityPage({
                   <h1 className="text-4xl font-bold text-white">
                     {community.name}
                   </h1>
-                  {community.is_private ? (
-                    <Lock className="h-6 w-6 text-white/80" />
-                  ) : (
-                    <Globe className="h-6 w-6 text-white/80" />
-                  )}
                 </div>
                 <div className="flex items-center gap-6 text-white/90 text-sm">
                 <div className="flex items-center gap-2">

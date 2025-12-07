@@ -36,7 +36,6 @@ export const createCommunitySchema = z.object({
   description: z.string().min(10).max(1000),
   category: z.string().optional(),
   location: z.string().optional(),
-  is_private: z.boolean().optional().default(false),
   logo_url: z.string().url().optional(),
   banner_url: z.string().url().optional(),
 })

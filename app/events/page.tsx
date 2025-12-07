@@ -408,6 +408,16 @@ export default function EventsPage() {
   // Calculate total pages based on filtered results length
   const calculatedTotalPages = Math.ceil(filteredEvents.length / itemsPerPage);
 
+  const handleSaveEvent = async (eventId: string | number) => {
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/save`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || "Failed to save event");

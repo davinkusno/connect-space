@@ -58,15 +58,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           return formatError("NOT_FOUND", "Community not found", null, 404)
         }
 
-        if (privateComm.is_private) {
-          return formatError(
-            "FORBIDDEN",
-            "This is a private community. You must be a member to view details.",
-            null,
-            403,
-          )
-        }
-
         return formatResponse({
           ...privateComm,
           is_member: false,

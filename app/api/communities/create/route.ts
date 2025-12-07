@@ -118,25 +118,49 @@ export async function POST(request: NextRequest) {
 
     // Get category_id from first interest
     let categoryId: string | null = null;
+    let categoryName: string = "General";
     
     if (Array.isArray(interests) && interests.length > 0) {
-      // Get the first interest and find its category_id
-      const firstInterest = interests[0];
-      const { data: categoryData } = await supabase
-        .from("categories")
-        .select("id")
-        .eq("name", firstInterest)
-        .single();
-      
-      categoryId = categoryData?.id || null;
+      categoryName = interests[0];
     } else if (typeof interests === 'string') {
-      const { data: categoryData } = await supabase
+      categoryName = interests;
+    }
+
+    console.log("[CREATE COMMUNITY] Looking up category:", categoryName);
+
+    // Try to find the category in the database (case-insensitive)
+    const { data: categoryData, error: categoryError } = await supabase
+      .from("categories")
+      .select("id, name")
+      .ilike("name", categoryName);
+    
+    console.log("[CREATE COMMUNITY] Category lookup result:", { categoryData, categoryError });
+    
+    if (categoryData && categoryData.length > 0) {
+      categoryId = categoryData[0].id;
+      console.log("[CREATE COMMUNITY] Found category_id:", categoryId);
+    } else {
+      // Log available categories for debugging
+      const { data: allCategories } = await supabase
         .from("categories")
-        .select("id")
-        .eq("name", interests)
+        .select("id, name");
+      console.log("[CREATE COMMUNITY] Available categories in DB:", allCategories);
+      
+      // AUTO-CREATE the category if it doesn't exist
+      console.log("[CREATE COMMUNITY] Creating new category:", categoryName);
+      const { data: newCategory, error: createCatError } = await supabase
+        .from("categories")
+        .insert({ name: categoryName })
+        .select()
         .single();
       
-      categoryId = categoryData?.id || null;
+      if (newCategory && !createCatError) {
+        categoryId = newCategory.id;
+        console.log("[CREATE COMMUNITY] Created new category with id:", categoryId);
+      } else {
+        console.log("[CREATE COMMUNITY] Failed to create category:", createCatError);
+        console.log("[CREATE COMMUNITY] WARNING: Creating community without category_id");
+      }
     }
 
     // Create community in database
@@ -148,9 +172,8 @@ export async function POST(request: NextRequest) {
         slug,
         logo_url: profileImageUrl,
         creator_id: user.id,
-        is_private: false,
         member_count: 1,
-        category_id: categoryId, // Use category_id instead of category
+        category_id: categoryId, // Use category_id foreign key
       })
       .select()
       .single();

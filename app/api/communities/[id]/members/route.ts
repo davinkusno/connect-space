@@ -33,10 +33,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     const supabase = await createServerClient()
 
-    // Check if community exists and if it's private
+    // Check if community exists
     const { data: community, error: communityError } = await supabase
       .from("communities")
-      .select("is_private")
+      .select("id")
       .eq("id", params.id)
       .single()
 
@@ -47,28 +47,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
       console.error("Database error:", communityError)
       return formatError("DATABASE_ERROR", "Failed to fetch community", null, 500)
-    }
-
-    // If community is private, check if user is a member
-    if (community.is_private) {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (!session) {
-        return formatError("FORBIDDEN", "This is a private community. You must be a member to view details.", null, 403)
-      }
-
-      const { data: membership, error: membershipError } = await supabase
-        .from("community_members")
-        .select("id")
-        .eq("community_id", params.id)
-        .eq("user_id", session.user.id)
-        .single()
-
-      if (membershipError || !membership) {
-        return formatError("FORBIDDEN", "This is a private community. You must be a member to view details.", null, 403)
-      }
     }
 
     // Calculate pagination values

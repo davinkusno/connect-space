@@ -72,7 +72,7 @@ export default function DiscoverPage() {
   const [savedCommunities, setSavedCommunities] = useState<string[]>([]);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(12);
+  const [itemsPerPage] = useState(6); // Set to 6 for testing recommendations
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [membershipFilter, setMembershipFilter] = useState<"all" | "joined" | "pending" | "not_joined">("all");
   const [gettingLocation, setGettingLocation] = useState(false);
@@ -162,13 +162,28 @@ export default function DiscoverPage() {
       let recommendedCommunityIds: string[] = [];
       if (user) {
         try {
+          console.log("[COMMUNITIES PAGE] Fetching recommendations for user:", user.id);
           const response = await fetch("/api/communities/recommendations");
           if (response.ok) {
             const data = await response.json();
             recommendedCommunityIds = data.recommendedCommunityIds || [];
+            console.log("[COMMUNITIES PAGE] Received recommendations:", {
+              count: recommendedCommunityIds.length,
+              ids: recommendedCommunityIds.slice(0, 5),
+              metadata: data.metadata,
+            });
+            // Log top recommendations with scores
+            if (data.recommendations && data.recommendations.length > 0) {
+              console.log("[COMMUNITIES PAGE] Top 5 recommendation scores:");
+              data.recommendations.slice(0, 5).forEach((rec: any, i: number) => {
+                console.log(`  ${i + 1}. ${rec.communityId}: score=${rec.score.toFixed(3)}`);
+              });
+            }
+          } else {
+            console.error("[COMMUNITIES PAGE] Recommendations API error:", response.status);
           }
         } catch (error) {
-          console.error("Error fetching recommendations:", error);
+          console.error("[COMMUNITIES PAGE] Error fetching recommendations:", error);
           // Continue with all communities if recommendations fail
         }
       }
@@ -191,7 +206,6 @@ export default function DiscoverPage() {
           member_count,
           created_at,
           location,
-          is_private,
           creator_id,
           status
         `)
@@ -200,13 +214,14 @@ export default function DiscoverPage() {
       // If user is logged in and we have recommendations, filter by recommended IDs
       // This ensures only suggested communities are shown
       if (user && recommendedCommunityIds.length > 0) {
+        console.log("[COMMUNITIES PAGE] Using recommended IDs filter:", recommendedCommunityIds.length, "communities");
         query = query.in("id", recommendedCommunityIds);
       } else if (user && recommendedCommunityIds.length === 0) {
-        // If user is logged in but has no recommendations (new user), show popular communities
-        query = query.eq("is_private", false);
+        // If user is logged in but has no recommendations (new user), show all communities
+        console.log("[COMMUNITIES PAGE] WARNING: No recommendations returned, showing all communities");
       } else {
-        // If user is not logged in, show all public communities
-        query = query.eq("is_private", false);
+        // If user is not logged in, show all communities
+        console.log("[COMMUNITIES PAGE] User not logged in, showing all communities");
       }
       
       // Apply ordering based on whether we have recommendations
@@ -338,7 +353,7 @@ export default function DiscoverPage() {
             }
           }
 
-          // Get category name from relationship or fallback to "General"
+          // Get category name from the categories relationship
           const categoryName = (comm.categories as any)?.name || "General";
 
           return {
@@ -369,7 +384,7 @@ export default function DiscoverPage() {
               Date.now() - 30 * 24 * 60 * 60 * 1000, // Created within last 30 days
             featured: false,
             language: "English",
-            privacy: comm.is_private ? "private" : "public",
+            privacy: "public",
           };
         }
       );
@@ -767,7 +782,7 @@ export default function DiscoverPage() {
               <>
                 <StaggerContainer
                   delay={50}
-                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
                 >
                   {paginatedCommunities.map((community) => (
                     <SmoothReveal key={community.id}>

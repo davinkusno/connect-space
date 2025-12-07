@@ -118,18 +118,7 @@ export async function listCommunities({
       })
     }
 
-    // Filter out private communities unless the user is a member
-    if (session?.user.id) {
-      query = query.or(
-        `is_private.eq.false,id.in.(${supabase
-          .from("community_members")
-          .select("community_id")
-          .eq("user_id", session.user.id)
-          .toString()})`,
-      )
-    } else {
-      query = query.eq("is_private", false)
-    }
+    // All communities are now public, no filtering needed
 
     // Apply pagination
     const from = (page - 1) * pageSize
@@ -161,10 +150,10 @@ export async function joinCommunity(communityId: string) {
   const supabase = createServerClient()
 
   try {
-    // Check if the community exists and if it's private
+    // Check if the community exists
     const { data: community, error: communityError } = await supabase
       .from("communities")
-      .select("is_private")
+      .select("id")
       .eq("id", communityId)
       .single()
 
