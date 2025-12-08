@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -62,6 +63,7 @@ import type { Community } from "@/types/community";
 
 export default function DiscoverPage() {
   const [communities, setCommunities] = useState<Community[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Search states (real-time filtering)
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,7 +76,6 @@ export default function DiscoverPage() {
   const [itemsPerPage] = useState(6); // Set to 6 for testing recommendations
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [membershipFilter, setMembershipFilter] = useState<"all" | "joined" | "pending" | "not_joined">("all");
-  const [gettingLocation, setGettingLocation] = useState(false);
   
   // Membership status tracking
   const [membershipStatus, setMembershipStatus] = useState<Record<string, "joined" | "pending" | "not_joined">>({});
@@ -83,54 +84,6 @@ export default function DiscoverPage() {
   const [showRightArrow, setShowRightArrow] = useState(true);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
 
-  // Get user's current location with callback
-  const getUserLocationCommunities = (callback?: (city: string) => void) => {
-    if (navigator.geolocation) {
-      setGettingLocation(true);
-
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-
-          // Reverse geocoding to get city name
-          try {
-            const response = await fetch(
-              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-            );
-            const data = await response.json();
-
-            const cityName = data.city || data.locality || "Current Location";
-
-            // Call callback with city name if provided
-            if (callback) {
-              callback(cityName);
-            } else {
-              setLocationQuery(cityName);
-            }
-          } catch (error) {
-            const cityName = "Current Location";
-
-            if (callback) {
-              callback(cityName);
-            } else {
-              setLocationQuery(cityName);
-            }
-          } finally {
-            setGettingLocation(false);
-          }
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          setGettingLocation(false);
-          toast.error(
-            "Unable to get your location. Please enable location services or enter a city manually."
-          );
-        }
-      );
-    } else {
-      toast.error("Geolocation is not supported by your browser.");
-    }
-  };
 
   // Data will be loaded from database
 
@@ -153,6 +106,7 @@ export default function DiscoverPage() {
   }, []);
 
   const loadData = async () => {
+    setIsLoading(true);
     try {
       const supabase = getSupabaseBrowser();
       
@@ -267,6 +221,8 @@ export default function DiscoverPage() {
     } catch (error) {
       console.error("Failed to load data:", error);
       toast.error("Failed to load communities");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -683,13 +639,6 @@ export default function DiscoverPage() {
                       }}
                       placeholder="Search by city or country..."
                       className="h-full"
-                      showCurrentLocation={true}
-                      onCurrentLocation={() => {
-                        getUserLocationCommunities((cityName) => {
-                          setLocationQuery(cityName);
-                          setShowLocationDropdown(false);
-                        });
-                      }}
                     />
                   </div>
 
@@ -835,48 +784,77 @@ export default function DiscoverPage() {
 
           {/* Content */}
           <div className="py-8">
-            {viewMode === "grid" && (
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Card key={i} className="bg-white rounded-2xl overflow-hidden shadow-md">
+                    <Skeleton className="w-full h-48" />
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <Skeleton className="h-5 w-24" />
+                        <Skeleton className="h-4 w-16" />
+                      </div>
+                      <Skeleton className="h-6 w-full mb-2" />
+                      <Skeleton className="h-4 w-full mb-1" />
+                      <Skeleton className="h-4 w-3/4 mb-4" />
+                      <div className="flex gap-2 mb-4">
+                        <Skeleton className="h-5 w-16" />
+                        <Skeleton className="h-5 w-20" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-9 w-28" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
               <>
-                <StaggerContainer
-                  delay={50}
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-                >
-                  {paginatedCommunities.map((community) => (
-                    <SmoothReveal key={community.id}>
-                      <EnhancedCommunityCard community={community} />
-                    </SmoothReveal>
-                  ))}
-                </StaggerContainer>
-                {totalPages > 1 && (
-                  <div className="mt-8">
-                    <PaginationControls
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      onPageChange={setCurrentPage}
-                      itemsPerPage={itemsPerPage}
-                      totalItems={filteredCommunities.length}
-                    />
+                {viewMode === "grid" && (
+                  <>
+                    <StaggerContainer
+                      delay={50}
+                      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                    >
+                      {paginatedCommunities.map((community) => (
+                        <SmoothReveal key={community.id}>
+                          <EnhancedCommunityCard community={community} />
+                        </SmoothReveal>
+                      ))}
+                    </StaggerContainer>
+                    {totalPages > 1 && (
+                      <div className="mt-8">
+                        <PaginationControls
+                          currentPage={currentPage}
+                          totalPages={totalPages}
+                          onPageChange={setCurrentPage}
+                          itemsPerPage={itemsPerPage}
+                          totalItems={filteredCommunities.length}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {viewMode === "map" && (
+                  <div className="h-[70vh] rounded-lg overflow-hidden shadow-lg">
+                    <LeafletCommunitiesMap communities={filteredCommunities} />
+                  </div>
+                )}
+
+                {filteredCommunities.length === 0 && !isLoading && (
+                  <div className="text-center py-20">
+                    <Search className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-xl font-semibold">
+                      No communities found
+                    </h3>
+                    <p className="mt-1 text-gray-500">
+                      Try adjusting your search or filters.
+                    </p>
                   </div>
                 )}
               </>
-            )}
-
-            {viewMode === "map" && (
-              <div className="h-[70vh] rounded-lg overflow-hidden shadow-lg">
-                <LeafletCommunitiesMap communities={filteredCommunities} />
-              </div>
-            )}
-
-            {filteredCommunities.length === 0 && (
-              <div className="text-center py-20">
-                <Search className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-xl font-semibold">
-                  No communities found
-                </h3>
-                <p className="mt-1 text-gray-500">
-                  Try adjusting your search or filters.
-                </p>
-              </div>
             )}
           </div>
         </div>

@@ -150,9 +150,35 @@ export async function POST(request: NextRequest) {
       link: link || null,
     }
 
-    // Add category if provided (column exists in schema)
+    // Set category: use provided category, or inherit from community
     if (category) {
       insertData.category = category
+    } else {
+      // Inherit category from parent community via category_id
+      const { data: communityData } = await supabase
+        .from("communities")
+        .select("category_id, categories(name)")
+        .eq("id", community_id)
+        .single()
+      
+      if (communityData?.categories) {
+        // Get category name from the relationship
+        const categoryName = (communityData.categories as any)?.name
+        if (categoryName) {
+          insertData.category = categoryName
+        }
+      } else if (communityData?.category_id) {
+        // Fallback: fetch category name directly
+        const { data: catData } = await supabase
+          .from("categories")
+          .select("name")
+          .eq("id", communityData.category_id)
+          .single()
+        
+        if (catData?.name) {
+          insertData.category = catData.name
+        }
+      }
     }
 
     // Create event

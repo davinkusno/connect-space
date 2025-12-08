@@ -12,8 +12,6 @@ interface CitySearchProps {
   onCitySelect?: (city: City) => void;
   placeholder?: string;
   className?: string;
-  showCurrentLocation?: boolean;
-  onCurrentLocation?: () => void;
 }
 
 export function CitySearch({
@@ -21,8 +19,6 @@ export function CitySearch({
   onCitySelect,
   placeholder = "Search by city or country...",
   className,
-  showCurrentLocation = true,
-  onCurrentLocation,
 }: CitySearchProps) {
   const [query, setQuery] = useState(value);
   const [cities, setCities] = useState<City[]>([]);
@@ -185,32 +181,6 @@ export function CitySearch({
             </div>
           ) : (
             <>
-              {/* Current Location Button */}
-              {showCurrentLocation && onCurrentLocation && (
-                <div className="p-2 border-b border-gray-200">
-                  <button
-                    onClick={onCurrentLocation}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-50 rounded-md flex items-center gap-3 transition-colors"
-                    onMouseDown={(e) => e.preventDefault()}
-                  >
-                    <svg
-                      className="w-5 h-5 text-gray-600 flex-shrink-0"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M11 18.93A7.005 7.005 0 015.07 13H3v-2h2.07A7.005 7.005 0 0111 5.07V3h2v2.07A7.005 7.005 0 0118.93 11H21v2h-2.07A7.005 7.005 0 0113 18.93V21h-2v-2.07zM12 17a5 5 0 100-10 5 5 0 000 10zm0-3a2 2 0 110-4 2 2 0 010 4z" />
-                    </svg>
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 text-sm">
-                        Use my current location
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              )}
-
               {/* Countries Section */}
               {countries.length > 0 && (
                 <div className="p-2">

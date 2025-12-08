@@ -109,15 +109,8 @@ export default function EventsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
-  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-  const [userLocation, setUserLocation] = useState<{
-    lat: number;
-    lng: number;
-    city: string;
-  } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState("all");
-  const [gettingLocation, setGettingLocation] = useState(false);
   const [dateRange, setDateRange] = useState("upcoming");
   const [searchFilter, setSearchFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
@@ -515,71 +508,7 @@ export default function EventsPage() {
     }
   };
 
-  // Get user's current location
-  const getUserLocation = (callback?: (city: string) => void) => {
-    if (navigator.geolocation) {
-      setGettingLocation(true);
 
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-
-          // Reverse geocoding to get city name (simplified)
-          try {
-            const response = await fetch(
-              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-            );
-            const data = await response.json();
-
-            const cityName = data.city || data.locality || "Current Location";
-
-            setUserLocation({
-              lat: latitude,
-              lng: longitude,
-              city: cityName,
-            });
-
-            // Call callback with city name if provided
-            if (callback) {
-              callback(cityName);
-            }
-          } catch (error) {
-            const cityName = "Current Location";
-            setUserLocation({
-              lat: latitude,
-              lng: longitude,
-              city: cityName,
-            });
-
-            if (callback) {
-              callback(cityName);
-            }
-          } finally {
-            setGettingLocation(false);
-          }
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          setGettingLocation(false);
-          alert(
-            "Unable to get your location. Please enable location services or enter a city manually."
-          );
-        }
-      );
-    } else {
-      alert("Geolocation is not supported by your browser.");
-    }
-  };
-
-  // Get user location on component mount
-  useEffect(() => {
-    getUserLocation();
-  }, []);
-
-  // Debug log for showLocationDropdown state changes
-  useEffect(() => {
-    console.log("showLocationDropdown changed to:", showLocationDropdown);
-  }, [showLocationDropdown]);
 
   const clearFilters = () => {
     setSelectedCategory("all");
@@ -922,29 +851,6 @@ export default function EventsPage() {
                       placeholder="Choose a location"
                       value={locationQuery}
                       onChange={(e) => setLocationQuery(e.target.value)}
-                      onClick={() => {
-                        console.log("Location input clicked, showing dropdown");
-                        setShowLocationDropdown(true);
-                        console.log("showLocationDropdown set to true");
-                      }}
-                      onFocus={() => {
-                        console.log("Location input focused, showing dropdown");
-                        setShowLocationDropdown(true);
-                        console.log(
-                          "showLocationDropdown state:",
-                          showLocationDropdown
-                        );
-                      }}
-                      onBlur={() => {
-                        console.log(
-                          "Location input blurred, hiding dropdown in 500ms"
-                        );
-                        // Delay closing to allow clicking on dropdown items
-                        setTimeout(() => {
-                          console.log("Hiding dropdown now");
-                          setShowLocationDropdown(false);
-                        }, 0);
-                      }}
                       className="pl-12 pr-4 py-4 text-lg border-0 rounded-none focus:ring-0 focus:outline-none text-gray-900 placeholder:text-gray-500 h-full"
                     />
                     {locationQuery && (
@@ -958,55 +864,6 @@ export default function EventsPage() {
                       </Button>
                     )}
 
-                    {/* Location Dropdown with Search */}
-                    {showLocationDropdown && (
-                      <div
-                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-[99999] max-h-80 overflow-y-auto"
-                        style={{
-                          position: "absolute",
-                          top: "100%",
-                          left: 0,
-                          right: 0,
-                          marginTop: "8px",
-                          zIndex: 99999,
-                        }}
-                      >
-                        {/* Use Current Location Button */}
-                        <button
-                          onClick={() => {
-                            console.log("Use current location clicked");
-                            getUserLocation((cityName) => {
-                              setLocationQuery(cityName);
-                              setShowLocationDropdown(false);
-                            });
-                          }}
-                          disabled={gettingLocation}
-                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors duration-200 border-b border-gray-100 disabled:opacity-50 disabled:cursor-wait"
-                          onMouseDown={(e) => e.preventDefault()}
-                        >
-                          {gettingLocation ? (
-                            <div className="w-5 h-5 border-2 border-gray-300 border-t-purple-600 rounded-full animate-spin flex-shrink-0" />
-                          ) : (
-                            <svg
-                              className="w-5 h-5 text-gray-600 flex-shrink-0"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path d="M11 18.93A7.005 7.005 0 015.07 13H3v-2h2.07A7.005 7.005 0 0111 5.07V3h2v2.07A7.005 7.005 0 0118.93 11H21v2h-2.07A7.005 7.005 0 0113 18.93V21h-2v-2.07zM12 17a5 5 0 100-10 5 5 0 000 10zm0-3a2 2 0 110-4 2 2 0 010 4z" />
-                            </svg>
-                          )}
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900">
-                              {gettingLocation
-                                ? "Getting your location..."
-                                : "Use my current location"}
-                            </div>
-                          </div>
-                        </button>
-                      </div>
-                    )}
                   </div>
 
                   {/* Search Button */}
@@ -1259,7 +1116,6 @@ export default function EventsPage() {
                     events={filteredEvents}
                     selectedEvent={selectedEvent}
                     onEventSelect={(event) => setSelectedEvent(event)}
-                    userLocation={userLocation}
                     height="700px"
                     className="rounded-2xl shadow-lg border"
                   />
