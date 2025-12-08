@@ -63,6 +63,7 @@ import {
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { Chatbot } from "@/components/ai/chatbot";
 
 interface Event {
   id: string | number;
@@ -198,7 +199,7 @@ export default function EventsPage() {
           
           // Fetch saved events
           const { data: savedEventsData } = await supabase
-            .from("saved_events")
+            .from("event_save")
             .select("event_id")
             .eq("user_id", user.id)
             .in("event_id", eventIds);
@@ -505,6 +506,20 @@ export default function EventsPage() {
       alert(error.message || "Failed to unsave event");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Toggle save/unsave event
+  const toggleSaveEvent = async (eventId: string | number) => {
+    const isSaved = savedEvents.includes(eventId);
+    
+    if (isSaved) {
+      // Unsave event
+      setUnsaveEventId(eventId);
+      setIsUnsaveDialogOpen(true);
+    } else {
+      // Save event
+      await handleSaveEvent(eventId);
     }
   };
 
@@ -1199,6 +1214,7 @@ export default function EventsPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+      <Chatbot />
     </PageTransition>
   );
 }

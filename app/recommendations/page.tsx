@@ -729,6 +729,7 @@ export default function RecommendationsPage() {
           </SmoothReveal>
         )}
       </div>
+      <Chatbot />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
 /**
  * PATCH /api/superadmin/reports/[id]
@@ -52,24 +53,28 @@ export async function PATCH(
       );
     }
 
-    // Get community ID from the report
-    const { data: report, error: reportError } = await supabase
-      .from("reports")
-      .select("target_id")
-      .eq("report_type", "community")
-      .eq("target_id", id)
-      .limit(1)
+    // The id parameter is the communityId
+    const communityId = id;
+    
+    // Create admin client to bypass RLS for super admin operations
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    
+    // Verify the community exists
+    const { data: community, error: communityError } = await supabaseAdmin
+      .from("communities")
+      .select("id")
+      .eq("id", communityId)
       .single();
 
-    if (reportError && action !== "dismiss") {
-      // For dismiss, we might not need the community
+    if (communityError || !community) {
       return NextResponse.json(
-        { error: "Report not found" },
+        { error: "Community not found" },
         { status: 404 }
       );
     }
-
-    const communityId = report?.target_id || id;
 
     // Update report statuses
     let newStatus: string;
@@ -80,7 +85,7 @@ export async function PATCH(
         const now = new Date().toISOString();
         const suspensionReason = reviewNotes || "Suspended by super admin due to community reports";
         
-        const { error: suspendError } = await supabase
+        const { error: suspendError } = await supabaseAdmin
           .from("communities")
           .update({
             status: "suspended",
@@ -108,7 +113,7 @@ export async function PATCH(
         newStatus = "resolved";
         // Reactivate the community - clear suspension fields and set status to active
         const reactivateNow = new Date().toISOString();
-        const { error: reactivateError } = await supabase
+        const { error: reactivateError } = await supabaseAdmin
           .from("communities")
           .update({
             status: "active",

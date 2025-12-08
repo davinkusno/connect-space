@@ -60,7 +60,12 @@ interface UserType {
 }
 
 const navigationLinks = [
-  // { href: "/", label: "Home", icon: Home },
+  {
+    href: "/home",
+    label: "Home",
+    icon: Home,
+    hoverClasses: "hover:bg-purple-50 hover:text-purple-600",
+  },
   {
     href: "/communities",
     label: "Communities",
@@ -642,39 +647,6 @@ export function UnifiedNav() {
                       </div>
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem
-                      onClick={() => router.push("/dashboard")}
-                      className="cursor-pointer p-3 rounded-lg hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:text-blue-700 transition-all duration-200 group"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors duration-200">
-                          <Home className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <span className="font-medium">Dashboard</span>
-                          <p className="text-xs text-gray-500">
-                            Your activity overview
-                          </p>
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      onClick={() => router.push("/settings")}
-                      className="cursor-pointer p-3 rounded-lg hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-700 transition-all duration-200 group"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-gray-200 transition-colors duration-200">
-                          <Settings className="h-4 w-4 text-gray-600" />
-                        </div>
-                        <div>
-                          <span className="font-medium">Settings</span>
-                          <p className="text-xs text-gray-500">
-                            Preferences & privacy
-                          </p>
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
                   </div>
 
                   <DropdownMenuSeparator className="my-2" />
@@ -818,13 +790,6 @@ export function UnifiedNav() {
                         >
                           <UserCircle className="w-5 h-5" />
                           <span className="font-medium">View Profile</span>
-                        </button>
-                        <button
-                          onClick={() => handleNavigation("/settings")}
-                          className="w-full flex items-center space-x-3 px-3 py-3 rounded-lg text-left text-gray-700 hover:bg-gray-50 hover:text-purple-600 transition-colors duration-200"
-                        >
-                          <Settings className="w-5 h-5" />
-                          <span className="font-medium">Settings</span>
                         </button>
                         <button
                           onClick={handleSignOut}

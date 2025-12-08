@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase/server";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createServerClient();
@@ -13,7 +13,8 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const eventId = params.id;
+    const { id } = await params;
+    const eventId = id;
 
     // Check if already saved
     const { data: existingSave, error: fetchError } = await supabase
@@ -54,7 +55,7 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createServerClient();
@@ -64,7 +65,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const eventId = params.id;
+    const { id } = await params;
+    const eventId = id;
 
     // Delete save record
     const { error } = await supabase
@@ -87,7 +89,7 @@ export async function DELETE(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createServerClient();
@@ -97,7 +99,8 @@ export async function GET(
       return NextResponse.json({ isSaved: false }, { status: 200 });
     }
 
-    const eventId = params.id;
+    const { id } = await params;
+    const eventId = id;
 
     // Check if event is saved
     const { data, error } = await supabase

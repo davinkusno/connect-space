@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { format, isSameDay } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -50,6 +50,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import { Chatbot } from "@/components/ai/chatbot";
 
 // Import new enhanced components
 import { EnhancedEventCard } from "@/components/dashboard/enhanced-event-card";
@@ -89,7 +90,7 @@ export default function DashboardPage() {
   const [selectedSavedEvent, setSelectedSavedEvent] = useState<any | null>(null);
   const [createdCommunitiesPage, setCreatedCommunitiesPage] = useState(1);
   const [joinedCommunitiesPage, setJoinedCommunitiesPage] = useState(1);
-  const communitiesPerPage = 6;
+  const communitiesPerPage = 3;
 
   // Saved events from database
   const [savedEventsData, setSavedEventsData] = useState<any[]>([]);
@@ -205,7 +206,7 @@ export default function DashboardPage() {
   }, []);
 
   // Toggle save event (delete from saved)
-  const toggleSaveEvent = async (eventId: string | number) => {
+  const toggleSaveEvent = useCallback(async (eventId: string | number) => {
     try {
       const response = await fetch(`/api/events/${eventId}/save`, {
         method: "DELETE",
@@ -225,7 +226,7 @@ export default function DashboardPage() {
       console.error("Error unsaving event:", error);
       alert(error.message || "Failed to unsave event");
     }
-  };
+  }, []);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -371,236 +372,253 @@ export default function DashboardPage() {
     fetchCommunities();
   }, []);
 
-  useEffect(() => {
-    const fetchJoinedEvents = async () => {
-      console.log("[Dashboard] fetchJoinedEvents called, activeTab:", activeTab);
-      setIsLoadingEvents(true);
+  // Fetch joined/interested events function
+  const fetchJoinedEvents = useCallback(async () => {
+    console.log("[Dashboard] fetchJoinedEvents called, activeTab:", activeTab);
+    setIsLoadingEvents(true);
+    try {
+      console.log("[Dashboard] Getting session...");
+      const session = await getClientSession();
+      console.log("[Dashboard] Session:", session ? "exists" : "null");
+      if (!session?.user) {
+        console.log("[Dashboard] No session or user, skipping fetch");
+        setIsLoadingEvents(false);
+        return;
+      }
+      
+      console.log("[Dashboard] User ID:", session.user.id);
+
+      const supabase = getSupabaseBrowser();
+
+      // Fetch events where user has RSVP'd (going or maybe)
+      console.log("[Dashboard] Fetching events for user:", session.user.id);
+      
+      // First, get attendee records
+      const { data: attendeeRecords, error: attendeeError } = await supabase
+        .from("event_attendees")
+        .select("event_id, status, registered_at")
+        .eq("user_id", session.user.id)
+        .in("status", ["going", "maybe"])
+        .order("registered_at", { ascending: false });
+      
+      console.log("[Dashboard] Attendee records:", attendeeRecords);
+      console.log("[Dashboard] Attendee error:", attendeeError);
+      
+      if (attendeeError) {
+        console.error("[Dashboard] Error fetching attendee records:", attendeeError);
+        setJoinedEvents([]);
+        setIsLoadingEvents(false);
+        return;
+      }
+      
+      if (!attendeeRecords || attendeeRecords.length === 0) {
+        console.log("[Dashboard] No attendee records found");
+        setJoinedEvents([]);
+        setIsLoadingEvents(false);
+        return;
+      }
+      
+      // Get event IDs
+      const eventIds = attendeeRecords.map((r: any) => r.event_id);
+      console.log("[Dashboard] Event IDs to fetch:", eventIds);
+      
+      if (eventIds.length === 0) {
+        console.log("[Dashboard] No event IDs to fetch");
+        setJoinedEvents([]);
+        setIsLoadingEvents(false);
+        return;
+      }
+      
+      // Fetch events data with start_time (for calendar integration)
+      // Query without category column (may not exist in database)
+      let eventsData: any[] = [];
+      let eventsError: any = null;
+      
       try {
-        console.log("[Dashboard] Getting session...");
-        const session = await getClientSession();
-        console.log("[Dashboard] Session:", session ? "exists" : "null");
-        if (!session?.user) {
-          console.log("[Dashboard] No session or user, skipping fetch");
-          setIsLoadingEvents(false);
-          return;
-        }
+        // First try with minimal columns to avoid errors
+        const result = await supabase
+          .from("events")
+          .select(`
+            id,
+            title,
+            description,
+            start_time,
+            end_time,
+            location,
+            image_url,
+            community_id
+          `)
+          .in("id", eventIds);
         
-        console.log("[Dashboard] User ID:", session.user.id);
-
-        const supabase = getSupabaseBrowser();
-
-        // Fetch events where user has RSVP'd (going or maybe)
-        console.log("[Dashboard] Fetching events for user:", session.user.id);
+        eventsData = result.data || [];
+        eventsError = result.error;
         
-        // First, get attendee records
-        const { data: attendeeRecords, error: attendeeError } = await supabase
-          .from("event_attendees")
-          .select("event_id, status, registered_at")
-          .eq("user_id", session.user.id)
-          .in("status", ["going", "maybe"])
-          .order("registered_at", { ascending: false });
+        console.log("[Dashboard] Events data (minimal query):", eventsData);
+        console.log("[Dashboard] Events error (minimal query):", eventsError);
         
-        console.log("[Dashboard] Attendee records:", attendeeRecords);
-        console.log("[Dashboard] Attendee error:", attendeeError);
-        
-        if (attendeeError) {
-          console.error("[Dashboard] Error fetching attendee records:", attendeeError);
+        if (eventsError) {
+          console.error("[Dashboard] Error fetching events:", eventsError);
+          console.error("[Dashboard] Error details:", JSON.stringify(eventsError, null, 2));
           setJoinedEvents([]);
           setIsLoadingEvents(false);
           return;
         }
         
-        if (!attendeeRecords || attendeeRecords.length === 0) {
-          console.log("[Dashboard] No attendee records found");
-          setJoinedEvents([]);
-          setIsLoadingEvents(false);
-          return;
-        }
-        
-        // Get event IDs
-        const eventIds = attendeeRecords.map((r: any) => r.event_id);
-        console.log("[Dashboard] Event IDs to fetch:", eventIds);
-        
-        if (eventIds.length === 0) {
-          console.log("[Dashboard] No event IDs to fetch");
-          setJoinedEvents([]);
-          setIsLoadingEvents(false);
-          return;
-        }
-        
-        // Fetch events data with start_time (for calendar integration)
-        // Query without category column (may not exist in database)
-        let eventsData: any[] = [];
-        let eventsError: any = null;
-        
-        try {
-          // First try with minimal columns to avoid errors
-          const result = await supabase
-            .from("events")
-            .select(`
-              id,
-              title,
-              description,
-              start_time,
-              end_time,
-              location,
-              image_url,
-              community_id
-            `)
-            .in("id", eventIds);
-          
-          eventsData = result.data || [];
-          eventsError = result.error;
-          
-          console.log("[Dashboard] Events data (minimal query):", eventsData);
-          console.log("[Dashboard] Events error (minimal query):", eventsError);
-          
-          if (eventsError) {
-            console.error("[Dashboard] Error fetching events:", eventsError);
-            console.error("[Dashboard] Error details:", JSON.stringify(eventsError, null, 2));
-            setJoinedEvents([]);
-            setIsLoadingEvents(false);
-            return;
-          }
-          
-          // If we got events, try to fetch communities separately
-          if (eventsData.length > 0) {
-            const communityIds = [...new Set(eventsData.map(e => e.community_id).filter(Boolean))];
-            if (communityIds.length > 0) {
-              const { data: communitiesData } = await supabase
-                .from("communities")
-                .select("id, name, logo_url")
-                .in("id", communityIds);
-              
-              // Map communities to events
-              if (communitiesData) {
-                const communityMap = new Map(communitiesData.map(c => [c.id, c]));
-                eventsData = eventsData.map(event => ({
-                  ...event,
-                  communities: event.community_id ? communityMap.get(event.community_id) : null,
-                  category: null // Set default since column may not exist
-                }));
-              } else {
-                // Add null category if no communities
-                eventsData = eventsData.map(event => ({
-                  ...event,
-                  communities: null,
-                  category: null
-                }));
-              }
+        // If we got events, try to fetch communities separately
+        if (eventsData.length > 0) {
+          const communityIds = [...new Set(eventsData.map(e => e.community_id).filter(Boolean))];
+          if (communityIds.length > 0) {
+            const { data: communitiesData } = await supabase
+              .from("communities")
+              .select("id, name, logo_url")
+              .in("id", communityIds);
+            
+            // Map communities to events
+            if (communitiesData) {
+              const communityMap = new Map(communitiesData.map(c => [c.id, c]));
+              eventsData = eventsData.map(event => ({
+                ...event,
+                communities: event.community_id ? communityMap.get(event.community_id) : null,
+                category: null // Set default since column may not exist
+              }));
             } else {
-              // Add null category if no community_ids
+              // Add null category if no communities
               eventsData = eventsData.map(event => ({
                 ...event,
                 communities: null,
                 category: null
               }));
             }
+          } else {
+            // Add null category if no community_ids
+            eventsData = eventsData.map(event => ({
+              ...event,
+              communities: null,
+              category: null
+            }));
           }
-        } catch (err: any) {
-          console.error("[Dashboard] Exception fetching events:", err);
-          eventsError = err;
         }
-        
-        if (eventsError) {
-          console.error("[Dashboard] Final error:", eventsError);
-          setJoinedEvents([]);
-          setIsLoadingEvents(false);
-          return;
-        }
-        
-        if (!eventsData || eventsData.length === 0) {
-          console.log("[Dashboard] No events data returned");
-          setJoinedEvents([]);
-          setIsLoadingEvents(false);
-          return;
-        }
-        
-        console.log("[Dashboard] Final events data:", eventsData);
-        
-        // Combine attendee records with events data
-        // Map attendee records to events, using start_time from events table
-        const attendeeData = attendeeRecords.map((record: any) => {
-          const event = eventsData?.find((e: any) => e.id === record.event_id);
-          if (!event) {
-            console.log(`[Dashboard] Event not found for event_id: ${record.event_id}`);
-            return null;
-          }
-          return {
-            ...record,
-            events: event
-          };
-        }).filter((item: any) => item !== null && item.events !== null);
-        
-        console.log("[Dashboard] Combined attendee data:", attendeeData);
-        console.log(`[Dashboard] Found ${attendeeData.length} attendee records with events`);
-        
-        if (!attendeeData || attendeeData.length === 0) {
-          console.log("[Dashboard] No attendee data with events found");
-          setJoinedEvents([]);
-          setIsLoadingEvents(false);
-          return;
-        }
-        
-        // Filter to only upcoming events and map to calendar format
-        // Use start_time from events table for calendar integration
-        const now = new Date();
-        const upcomingEvents = attendeeData
-          .filter((item: any) => {
-            if (!item.events || !item.events.start_time) {
-              console.log("[Dashboard] Skipping item - no events or start_time:", item);
-              return false;
-            }
-            const eventStart = new Date(item.events.start_time);
-            const isUpcoming = eventStart >= now;
-            console.log(`[Dashboard] Event "${item.events.title}": ${eventStart.toISOString()} >= ${now.toISOString()}? ${isUpcoming}`);
-            return isUpcoming;
-          })
-          .map((item: any) => {
-            // Use start_time from events table for calendar
-            const startTime = item.events.start_time;
-            return {
-              id: item.events.id,
-              title: item.events.title,
-              description: item.events.description,
-              date: startTime, // Use start_time directly from events table
-              time: new Date(startTime).toLocaleTimeString(
-                "en-US",
-                {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }
-              ),
-              location: item.events.location,
-              image: item.events.image_url,
-              category: item.events.category,
-              community: item.events.communities?.name || "Community",
-              communityId: item.events.community_id,
-              communityLogo: item.events.communities?.logo_url,
-              status: item.status, // 'going' or 'maybe'
-              registeredAt: item.registered_at,
-            };
-          })
-          .sort(
-            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-          );
-
-        console.log(`[Dashboard] Loaded ${upcomingEvents.length} interested events:`, upcomingEvents);
-        console.log(`[Dashboard] Sample event date:`, upcomingEvents[0]?.date);
-        setJoinedEvents(upcomingEvents);
-      } catch (error) {
-        console.error("Error fetching interested events:", error);
-        setJoinedEvents([]);
-      } finally {
-        setIsLoadingEvents(false);
+      } catch (err: any) {
+        console.error("[Dashboard] Exception fetching events:", err);
+        eventsError = err;
       }
-    };
+      
+      if (eventsError) {
+        console.error("[Dashboard] Final error:", eventsError);
+        setJoinedEvents([]);
+        setIsLoadingEvents(false);
+        return;
+      }
+      
+      if (!eventsData || eventsData.length === 0) {
+        console.log("[Dashboard] No events data returned");
+        setJoinedEvents([]);
+        setIsLoadingEvents(false);
+        return;
+      }
+      
+      console.log("[Dashboard] Final events data:", eventsData);
+      
+      // Combine attendee records with events data
+      // Map attendee records to events, using start_time from events table
+      const attendeeData = attendeeRecords.map((record: any) => {
+        const event = eventsData?.find((e: any) => e.id === record.event_id);
+        if (!event) {
+          console.log(`[Dashboard] Event not found for event_id: ${record.event_id}`);
+          return null;
+        }
+        return {
+          ...record,
+          events: event
+        };
+      }).filter((item: any) => item !== null && item.events !== null);
+      
+      console.log("[Dashboard] Combined attendee data:", attendeeData);
+      console.log(`[Dashboard] Found ${attendeeData.length} attendee records with events`);
+      
+      if (!attendeeData || attendeeData.length === 0) {
+        console.log("[Dashboard] No attendee data with events found");
+        setJoinedEvents([]);
+        setIsLoadingEvents(false);
+        return;
+      }
+      
+      // Filter to only upcoming events and map to calendar format
+      // Use start_time from events table for calendar integration
+      const now = new Date();
+      const upcomingEvents = attendeeData
+        .filter((item: any) => {
+          if (!item.events || !item.events.start_time) {
+            console.log("[Dashboard] Skipping item - no events or start_time:", item);
+            return false;
+          }
+          const eventStart = new Date(item.events.start_time);
+          const isUpcoming = eventStart >= now;
+          console.log(`[Dashboard] Event "${item.events.title}": ${eventStart.toISOString()} >= ${now.toISOString()}? ${isUpcoming}`);
+          return isUpcoming;
+        })
+        .map((item: any) => {
+          // Use start_time from events table for calendar
+          const startTime = item.events.start_time;
+          return {
+            id: item.events.id,
+            title: item.events.title,
+            description: item.events.description,
+            date: startTime, // Use start_time directly from events table
+            time: new Date(startTime).toLocaleTimeString(
+              "en-US",
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+              }
+            ),
+            location: item.events.location,
+            image: item.events.image_url,
+            category: item.events.category,
+            community: item.events.communities?.name || "Community",
+            communityId: item.events.community_id,
+            communityLogo: item.events.communities?.logo_url,
+            status: item.status, // 'going' or 'maybe'
+            registeredAt: item.registered_at,
+          };
+        })
+        .sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
 
+      console.log(`[Dashboard] Loaded ${upcomingEvents.length} interested events:`, upcomingEvents);
+      console.log(`[Dashboard] Sample event date:`, upcomingEvents[0]?.date);
+      setJoinedEvents(upcomingEvents);
+    } catch (error) {
+      console.error("Error fetching interested events:", error);
+      setJoinedEvents([]);
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  }, []);
+
+  useEffect(() => {
     if (activeTab === "home" || activeTab === "events") {
       console.log("[Dashboard] Fetching joined events...");
       fetchJoinedEvents();
     }
-  }, [activeTab]);
+  }, [activeTab, fetchJoinedEvents]);
+
+  // Listen for event interested custom event to refresh
+  useEffect(() => {
+    const handleEventInterested = () => {
+      console.log("[Dashboard] Event interested, refreshing joined events");
+      if (activeTab === "home" || activeTab === "events") {
+        fetchJoinedEvents();
+      }
+    };
+
+    window.addEventListener("eventInterested", handleEventInterested);
+
+    return () => {
+      window.removeEventListener("eventInterested", handleEventInterested);
+    };
+  }, [activeTab, fetchJoinedEvents]);
 
   useEffect(() => {
     const fetchUserBadges = async () => {
@@ -1087,7 +1105,7 @@ export default function DashboardPage() {
               {isLoadingUser ? (
                 <span className="inline-block animate-pulse bg-gray-200 rounded h-8 w-64"></span>
               ) : (
-                <>Good morning, {username}! 👋</>
+                <>{username}</>
               )}
             </h1>
             <p className="text-sm text-gray-600">
@@ -1118,7 +1136,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start relative">
               {/* Enhanced Calendar - Left Column (1/3) */}
               <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-3 h-[72px]">
                   <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                     <div className="p-1.5 bg-blue-100 rounded-lg">
                       <CalendarIcon className="h-4 w-4 text-blue-600" />
@@ -1167,14 +1185,14 @@ export default function DashboardPage() {
 
               {/* Upcoming Events List - Middle Column (1/3) */}
               <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-3 h-[72px]">
                   <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                     <div className="p-1.5 bg-green-100 rounded-lg">
                       <BookOpen className="h-4 w-4 text-green-600" />
                     </div>
                     Upcoming Events
                   </CardTitle>
-                  <CardDescription className="text-sm text-gray-500 mt-1">
+                  <CardDescription className="text-sm text-gray-500 mt-1 line-clamp-1">
                     {selectedDate 
                       ? `Events you're interested in on ${selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
                       : "Select a date to view events"}
@@ -1195,7 +1213,7 @@ export default function DashboardPage() {
 
                       if (eventsForDate.length === 0) {
                         return (
-                          <div className="text-center py-12">
+                          <div className="text-center py-12 min-h-[400px] flex flex-col items-center justify-center">
                             <CalendarIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
                             <p className="text-sm text-gray-500">
                               No events on this date
@@ -1240,7 +1258,7 @@ export default function DashboardPage() {
                       );
                     })()
                   ) : (
-                    <div className="text-center py-12">
+                    <div className="text-center py-12 min-h-[400px] flex flex-col items-center justify-center">
                       <CalendarIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
                       <p className="text-sm text-gray-500">
                         Choose event date
@@ -1253,7 +1271,7 @@ export default function DashboardPage() {
               {/* Event Detail - Right Column (1/3) - Top Card (from upcoming events) */}
               {selectedEvent ? (
                 <Card className="border-0 shadow-sm">
-                  <CardHeader className="pb-3">
+                  <CardHeader className="pb-3 h-[72px]">
                     <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                       <div className="p-1.5 bg-purple-100 rounded-lg">
                         <CalendarIcon className="h-4 w-4 text-purple-600" />
@@ -1261,7 +1279,7 @@ export default function DashboardPage() {
                       Event Details
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 pt-0">
+                  <CardContent className="p-4 pt-0 min-h-[400px]">
                     <div className="space-y-4">
                       {/* Event Image - Always show, with placeholder if no image */}
                       <div className="relative h-48 w-full overflow-hidden rounded-lg bg-gray-200">
@@ -1333,6 +1351,14 @@ export default function DashboardPage() {
                 </Card>
               ) : (
                 <Card className="border-0 shadow-sm">
+                  <CardHeader className="pb-3 h-[72px]">
+                    <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <div className="p-1.5 bg-purple-100 rounded-lg">
+                        <CalendarIcon className="h-4 w-4 text-purple-600" />
+                      </div>
+                      Event Details
+                    </CardTitle>
+                  </CardHeader>
                   <CardContent className="p-4 pt-0 flex items-center justify-center min-h-[400px]">
                     <div className="text-center text-gray-400">
                       <CalendarIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -1810,12 +1836,14 @@ export default function DashboardPage() {
                       Communities you're part of
                     </CardDescription>
                   </div>
-                  <Link href="/communities">
-                    <Button variant="outline" size="sm">
-                      <Plus className="h-3 w-3 mr-1" />
-                      Join More
-                    </Button>
-                  </Link>
+                  {joinedCommunities.length > 0 && (
+                    <Link href="/communities">
+                      <Button variant="outline" size="sm">
+                        <Plus className="h-3 w-3 mr-1" />
+                        Join More
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-4 pt-0">
@@ -2127,6 +2155,7 @@ export default function DashboardPage() {
         </Tabs>
         </div>
       </div>
+      <Chatbot />
     </>
   );
 }

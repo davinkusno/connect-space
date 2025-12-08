@@ -80,8 +80,6 @@ export function AuthButton({ user }: AuthButtonProps) {
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => router.push("/profile")}>Profile</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/dashboard")}>Dashboard</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/settings")}>Settings</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} disabled={isLoading} className="text-red-600 focus:text-red-600">
           {isLoading ? "Signing out..." : "Sign out"}

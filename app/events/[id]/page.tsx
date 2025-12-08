@@ -234,16 +234,30 @@ export default function EventDetailsPage({
 
         // Check if current user has RSVP'd to this event
         if (user) {
-          const { data: userRsvp } = await supabase
+          const { data: userRsvp, error: rsvpCheckError } = await supabase
             .from("event_attendees")
             .select("id, status")
             .eq("event_id", id)
             .eq("user_id", user.id)
-            .in("status", ["going", "maybe"])
-            .maybeSingle();
+            .maybeSingle(); // Check for any status first
+          
+          if (rsvpCheckError && rsvpCheckError.code !== "PGRST116") {
+            // PGRST116 is "not found" which is fine
+            console.error("Error checking RSVP status:", rsvpCheckError);
+          }
           
           if (userRsvp) {
-            setIsRegistered(true);
+            console.log("User has RSVP:", userRsvp);
+            // Only set to true if status is "going" or "maybe"
+            if (userRsvp.status === "going" || userRsvp.status === "maybe") {
+              setIsRegistered(true);
+            } else {
+              console.log("User has RSVP but status is not 'going' or 'maybe':", userRsvp.status);
+              setIsRegistered(false);
+            }
+          } else {
+            console.log("User does not have RSVP for this event");
+            setIsRegistered(false);
           }
 
           // Check if event is saved
@@ -442,10 +456,12 @@ export default function EventDetailsPage({
             hour: "2-digit",
             minute: "2-digit",
           }),
-          endTime: new Date(eventData.end_time).toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+          endTime: eventData.end_time 
+            ? new Date(eventData.end_time).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : undefined,
           location: parsedLocation,
           organizer: {
             name: creatorData?.full_name || creatorData?.username || "Organizer",
@@ -516,11 +532,27 @@ export default function EventDetailsPage({
     });
   };
 
-  const formatTime = (timeStr: string) => {
-    return new Date(`2024-01-01T${timeStr}`).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatTime = (timeStr: string | undefined) => {
+    if (!timeStr) return "";
+    
+    // If timeStr is already formatted (contains AM/PM or is a formatted time string), return as is
+    if (timeStr.includes("AM") || timeStr.includes("PM") || timeStr.match(/^\d{1,2}:\d{2}\s?(AM|PM)?$/i)) {
+      return timeStr;
+    }
+    
+    // Try to parse as ISO time string (HH:MM:SS or HH:MM)
+    try {
+      const date = new Date(`2024-01-01T${timeStr}`);
+      if (isNaN(date.getTime())) {
+        return ""; // Return empty string if invalid
+      }
+      return date.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return ""; // Return empty string on error
+    }
   };
 
   const handleCopyLink = () => {
@@ -567,13 +599,41 @@ export default function EventDetailsPage({
       }
 
       const data = await response.json();
-      
-      // Update state
-      setIsRegistered(true);
       console.log("RSVP successful:", data);
       
-      // Refresh the page to update the UI and calendar
-      router.refresh();
+      // Update state immediately
+      setIsRegistered(true);
+      
+      // Dispatch custom event to refresh home page interested events
+      window.dispatchEvent(new CustomEvent("eventInterested"));
+      
+      // Verify RSVP was saved by re-checking the database
+      const supabase = getSupabaseBrowser();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Wait a moment for database to commit, then verify
+        setTimeout(async () => {
+          const { data: userRsvp, error: rsvpCheckError } = await supabase
+            .from("event_attendees")
+            .select("id, status")
+            .eq("event_id", event.id)
+            .eq("user_id", user.id)
+            .maybeSingle(); // Check for any status, not just "going" or "maybe"
+          
+          if (rsvpCheckError && rsvpCheckError.code !== "PGRST116") {
+            console.error("Error verifying RSVP:", rsvpCheckError);
+          } else if (userRsvp) {
+            console.log("RSVP verified in database:", userRsvp);
+            // Only set to true if status is "going" or "maybe"
+            if (userRsvp.status === "going" || userRsvp.status === "maybe") {
+              setIsRegistered(true);
+            }
+          } else {
+            console.warn("RSVP not found in database after creation");
+            // Don't reset the state, keep it as true since the API said it succeeded
+          }
+        }, 300);
+      }
     } catch (error: any) {
       console.error("Error adding interest:", error);
       alert(error.message || "Failed to update RSVP");
@@ -600,6 +660,9 @@ export default function EventDetailsPage({
       setIsRegistered(false);
       setIsRemoveInterestDialogOpen(false);
       console.log("RSVP removed successfully");
+      
+      // Dispatch custom event to refresh home page interested events
+      window.dispatchEvent(new CustomEvent("eventInterested"));
       
       // Refresh the page to update the UI and calendar
       router.refresh();
@@ -814,7 +877,7 @@ export default function EventDetailsPage({
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
                 <span>
-                  {formatTime(event.time)} - {formatTime(event.endTime)}
+                  {formatTime(event.time)}{event.endTime ? ` - ${formatTime(event.endTime)}` : ""}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -947,7 +1010,7 @@ export default function EventDetailsPage({
                   {isCheckingAuth 
                     ? "Loading..." 
                     : isRegistered 
-                    ? "Event you're interested in" 
+                    ? "You're interested" 
                     : "Interested to join"}
                 </span>
               </Button>
@@ -1342,7 +1405,7 @@ export default function EventDetailsPage({
                             onClick={handleInterestedClick}
                             variant={isRegistered ? "outline" : "default"}
                           >
-                            {isRegistered ? "Event you're interested in" : "Interested to join"}
+                            {isRegistered ? "You're interested" : "Interested to join"}
                           </Button>
                         </div>
 

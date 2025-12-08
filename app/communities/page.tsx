@@ -60,6 +60,7 @@ import { CitySearch } from "@/components/ui/city-search";
 import type { City } from "@/lib/api/cities";
 import React from "react";
 import type { Community } from "@/types/community";
+import { Chatbot } from "@/components/ai/chatbot";
 
 export default function DiscoverPage() {
   const [communities, setCommunities] = useState<Community[]>([]);
@@ -859,6 +860,7 @@ export default function DiscoverPage() {
           </div>
         </div>
       </div>
+      <Chatbot />
     </PageTransition>
   );
 }

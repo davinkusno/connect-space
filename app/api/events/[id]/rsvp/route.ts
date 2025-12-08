@@ -92,6 +92,32 @@ export async function POST(
         });
 
       if (insertError) {
+        // Handle duplicate key error - record might have been created between check and insert
+        if (insertError.code === "23505") {
+          // Duplicate key - update existing record instead
+          const { error: updateError } = await supabase
+            .from("event_attendees")
+            .update({
+              status: "going",
+              registered_at: new Date().toISOString(),
+            })
+            .eq("event_id", id)
+            .eq("user_id", user.id);
+
+          if (updateError) {
+            console.error("Error updating RSVP after duplicate:", updateError);
+            return NextResponse.json(
+              { error: "Failed to update RSVP" },
+              { status: 500 }
+            );
+          }
+
+          return NextResponse.json(
+            { message: "RSVP updated successfully", status: "going" },
+            { status: 200 }
+          );
+        }
+
         console.error("Error creating RSVP:", insertError);
         return NextResponse.json(
           { error: "Failed to create RSVP" },

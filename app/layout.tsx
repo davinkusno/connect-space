@@ -4,7 +4,6 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { NavbarWrapper } from "@/components/navigation/navbar-wrapper";
 import { OnboardingGuard } from "@/components/auth/onboarding-guard";
-import { Chatbot } from "@/components/ai/chatbot";
 
 export const metadata: Metadata = {
   title: "ConnectSpace",
@@ -27,7 +26,6 @@ export default function RootLayout({
         <OnboardingGuard>
           <NavbarWrapper />
           <main className="min-h-screen">{children}</main>
-          <Chatbot />
           <Toaster />
         </OnboardingGuard>
       </body>
