@@ -27,7 +27,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     "/auth/callback",
     "/auth/forgot-password",
     "/auth/reset-password",
-    "/community-admin-registration",
+    "/create-community",
   ];
 
   useEffect(() => {
@@ -64,9 +64,9 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
 
         // Check if user has completed onboarding
         if (!data.onboardingCompleted) {
-          // Community admin goes to community registration
+          // Community admin goes to create community
           if (data.userType === "community_admin") {
-            router.push("/community-admin-registration");
+            router.push("/create-community");
           } else {
             // Regular user goes to interest onboarding
             router.push("/onboarding");

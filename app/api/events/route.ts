@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
           city: locationData.city || locationData.town || locationData.municipality || "Unknown",
           isOnline: event.is_online || false,
         },
-        organizer: (event.creator as any)?.full_name || (event.creator as any)?.username || "Unknown",
+        organizer: (event.community as any)?.name || "Unknown Community",
         attendees: attendeeCount,
         maxAttendees: event.max_attendees || null,
         rating: 4.5, // Default rating (can be calculated from reviews if available)

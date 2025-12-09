@@ -349,7 +349,7 @@ export default function EventsPage() {
           event.tags.some((tag) =>
             tag.toLowerCase().includes(searchQuery.toLowerCase())
           ) ||
-          event.organizer.toLowerCase().includes(searchQuery.toLowerCase())
+          (event.community?.name || event.organizer || "").toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -755,7 +755,7 @@ export default function EventsPage() {
               <span>{event.attendees} interested</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Award className="h-4 w-4" />
+              <Users className="h-4 w-4" />
               <span className="truncate">{event.organizer}</span>
             </div>
           </div>

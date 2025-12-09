@@ -131,9 +131,9 @@ export default function CreateCommunityPage() {
 
       toast.success("Community created successfully!")
       
-      // Redirect to dashboard
+      // Redirect to home
       setTimeout(() => {
-        router.push("/dashboard")
+        router.push("/home")
       }, 1000)
     } catch (error: any) {
       console.error("Error creating community:", error)

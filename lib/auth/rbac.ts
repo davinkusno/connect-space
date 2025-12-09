@@ -93,10 +93,6 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin-registration",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
-  {
     path: "/community/[id]/manage",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },

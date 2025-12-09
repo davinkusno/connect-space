@@ -98,10 +98,10 @@ export async function GET(request: NextRequest) {
           const hasCreatedCommunity = communities && communities.length > 0;
           
           if (!hasCreatedCommunity && !onboardingCompleted) {
-            return NextResponse.redirect(`${origin}/community-admin-registration`);
+            return NextResponse.redirect(`${origin}/create-community`);
           }
           
-          return NextResponse.redirect(`${origin}/dashboard`);
+          return NextResponse.redirect(`${origin}/home`);
         }
 
         // Regular users: check onboarding

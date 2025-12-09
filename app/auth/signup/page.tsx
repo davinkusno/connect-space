@@ -174,7 +174,7 @@ export default function SignupPage() {
         // Redirect based on user role
         switch (selectedRole) {
           case "community_admin":
-            router.push("/community-admin-registration");
+            router.push("/create-community");
             break;
           case "user":
           default:
