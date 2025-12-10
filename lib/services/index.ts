@@ -1,20 +1,28 @@
 // Base classes and utilities
-// Infrastructure services (no database tables - external integrations)
-export { AdminService, adminService } from "./admin.service"; // Uses existing tables
-export { AdsService, adsService } from "./ads.service";
-export { AIService, aiService } from "./ai.service"; // External API (OpenAI)
 export {
-    ApiResponse, AuthenticationError,
-    AuthorizationError, BaseService, ConflictError, NotFoundError,
-    ValidationError, type ServiceResult
+  ApiResponse,
+  AuthenticationError,
+  AuthorizationError,
+  BaseService,
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+  type ServiceResult,
 } from "./base.service";
-export { CommunityService, communityService } from "./community.service";
+
 // Domain services (with database tables)
+export { AdminService, adminService } from "./admin.service";
+export { AdsService, adsService } from "./ads.service";
+export { AuthService, authService } from "./auth.service";
+export { CommunityService, communityService } from "./community.service";
 export { EventService, eventService } from "./event.service";
 export { PostService, postService } from "./post.service";
 export { ReportService, reportService } from "./report.service";
-export { StorageService, storageService } from "./storage.service"; // File storage (Supabase Storage)
 export { UserService, userService } from "./user.service";
+
+// Infrastructure services (external integrations)
+export { AIService, aiService } from "./ai.service";
+export { StorageService, storageService } from "./storage.service";
 
 
 
