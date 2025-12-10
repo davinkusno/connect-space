@@ -252,16 +252,16 @@ export default function EventDetailsPage({
             console.error("[Event Detail] Error checking RSVP via API:", rsvpError);
             // Fallback to direct query
             const { data: userRsvp, error: rsvpCheckError } = await supabase
-              .from("event_attendees")
-              .select("id, status")
-              .eq("event_id", id)
-              .eq("user_id", user.id)
-              .maybeSingle();
-            
+            .from("event_attendees")
+            .select("id, status")
+            .eq("event_id", id)
+            .eq("user_id", user.id)
+            .maybeSingle();
+          
             console.log("[Event Detail] Fallback RSVP check:", userRsvp, rsvpCheckError);
             
             if (userRsvp && (userRsvp.status === "going" || userRsvp.status === "maybe")) {
-              setIsRegistered(true);
+            setIsRegistered(true);
             } else {
               setIsRegistered(false);
             }
@@ -466,8 +466,8 @@ export default function EventDetailsPage({
           }),
           endTime: eventData.end_time 
             ? new Date(eventData.end_time).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
               })
             : undefined,
           location: parsedLocation,
@@ -555,9 +555,9 @@ export default function EventDetailsPage({
         return ""; // Return empty string if invalid
       }
       return date.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     } catch {
       return ""; // Return empty string on error
     }
@@ -1456,10 +1456,10 @@ export default function EventDetailsPage({
                     {/* Location Details */}
                     <div className="space-y-2 text-sm">
                       {event.location.address && (
-                        <div className="flex items-start gap-2">
-                          <span className="font-medium text-gray-700 min-w-[80px]">Address:</span>
-                          <span className="text-gray-600">{event.location.address}</span>
-                        </div>
+                      <div className="flex items-start gap-2">
+                        <span className="font-medium text-gray-700 min-w-[80px]">Address:</span>
+                        <span className="text-gray-600">{event.location.address}</span>
+                      </div>
                       )}
                       {event.location.city && (
                         <div className="flex items-start gap-2">
@@ -1471,13 +1471,13 @@ export default function EventDetailsPage({
 
                     {/* Map - Only show if we have coordinates */}
                     {event.location.lat !== 0 && event.location.lng !== 0 ? (
-                      <InteractiveLeafletMap
-                        location={event.location}
+                    <InteractiveLeafletMap
+                      location={event.location}
                         height="400px"
-                        showControls={true}
-                        showDirections={true}
-                        zoom={15}
-                      />
+                      showControls={true}
+                      showDirections={true}
+                      zoom={15}
+                    />
                     ) : (
                       <div className="p-6 bg-gray-50 rounded-lg flex flex-col items-center justify-center border border-gray-200">
                         <MapPin className="h-10 w-10 text-gray-400 mb-3" />

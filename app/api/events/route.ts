@@ -96,15 +96,12 @@ export async function GET(request: NextRequest) {
     const { data: events, error, count } = await query.range(from, to);
 
     if (error) {
-      console.error("Database error:", error);
       return NextResponse.json(
-        { error: "Failed to fetch events", details: error.message },
+        { error: "Failed to fetch events" },
         { status: 500 }
       );
     }
 
-    // Log for debugging
-    console.log(`[API Events] Found ${events?.length || 0} events, count: ${count || 0}, dateRange: ${dateRange}`);
 
     // Get attendee counts for each event
     const eventIds = events?.map((e: any) => e.id) || [];
@@ -191,8 +188,6 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Log transformed events count
-    console.log(`[API Events] Transformed ${transformedEvents.length} events`);
 
     return NextResponse.json(
       {
@@ -206,10 +201,9 @@ export async function GET(request: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error: any) {
-    console.error("Error in GET /api/events:", error);
+  } catch {
     return NextResponse.json(
-      { error: "Internal server error", details: error.message },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

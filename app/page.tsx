@@ -121,10 +121,10 @@ export default function HomePage() {
                 <Calendar className="w-5 h-5 mr-2" />
                 Browse Events
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
-              </AnimatedButton>
+                  </AnimatedButton>
             </Link>
-          </div>
-        </div>
+                </div>
+              </div>
       </section>
 
       {/* Features Section */}
@@ -235,24 +235,24 @@ export default function HomePage() {
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
             <Link href="/create-community">
-              <AnimatedButton
-                variant="glass"
-                size="lg"
-                className="text-white border-white/30"
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                Create Community
-              </AnimatedButton>
+            <AnimatedButton
+              variant="glass"
+              size="lg"
+              className="text-white border-white/30"
+            >
+              <Sparkles className="w-5 h-5 mr-2" />
+              Create Community
+            </AnimatedButton>
             </Link>
             <Link href="/communities">
-              <AnimatedButton
-                variant="neon"
-                size="lg"
-                className="border-white text-white hover:bg-white hover:text-purple-600"
-              >
+            <AnimatedButton
+              variant="neon"
+              size="lg"
+              className="border-white text-white hover:bg-white hover:text-purple-600"
+            >
                 <Compass className="w-5 h-5 mr-2" />
-                Explore Communities
-              </AnimatedButton>
+              Explore Communities
+            </AnimatedButton>
             </Link>
           </div>
         </div>
@@ -321,13 +321,13 @@ export default function HomePage() {
                   </Link>
                 </li>
                 <li>
-                  <Link
+                      <Link
                     href="/home"
-                    className="hover:text-purple-400 transition-colors duration-300 hover:translate-x-1 inline-block"
-                  >
+                        className="hover:text-purple-400 transition-colors duration-300 hover:translate-x-1 inline-block"
+                      >
                     Dashboard
-                  </Link>
-                </li>
+                      </Link>
+                    </li>
               </ul>
             </div>
 

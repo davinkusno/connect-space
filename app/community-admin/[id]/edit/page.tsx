@@ -508,10 +508,10 @@ export default function EditCommunityPage({
                   <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                     <div className="flex items-start gap-3">
                       <MapPin className="w-5 h-5 text-purple-600 mt-0.5" />
-                      <div>
+                <div>
                         <p className="font-medium text-gray-900">{city}{city && country ? `, ${country}` : country}</p>
                         {address && <p className="text-sm text-gray-600 mt-1">{address}</p>}
-                      </div>
+                </div>
                     </div>
                   </div>
                 )}
@@ -532,7 +532,7 @@ export default function EditCommunityPage({
                       </>
                     ) : (
                       <>
-                        <Save className="w-4 h-4 mr-2" />
+                    <Save className="w-4 h-4 mr-2" />
                         Save Changes
                       </>
                     )}

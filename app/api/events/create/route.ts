@@ -1,36 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
-import {
-  STORAGE_CONFIG,
-  getStoragePath,
-  generateUniqueFilename,
-  isValidImageType,
-  isValidFileSize,
-} from "@/config/storage";
-
-// Create Supabase client with service role key for storage operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { communityService } from "@/lib/services";
 
 /**
- * @route POST /api/events/create
- * @description Create a new event
- * @access Private (community admins only)
+ * POST /api/events/create
+ * Create a new event (community admins only)
  */
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    // Check if user is authenticated
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -60,18 +41,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate description word count (max 500 words)
-    const wordCount = description.trim().split(/\s+/).filter(word => word.length > 0).length;
+    const wordCount = description.trim().split(/\s+/).filter((word: string) => word.length > 0).length;
     if (wordCount > 500) {
       return NextResponse.json(
-        { error: "Description must be 500 words or less. Current word count: " + wordCount },
+        { error: `Description must be 500 words or less (current: ${wordCount})` },
         { status: 400 }
       );
     }
 
     if (!start_time || !end_time) {
       return NextResponse.json(
-        { error: "Start time and end time are required" },
+        { error: "Start and end time are required" },
         { status: 400 }
       );
     }
@@ -83,60 +63,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify community exists and get details
+    // Verify community exists
     const { data: community, error: communityError } = await supabase
       .from("communities")
-      .select("id, name, creator_id")
+      .select("id, name, creator_id, category_id")
       .eq("id", community_id)
       .single();
 
     if (communityError || !community) {
-      return NextResponse.json(
-        { error: "Community not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Community not found" }, { status: 404 });
     }
 
-    // Check if user is admin or creator of the community
-    const { data: membership } = await supabase
-      .from("community_members")
-      .select("role")
-      .eq("community_id", community_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    const isAdmin = membership && membership.role === "admin";
-    const isCreator = community.creator_id === user.id;
-
-    if (!isAdmin && !isCreator) {
-      console.error("Permission denied:", {
-        user_id: user.id,
-        user_email: user.email,
-        community_id: community_id,
-        community_name: community.name,
-        isAdmin,
-        isCreator
-      });
+    // Check permission
+    const isAdmin = await communityService.isAdminOrCreator(community_id, user.id);
+    if (!isAdmin) {
       return NextResponse.json(
-        { error: "You don't have permission to create events in this community" },
+        { error: "Permission denied" },
         { status: 403 }
       );
     }
 
-    // Log for debugging
-    console.log("Creating event:", {
-      title,
-      community_id: community_id,
-      community_name: community.name,
-      user_id: user.id,
-      user_email: user.email,
-      isCreator,
-      isAdmin
-    });
-
-    // Prepare insert data
-    // Note: Only include fields that exist in the database schema
-    const insertData: any = {
+    // Prepare event data
+    const insertData: Record<string, any> = {
       title,
       description,
       location: location || null,
@@ -148,109 +96,52 @@ export async function POST(request: NextRequest) {
       is_online: is_online || false,
       max_attendees: max_attendees ? parseInt(max_attendees.toString()) : null,
       link: link || null,
-    }
+    };
 
-    // Set category: use provided category, or inherit from community
+    // Set category
     if (category) {
-      insertData.category = category
-    } else {
-      // Inherit category from parent community via category_id
-      const { data: communityData } = await supabase
-        .from("communities")
-        .select("category_id, categories(name)")
-        .eq("id", community_id)
-        .single()
-      
-      if (communityData?.categories) {
-        // Get category name from the relationship
-        const categoryName = (communityData.categories as any)?.name
-        if (categoryName) {
-          insertData.category = categoryName
-        }
-      } else if (communityData?.category_id) {
-        // Fallback: fetch category name directly
-        const { data: catData } = await supabase
-          .from("categories")
-          .select("name")
-          .eq("id", communityData.category_id)
-          .single()
-        
-        if (catData?.name) {
-          insertData.category = catData.name
-        }
+      insertData.category = category;
+    } else if (community.category_id) {
+      const { data: catData } = await supabase
+        .from("categories")
+        .select("name")
+        .eq("id", community.category_id)
+        .single();
+
+      if (catData?.name) {
+        insertData.category = catData.name;
       }
     }
 
     // Create event
-    console.log("Attempting to insert event with data:", insertData);
     const { data: event, error: eventError } = await supabase
       .from("events")
       .insert(insertData)
       .select()
       .single();
 
-    if (eventError) {
-      console.error("Error creating event:", eventError);
-      console.error("Error details:", {
-        code: eventError.code,
-        message: eventError.message,
-        details: eventError.details,
-        hint: eventError.hint
-      });
+    if (eventError || !event) {
       return NextResponse.json(
-        { 
-          error: "Failed to create event", 
-          details: eventError.message,
-          code: eventError.code 
-        },
+        { error: "Failed to create event" },
         { status: 500 }
       );
     }
 
-    if (!event) {
-      console.error("Event creation returned no data");
-      return NextResponse.json(
-        { error: "Event creation failed - no data returned" },
-        { status: 500 }
-      );
-    }
-
-    console.log("Event created successfully:", {
-      event_id: event.id,
-      event_title: event.title,
-      community_id: event.community_id,
-      creator_id: event.creator_id
-    });
-
-    // Update community's last activity date and type
-    const now = new Date().toISOString();
-    const updateData: any = {
-      last_activity_date: now,
-      last_activity_type: "event",
-    };
-    
-    // Only update status if the column exists (for backward compatibility)
-    // Status will be set to 'active' if the column exists
-    updateData.status = "active";
-    
-    const { error: updateError } = await supabase
+    // Update community activity
+    await supabase
       .from("communities")
-      .update(updateData)
+      .update({
+        last_activity_date: new Date().toISOString(),
+        last_activity_type: "event",
+        status: "active",
+      })
       .eq("id", community_id);
 
-    if (updateError) {
-      // Log error but don't fail the request - activity tracking is secondary
-      console.error("Error updating community activity:", updateError);
-    }
-
-    // Return event directly for easier frontend handling
-    return NextResponse.json(event, { status: 200 });
-  } catch (error: any) {
-    console.error("Error creating event:", error);
+    return NextResponse.json(event);
+  } catch {
     return NextResponse.json(
-      { error: "Internal server error", details: error.message },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
 }
-

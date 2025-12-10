@@ -187,7 +187,7 @@ export default function CommunityAdminPage({
               // Try to parse as JSON first
               try {
                 parsed = JSON.parse(communityData.location)
-              } catch (e) {
+          } catch (e) {
                 // If not JSON, use as plain string city name
                 locationData.city = communityData.location
                 parsed = null
@@ -1200,7 +1200,7 @@ export default function CommunityAdminPage({
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-gray-500"><EventCount communityId={community?.id} /></span>
                             <ChevronRight className="w-4 h-4 text-purple-600 group-hover:translate-x-1 transition-transform" />
-                          </div>
+                        </div>
                         </div>
                       </Link>
                     )}
@@ -1212,9 +1212,9 @@ export default function CommunityAdminPage({
                           <div className="flex items-center gap-3 mb-3">
                             <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
                               <Users className="w-5 h-5 text-blue-600" />
+                              </div>
+                              <h4 className="font-semibold text-gray-900">Members</h4>
                             </div>
-                            <h4 className="font-semibold text-gray-900">Members</h4>
-                          </div>
                           <p className="text-sm text-gray-600 mb-3">View and manage community members</p>
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-gray-500">{community?.memberCount.toLocaleString()} members</span>
@@ -1227,10 +1227,10 @@ export default function CommunityAdminPage({
                 </CardContent>
               </Card>
 
-            </div>
-          </div>
-        </div>
-      </div>
+                    </div>
+                    </div>
+                                  </div>
+                                </div>
     </PageTransition>
   )
 }

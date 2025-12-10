@@ -255,7 +255,7 @@ export default function CreateEventPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-violet-600 mx-auto mb-4" />
+            <Loader2 className="h-12 w-12 animate-spin text-violet-600 mx-auto mb-4" />
           <p className="text-gray-600 font-medium">Loading event creator...</p>
         </div>
       </div>
@@ -613,60 +613,60 @@ export default function CreateEventPage() {
                     <div className="flex items-center justify-between">
                       <Label className="text-gray-700 flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-violet-600" />
-                        Location *
-                      </Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setUseMapPicker(!useMapPicker)}
+                      Location *
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUseMapPicker(!useMapPicker)}
                         className="text-sm border-violet-200 hover:bg-violet-50 hover:border-violet-300"
-                      >
-                        <Map className="h-4 w-4 mr-2" />
-                        {useMapPicker ? "Use Text Input" : "Pick on Map"}
-                      </Button>
-                    </div>
+                    >
+                      <Map className="h-4 w-4 mr-2" />
+                      {useMapPicker ? "Use Text Input" : "Pick on Map"}
+                    </Button>
+                  </div>
 
-                    {useMapPicker ? (
-                      <div className="space-y-3">
-                        <LocationPicker
-                          value={locationData.address ? locationData : undefined}
-                          onChange={handleLocationChange}
-                          locationType="physical"
-                          required={true}
-                        />
+                  {useMapPicker ? (
+                    <div className="space-y-3">
+                      <LocationPicker
+                        value={locationData.address ? locationData : undefined}
+                        onChange={handleLocationChange}
+                        locationType="physical"
+                        required={true}
+                      />
                         {locationData.city && (
                           <div className="flex items-center gap-2 p-3 bg-violet-50 rounded-lg border border-violet-200">
                             <MapPin className="h-4 w-4 text-violet-600 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900">
                                 {locationData.city}
-                              </p>
+                            </p>
                               {locationData.lat && locationData.lng && (
-                                <p className="text-xs text-gray-600">
+                            <p className="text-xs text-gray-600">
                                   Coordinates: {locationData.lat.toFixed(4)}, {locationData.lng.toFixed(4)}
-                                </p>
+                            </p>
                               )}
-                            </div>
                           </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <Input
-                          id="location"
-                          placeholder="Event location or address"
-                          value={formData.location}
-                          onChange={(e) => {
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        id="location"
+                        placeholder="Event location or address"
+                        value={formData.location}
+                        onChange={(e) => {
                             handleInputChange("location", e.target.value);
                             setLocationData({ address: e.target.value, city: e.target.value, lat: null, lng: null });
-                          }}
+                        }}
                           className="border-gray-200 focus:border-violet-300 focus:ring-violet-200 transition-colors duration-200"
-                          required
-                        />
-                      </div>
-                    )}
-                  </div>
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
                 ) : (
                   <div className="space-y-3">
                     <Label htmlFor="location" className="text-gray-700 flex items-center gap-2">

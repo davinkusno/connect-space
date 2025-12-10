@@ -56,7 +56,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const { data: communities, count, error } = await queryBuilder.range(from, to)
 
       if (error) {
-        console.error("Database error:", error)
         return formatError("DATABASE_ERROR", "Failed to fetch communities", null, 500)
       }
 
@@ -80,7 +79,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const { data: communities, count, error } = await queryBuilder.range(from, to)
 
       if (error) {
-        console.error("Database error:", error)
         return formatError("DATABASE_ERROR", "Failed to fetch communities", null, 500)
       }
 
@@ -91,9 +89,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         totalPages: Math.ceil((count || 0) / pageSize),
       })
     }
-  } catch (error: any) {
-    console.error("Unexpected error:", error)
-    return formatError("SERVER_ERROR", error.message || "An unexpected error occurred", null, 500)
+  } catch {
+    return formatError("SERVER_ERROR", "An unexpected error occurred", null, 500)
   }
 }
 
@@ -132,7 +129,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .single()
 
     if (createError) {
-      console.error("Database error:", createError)
       return formatError("DATABASE_ERROR", "Failed to create community", null, 500)
     }
 
@@ -145,8 +141,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     })
 
     return formatResponse(community, undefined, 201)
-  } catch (error: any) {
-    console.error("Unexpected error:", error)
-    return formatError("SERVER_ERROR", error.message || "An unexpected error occurred", null, 500)
+  } catch {
+    return formatError("SERVER_ERROR", "An unexpected error occurred", null, 500)
   }
 }

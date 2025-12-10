@@ -573,7 +573,7 @@ export default function CommunityPage({
     }
     // Show confirmation dialog with points info
     setShowJoinConfirmDialog(true);
-  };
+    };
 
   const handleJoinCommunity = async () => {
     setShowJoinConfirmDialog(false);
@@ -935,13 +935,13 @@ export default function CommunityPage({
             <div className="flex items-center gap-3">
               {userRole === "creator" || userRole === "admin" ? (
                 <>
-                  <Button
-                    disabled
-                    className="bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed"
-                  >
-                    <Crown className="h-4 w-4 mr-2" />
-                    {userRole === "creator" ? "Your Community" : "Community Admin"}
-                  </Button>
+              <Button
+                  disabled
+                  className="bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed"
+              >
+                  <Crown className="h-4 w-4 mr-2" />
+                  {userRole === "creator" ? "Your Community" : "Community Admin"}
+              </Button>
                   {userRole === "creator" && (
                     <Link href={`/community-admin/${id}`}>
                       <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all">
@@ -1123,34 +1123,34 @@ export default function CommunityPage({
 
                       {community.location && (
                         <>
-                          <Separator className="bg-gray-200" />
+                      <Separator className="bg-gray-200" />
 
-                          <div>
-                            <h4 className="font-medium mb-4 text-gray-900 flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-violet-600" />
-                              Location
-                            </h4>
-                            <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                              <p className="text-gray-800">
+                      <div>
+                        <h4 className="font-medium mb-4 text-gray-900 flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-violet-600" />
+                          Location
+                        </h4>
+                        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                          <p className="text-gray-800">
                                 {typeof community.location === 'string' 
                                   ? community.location 
                                   : community.location?.address || 'Location not specified'}
-                              </p>
-                              <HoverScale>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    // Handle map view
-                                  }}
-                                  className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
-                                >
-                                  <Navigation className="h-4 w-4 mr-2" />
-                                  View on Map
-                                </Button>
-                              </HoverScale>
-                            </div>
-                          </div>
+                          </p>
+                          <HoverScale>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Handle map view
+                              }}
+                              className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
+                            >
+                              <Navigation className="h-4 w-4 mr-2" />
+                              View on Map
+                            </Button>
+                          </HoverScale>
+                        </div>
+                      </div>
                         </>
                       )}
 
@@ -1482,10 +1482,10 @@ export default function CommunityPage({
                       >
                         <Settings className="h-4 w-4 mr-2" />
                         Manage Events
-                      </Button>
+                        </Button>
                     </Link>
-                  )}
-                </div>
+                    )}
+                  </div>
 
                 {isLoadingTab ? (
                   <div className="flex items-center justify-center py-12">

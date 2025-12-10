@@ -374,31 +374,31 @@ export default function DashboardPage() {
 
   // Fetch joined/interested events function using API (bypasses RLS)
   const fetchJoinedEvents = useCallback(async () => {
-    console.log("[Dashboard] fetchJoinedEvents called, activeTab:", activeTab);
-    setIsLoadingEvents(true);
-    try {
+      console.log("[Dashboard] fetchJoinedEvents called, activeTab:", activeTab);
+      setIsLoadingEvents(true);
+      try {
       // Use API endpoint to fetch interested events (bypasses RLS)
       const response = await fetch("/api/events/interested");
       const data = await response.json();
-      
+        
       console.log("[Dashboard] API response:", data);
-      
+        
       if (!response.ok) {
         console.error("[Dashboard] API error:", data.error);
-        setJoinedEvents([]);
-        setIsLoadingEvents(false);
-        return;
-      }
-      
+          setJoinedEvents([]);
+          setIsLoadingEvents(false);
+          return;
+        }
+        
       const eventsData = data.events || [];
       
       if (eventsData.length === 0) {
         console.log("[Dashboard] No interested events found");
-        setJoinedEvents([]);
-        setIsLoadingEvents(false);
-        return;
-      }
-      
+          setJoinedEvents([]);
+          setIsLoadingEvents(false);
+          return;
+        }
+        
       // Filter to only upcoming events and map to calendar format
       const now = new Date();
       const upcomingEvents = eventsData
@@ -444,8 +444,8 @@ export default function DashboardPage() {
             description: event.description,
             date: startTime,
             time: new Date(startTime).toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
             }),
             location: locationDisplay,
             image: event.image_url,
@@ -454,18 +454,18 @@ export default function DashboardPage() {
             communityId: event.community_id,
             communityLogo: event.community?.logo_url,
             status: "going",
-          };
-        })
+            };
+          })
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      console.log(`[Dashboard] Loaded ${upcomingEvents.length} interested events:`, upcomingEvents);
-      setJoinedEvents(upcomingEvents);
-    } catch (error) {
-      console.error("Error fetching interested events:", error);
-      setJoinedEvents([]);
-    } finally {
-      setIsLoadingEvents(false);
-    }
+        console.log(`[Dashboard] Loaded ${upcomingEvents.length} interested events:`, upcomingEvents);
+        setJoinedEvents(upcomingEvents);
+      } catch (error) {
+        console.error("Error fetching interested events:", error);
+        setJoinedEvents([]);
+      } finally {
+        setIsLoadingEvents(false);
+      }
   }, []);
 
   useEffect(() => {

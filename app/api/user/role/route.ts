@@ -1,73 +1,33 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/api/auth";
+import { userService } from "@/lib/services";
+import { createServerClient } from "@/lib/supabase/server";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-// POST save user role
-export async function POST(request: NextRequest) {
+/**
+ * GET /api/user/role
+ * Get current user's role
+ */
+export async function GET(request: NextRequest) {
   try {
-    // Check authentication
-    const authResult = await requireAuth(request);
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!authResult.authorized) {
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const result = await userService.getById(user.id);
+
+    if (!result.success) {
       return NextResponse.json(
-        { error: authResult.error || "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const body = await request.json();
-    const { userId, role } = body;
-
-    // Validate userId matches authenticated user
-    if (userId !== authResult.userId) {
-      return NextResponse.json({ error: "User ID mismatch" }, { status: 403 });
-    }
-
-    // Validate role (optional preference, not required)
-    if (role && !["user", "community_admin"].includes(role)) {
-      return NextResponse.json(
-        { error: "Invalid role. Must be 'user' or 'community_admin'" },
-        { status: 400 }
-      );
-    }
-
-    // Update user role preference (optional)
-    // Note: Actual community admin access is determined by community_members table
-    const updateData: any = {
-      role_selected: true,
-      updated_at: new Date().toISOString(),
-    };
-
-    // Only update user_type if role is provided (for preference/backward compatibility)
-    if (role) {
-      updateData.user_type = role;
-    }
-
-    const { error: updateError } = await supabase
-      .from("users")
-      .update(updateData)
-      .eq("id", userId);
-
-    if (updateError) {
-      console.error("Error updating user role:", updateError);
-      return NextResponse.json(
-        { error: "Failed to save role preference" },
-        { status: 500 }
+        { error: result.error?.message },
+        { status: result.status }
       );
     }
 
     return NextResponse.json({
-      success: true,
-      message: "Role preference saved successfully",
-      role: role || "user",
+      user_type: result.data?.user_type || "member",
     });
-  } catch (error) {
-    console.error("Save role error:", error);
+  } catch {
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

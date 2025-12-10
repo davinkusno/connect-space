@@ -7,7 +7,7 @@ const CommunityDescriptionSchema = z.object({
   alternativeDescriptions: z.array(z.string()).optional(),
   suggestedTags: z.array(z.string()).optional(),
   targetAudience: z.union([z.string(), z.array(z.string())]).optional().transform((val) => {
-    // Convert array to string if needed
+
     if (Array.isArray(val)) {
       return val.join(", ")
     }

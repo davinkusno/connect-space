@@ -547,8 +547,8 @@ export default function CommunityAdminRequestsPage({
                           <p className="text-sm text-gray-600">{request.userEmail}</p>
                           <div className="flex items-center gap-3 mt-1 flex-wrap">
                             <div className="flex items-center gap-1 text-xs text-gray-500">
-                              <Clock className="w-3 h-3" />
-                              {format(new Date(request.requestedAt), "MMM dd, yyyy 'at' h:mm a")}
+                            <Clock className="w-3 h-3" />
+                            {format(new Date(request.requestedAt), "MMM dd, yyyy 'at' h:mm a")}
                             </div>
                             <div className="flex items-center gap-1">
                               <Star className="w-3 h-3 text-green-500 fill-green-500" />
