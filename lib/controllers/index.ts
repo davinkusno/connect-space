@@ -1,0 +1,19 @@
+// Base controller and error classes
+export {
+  BaseController,
+  UnauthorizedError,
+  ForbiddenError,
+  NotFoundError,
+  BadRequestError,
+} from "./base.controller";
+
+// Domain controllers
+export { EventController, eventController } from "./event.controller";
+export { CommunityController, communityController } from "./community.controller";
+export { UserController, userController } from "./user.controller";
+export { ReportController, reportController } from "./report.controller";
+export { AdsController, adsController } from "./ads.controller";
+export { AIController, aiController } from "./ai.controller";
+export { PostController, postController } from "./post.controller";
+export { SuperAdminController, superAdminController } from "./superadmin.controller";
+
