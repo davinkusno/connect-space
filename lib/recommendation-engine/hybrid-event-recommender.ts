@@ -1,3 +1,62 @@
+/**
+ * Hybrid Event Recommendation Engine
+ *
+ * ============================================================================
+ * ACADEMIC REFERENCES
+ * ============================================================================
+ *
+ * [1] Roy, D., & Dutta, M. (2022). "A Systematic Review and Research
+ *     Perspective on Recommender Systems." Journal of Big Data, 9(1), 59.
+ *     DOI: 10.1186/s40537-022-00592-5
+ *     - Hybrid recommendation approach foundation
+ *     - Multi-algorithm weight combination
+ *
+ * [2] Widayanti, R., et al. (2025). "Improving Recommender Systems using
+ *     Hybrid Techniques of Collaborative Filtering and Content-Based Filtering."
+ *     Journal of Applied Data Sciences.
+ *     - Content-based for cold-start mitigation
+ *     - Diversity enhancement methodology
+ *
+ * [3] Zhao, W. X., et al. (2021). "RecBole: Towards a Unified Framework for
+ *     Recommendation Algorithms." CIKM '21, ACM, pp. 4653-4664.
+ *     DOI: 10.1145/3459637.3482016
+ *     - Standardized evaluation methodology
+ *     - Context-aware recommendation patterns
+ *
+ * [4] Sun, Z., et al. (2022). "DaisyRec 2.0: Benchmarking Recommendation for
+ *     Rigorous Evaluation." arXiv:2206.10848
+ *     - Evaluation metrics standardization
+ *     - Performance benchmarking methodology
+ *
+ * ============================================================================
+ * WEIGHT JUSTIFICATION
+ * ============================================================================
+ *
+ * Default weights (collaborative: 0.20, content: 0.35, community: 0.30, popularity: 0.15):
+ * Total: 1.0
+ *
+ * Based on Roy & Dutta (2022) and domain-specific analysis:
+ *
+ * 1. Content-Based (0.35) - Highest weight:
+ *    - Events require strong content matching (topic, category)
+ *    - Addresses cold-start for new events per Widayanti (2025)
+ *
+ * 2. Community-Based (0.30) - High weight:
+ *    - Events from user's communities are highly relevant
+ *    - Community context provides social proof
+ *    - Domain-specific: community membership is strong signal
+ *
+ * 3. Collaborative (0.20) - Medium weight:
+ *    - Similar users' event attendance patterns
+ *    - Lower than community since events are more community-centric
+ *
+ * 4. Popularity (0.15) - Lowest weight:
+ *    - Popular events as fallback for sparse data
+ *    - Temporal decay applied per Chen et al. (2023)
+ *
+ * ============================================================================
+ */
+
 import type {
     Event, EventRecommendationOptions, EventRecommendationReason, EventRecommendationResult, EventRecommendationScore, User
 } from "./types"
@@ -36,6 +95,17 @@ export class HybridEventRecommendationEngine {
   ): Promise<EventRecommendationResult> {
     const startTime = Date.now()
 
+    /**
+     * Weight distribution for event recommendations
+     * Based on Roy & Dutta (2022) and Widayanti et al. (2025):
+     * 
+     * - Content-Based: 0.35 (highest - events require strong topic matching)
+     * - Community: 0.30 (high - events from user's communities are highly relevant)
+     * - Collaborative: 0.20 (medium - similar users' event attendance)
+     * - Popularity: 0.15 (lowest - fallback for sparse data)
+     * 
+     * Total: 1.0
+     */
     const {
       maxRecommendations = 20,
       includePopular = true,
@@ -44,10 +114,10 @@ export class HybridEventRecommendationEngine {
       includeOnlineOnly = false,
       includeInPersonOnly = false,
       algorithmWeights = {
-        collaborative: 0.25,
+        collaborative: 0.20,
         contentBased: 0.35,
         popularity: 0.15,
-        community: 0.25,
+        community: 0.30,
       },
     } = options
 

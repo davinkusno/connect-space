@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
     // Get query parameters
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
-    const search = searchParams.get("search") || null;
-    const category = searchParams.get("category") || null;
-    const location = searchParams.get("location") || null;
+    const search = searchParams.get("search");
+    const category = searchParams.get("category");
+    const location = searchParams.get("location");
     const dateRange = searchParams.get("dateRange") || "upcoming"; // upcoming, today, week, month, all
     const sortBy = searchParams.get("sortBy") || "start_time";
     const sortOrder = searchParams.get("sortOrder") || "asc";

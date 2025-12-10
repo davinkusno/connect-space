@@ -100,7 +100,7 @@ export class RecommendationService extends BaseService {
 
       // Fetch user's community IDs
       const communityIdsResult = await this.fetchUserCommunityIds(userId);
-      const communityIds = communityIdsResult.success ? communityIdsResult.data || [] : [];
+      const communityIds = communityIdsResult.success && communityIdsResult.data ? communityIdsResult.data : [];
 
       // Generate recommendations
       const recommendations = await this.eventEngine.generateRecommendations(
