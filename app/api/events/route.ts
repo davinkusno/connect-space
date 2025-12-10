@@ -134,8 +134,8 @@ export async function GET(request: NextRequest) {
             ? JSON.parse(event.location) 
             : event.location;
         } catch {
-          // If not JSON, treat as plain text
-          locationData = { address: event.location };
+          // If not JSON, treat as plain text (likely a city name)
+          locationData = { address: event.location, city: event.location };
         }
       }
 

@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@supabase/supabase-js"
+
+// Create admin client for awarding points (bypasses RLS)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 // Helper function to create notification when a user is approved
 async function createApprovalNotification(
@@ -37,6 +44,50 @@ async function createApprovalNotification(
     }
   } catch (error) {
     console.error("Error in createApprovalNotification:", error)
+  }
+}
+
+// Helper function to award points for joining community
+async function awardCommunityJoinedPoints(userId: string, communityId: string) {
+  try {
+    const POINTS_FOR_JOINING = 25
+
+    // Check if points were already awarded for this community join
+    const { data: existingPoints } = await supabaseAdmin
+      .from("user_points")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("point_type", "community_joined")
+      .eq("related_id", communityId)
+      .maybeSingle()
+
+    if (existingPoints) {
+      console.log("Points already awarded for this community join")
+      return false
+    }
+
+    // Award points
+    const { error: pointsError } = await supabaseAdmin
+      .from("user_points")
+      .insert({
+        user_id: userId,
+        points: POINTS_FOR_JOINING,
+        point_type: "community_joined",
+        related_id: communityId,
+        related_type: "community",
+        description: "Joined a community"
+      })
+
+    if (pointsError) {
+      console.error("Error awarding points:", pointsError)
+      return false
+    }
+
+    console.log(`Awarded ${POINTS_FOR_JOINING} points to user ${userId} for joining community ${communityId}`)
+    return true
+  } catch (error) {
+    console.error("Error in awardCommunityJoinedPoints:", error)
+    return false
   }
 }
 
@@ -128,12 +179,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create notifications for all approved users
+    // Create notifications and award points for all approved users
     const notificationPromises = pendingMembers.map(member =>
       createApprovalNotification(supabase, member.user_id, community_id)
     )
     
-    await Promise.all(notificationPromises)
+    const pointsPromises = pendingMembers.map(member =>
+      awardCommunityJoinedPoints(member.user_id, community_id)
+    )
+    
+    await Promise.all([...notificationPromises, ...pointsPromises])
 
     return NextResponse.json(
       { 

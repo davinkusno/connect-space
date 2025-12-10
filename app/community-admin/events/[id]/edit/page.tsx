@@ -378,24 +378,22 @@ export default function EditEventPage({
         endTime = endDateTime.toISOString()
       }
 
-      // Format location as JSON
-      let locationJson: string | null = null
+      // Format location as JSON with city for searchability
+      let locationValue: string | null = null
       if (eventData.isOnline) {
         if (eventData.meetingLink) {
-          locationJson = JSON.stringify({
+          locationValue = JSON.stringify({
             isOnline: true,
             meetingLink: eventData.meetingLink,
           })
         }
       } else {
-        if (eventData.location || locationLat || locationLng) {
-          locationJson = JSON.stringify({
-            venue: eventData.location,
-            address: eventData.location,
+        if (eventData.location || locationLat || locationLng || locationCity) {
+          locationValue = JSON.stringify({
+            address: eventData.location || "",
             city: locationCity || "",
             lat: locationLat || 0,
             lng: locationLng || 0,
-            isOnline: false,
           })
         }
       }
@@ -406,7 +404,7 @@ export default function EditEventPage({
       if (eventData.title) updatePayload.title = eventData.title
       if (eventData.description) updatePayload.description = eventData.description
       if (eventData.category) updatePayload.category = eventData.category
-      if (locationJson) updatePayload.location = locationJson
+      if (locationValue) updatePayload.location = locationValue
       if (startTime) updatePayload.start_time = startTime
       if (endTime) updatePayload.end_time = endTime
       if (imageUrl) updatePayload.image_url = imageUrl

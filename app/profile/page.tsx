@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageTransition } from "@/components/ui/page-transition";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import {
@@ -66,7 +67,21 @@ export default function ProfilePage() {
   });
   const [points, setPoints] = useState(0);
   const [isCommunityAdmin, setIsCommunityAdmin] = useState(false);
-  const [newInterest, setNewInterest] = useState("");
+  const [selectedInterest, setSelectedInterest] = useState("");
+  
+  // Available categories for interests
+  const categories = [
+    "Hobbies & Crafts",
+    "Sports & Fitness",
+    "Career & Business",
+    "Tech & Innovation",
+    "Arts & Culture",
+    "Social & Community",
+    "Education & Learning",
+    "Travel & Adventure",
+    "Food & Drink",
+    "Entertainment",
+  ];
   
   // Location data
   const [allCities, setAllCities] = useState<City[]>([]);
@@ -252,7 +267,7 @@ export default function ProfilePage() {
 
   const handleCancel = () => {
     setIsEditing(false);
-    setNewInterest("");
+    setSelectedInterest("");
     // Reset form data to original values
     if (user) {
       setFormData({
@@ -281,16 +296,16 @@ export default function ProfilePage() {
   };
 
   const handleAddInterest = () => {
-    if (!newInterest.trim()) {
+    if (!selectedInterest) {
       toast({
         title: "Error",
-        description: "Please enter an interest.",
+        description: "Please select an interest.",
         variant: "destructive",
       });
       return;
     }
 
-    if (formData.interests.includes(newInterest.trim())) {
+    if (formData.interests.includes(selectedInterest)) {
       toast({
         title: "Error",
         description: "This interest already exists.",
@@ -301,9 +316,9 @@ export default function ProfilePage() {
 
     setFormData({
       ...formData,
-      interests: [...formData.interests, newInterest.trim()],
+      interests: [...formData.interests, selectedInterest],
     });
-    setNewInterest("");
+    setSelectedInterest("");
     toast({
       title: "Interest added",
       description: "Your interest has been added successfully.",
@@ -311,15 +326,6 @@ export default function ProfilePage() {
   };
 
   const handleRemoveInterest = (interestToRemove: string) => {
-    if (formData.interests.length <= 3) {
-      toast({
-        title: "Cannot remove",
-        description: "You must have at least 3 interests.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setFormData({
       ...formData,
       interests: formData.interests.filter((i) => i !== interestToRemove),
@@ -979,28 +985,25 @@ export default function ProfilePage() {
 
                       {/* Interests Section */}
                       <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <Label className="text-sm font-semibold text-gray-700">
                           Interests
-                          <span className="text-xs text-gray-500 font-normal">
-                            (Minimum 3 required)
-                          </span>
                         </Label>
                         {isEditing ? (
                           <div className="space-y-3">
-                            {/* Add Interest Input */}
+                            {/* Add Interest Select */}
                             <div className="flex gap-2">
-                              <Input
-                                value={newInterest}
-                                onChange={(e) => setNewInterest(e.target.value)}
-                                onKeyPress={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    handleAddInterest();
-                                  }
-                                }}
-                                placeholder="Add an interest (e.g., Photography, Hiking)"
-                                className="h-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
-                              />
+                              <Select value={selectedInterest} onValueChange={setSelectedInterest}>
+                                <SelectTrigger className="h-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500">
+                                  <SelectValue placeholder="Select an interest" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {categories.map((category) => (
+                                    <SelectItem key={category} value={category}>
+                                      {category}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               <AnimatedButton
                                 variant="gradient"
                                 size="sm"
@@ -1015,7 +1018,7 @@ export default function ProfilePage() {
                             <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-xl border border-gray-200 min-h-[80px]">
                               {formData.interests.length === 0 ? (
                                 <p className="text-sm text-gray-500 w-full text-center py-4">
-                                  No interests added yet. Add at least 3.
+                                  No interests added yet.
                                 </p>
                               ) : (
                                 formData.interests.map((interest, index) => (
@@ -1028,12 +1031,7 @@ export default function ProfilePage() {
                                     <button
                                       onClick={() => handleRemoveInterest(interest)}
                                       className="hover:text-red-600 transition-colors"
-                                      disabled={formData.interests.length <= 3}
-                                      title={
-                                        formData.interests.length <= 3
-                                          ? "Minimum 3 interests required"
-                                          : "Remove interest"
-                                      }
+                                      title="Remove interest"
                                     >
                                       <X className="h-3 w-3" />
                                     </button>
@@ -1042,7 +1040,7 @@ export default function ProfilePage() {
                               )}
                             </div>
                             <p className="text-xs text-gray-500">
-                              {formData.interests.length}/∞ interests added (min: 3)
+                              {formData.interests.length} {formData.interests.length === 1 ? 'interest' : 'interests'} added
                             </p>
                           </div>
                         ) : (

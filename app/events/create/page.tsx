@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { LocationPicker } from "@/components/ui/location-picker";
 import { EnhanceContentButton } from "@/components/ai/enhance-content-button";
+import { ContentEnhancerDialog } from "@/components/ai/content-enhancer-dialog";
 import { PageTransition } from "@/components/ui/page-transition";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
 
@@ -27,13 +28,15 @@ export default function CreateEventPage() {
   const [community, setCommunity] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [useMapPicker, setUseMapPicker] = useState(false);
+  const [useMapPicker, setUseMapPicker] = useState(true);
   const [locationData, setLocationData] = useState<{
     address: string;
+    city?: string;
     lat: number | null;
     lng: number | null;
   }>({
     address: "",
+    city: "",
     lat: null,
     lng: null,
   });
@@ -61,6 +64,7 @@ export default function CreateEventPage() {
   // Memoize location change handler to prevent map re-initialization
   const handleLocationChange = useCallback((location: {
     address: string;
+    city?: string;
     lat: number | null;
     lng: number | null;
   }) => {
@@ -74,6 +78,9 @@ export default function CreateEventPage() {
       toast.error("Please enter a description first");
       return;
     }
+    setEnhancingContentType("description");
+    setEnhanceDialogOpen(true);
+  };
 
   const handleAcceptEnhancedContent = (enhancedContent: string) => {
     if (enhancingContentType === "description") {
@@ -185,6 +192,17 @@ export default function CreateEventPage() {
     setIsSubmitting(true);
 
     try {
+      // Prepare location data with city for searchability
+      let locationPayload = formData.location;
+      if (!formData.is_online && locationData.address) {
+        locationPayload = JSON.stringify({
+          address: locationData.address,
+          city: locationData.city || "",
+          lat: locationData.lat || 0,
+          lng: locationData.lng || 0,
+        });
+      }
+
       const response = await fetch("/api/events/create", {
         method: "POST",
         headers: {
@@ -192,6 +210,7 @@ export default function CreateEventPage() {
         },
         body: JSON.stringify({
           ...formData,
+          location: locationPayload,
           community_id: communityId,
           max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : null,
         }),
@@ -236,7 +255,7 @@ export default function CreateEventPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
         <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-violet-600 mx-auto mb-4" />
+          <Loader2 className="h-12 w-12 animate-spin text-violet-600 mx-auto mb-4" />
           <p className="text-gray-600 font-medium">Loading event creator...</p>
         </div>
       </div>
@@ -577,7 +596,7 @@ export default function CreateEventPage() {
                       if (isOnline) {
                         handleInputChange("location", "");
                         setUseMapPicker(false);
-                        setLocationData({ address: "", lat: null, lng: null });
+                        setLocationData({ address: "", city: "", lat: null, lng: null });
                       }
                     }}
                     className="border-gray-300 data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600"
@@ -592,65 +611,62 @@ export default function CreateEventPage() {
                 {!formData.is_online ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-gray-700">
-                      Location *
-                    </Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setUseMapPicker(!useMapPicker)}
+                      <Label className="text-gray-700 flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-violet-600" />
+                        Location *
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setUseMapPicker(!useMapPicker)}
                         className="text-sm border-violet-200 hover:bg-violet-50 hover:border-violet-300"
-                    >
-                      <Map className="h-4 w-4 mr-2" />
-                      {useMapPicker ? "Use Text Input" : "Pick on Map"}
-                    </Button>
-                  </div>
+                      >
+                        <Map className="h-4 w-4 mr-2" />
+                        {useMapPicker ? "Use Text Input" : "Pick on Map"}
+                      </Button>
+                    </div>
 
-                  {useMapPicker ? (
-                    <div className="space-y-3">
-                      <LocationPicker
-                        value={locationData.address ? locationData : undefined}
-                        onChange={handleLocationChange}
-                        locationType="physical"
-                        required={true}
-                      />
-                      {locationData.lat && locationData.lng && (
+                    {useMapPicker ? (
+                      <div className="space-y-3">
+                        <LocationPicker
+                          value={locationData.address ? locationData : undefined}
+                          onChange={handleLocationChange}
+                          locationType="physical"
+                          required={true}
+                        />
+                        {locationData.city && (
                           <div className="flex items-center gap-2 p-3 bg-violet-50 rounded-lg border border-violet-200">
                             <MapPin className="h-4 w-4 text-violet-600 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900">
-                              Location pinned on map
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              Coordinates: {locationData.lat.toFixed(6)}, {locationData.lng.toFixed(6)}
-                            </p>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">
+                                {locationData.city}
+                              </p>
+                              {locationData.lat && locationData.lng && (
+                                <p className="text-xs text-gray-600">
+                                  Coordinates: {locationData.lat.toFixed(4)}, {locationData.lng.toFixed(4)}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Input
-                        id="location"
-                        placeholder="Event location or address"
-                        value={formData.location}
-                        onChange={(e) => {
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Input
+                          id="location"
+                          placeholder="Event location or address"
+                          value={formData.location}
+                          onChange={(e) => {
                             handleInputChange("location", e.target.value);
-                          setLocationData({ address: e.target.value, lat: null, lng: null });
-                        }}
+                            setLocationData({ address: e.target.value, city: e.target.value, lat: null, lng: null });
+                          }}
                           className="border-gray-200 focus:border-violet-300 focus:ring-violet-200 transition-colors duration-200"
-                        required
-                      />
-                      {locationData.lat && locationData.lng && (
-                        <p className="text-xs text-gray-500 flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-violet-600" />
-                          Location has coordinates from map picker
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                          required
+                        />
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-3">
                     <Label htmlFor="location" className="text-gray-700 flex items-center gap-2">

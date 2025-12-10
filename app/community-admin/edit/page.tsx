@@ -127,9 +127,9 @@ export default function EditCommunityPage() {
             if (locationData.country) communityProfile.location.country = locationData.country
             if (locationData.address) communityProfile.location.address = locationData.address
           } catch (e) {
-            // If location is a plain string, use it as address
+            // If location is a plain string (city name), use it as city
             if (typeof communityData.location === 'string') {
-              communityProfile.location.address = communityData.location
+              communityProfile.location.city = communityData.location
             }
           }
         }
@@ -512,16 +512,10 @@ export default function EditCommunityPage() {
         formDataToSend.append("bannerImage", bannerFile)
       }
       
-      // Only include location if user has provided complete location data
-      if (hasLocationData) {
-        const locationData = {
-          city: city.trim(),
-          country: country.trim(),
-          address: address.trim(),
-          ...(locationLat && locationLng ? { lat: locationLat, lng: locationLng } : {})
-        }
-        const locationJson = JSON.stringify(locationData)
-        formDataToSend.append("location", locationJson)
+      // Only include location if user has provided city data
+      if (hasLocationData && city.trim()) {
+        // Save just the city name
+        formDataToSend.append("location", city.trim())
       }
 
       // Call API

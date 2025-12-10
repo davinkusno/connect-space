@@ -6,20 +6,19 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { 
-  MapPin, 
   Mail, 
   Edit, 
   Users, 
-  Clock, 
   ChevronRight,
-  MoreHorizontal,
   UserPlus,
   Calendar,
-  Sparkles,
   Loader2,
   Save,
   X,
-  MessageSquare
+  Star,
+  AlertTriangle,
+  FileText,
+  LayoutGrid
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -101,6 +100,8 @@ interface JoinRequest {
   requestedAt: string
   status: "pending" | "approved" | "rejected"
   message?: string
+  activityCount?: number
+  reportCount?: number
 }
 
 export default function CommunityAdminPage({
@@ -111,29 +112,10 @@ export default function CommunityAdminPage({
   const [community, setCommunity] = useState<Community | null>(null)
   const [recentJoinRequests, setRecentJoinRequests] = useState<JoinRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [discussionPage, setDiscussionPage] = useState(1)
-  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false)
   const [isEditingDescription, setIsEditingDescription] = useState(false)
   const [editedDescription, setEditedDescription] = useState("")
   const [isSavingDescription, setIsSavingDescription] = useState(false)
-  const [viewingAnnouncement, setViewingAnnouncement] = useState<DiscussionTopic | null>(null)
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [communityId, setCommunityId] = useState<string | null>(null)
-
-  interface DiscussionTopic {
-    id: string
-    title: string
-    author: string
-    authorAvatar: string
-    createdAt: string
-    replies: number
-    likes: number
-    excerpt: string
-    content?: string
-    tags: string[]
-  }
-
-  const [discussionTopics, setDiscussionTopics] = useState<DiscussionTopic[]>([])
 
   useEffect(() => {
     const loadParams = async () => {
@@ -153,8 +135,8 @@ export default function CommunityAdminPage({
       
       if (!user) {
         console.error("User not found")
-        // Use dummy data if no user
-        await loadDummyData()
+        toast.error("Please login to access this page")
+        setIsLoading(false)
         return
       }
 
@@ -182,7 +164,8 @@ export default function CommunityAdminPage({
 
         if (!isCreator && !isAdmin) {
           console.error("User does not have permission to access this community")
-          await loadDummyData()
+          toast.error("You don't have permission to access this page")
+          setIsLoading(false)
           return
         }
       }
@@ -204,9 +187,9 @@ export default function CommunityAdminPage({
               // Try to parse as JSON first
               try {
                 parsed = JSON.parse(communityData.location)
-          } catch (e) {
-                // If not JSON, use as plain string address
-                locationData.address = communityData.location
+              } catch (e) {
+                // If not JSON, use as plain string city name
+                locationData.city = communityData.location
                 parsed = null
               }
             } else {
@@ -327,17 +310,13 @@ export default function CommunityAdminPage({
         
         // Load real join requests from database
         await loadJoinRequests(actualCommunity.id)
-        
-        // Load real announcements from database
-        await loadAnnouncements(actualCommunity.id)
       } else {
-        // No community found, use dummy data
-        await loadDummyData()
+        // No community found
+        toast.error("Community not found")
       }
     } catch (error) {
       console.error("Failed to load community data:", error)
-      // On error, still load dummy data
-      await loadDummyData()
+      toast.error("Failed to load community data")
     } finally {
       setIsLoading(false)
     }
@@ -428,6 +407,27 @@ export default function CommunityAdminPage({
         return
       }
 
+      // Fetch user points for each user
+      const { data: userPointsData } = await supabase
+        .from("user_points")
+        .select("user_id, point_type")
+        .in("user_id", userIds)
+
+      // Count activities and reports per user
+      const userStatsMap: Record<string, { activities: number; reports: number }> = {}
+      if (userPointsData) {
+        userPointsData.forEach((record: any) => {
+          if (!userStatsMap[record.user_id]) {
+            userStatsMap[record.user_id] = { activities: 0, reports: 0 }
+          }
+          if (record.point_type === 'report_received') {
+            userStatsMap[record.user_id].reports += 1
+          } else {
+            userStatsMap[record.user_id].activities += 1
+          }
+        })
+      }
+
       // Map to JoinRequest format
       const joinRequestsWithUsers: (JoinRequest | null)[] = pendingRequests.map((request: any) => {
         const userData = usersData?.find((u: any) => u.id === request.user_id)
@@ -436,6 +436,7 @@ export default function CommunityAdminPage({
           return null
         }
 
+        const stats = userStatsMap[request.user_id] || { activities: 0, reports: 0 }
         return {
           id: request.id,
           userId: request.user_id,
@@ -444,7 +445,9 @@ export default function CommunityAdminPage({
           userAvatar: userData.avatar_url || "/placeholder-user.jpg",
           requestedAt: request.joined_at,
           status: "pending" as const,
-          message: undefined
+          message: undefined,
+          activityCount: stats.activities,
+          reportCount: stats.reports
         } as JoinRequest
       })
 
@@ -455,198 +458,6 @@ export default function CommunityAdminPage({
       console.error("Error loading join requests:", error)
       setRecentJoinRequests([])
     }
-  }
-
-  const loadAnnouncements = async (communityId: string) => {
-    try {
-      const supabase = getSupabaseBrowser()
-      
-      // Fetch announcements from posts table
-      const { data: postsData, error: postsError } = await supabase
-        .from("posts")
-        .select(`
-          id,
-          title,
-          content,
-          author_id,
-          community_id,
-          is_pinned,
-          created_at
-        `)
-        .eq("community_id", communityId)
-        .order("is_pinned", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(10)
-
-      if (postsError) {
-        console.error("Error fetching announcements:", postsError)
-        setDiscussionTopics([])
-        return
-      }
-
-      if (!postsData || postsData.length === 0) {
-        setDiscussionTopics([])
-        return
-      }
-
-      // Fetch user data for each post
-      const authorIds = [...new Set(postsData.map((post: any) => post.author_id))]
-      const { data: authorsData } = await supabase
-        .from("users")
-        .select("id, username, full_name, avatar_url")
-        .in("id", authorIds)
-
-      // Map posts to announcements
-      const announcementsWithUsers = postsData.map((post: any) => {
-        const author = authorsData?.find((a: any) => a.id === post.author_id)
-
-        // Extract excerpt from content (first 100 chars)
-        const excerpt = post.content ? post.content.substring(0, 100) + (post.content.length > 100 ? "..." : "") : ""
-
-        return {
-          id: post.id,
-          title: post.title || "Untitled",
-          author: author?.full_name || author?.username || "Unknown",
-          authorAvatar: author?.avatar_url || "/placeholder-user.jpg",
-          createdAt: post.created_at,
-          replies: 0, // Posts don't have replies in this context
-          likes: 0, // Likes not implemented yet
-          excerpt: excerpt,
-          content: post.content || "", // Store full content for view dialog
-          tags: [] // Tags not implemented yet
-        }
-      })
-
-      setDiscussionTopics(announcementsWithUsers)
-    } catch (error) {
-      console.error("Error loading announcements:", error)
-      setDiscussionTopics([])
-    }
-  }
-
-  const loadDummyData = async (communityOverride?: Community) => {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    
-    const mockCommunity: Community = communityOverride || {
-      id: "1",
-      name: "Tech Innovators NYC",
-      email: "techinnovators.nyc@gmail.com",
-      description: "Building the future through technology and innovation in New York City. Join us for cutting-edge discussions, networking events, and collaborative projects.",
-      profilePicture: "/placeholder.svg?height=200&width=300",
-      location: {
-        city: "New York",
-        country: "USA",
-        address: "123 Tech Street, Manhattan, NY"
-      },
-      memberCount: 1247,
-      category: "Technology",
-      tags: ["Tech", "Innovation", "Startups", "AI", "Web3"],
-      createdAt: "2023-01-15",
-      isVerified: true,
-      privacy: "public"
-    }
-
-    const mockJoinRequests: JoinRequest[] = [
-      {
-        id: "1",
-        userId: "user1",
-        userName: "Sarah Johnson",
-        userEmail: "sarah.johnson@email.com",
-        userAvatar: "/placeholder-user.jpg",
-        requestedAt: "2024-01-16T10:30:00Z",
-        status: "pending",
-        message: "I'm a software engineer with 5 years of experience in AI and machine learning. Excited to join this community!"
-      },
-      {
-        id: "2",
-        userId: "user2",
-        userName: "Michael Chen",
-        userEmail: "michael.chen@email.com",
-        userAvatar: "/placeholder-user.jpg",
-        requestedAt: "2024-01-16T09:15:00Z",
-        status: "pending",
-        message: "Looking forward to connecting with fellow tech enthusiasts and contributing to innovative projects."
-      },
-      {
-        id: "3",
-        userId: "user3",
-        userName: "Emily Rodriguez",
-        userEmail: "emily.rodriguez@email.com",
-        userAvatar: "/placeholder-user.jpg",
-        requestedAt: "2024-01-15T16:45:00Z",
-        status: "pending"
-      },
-      {
-        id: "4",
-        userId: "user4",
-        userName: "David Kim",
-        userEmail: "david.kim@email.com",
-        userAvatar: "/placeholder-user.jpg",
-        requestedAt: "2024-01-15T14:20:00Z",
-        status: "pending",
-        message: "Product manager passionate about emerging technologies. Would love to be part of this community."
-      },
-      {
-        id: "5",
-        userId: "user5",
-        userName: "Lisa Wang",
-        userEmail: "lisa.wang@email.com",
-        userAvatar: "/placeholder-user.jpg",
-        requestedAt: "2024-01-15T11:10:00Z",
-        status: "pending"
-      }
-    ]
-
-    const mockDiscussions: DiscussionTopic[] = [
-      {
-        id: "d1",
-        title: "How to get started with AI projects in 2024?",
-        author: "Sarah Johnson",
-        authorAvatar: "/placeholder-user.jpg",
-        createdAt: "2024-01-12T08:00:00Z",
-        replies: 24,
-        likes: 76,
-        excerpt: "Let's collect resources and roadmap for beginners who want to jump into AI...",
-        tags: ["AI", "Beginner", "Roadmap"],
-      },
-      {
-        id: "d2",
-        title: "Weekly project showcase - Share your progress!",
-        author: "Michael Chen",
-        authorAvatar: "/placeholder-user.jpg",
-        createdAt: "2024-01-14T10:15:00Z",
-        replies: 18,
-        likes: 54,
-        excerpt: "Post your demos, screenshots, and lessons learned this week so we can give feedback...",
-        tags: ["Showcase", "Projects", "Feedback"],
-      },
-      {
-        id: "d3",
-        title: "Recommended meetups in NYC for ML enthusiasts",
-        author: "Emily Rodriguez",
-        authorAvatar: "/placeholder-user.jpg",
-        createdAt: "2024-01-10T14:25:00Z",
-        replies: 12,
-        likes: 33,
-        excerpt: "Looking for recurring meetups with solid talks and hands-on sessions...",
-        tags: ["Meetup", "NYC", "ML"],
-      },
-      {
-        id: "d4",
-        title: "Hiring: Part-time mentor for startup MVP build",
-        author: "David Kim",
-        authorAvatar: "/placeholder-user.jpg",
-        createdAt: "2024-01-09T09:05:00Z",
-        replies: 7,
-        likes: 21,
-        excerpt: "We're bootstrapping and need a mentor for architecture and best practices...",
-        tags: ["Hiring", "Mentorship", "MVP"],
-      },
-    ]
-
-    setCommunity(mockCommunity)
-    setDiscussionTopics(mockDiscussions)
-    setRecentJoinRequests(mockJoinRequests)
   }
 
   const formatDate = (dateString: string) => {
@@ -1044,7 +855,7 @@ export default function CommunityAdminPage({
 
   return (
     <PageTransition>
-      <div className="bg-gradient-to-br from-slate-50 to-purple-50 min-h-screen relative">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative">
         <FloatingElements />
         <div className="max-w-7xl mx-auto p-8 relative z-10">
           {/* Back Button */}
@@ -1114,12 +925,12 @@ export default function CommunityAdminPage({
 
                     
 
-                    {/* Edit Community Button */}
+                    {/* Edit Profile & Location Button */}
                     {communityId && (
                       <Link href={`/community-admin/${communityId}/edit`} className="w-full">
                         <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
                           <Edit className="w-4 h-4 mr-2" />
-                          Edit Community
+                          Edit Profile & Location
                         </Button>
                       </Link>
                     )}
@@ -1181,6 +992,18 @@ export default function CommunityAdminPage({
                                 </div>
                               </div>
                               <p className="text-xs text-gray-500 truncate">{request.userEmail}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <div className="flex items-center gap-1">
+                                  <Star className="w-3 h-3 text-green-500 fill-green-500" />
+                                  <span className="text-xs font-medium text-green-600">{request.activityCount || 0} {(request.activityCount || 0) === 1 ? 'activity' : 'activities'}</span>
+                                </div>
+                                {(request.reportCount ?? 0) > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3 text-red-500" />
+                                    <span className="text-xs font-medium text-red-600">{request.reportCount} {request.reportCount === 1 ? 'report' : 'reports'}</span>
+                                  </div>
+                                )}
+                              </div>
                               {request.message && (
                                 <p className="text-xs text-gray-600 mt-1 line-clamp-2">{request.message}</p>
                               )}
@@ -1228,27 +1051,27 @@ export default function CommunityAdminPage({
 
             {/* Main Content Area */}
             <div className="lg:col-span-2 space-y-6 flex flex-col">
-              {/* Community Categories */}
+              {/* Community Tags */}
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center space-x-2 text-xl">
-                    <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">🏷️</span>
-                    </div>
-                    <span>Community Categories</span>
+                  <CardTitle className="text-lg font-semibold text-gray-900">
+                    Tags
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-wrap gap-3">
-                    {community?.tags.slice(0, 3).map((tag) => (
+                  <div className="flex flex-wrap gap-2">
+                    {community?.tags.slice(0, 5).map((tag) => (
                       <Badge
                         key={tag}
                         variant="secondary"
-                        className="px-3 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200"
+                        className="px-3 py-1.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200"
                       >
                         {tag}
                       </Badge>
                     ))}
+                    {(!community?.tags || community.tags.length === 0) && (
+                      <p className="text-sm text-gray-500">No tags added yet</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1257,11 +1080,9 @@ export default function CommunityAdminPage({
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center space-x-2 text-xl">
-                      <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-                        <span className="text-white text-sm font-bold">📝</span>
-                      </div>
-                      <span>Community Description</span>
+                    <CardTitle className="flex items-center gap-3 text-xl">
+                      <FileText className="w-5 h-5 text-purple-600" />
+                      <span>Description</span>
                     </CardTitle>
                     <div className="flex items-center space-x-2">
                       {!isEditingDescription ? (
@@ -1355,14 +1176,12 @@ export default function CommunityAdminPage({
                 </CardContent>
               </Card>
 
-              {/* Activities */}
+              {/* Quick Actions */}
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center space-x-2 text-xl">
-                    <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">📊</span>
-                    </div>
-                    <span>Activities</span>
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <LayoutGrid className="w-5 h-5 text-purple-600" />
+                    <span>Quick Actions</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1370,43 +1189,36 @@ export default function CommunityAdminPage({
                     {/* Events Card */}
                     {communityId && (
                       <Link href={`/community-admin/${communityId}/events`}>
-                        <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
-                              <span className="text-white text-sm">📅</span>
+                        <div className="group rounded-xl border border-gray-200 bg-white p-5 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                              <Calendar className="w-5 h-5 text-purple-600" />
                             </div>
                             <h4 className="font-semibold text-gray-900">Events</h4>
                           </div>
-                          {/* removed status badge per request */}
-                        </div>
-                        <p className="text-sm text-gray-600">Manage and track your community events</p>
-                        <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
-                          <EventCount communityId={community?.id} />
-                          <ChevronRight className="w-4 h-4 text-purple-600" />
-                        </div>
+                          <p className="text-sm text-gray-600 mb-3">Manage and track your community events</p>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500"><EventCount communityId={community?.id} /></span>
+                            <ChevronRight className="w-4 h-4 text-purple-600 group-hover:translate-x-1 transition-transform" />
+                          </div>
                         </div>
                       </Link>
                     )}
 
-
                     {/* Members Card */}
                     {communityId && (
                       <Link href={`/community-admin/${communityId}/members`}>
-                        <div className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
-                                <span className="text-white text-sm">👥</span>
-                              </div>
-                              <h4 className="font-semibold text-gray-900">Members</h4>
+                        <div className="group rounded-xl border border-gray-200 bg-white p-5 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                              <Users className="w-5 h-5 text-blue-600" />
                             </div>
-                            {/* removed status badge per request */}
+                            <h4 className="font-semibold text-gray-900">Members</h4>
                           </div>
-                          <p className="text-sm text-gray-600">View and manage community members</p>
-                          <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
-                            <span>{community?.memberCount.toLocaleString()} members</span>
-                            <ChevronRight className="w-4 h-4 text-purple-600" />
+                          <p className="text-sm text-gray-600 mb-3">View and manage community members</p>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">{community?.memberCount.toLocaleString()} members</span>
+                            <ChevronRight className="w-4 h-4 text-purple-600 group-hover:translate-x-1 transition-transform" />
                           </div>
                         </div>
                       </Link>
@@ -1415,188 +1227,10 @@ export default function CommunityAdminPage({
                 </CardContent>
               </Card>
 
-              {/* Announcements */}
-              <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2 text-xl">
-                    <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">📢</span>
-                    </div>
-                    <span>Announcements</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {discussionTopics.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-sm text-gray-500">No Announcements</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {discussionTopics
-                          .slice((discussionPage - 1) * 2, (discussionPage - 1) * 2 + 2)
-                          .map((topic) => (
-                            <div 
-                              key={topic.id} 
-                              className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-5 hover:shadow-md transition-all cursor-pointer"
-                              onClick={() => {
-                                setViewingAnnouncement(topic)
-                                setIsViewDialogOpen(true)
-                              }}
-                            >
-                              <div className="flex items-start gap-3">
-                                <Avatar className="w-10 h-10">
-                                  <AvatarImage src={topic.authorAvatar} alt={topic.author} />
-                                  <AvatarFallback className="text-sm">
-                                    {topic.author.split(' ').map(n => n[0]).join('')}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-semibold text-gray-900 mb-1 line-clamp-2">{topic.title}</h4>
-                                  <div className="text-xs text-gray-500 mb-2">
-                                    by <span className="font-medium text-gray-700">{topic.author}</span> • {new Date(topic.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                  </div>
-                                  <p className="text-sm text-gray-700 line-clamp-2">{topic.excerpt}</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-
-                      {/* Pagination - Only show if there are announcements */}
-                      {discussionTopics.length > 2 && (
-                        <div className="mt-6 flex items-center justify-between">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300"
-                            onClick={() => setDiscussionPage((p) => Math.max(1, p - 1))}
-                            disabled={discussionPage === 1}
-                          >
-                            Previous
-                          </Button>
-                          <div className="text-sm text-gray-600">
-                            Page {discussionPage} of {Math.max(1, Math.ceil(discussionTopics.length / 2))}
-                          </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300"
-                            onClick={() => setDiscussionPage((p) => Math.min(Math.ceil(discussionTopics.length / 2) || 1, p + 1))}
-                            disabled={discussionPage >= Math.ceil(discussionTopics.length / 2)}
-                          >
-                            Next
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* See More Link */}
-                  {communityId && (
-                    <div className="mt-3">
-                      <Link href={`/community-admin/${communityId}/discussions`}>
-                        <Button variant="ghost" className="text-purple-600 hover:text-purple-700 hover:bg-purple-50">
-                          See More
-                          <ChevronRight className="w-4 h-4 ml-2" />
-                        </Button>
-                      </Link>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
             </div>
           </div>
         </div>
       </div>
-
-      {/* View Announcement Dialog */}
-      {isViewDialogOpen && viewingAnnouncement && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Dialog Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-                  <MessageSquare className="w-4 h-4 text-white" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900">Announcement Details</h2>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setIsViewDialogOpen(false)
-                  setViewingAnnouncement(null)
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-
-            {/* Dialog Content */}
-            <div className="p-6 space-y-6">
-              {/* Author Info */}
-              <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
-                <Avatar className="w-10 h-10">
-                  <AvatarImage src={viewingAnnouncement.authorAvatar} alt={viewingAnnouncement.author} />
-                  <AvatarFallback className="text-sm">
-                    {viewingAnnouncement.author.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium text-gray-900">{viewingAnnouncement.author}</p>
-                  <p className="text-sm text-gray-500">
-                    {new Date(viewingAnnouncement.createdAt).toLocaleDateString('en-US', { 
-                      weekday: 'long',
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
-                </div>
-              </div>
-
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Title
-                </label>
-                <div className="px-3 py-2 bg-gray-50 rounded-md border border-gray-200">
-                  <p className="text-gray-900 font-semibold">{viewingAnnouncement.title}</p>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Content
-                </label>
-                <div className="px-3 py-2 bg-gray-50 rounded-md border border-gray-200 min-h-[200px]">
-                  <p className="text-gray-700 whitespace-pre-line">{viewingAnnouncement.content || viewingAnnouncement.excerpt || "No content available"}</p>
-                </div>
-              </div>
-
-              {/* Dialog Actions */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsViewDialogOpen(false)
-                    setViewingAnnouncement(null)
-                  }}
-                  className="text-gray-600 border-gray-300 hover:bg-gray-50"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </PageTransition>
   )
 }

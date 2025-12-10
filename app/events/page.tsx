@@ -340,16 +340,17 @@ export default function EventsPage() {
       }
     }
 
-    // General search filter (for events search)
+    // General search filter (for events search) - includes city/location
     if (searchQuery) {
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (event) =>
-          event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          event.tags.some((tag) =>
-            tag.toLowerCase().includes(searchQuery.toLowerCase())
-          ) ||
-          (event.community?.name || event.organizer || "").toLowerCase().includes(searchQuery.toLowerCase())
+          event.title.toLowerCase().includes(query) ||
+          event.description.toLowerCase().includes(query) ||
+          event.tags.some((tag) => tag.toLowerCase().includes(query)) ||
+          (event.community?.name || event.organizer || "").toLowerCase().includes(query) ||
+          (event.location?.city?.toLowerCase().includes(query) ?? false) ||
+          (event.location?.address?.toLowerCase().includes(query) ?? false)
       );
     }
 

@@ -55,7 +55,7 @@ export async function validateRequest<T>(
 
 // Check if user is authenticated
 export async function requireAuth() {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   const {
     data: { session },
   } = await supabase.auth.getSession()

@@ -286,8 +286,8 @@ export default function DiscoverPage() {
               try {
                 location = JSON.parse(comm.location);
               } catch {
-                // If not JSON, treat as address string
-                location = { address: comm.location };
+                // If not JSON, treat as city name
+                location = { city: comm.location };
               }
             } else if (typeof comm.location === "object") {
               location = comm.location;
@@ -395,7 +395,8 @@ export default function DiscoverPage() {
           community.tags.some((tag) =>
             tag.toLowerCase().includes(searchQuery.toLowerCase())
           ) ||
-          community.category.toLowerCase().includes(searchQuery.toLowerCase())
+          community.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (community.location?.city?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
       );
     }
 

@@ -35,11 +35,8 @@ import {
   TrendingUp,
   Clock,
   X,
-  Edit,
   Trash2,
   ChevronRight,
-  Save,
-  Sparkles,
   AlertTriangle,
   Navigation,
 } from "lucide-react";
@@ -105,6 +102,7 @@ export default function CommunityPage({
   const [membershipStatus, setMembershipStatus] = useState<"approved" | "pending" | null>(null); // Track membership status
   const [showPendingDialog, setShowPendingDialog] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [showJoinConfirmDialog, setShowJoinConfirmDialog] = useState(false);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "about");
   
   // Tab-specific data
@@ -135,12 +133,6 @@ export default function CommunityPage({
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [showReplies, setShowReplies] = useState<Record<string, boolean>>({});
-
-  // Description edit state
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [editedDescription, setEditedDescription] = useState("");
-  const [isSavingDescription, setIsSavingDescription] = useState(false);
-  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
 
   // Additional UI states
   const [showShareOptions, setShowShareOptions] = useState(false);
@@ -230,8 +222,8 @@ export default function CommunityPage({
         try {
           communityData.location = JSON.parse(communityData.location);
         } catch {
-          // If not JSON, treat as address string
-          communityData.location = { address: communityData.location };
+          // If not JSON, treat as city name
+          communityData.location = { city: communityData.location };
         }
       }
 
@@ -552,7 +544,19 @@ export default function CommunityPage({
       }
     };
 
+  const handleJoinClick = () => {
+    if (!currentUser) {
+      toast.error("Please log in to join this community");
+      router.push("/auth/login");
+      return;
+    }
+    // Show confirmation dialog with points info
+    setShowJoinConfirmDialog(true);
+  };
+
   const handleJoinCommunity = async () => {
+    setShowJoinConfirmDialog(false);
+    
     if (!currentUser) {
       toast.error("Please log in to join this community");
       router.push("/auth/login");
@@ -795,129 +799,6 @@ export default function CommunityPage({
     }
   };
 
-  const handleEditDescription = () => {
-    if (!community) return;
-    setEditedDescription(community.description || "");
-    setIsEditingDescription(true);
-  };
-
-  const handleCancelEditDescription = () => {
-    setIsEditingDescription(false);
-    setEditedDescription("");
-  };
-
-  const handleSaveDescription = async () => {
-    if (!community?.id) {
-      toast.error("Community not found");
-      return;
-    }
-
-    if (!editedDescription.trim()) {
-      toast.error("Description cannot be empty");
-      return;
-    }
-
-    if (editedDescription.length < 10) {
-      toast.error("Description must be at least 10 characters");
-      return;
-    }
-
-    if (editedDescription.length > 1000) {
-      toast.error("Description must be less than 1000 characters");
-      return;
-    }
-
-    setIsSavingDescription(true);
-    try {
-      const response = await fetch(`/api/communities/${community.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: editedDescription.trim(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const errorMessage = data.error || "Failed to save description";
-        toast.error(errorMessage);
-        return;
-      }
-
-      setCommunity((prev: any) => prev ? { ...prev, description: editedDescription.trim() } : null);
-      setIsEditingDescription(false);
-      toast.success("Description updated successfully!");
-    } catch (error: any) {
-      console.error("Failed to save description:", error);
-      toast.error("Failed to save description. Please try again.");
-    } finally {
-      setIsSavingDescription(false);
-    }
-  };
-
-  const generateDescription = async () => {
-    if (!community?.name) {
-      toast.error("Please ensure community has a name");
-      return;
-    }
-
-    setIsGeneratingDescription(true);
-    try {
-      const tags = community.tags || [];
-      const tagsText = tags.length > 0 
-        ? tags.slice(0, 3).join(", ")
-        : "General";
-      
-      const response = await fetch("/api/ai/generate-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "community-description",
-          params: {
-            name: community.name,
-            category: community.category || "General",
-            tags: tagsText,
-            locationType: "physical",
-            location: `${community.location?.city || ""}, ${community.location?.address || ""}`,
-          },
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const errorMessage = data.error || "Failed to generate description";
-        toast.error(errorMessage);
-        return;
-      }
-
-      if (data && data.description && typeof data.description === 'string') {
-        const generatedDescription = data.description;
-        setEditedDescription(generatedDescription);
-        toast.success("Description generated successfully!");
-      } else {
-        const tagsText = tags.length > 0 
-          ? tags.slice(0, 3).join(", ")
-          : "various topics";
-        const fallbackDescription = `${community.name} is a ${community.category || "community"} focused on ${tagsText}. Join us to connect with like-minded individuals, share knowledge, and participate in activities related to our community interests.`;
-        setEditedDescription(fallbackDescription);
-        toast.success("Description generated (using fallback)");
-      }
-    } catch (error: any) {
-      console.error("Failed to generate description:", error);
-      const tags = community?.tags || [];
-      const tagsText = tags.length > 0 
-        ? tags.slice(0, 3).join(", ")
-        : "various topics";
-      const fallbackDescription = `${community?.name || "This community"} is a ${community?.category || "community"} focused on ${tagsText}. Join us to connect with like-minded individuals, share knowledge, and participate in activities related to our community interests.`;
-      setEditedDescription(fallbackDescription);
-      toast.warning("Using fallback description. AI generation encountered an issue.");
-    } finally {
-      setIsGeneratingDescription(false);
-    }
-  };
-
   const canManage = userRole === "creator" || userRole === "admin";
   const isOwner = userRole === "creator" || (community && currentUser && community.creator_id === currentUser.id);
 
@@ -1032,13 +913,23 @@ export default function CommunityPage({
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center gap-3">
               {userRole === "creator" || userRole === "admin" ? (
-              <Button
-                  disabled
-                  className="bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed"
-              >
-                  <Crown className="h-4 w-4 mr-2" />
-                  {userRole === "creator" ? "Your Community" : "Community Admin"}
-              </Button>
+                <>
+                  <Button
+                    disabled
+                    className="bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed"
+                  >
+                    <Crown className="h-4 w-4 mr-2" />
+                    {userRole === "creator" ? "Your Community" : "Community Admin"}
+                  </Button>
+                  {userRole === "creator" && (
+                    <Link href={`/community-admin/${id}`}>
+                      <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Manage
+                      </Button>
+                    </Link>
+                  )}
+                </>
               ) : membershipStatus === "approved" && isMember ? (
                 <div className="px-4 py-2 bg-green-50 text-green-700 rounded-md border border-green-200 flex items-center">
                   <UserPlus className="h-4 w-4 mr-2" />
@@ -1051,7 +942,7 @@ export default function CommunityPage({
               </div>
               ) : (
                 <Button
-                    onClick={handleJoinCommunity}
+                    onClick={handleJoinClick}
                   disabled={isJoining}
                   className="bg-violet-600 hover:bg-violet-700 text-white"
                 >
@@ -1174,101 +1065,14 @@ export default function CommunityPage({
                 <SlideTransition show={activeTab === "about"} direction="up">
                   <Card className="border-gray-100">
                     <CardHeader>
-                      <div className="flex items-center justify-between">
                       <CardTitle className="text-xl font-medium text-gray-900">
                         About This Community
                       </CardTitle>
-                        {isOwner && !isEditingDescription && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleEditDescription}
-                            className="border-gray-200 text-gray-600 hover:bg-gray-50"
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Description
-                          </Button>
-                        )}
-                        {isOwner && isEditingDescription && (
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleCancelEditDescription}
-                              disabled={isSavingDescription}
-                              className="border-red-200 text-red-600 hover:bg-red-50"
-                            >
-                              <X className="w-4 h-4 mr-2" />
-                              Cancel
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={handleSaveDescription}
-                              disabled={isSavingDescription}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              {isSavingDescription ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Saving...
-                                </>
-                              ) : (
-                                <>
-                                  <Save className="w-4 h-4 mr-2" />
-                                  Save
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={generateDescription}
-                              disabled={isGeneratingDescription}
-                              className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg"
-                            >
-                              {isGeneratingDescription ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Generating...
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles className="w-4 h-4 mr-2" />
-                                  Generate with AI
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
                     </CardHeader>
                     <CardContent className="space-y-8">
-                      {isEditingDescription ? (
-                        <div className="space-y-4">
-                          <Textarea
-                            value={editedDescription}
-                            onChange={(e) => setEditedDescription(e.target.value)}
-                            placeholder="Enter community description..."
-                            className="min-h-[150px] text-base leading-relaxed resize-none"
-                            disabled={isSavingDescription}
-                          />
-                          <div className="flex items-center justify-between text-sm text-gray-500">
-                            <div className="flex items-center space-x-4">
-                              <span>Character count: {editedDescription.length}</span>
-                              <span className={editedDescription.length < 10 || editedDescription.length > 1000 ? "text-red-500" : ""}>
-                                {editedDescription.length < 10 
-                                  ? "Minimum 10 characters required" 
-                                  : editedDescription.length > 1000 
-                                  ? "Maximum 1000 characters" 
-                                  : `${1000 - editedDescription.length} characters remaining`}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
                       <p className="text-gray-700 leading-relaxed">
-                        {community.description}
+                        {community.description || "No description available."}
                       </p>
-                      )}
 
                       <div className="py-6">
                         <div>
@@ -1296,32 +1100,38 @@ export default function CommunityPage({
                         </div>
                       </div>
 
-                      <Separator className="bg-gray-200" />
+                      {community.location && (
+                        <>
+                          <Separator className="bg-gray-200" />
 
-                      <div>
-                        <h4 className="font-medium mb-4 text-gray-900 flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-violet-600" />
-                          Location
-                        </h4>
-                        <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                          <p className="text-gray-800">
-                            {community.location.address}
-                          </p>
-                          <HoverScale>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                // Handle map view
-                              }}
-                              className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
-                            >
-                              <Navigation className="h-4 w-4 mr-2" />
-                              View on Map
-                            </Button>
-                          </HoverScale>
-                        </div>
-                      </div>
+                          <div>
+                            <h4 className="font-medium mb-4 text-gray-900 flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-violet-600" />
+                              Location
+                            </h4>
+                            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                              <p className="text-gray-800">
+                                {typeof community.location === 'string' 
+                                  ? community.location 
+                                  : community.location?.address || 'Location not specified'}
+                              </p>
+                              <HoverScale>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    // Handle map view
+                                  }}
+                                  className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
+                                >
+                                  <Navigation className="h-4 w-4 mr-2" />
+                                  View on Map
+                                </Button>
+                              </HoverScale>
+                            </div>
+                          </div>
+                        </>
+                      )}
 
                       <Separator className="bg-gray-200" />
 
@@ -1644,16 +1454,17 @@ export default function CommunityPage({
                     </p>
                   </div>
                   {canManage && (
-                    <Link href={`/events/create?community_id=${id}`}>
+                    <Link href={`/community-admin/${id}`}>
                       <Button 
-                        className="bg-violet-600 hover:bg-violet-700 text-white"
+                        variant="outline"
+                        className="border-violet-200 text-violet-600 hover:bg-violet-50"
                       >
-                          <Calendar className="h-4 w-4 mr-2" />
-                          Create Event
-                        </Button>
+                        <Settings className="h-4 w-4 mr-2" />
+                        Manage Events
+                      </Button>
                     </Link>
-                    )}
-                  </div>
+                  )}
+                </div>
 
                 {isLoadingTab ? (
                   <div className="flex items-center justify-center py-12">
@@ -1680,9 +1491,7 @@ export default function CommunityPage({
                         No upcoming events
                             </h4>
                             <p className="text-sm text-gray-600">
-                        {canManage 
-                          ? "Create the first event for your community!"
-                          : "Check back later for upcoming events."}
+                        Check back later for upcoming events.
                       </p>
                     </CardContent>
                   </Card>
@@ -2158,6 +1967,47 @@ export default function CommunityPage({
         </div>
         )}
       </div>
+
+      {/* Join Confirmation Dialog with Points Info */}
+      <AlertDialog open={showJoinConfirmDialog} onOpenChange={setShowJoinConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-violet-600" />
+              Join {community?.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  Your join request will be sent to the community admin for approval.
+                </p>
+                <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center">
+                      <Star className="h-5 w-5 text-violet-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-violet-900">Earn 25 Points!</p>
+                      <p className="text-sm text-violet-700">
+                        You'll receive 25 points when your join request is approved.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleJoinCommunity}
+              className="bg-violet-600 hover:bg-violet-700"
+            >
+              Send Join Request
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialog for pending approval */}
       <Dialog open={showPendingDialog} onOpenChange={setShowPendingDialog}>

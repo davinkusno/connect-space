@@ -232,32 +232,39 @@ export default function EventDetailsPage({
 
         const registeredCount = attendeesResult.count || 0;
 
-        // Check if current user has RSVP'd to this event
+        // Check if current user has RSVP'd to this event using API (bypasses RLS)
         if (user) {
-          const { data: userRsvp, error: rsvpCheckError } = await supabase
-            .from("event_attendees")
-            .select("id, status")
-            .eq("event_id", id)
-            .eq("user_id", user.id)
-            .maybeSingle(); // Check for any status first
+          console.log("[Event Detail] Checking RSVP status for user:", user.id, "event:", id);
           
-          if (rsvpCheckError && rsvpCheckError.code !== "PGRST116") {
-            // PGRST116 is "not found" which is fine
-            console.error("Error checking RSVP status:", rsvpCheckError);
-          }
-          
-          if (userRsvp) {
-            console.log("User has RSVP:", userRsvp);
-            // Only set to true if status is "going" or "maybe"
-            if (userRsvp.status === "going" || userRsvp.status === "maybe") {
+          try {
+            const rsvpResponse = await fetch(`/api/events/${id}/rsvp`);
+            const rsvpData = await rsvpResponse.json();
+            console.log("[Event Detail] RSVP API response:", rsvpData);
+            
+            if (rsvpData.hasRsvp && (rsvpData.status === "going" || rsvpData.status === "maybe")) {
+              console.log("[Event Detail] User has RSVP, setting isRegistered to true");
               setIsRegistered(true);
             } else {
-              console.log("User has RSVP but status is not 'going' or 'maybe':", userRsvp.status);
+              console.log("[Event Detail] User does not have valid RSVP");
               setIsRegistered(false);
             }
-          } else {
-            console.log("User does not have RSVP for this event");
-            setIsRegistered(false);
+          } catch (rsvpError) {
+            console.error("[Event Detail] Error checking RSVP via API:", rsvpError);
+            // Fallback to direct query
+            const { data: userRsvp, error: rsvpCheckError } = await supabase
+              .from("event_attendees")
+              .select("id, status")
+              .eq("event_id", id)
+              .eq("user_id", user.id)
+              .maybeSingle();
+            
+            console.log("[Event Detail] Fallback RSVP check:", userRsvp, rsvpCheckError);
+            
+            if (userRsvp && (userRsvp.status === "going" || userRsvp.status === "maybe")) {
+              setIsRegistered(true);
+            } else {
+              setIsRegistered(false);
+            }
           }
 
           // Check if event is saved
@@ -354,8 +361,9 @@ export default function EventDetailsPage({
                 locationData = null;
               }
             } else {
-              // Not JSON, treat as plain string - ensure address is set
+              // Not JSON, treat as plain string - it's likely a city name
               parsedLocation.address = locationString;
+              parsedLocation.city = locationString;
               locationData = null;
             }
 
@@ -1441,16 +1449,18 @@ export default function EventDetailsPage({
                       Event Location
                     </CardTitle>
                     <CardDescription>
-                      {event.location.address || "Location information"}
+                      {event.location.city || event.location.address || "Location information"}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* Location Details */}
                     <div className="space-y-2 text-sm">
-                      <div className="flex items-start gap-2">
-                        <span className="font-medium text-gray-700 min-w-[80px]">Address:</span>
-                        <span className="text-gray-600">{event.location.address}</span>
-                      </div>
+                      {event.location.address && (
+                        <div className="flex items-start gap-2">
+                          <span className="font-medium text-gray-700 min-w-[80px]">Address:</span>
+                          <span className="text-gray-600">{event.location.address}</span>
+                        </div>
+                      )}
                       {event.location.city && (
                         <div className="flex items-start gap-2">
                           <span className="font-medium text-gray-700 min-w-[80px]">City:</span>
@@ -1461,26 +1471,25 @@ export default function EventDetailsPage({
 
                     {/* Map - Only show if we have coordinates */}
                     {event.location.lat !== 0 && event.location.lng !== 0 ? (
-                    <InteractiveLeafletMap
-                      location={event.location}
-                      height="500px"
-                      showControls={true}
-                      showDirections={true}
-                      zoom={15}
-                    />
+                      <InteractiveLeafletMap
+                        location={event.location}
+                        height="400px"
+                        showControls={true}
+                        showDirections={true}
+                        zoom={15}
+                      />
                     ) : (
-                      <div className="h-[500px] bg-gray-100 rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-gray-300">
-                        <MapPin className="h-12 w-12 text-gray-400 mb-4" />
-                        <p className="text-gray-600 font-medium mb-2">Map unavailable</p>
-                        <p className="text-sm text-gray-500 text-center max-w-md px-4">
-                          {event.location.address || "Location information is available above"}
-                        </p>
-                        {event.location.address && (
+                      <div className="p-6 bg-gray-50 rounded-lg flex flex-col items-center justify-center border border-gray-200">
+                        <MapPin className="h-10 w-10 text-gray-400 mb-3" />
+                        <p className="text-gray-600 font-medium mb-2">Map preview unavailable</p>
+                        {(event.location.address || event.location.city) && (
                           <Button
                             variant="outline"
-                            className="mt-4"
+                            size="sm"
+                            className="mt-2"
                             onClick={() => {
-                              const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location.address)}`;
+                              const query = event.location.city || event.location.address;
+                              const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
                               window.open(mapsUrl, "_blank");
                             }}
                           >

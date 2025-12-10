@@ -47,7 +47,6 @@ export default function EditCommunityPage({
   // Location picker state
   const [searchQuery, setSearchQuery] = useState("")
   const [isSearching, setIsSearching] = useState(false)
-  const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [searchSuggestions, setSearchSuggestions] = useState<Array<{
     display_name: string
     lat: string
@@ -58,9 +57,6 @@ export default function EditCommunityPage({
   const [locationLat, setLocationLat] = useState<number | null>(null)
   const [locationLng, setLocationLng] = useState<number | null>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const markerRef = useRef<any>(null)
 
   useEffect(() => {
     // Load current community data from database
@@ -134,9 +130,9 @@ export default function EditCommunityPage({
             if (locationData.country) communityProfile.location.country = locationData.country
             if (locationData.address) communityProfile.location.address = locationData.address
           } catch (e) {
-            // If location is a plain string, use it as address
+            // If location is a plain string (city name), use it as city
             if (typeof communityData.location === 'string') {
-              communityProfile.location.address = communityData.location
+              communityProfile.location.city = communityData.location
             }
           }
         }
@@ -157,137 +153,6 @@ export default function EditCommunityPage({
     }
     load()
   }, [params])
-
-  // Load Leaflet library
-  useEffect(() => {
-    const loadLeaflet = async () => {
-      if (typeof window === "undefined") return
-      
-      if ((window as any).L) {
-        setLeafletLoaded(true)
-        return
-      }
-
-      try {
-        // Load CSS
-        const cssLink = document.createElement("link")
-        cssLink.rel = "stylesheet"
-        cssLink.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        cssLink.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        cssLink.crossOrigin = ""
-        document.head.appendChild(cssLink)
-
-        // Load JS
-        const script = document.createElement("script")
-        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        script.crossOrigin = ""
-
-        script.onload = () => {
-          setLeafletLoaded(true)
-        }
-
-        script.onerror = () => {
-          console.error("Failed to load Leaflet")
-          toast.error("Failed to load map library")
-        }
-
-        document.head.appendChild(script)
-      } catch (error) {
-        console.error("Error loading Leaflet:", error)
-      }
-    }
-
-    loadLeaflet()
-  }, [])
-
-  // Reverse geocoding: Convert coordinates to address
-  const handleMapClick = useCallback(async (lat: number, lng: number) => {
-    setLocationLat(lat)
-    setLocationLng(lng)
-
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
-      )
-      const data = await response.json()
-
-      if (data && data.address) {
-        const addr = data.address
-        const displayName = data.display_name || ""
-        const cityName = addr.city || addr.town || addr.village || addr.municipality || ""
-        const countryName = addr.country || ""
-        
-        setAddress(displayName)
-        setCity(cityName)
-        setCountry(countryName)
-        setSearchQuery(displayName)
-      }
-    } catch (error) {
-      console.error("Reverse geocoding error:", error)
-    }
-  }, [])
-
-  // Initialize map
-  useEffect(() => {
-    if (!leafletLoaded || !mapRef.current || mapInstanceRef.current) return
-
-    try {
-      const L = (window as any).L
-      const defaultCenter = locationLat && locationLng 
-        ? { lat: locationLat, lng: locationLng }
-        : { lat: -6.2088, lng: 106.8456 } // Jakarta default
-
-      const map = L.map(mapRef.current, {
-        center: [defaultCenter.lat, defaultCenter.lng],
-        zoom: 13,
-        zoomControl: true,
-      })
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      }).addTo(map)
-
-      // Add marker
-      const marker = L.marker([defaultCenter.lat, defaultCenter.lng], {
-        draggable: true,
-      }).addTo(map)
-
-      marker.on("dragend", (e: any) => {
-        const { lat, lng } = e.target.getLatLng()
-        handleMapClick(lat, lng)
-      })
-
-      map.on("click", (e: any) => {
-        const { lat, lng } = e.latlng
-        handleMapClick(lat, lng)
-      })
-
-      mapInstanceRef.current = map
-      markerRef.current = marker
-
-      // Cleanup function
-      return () => {
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.remove()
-          mapInstanceRef.current = null
-          markerRef.current = null
-        }
-      }
-    } catch (error) {
-      console.error("Error initializing map:", error)
-      toast.error("Failed to initialize map")
-    }
-  }, [leafletLoaded, handleMapClick])
-
-  // Update map when location changes
-  useEffect(() => {
-    if (mapInstanceRef.current && markerRef.current && locationLat && locationLng) {
-      markerRef.current.setLatLng([locationLat, locationLng])
-      mapInstanceRef.current.setView([locationLat, locationLng], 15)
-    }
-  }, [locationLat, locationLng])
 
   // Autocomplete search suggestions
   const fetchSearchSuggestions = useCallback(async (query: string) => {
@@ -469,16 +334,10 @@ export default function EditCommunityPage({
         formDataToSend.append("bannerImage", bannerFile)
       }
       
-      // Only include location if user has provided complete location data
-      if (hasLocationData) {
-        const locationData = {
-          city: city.trim(),
-          country: country.trim(),
-          address: address.trim(),
-          ...(locationLat && locationLng ? { lat: locationLat, lng: locationLng } : {})
-        }
-        const locationJson = JSON.stringify(locationData)
-        formDataToSend.append("location", locationJson)
+      // Only include location if user has provided city data
+      if (hasLocationData && city.trim()) {
+        // Save just the city name
+        formDataToSend.append("location", city.trim())
       }
 
       // Call API
@@ -585,13 +444,13 @@ export default function EditCommunityPage({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <MapPin className="w-4 h-4 text-purple-600" />
-                  Change Location
+                  Location
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Search Address with Autocomplete */}
+                {/* Search Location */}
                 <div>
-                  <Label htmlFor="search-address" className="text-sm text-gray-600">Search Address</Label>
+                  <Label htmlFor="search-address" className="text-sm text-gray-600">Search City or Address</Label>
                   <div className="mt-1 relative">
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -609,21 +468,13 @@ export default function EditCommunityPage({
                           onBlur={() => {
                             setTimeout(() => setShowSuggestions(false), 200)
                           }}
-                          placeholder="Type an address (e.g., Grand Indonesia Mall, Jakarta)"
+                          placeholder="Search city or address (e.g., Jakarta, Bandung)"
                           className="pl-10"
                         />
                         {isSearching && (
                           <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
                         )}
                       </div>
-                      <Button
-                        type="button"
-                        onClick={searchLocation}
-                        disabled={!searchQuery.trim() || isSearching}
-                        className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600"
-                      >
-                        <Search className="w-4 h-4" />
-                      </Button>
                     </div>
 
                     {/* Autocomplete Suggestions Dropdown */}
@@ -652,48 +503,20 @@ export default function EditCommunityPage({
                   </div>
                 </div>
 
-                {/* Interactive Map */}
-                <div>
-                  <Label className="text-sm text-gray-600 mb-2 block">Select location on map</Label>
-                  <div 
-                    ref={mapRef} 
-                    className="w-full h-[400px] rounded-lg border border-gray-200 overflow-hidden"
-                    style={{ zIndex: 0 }}
-                  />
-                  {!leafletLoaded && (
-                    <div className="w-full h-[400px] rounded-lg border border-gray-200 flex items-center justify-center bg-gray-50">
-                      <p className="text-gray-500">Loading map...</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Location Details */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="city">City</Label>
-                    <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" className="mt-1" />
-                  </div>
-                  <div>
-                    <Label htmlFor="country">Country</Label>
-                    <Input id="country" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Country" className="mt-1" />
-                  </div>
-                  <div className="md:col-span-3">
-                    <Label htmlFor="address">Address</Label>
-                    <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, City, ZIP" className="mt-1" />
-                  </div>
-                </div>
-
-                {(locationLat && locationLng) && (
-                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <div className="text-sm">
-                      <p className="text-gray-600 text-xs">
-                        <span className="font-medium">Coordinates:</span> {locationLat.toFixed(6)}, {locationLng.toFixed(6)}
-                      </p>
+                {/* Selected Location Display */}
+                {(city || address) && (
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex items-start gap-3">
+                      <MapPin className="w-5 h-5 text-purple-600 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-gray-900">{city}{city && country ? `, ${country}` : country}</p>
+                        {address && <p className="text-sm text-gray-600 mt-1">{address}</p>}
+                      </div>
                     </div>
                   </div>
                 )}
 
-                <div className="mt-4 flex items-center justify-end gap-2">
+                <div className="pt-4 flex items-center justify-end gap-2">
                   <Button variant="outline" className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300" asChild>
                     <Link href={communityId ? `/community-admin/${communityId}` : "/community-admin"}>Cancel</Link>
                   </Button>
@@ -709,7 +532,7 @@ export default function EditCommunityPage({
                       </>
                     ) : (
                       <>
-                    <Save className="w-4 h-4 mr-2" />
+                        <Save className="w-4 h-4 mr-2" />
                         Save Changes
                       </>
                     )}
