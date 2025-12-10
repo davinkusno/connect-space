@@ -7,6 +7,7 @@ import {
 import {
     ApiResponse, BaseService, ServiceResult
 } from "./base.service";
+import { pointsService } from "./points.service";
 
 // ==================== Community Service Types ====================
 
@@ -99,7 +100,6 @@ interface PointRecord {
  */
 export class CommunityService extends BaseService {
   private static instance: CommunityService;
-  private readonly JOIN_POINTS: number = 25;
 
   private constructor() {
     super();
@@ -174,6 +174,7 @@ export class CommunityService extends BaseService {
   public async getPendingRequests(
     communityId: string
   ): Promise<ServiceResult<MemberWithPoints[]>> {
+    // Database uses boolean: false = pending
     const { data: requests, error } = await this.supabaseAdmin
       .from("community_members")
       .select(`
@@ -181,7 +182,7 @@ export class CommunityService extends BaseService {
         users:user_id (id, full_name, avatar_url, email)
       `)
       .eq("community_id", communityId)
-      .eq("status", "pending")
+      .eq("status", false)
       .order("requested_at", { ascending: false });
 
     if (error) {
@@ -268,15 +269,17 @@ export class CommunityService extends BaseService {
       return ApiResponse.notFound("Member request");
     }
 
-    if (member.status !== "pending") {
+    // Database uses boolean: false = pending, true = approved
+    // Check if already processed (status is not false/pending)
+    if (member.status !== false && member.status !== "pending") {
       return ApiResponse.badRequest("Request already processed");
     }
 
-    // Update member status
+    // Update member status (database uses boolean: true = approved)
     const { error: updateError } = await this.supabaseAdmin
       .from("community_members")
       .update({
-        status: "approved" as MemberStatus,
+        status: true,
         role: "member" as MemberRole,
         joined_at: new Date().toISOString(),
       })
@@ -291,8 +294,8 @@ export class CommunityService extends BaseService {
       community_id: communityId,
     });
 
-    // Award points
-    await this.awardJoinPoints(member.user_id, communityId);
+    // Award points using pointsService
+    await pointsService.onCommunityJoined(member.user_id, communityId);
 
     return ApiResponse.success<ApproveResult>({ message: "Request approved" });
   }
@@ -314,10 +317,12 @@ export class CommunityService extends BaseService {
       return ApiResponse.forbidden("Permission denied");
     }
 
+    // Delete the pending request (database uses boolean so can't store "rejected")
     const { error } = await this.supabaseAdmin
       .from("community_members")
-      .update({ status: "rejected" as MemberStatus })
-      .eq("id", memberId);
+      .delete()
+      .eq("id", memberId)
+      .eq("status", false); // Only delete if still pending
 
     if (error) {
       return ApiResponse.error("Failed to reject request", 500);
@@ -367,32 +372,6 @@ export class CommunityService extends BaseService {
     });
   }
 
-  /**
-   * Award points for joining a community
-   * @param userId - The user to award points to
-   * @param communityId - The community being joined
-   */
-  private async awardJoinPoints(
-    userId: string, 
-    communityId: string
-  ): Promise<void> {
-    // Check if already awarded
-    const { data: existing } = await this.supabaseAdmin
-      .from("user_points")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("reason", `Joined community: ${communityId}`)
-      .maybeSingle();
-
-    if (existing) return;
-
-    await this.supabaseAdmin.from("user_points").insert({
-      user_id: userId,
-      points: this.JOIN_POINTS,
-      reason: `Joined community: ${communityId}`,
-      source: "community_join",
-    });
-  }
 
   /**
    * Join a community (send request)

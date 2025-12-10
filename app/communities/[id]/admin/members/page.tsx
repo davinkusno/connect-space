@@ -28,7 +28,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
 import {
-    ArrowLeft, Calendar, Mail, Search, Shield, UserMinus, Users
+    ArrowLeft, Calendar, Search, Shield, Star, UserMinus, Users
 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
@@ -39,6 +39,7 @@ interface Member {
   user_id: string
   role: "admin" | "member"
   joined_at: string
+  points?: number
   user: {
     id: string
     username: string | null
@@ -276,6 +277,22 @@ export default function CommunityMembersPage({
         console.error("Error fetching user data:", usersError)
       }
 
+      // Fetch points for each member
+      const pointsPromises = userIds.map(async (userId: string) => {
+        try {
+          const { data: pointsData } = await supabase
+            .from("user_points")
+            .select("points")
+            .eq("user_id", userId)
+          const totalPoints = pointsData?.reduce((sum: number, p: { points: number }) => sum + p.points, 0) || 0
+          return { userId, points: totalPoints }
+        } catch {
+          return { userId, points: 0 }
+        }
+      })
+      const pointsResults = await Promise.all(pointsPromises)
+      const pointsMap = new Map(pointsResults.map(p => [p.userId, p.points]))
+
       // Map database members to Member interface
       const mappedMembers: Member[] = membersData.map((member: any) => {
         const user = usersData?.find((u: any) => u.id === member.user_id)
@@ -284,6 +301,7 @@ export default function CommunityMembersPage({
           user_id: member.user_id,
           role: member.role as "admin" | "member",
           joined_at: member.joined_at,
+          points: pointsMap.get(member.user_id) || 0,
           user: {
             id: user?.id || member.user_id,
             username: user?.username || null,
@@ -397,7 +415,7 @@ export default function CommunityMembersPage({
     filteredMembers = filteredMembers.filter(member => 
       member.user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (member.user.username || "").toLowerCase().includes(searchTerm.toLowerCase())
     )
   }
 
@@ -475,7 +493,7 @@ export default function CommunityMembersPage({
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <Input
-                      placeholder="Search members by name, username, or email..."
+                      placeholder="Search members by name or username..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10"
@@ -509,53 +527,50 @@ export default function CommunityMembersPage({
           </Card>
 
           {/* Members List */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             {paginatedMembers.map((member) => (
-              <Card key={member.id} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardContent className="p-6">
+              <Card key={member.id} className="bg-white/80 backdrop-blur-sm border-0 shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-3">
                       {/* Avatar */}
-                      <Avatar className="w-12 h-12">
+                      <Avatar className="w-10 h-10">
                         <AvatarImage 
                           src={member.user.avatar_url || "/placeholder-user.jpg"} 
                           alt={member.user.full_name || member.user.username || "Member"}
                         />
-                        <AvatarFallback className="text-lg font-bold bg-gradient-to-br from-purple-500 to-blue-500 text-white">
+                        <AvatarFallback className="text-sm font-bold bg-gradient-to-br from-purple-500 to-blue-500 text-white">
                           {(member.user.full_name || member.user.username || "M").charAt(0)}
                         </AvatarFallback>
                       </Avatar>
 
                       {/* Member Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="mb-1 flex items-center gap-2">
-                          <h3 className="text-lg font-semibold text-gray-900 truncate">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold text-gray-900 truncate">
                             {member.user.full_name || member.user.username || "Unknown User"}
                           </h3>
                           {member.role === "admin" && (
-                            <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-none">
-                              <Shield className="w-3 h-3 mr-1" />
+                            <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-none text-xs px-1.5 py-0">
+                              <Shield className="w-3 h-3 mr-0.5" />
                               Admin
                             </Badge>
                           )}
                         </div>
                         
-                        <div className="flex items-center space-x-4 text-sm text-gray-600">
-                          <div className="flex items-center space-x-1">
-                            <Mail className="w-4 h-4" />
-                            <span className="truncate">{member.user.email}</span>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
+                          <div className="flex items-center gap-1">
+                            <Star className="w-3 h-3 text-amber-500" />
+                            <span className="font-medium text-amber-600">{member.points || 0} pts</span>
                           </div>
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>Joined {formatDate(member.joined_at)}</span>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            <span>{formatDate(member.joined_at)}</span>
                           </div>
+                          {member.user.username && (
+                            <span className="text-gray-400">@{member.user.username}</span>
+                          )}
                         </div>
-
-                        {member.user.username && (
-                          <div className="text-sm text-gray-500 mt-1">
-                            @{member.user.username}
-                          </div>
-                        )}
                       </div>
                     </div>
 

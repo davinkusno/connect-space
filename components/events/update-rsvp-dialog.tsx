@@ -12,33 +12,33 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState } from "react";
 import { toast } from "sonner";
 
-interface UpdateRsvpDialogProps {
+interface UpdateInterestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  currentStatus: boolean; // true = going, false = not going
-  onUpdate: (isGoing: boolean) => void;
+  currentStatus: boolean; // true = interested, false = not interested
+  onUpdate: (isInterested: boolean) => void;
 }
 
-export function UpdateRsvpDialog({
+export function UpdateInterestDialog({
   open,
   onOpenChange,
   currentStatus,
   onUpdate,
-}: UpdateRsvpDialogProps) {
+}: UpdateInterestDialogProps) {
   const [selectedStatus, setSelectedStatus] = useState<string>(
-    currentStatus ? "going" : "not-going"
+    currentStatus ? "interested" : "not-interested"
   );
 
   const handleUpdate = () => {
-    const isGoing = selectedStatus === "going";
-    onUpdate(isGoing);
+    const isInterested = selectedStatus === "interested";
+    onUpdate(isInterested);
 
-    if (isGoing) {
-      toast.success("RSVP updated!", {
-        description: "You're interested in joining this event.",
+    if (isInterested) {
+      toast.success("Interest updated!", {
+        description: "You're now interested in joining this event.",
       });
     } else {
-      toast.success("RSVP updated!", {
+      toast.success("Interest removed!", {
         description: "You've removed your interest from this event.",
       });
     }
@@ -52,7 +52,7 @@ export function UpdateRsvpDialog({
         {/* Header */}
         <DialogHeader className="p-6 pb-4">
           <DialogTitle className="text-center text-xl font-semibold">
-            Update your RSVP
+            Update your interest
           </DialogTitle>
         </DialogHeader>
 
@@ -63,44 +63,44 @@ export function UpdateRsvpDialog({
             onValueChange={setSelectedStatus}
             className="space-y-3"
           >
-            {/* Going Option */}
+            {/* Interested Option */}
             <div
               className={`relative flex items-center space-x-3 rounded-3xl border-2 p-5 cursor-pointer transition-all ${
-                selectedStatus === "going"
+                selectedStatus === "interested"
                   ? "border-violet-600 bg-violet-50"
                   : "border-gray-200 hover:border-gray-300"
               }`}
-              onClick={() => setSelectedStatus("going")}
+              onClick={() => setSelectedStatus("interested")}
             >
               <RadioGroupItem
-                value="going"
-                id="going"
+                value="interested"
+                id="interested"
                 className="h-5 w-5 border-2 border-gray-400 data-[state=checked]:border-violet-600 data-[state=checked]:bg-violet-600"
               />
               <Label
-                htmlFor="going"
+                htmlFor="interested"
                 className="flex-1 cursor-pointer text-base font-normal"
               >
                 Interested to join
               </Label>
             </div>
 
-            {/* Not Going Option */}
+            {/* Not Interested Option */}
             <div
               className={`relative flex items-center space-x-3 rounded-3xl border-2 p-5 cursor-pointer transition-all ${
-                selectedStatus === "not-going"
+                selectedStatus === "not-interested"
                   ? "border-violet-600 bg-violet-50"
                   : "border-gray-200 hover:border-gray-300"
               }`}
-              onClick={() => setSelectedStatus("not-going")}
+              onClick={() => setSelectedStatus("not-interested")}
             >
               <RadioGroupItem
-                value="not-going"
-                id="not-going"
+                value="not-interested"
+                id="not-interested"
                 className="h-5 w-5 border-2 border-gray-400 data-[state=checked]:border-violet-600 data-[state=checked]:bg-violet-600"
               />
               <Label
-                htmlFor="not-going"
+                htmlFor="not-interested"
                 className="flex-1 cursor-pointer text-base font-normal"
               >
                 Not interested
@@ -120,3 +120,6 @@ export function UpdateRsvpDialog({
     </Dialog>
   );
 }
+
+// Keep legacy export for backwards compatibility
+export const UpdateRsvpDialog = UpdateInterestDialog;

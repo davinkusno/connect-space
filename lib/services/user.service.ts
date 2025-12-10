@@ -5,6 +5,7 @@ import {
 import {
     ApiResponse, BaseService, ServiceResult
 } from "./base.service";
+import { pointsService } from "./points.service";
 
 // ==================== User Service Types ====================
 
@@ -109,40 +110,30 @@ export class UserService extends BaseService {
    * @returns ServiceResult containing points summary
    */
   public async getPoints(userId: string): Promise<ServiceResult<UserPointsSummary>> {
-    const { data: points, error } = await this.supabaseAdmin
-      .from("user_points")
-      .select("points, reason, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    // Get reputation using pointsService
+    const reputationResult = await pointsService.getUserReputation(userId);
+    
+    if (!reputationResult.success) {
       return ApiResponse.error("Failed to fetch points", 500);
     }
 
-    let total: number = 0;
-    let activities: number = 0;
-    let reports: number = 0;
-
-    const breakdown: PointBreakdown[] = ((points || []) as PointRecord[]).map(
-      (p: PointRecord) => {
-        total += p.points;
-        if (p.points > 0) {
-          activities += 1;
-        } else if (p.reason?.toLowerCase().includes("report")) {
-          reports += 1;
-        }
-        return {
-          reason: p.reason || "",
-          points: p.points,
-          created_at: p.created_at,
-        };
-      }
-    );
+    const reputation = reputationResult.data!;
+    
+    // Get transaction breakdown using pointsService
+    const transactionsResult = await pointsService.getTransactions(userId, 50);
+    
+    const breakdown: PointBreakdown[] = transactionsResult.success && transactionsResult.data
+      ? transactionsResult.data.map((t) => ({
+          reason: t.description || t.point_type,
+          points: t.points,
+          created_at: (t as { created_at?: string }).created_at || new Date().toISOString(),
+        }))
+      : [];
 
     return ApiResponse.success<UserPointsSummary>({ 
-      total, 
-      activities, 
-      reports, 
+      total: reputation.reputation_score, 
+      activities: reputation.posts_created + reputation.events_joined + reputation.communities_joined + reputation.active_days, 
+      reports: reputation.report_count, 
       breakdown 
     });
   }
@@ -161,14 +152,26 @@ export class UserService extends BaseService {
     reason: string,
     source: PointSource = "community_joined"
   ): Promise<ServiceResult<AwardPointsResult>> {
-    const { error } = await this.supabaseAdmin.from("user_points").insert({
+    // Map legacy source types to pointsService point types
+    const sourceToPointType: Record<PointSource, import("./points.service").PointType> = {
+      community_joined: "community_joined",
+      event_attended: "event_joined",
+      post_created: "post_created",
+      community_created: "community_created",
+      event_created: "event_created",
+      report_penalty: "report_received",
+      admin_warning: "report_received",
+      referral: "daily_active", // Map referral to daily_active as fallback
+    };
+
+    const result = await pointsService.awardPoints({
       user_id: userId,
       points,
-      reason,
-      source,
+      point_type: sourceToPointType[source],
+      description: reason,
     });
 
-    if (error) {
+    if (!result.success) {
       return ApiResponse.error("Failed to award points", 500);
     }
 

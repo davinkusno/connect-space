@@ -9,6 +9,7 @@ import {
     CardTitle
 } from "@/components/ui/card";
 import { EnhancedCalendar } from "@/components/ui/enhanced-calendar";
+import { PageTransition } from "@/components/ui/page-transition";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
     Select,
@@ -22,7 +23,7 @@ import { getClientSession, getSupabaseBrowser } from "@/lib/supabase/client";
 import { isSameDay } from "date-fns";
 import {
     Award, BarChart3, Bookmark, BookOpen, Building2, Calendar, CalendarIcon, ChevronRight, Clock, Compass, Crown, MapPin, MessageCircle, Plus,
-    Search, Star, UserPlus, Users
+    Search, Shield, Star, UserPlus, Users
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -44,6 +45,7 @@ interface Community {
   members?: number;
   upcomingEvents?: number;
   isCreator?: boolean;
+  isAdmin?: boolean; // For co-admins who were appointed
 }
 
 export default function DashboardPage() {
@@ -66,7 +68,9 @@ export default function DashboardPage() {
   const [selectedSavedEvent, setSelectedSavedEvent] = useState<any | null>(null);
   const [createdCommunitiesPage, setCreatedCommunitiesPage] = useState(1);
   const [joinedCommunitiesPage, setJoinedCommunitiesPage] = useState(1);
+  const [dayEventsPage, setDayEventsPage] = useState(1);
   const communitiesPerPage = 3;
+  const dayEventsPerPage = 4;
 
   // Saved events from database
   const [savedEventsData, setSavedEventsData] = useState<any[]>([]);
@@ -326,16 +330,26 @@ export default function DashboardPage() {
         if (!memberError && memberData) {
           // Filter out communities where user is creator (already in createdCommunities)
           const createdIds = new Set(createdData?.map((c) => c.id) || []);
-          const joined = memberData
+          const nonCreatorCommunities = memberData
             .filter(
               (m: any) => m.communities && !createdIds.has(m.communities.id)
             )
             .map((m: any) => ({
               ...m.communities,
               role: m.role,
-              status: m.status, // Include status to check if admin is approved
+              status: m.status,
             }));
-          setJoinedCommunities(joined);
+          
+          // Separate admin communities (co-admin) from regular member communities
+          const adminComms = nonCreatorCommunities.filter((c: any) => c.role === "admin");
+          const memberComms = nonCreatorCommunities.filter((c: any) => c.role !== "admin");
+          
+          // Add admin communities to createdCommunities (they manage these too)
+          setCreatedCommunities(prev => [
+            ...prev,
+            ...adminComms.map((c: any) => ({ ...c, isCreator: false, isAdmin: true }))
+          ]);
+          setJoinedCommunities(memberComms);
         }
       } catch (error) {
         console.error("Error fetching communities:", error);
@@ -898,7 +912,7 @@ export default function DashboardPage() {
       trend: "up" as const,
     },
     {
-      title: "Created",
+      title: "Managing",
       value: createdCommunities.length.toString(),
       icon: Building2,
       color: "text-purple-600",
@@ -942,7 +956,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <>
+    <PageTransition>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* Compact Header with Inline Actions */}
@@ -982,8 +996,8 @@ export default function DashboardPage() {
           <TabsContent value="events" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start relative">
               {/* Enhanced Calendar - Left Column (1/3) */}
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-3 h-[72px]">
+              <Card className="border-0 shadow-sm h-[520px] flex flex-col">
+                <CardHeader className="pb-3 h-[72px] flex-shrink-0">
                   <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                     <div className="p-1.5 bg-blue-100 rounded-lg">
                       <CalendarIcon className="h-4 w-4 text-blue-600" />
@@ -991,12 +1005,13 @@ export default function DashboardPage() {
                     Calendar
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 pt-0">
+                <CardContent className="p-4 pt-0 flex-1">
                   <EnhancedCalendar 
                     selectedDate={selectedDate || undefined}
                     onDateSelect={(date) => {
                       setSelectedDate(date);
                       setSelectedEvent(null); // Reset selected event when date changes
+                      setDayEventsPage(1); // Reset pagination when date changes
                     }}
                     showEventsList={false}
                     events={(() => {
@@ -1031,8 +1046,8 @@ export default function DashboardPage() {
               </Card>
 
               {/* Upcoming Events List - Middle Column (1/3) */}
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-3 h-[72px]">
+              <Card className="border-0 shadow-sm h-[520px] flex flex-col">
+                <CardHeader className="pb-3 h-[72px] flex-shrink-0">
                   <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                     <div className="p-1.5 bg-green-100 rounded-lg">
                       <BookOpen className="h-4 w-4 text-green-600" />
@@ -1041,11 +1056,11 @@ export default function DashboardPage() {
                   </CardTitle>
                   <CardDescription className="text-sm text-gray-500 mt-1 line-clamp-1">
                     {selectedDate 
-                      ? `Events you're interested in on ${selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
+                      ? `Events on ${selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
                       : "Select a date to view events"}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="p-4 pt-0">
+                <CardContent className="p-4 pt-0 flex-1 flex flex-col">
                   {selectedDate ? (
                     (() => {
                       // Filter events by selected date
@@ -1060,8 +1075,8 @@ export default function DashboardPage() {
 
                       if (eventsForDate.length === 0) {
                         return (
-                          <div className="text-center py-12 min-h-[400px] flex flex-col items-center justify-center">
-                            <CalendarIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                          <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-lg">
+                            <CalendarIcon className="h-10 w-10 mb-2 text-gray-300" />
                             <p className="text-sm text-gray-500">
                               No events on this date
                             </p>
@@ -1069,46 +1084,83 @@ export default function DashboardPage() {
                         );
                       }
 
+                      // Pagination
+                      const totalPages = Math.ceil(eventsForDate.length / dayEventsPerPage);
+                      const startIndex = (dayEventsPage - 1) * dayEventsPerPage;
+                      const paginatedEvents = eventsForDate.slice(startIndex, startIndex + dayEventsPerPage);
+
                       return (
-                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                          {eventsForDate.map((event) => (
-                            <div
-                              key={event.id}
-                              onClick={() => setSelectedEvent(event)}
-                              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                                selectedEvent?.id === event.id
-                                  ? "border-violet-500 bg-violet-50"
-                                  : "border-gray-200 hover:border-violet-300 hover:bg-violet-50/50"
-                              }`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className="w-2 h-2 rounded-full bg-violet-600 mt-2 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                                    {event.title}
-                                  </h4>
-                                  <div className="space-y-1.5 text-sm text-gray-600">
-                                    <div className="flex items-center gap-2">
-                                      <Clock className="h-4 w-4" />
-                                      <span>{event.time}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <MapPin className="h-4 w-4" />
-                                      <span className="truncate">{event.location}</span>
+                        <div className="flex-1 flex flex-col">
+                          <div className="space-y-2 flex-1">
+                            {paginatedEvents.map((event) => (
+                              <div
+                                key={event.id}
+                                onClick={() => setSelectedEvent(event)}
+                                className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                  selectedEvent?.id === event.id
+                                    ? "border-violet-500 bg-violet-50"
+                                    : "border-gray-200 hover:border-violet-300 hover:bg-violet-50/50"
+                                }`}
+                              >
+                                <div className="flex items-start gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-violet-600 mt-1.5 flex-shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-medium text-sm text-gray-900 mb-1 line-clamp-1">
+                                      {event.title}
+                                    </h4>
+                                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        <span>{event.time}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <MapPin className="h-3 w-3" />
+                                        <span className="truncate max-w-[80px]">{event.location}</span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
+                            ))}
+                          </div>
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-between pt-3 mt-auto border-t">
+                              <span className="text-xs text-gray-500">
+                                {eventsForDate.length} event{eventsForDate.length !== 1 ? 's' : ''}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setDayEventsPage(p => Math.max(1, p - 1))}
+                                  disabled={dayEventsPage === 1}
+                                  className="h-7 px-2"
+                                >
+                                  ←
+                                </Button>
+                                <span className="text-xs text-gray-600 px-2">
+                                  {dayEventsPage}/{totalPages}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setDayEventsPage(p => Math.min(totalPages, p + 1))}
+                                  disabled={dayEventsPage === totalPages}
+                                  className="h-7 px-2"
+                                >
+                                  →
+                                </Button>
+                              </div>
                             </div>
-                          ))}
+                          )}
                         </div>
                       );
                     })()
                   ) : (
-                    <div className="text-center py-12 min-h-[400px] flex flex-col items-center justify-center">
-                      <CalendarIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-lg">
+                      <CalendarIcon className="h-10 w-10 mb-2 text-gray-300" />
                       <p className="text-sm text-gray-500">
-                        Choose event date
+                        Select a date to view events
                       </p>
                     </div>
                   )}
@@ -1116,20 +1168,20 @@ export default function DashboardPage() {
               </Card>
 
               {/* Event Detail - Right Column (1/3) - Top Card (from upcoming events) */}
-              {selectedEvent ? (
-                <Card className="border-0 shadow-sm">
-                  <CardHeader className="pb-3 h-[72px]">
-                    <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <div className="p-1.5 bg-purple-100 rounded-lg">
-                        <CalendarIcon className="h-4 w-4 text-purple-600" />
-                      </div>
-                      Event Details
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0 min-h-[400px]">
-                    <div className="space-y-4">
-                      {/* Event Image - Always show, with placeholder if no image */}
-                      <div className="relative h-48 w-full overflow-hidden rounded-lg bg-gray-200">
+              <Card className="border-0 shadow-sm h-[520px] flex flex-col">
+                <CardHeader className="pb-3 h-[72px] flex-shrink-0">
+                  <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <div className="p-1.5 bg-purple-100 rounded-lg">
+                      <CalendarIcon className="h-4 w-4 text-purple-600" />
+                    </div>
+                    Event Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 flex-1 flex flex-col">
+                  {selectedEvent ? (
+                    <div className="space-y-3 flex-1 flex flex-col">
+                      {/* Event Image - Compact */}
+                      <div className="relative h-32 w-full overflow-hidden rounded-lg bg-gray-100 flex-shrink-0">
                         {selectedEvent.image ? (
                           <Image
                             src={selectedEvent.image}
@@ -1139,54 +1191,48 @@ export default function DashboardPage() {
                             sizes="(max-width: 768px) 100vw, 33vw"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                            <div className="text-center">
-                              <div className="w-16 h-16 mx-auto mb-2 bg-gray-300 rounded-lg flex items-center justify-center">
-                                <CalendarIcon className="h-8 w-8 text-gray-500" />
-                              </div>
-                              <p className="text-sm text-gray-500 font-medium">No Image</p>
-                            </div>
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-100 to-purple-100">
+                            <CalendarIcon className="h-8 w-8 text-violet-400" />
                           </div>
                         )}
                       </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      <div className="flex-1 min-h-0">
+                        <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-2">
                           {selectedEvent.title}
                         </h3>
                         {selectedEvent.description && (
-                          <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                          <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                             {selectedEvent.description}
                           </p>
                         )}
-                      </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <CalendarIcon className="h-4 w-4 text-gray-400" />
-                          <span>
-                            {new Date(selectedEvent.date).toLocaleDateString("en-US", {
-                              weekday: "long",
-                              month: "long",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <Clock className="h-4 w-4 text-gray-400" />
-                          <span>{selectedEvent.time}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <MapPin className="h-4 w-4 text-gray-400" />
-                          <span>{selectedEvent.location}</span>
-                        </div>
-                        {selectedEvent.community && (
+                        <div className="space-y-2">
                           <div className="flex items-center gap-2 text-sm text-gray-700">
-                            <Users className="h-4 w-4 text-gray-400" />
-                            <span>{selectedEvent.community}</span>
+                            <CalendarIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <span className="truncate">
+                              {new Date(selectedEvent.date).toLocaleDateString("en-US", {
+                                weekday: "short",
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </span>
                           </div>
-                        )}
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <Clock className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <span>{selectedEvent.time}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <span className="truncate">{selectedEvent.location}</span>
+                          </div>
+                          {selectedEvent.community && (
+                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                              <Users className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              <span className="truncate">{selectedEvent.community}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="pt-4 border-t">
+                      <div className="pt-3 border-t mt-auto">
                         <Link href={`/events/${selectedEvent.id}`} className="w-full">
                           <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white">
                             View Full Details
@@ -1194,26 +1240,14 @@ export default function DashboardPage() {
                         </Link>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="border-0 shadow-sm">
-                  <CardHeader className="pb-3 h-[72px]">
-                    <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <div className="p-1.5 bg-purple-100 rounded-lg">
-                        <CalendarIcon className="h-4 w-4 text-purple-600" />
-                      </div>
-                      Event Details
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0 flex items-center justify-center min-h-[400px]">
-                    <div className="text-center text-gray-400">
-                      <CalendarIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Choose event to view</p>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-lg">
+                      <CalendarIcon className="h-10 w-10 mb-2 text-gray-300" />
+                      <p className="text-sm text-gray-500">Select an event to view details</p>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Saved Events Section - Spans from calendar to upcoming events (cols 1-2) */}
               <div className="lg:col-span-2 lg:col-start-1 lg:row-start-2">
@@ -1536,10 +1570,10 @@ export default function DashboardPage() {
                         <div className="p-1.5 bg-purple-100 rounded-lg">
                           <Crown className="h-4 w-4 text-purple-600" />
                         </div>
-                        Created Communities ({createdCommunities.length})
+                        My Communities ({createdCommunities.length})
                       </CardTitle>
                       <CardDescription className="text-sm text-gray-500 mt-1">
-                        Communities you created and manage
+                        Communities you created or manage as admin
                       </CardDescription>
                     </div>
                     <Link href="/communities/create">
@@ -1594,8 +1628,17 @@ export default function DashboardPage() {
                                     </h3>
                                   </Link>
                                   <Badge variant="secondary" className="mt-1 text-xs">
-                                    <Crown className="h-3 w-3 mr-1" />
-                                    Creator
+                                    {community.isCreator ? (
+                                      <>
+                                        <Crown className="h-3 w-3 mr-1" />
+                                        Creator
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Shield className="h-3 w-3 mr-1" />
+                                        Admin
+                                      </>
+                                    )}
                                   </Badge>
                                 </div>
                               </div>
@@ -1668,16 +1711,16 @@ export default function DashboardPage() {
             </Card>
             )}
 
-            {/* Communities Joined Section */}
+            {/* Member Communities Section */}
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                       <div className="p-1.5 bg-blue-100 rounded-lg">
-                        <UserPlus className="h-4 w-4 text-blue-600" />
+                        <Users className="h-4 w-4 text-blue-600" />
                       </div>
-                      My Communities ({joinedCommunities.length})
+                      Member Of ({joinedCommunities.length})
                     </CardTitle>
                     <CardDescription className="text-sm text-gray-500 mt-1">
                       Communities you're part of
@@ -2003,6 +2046,6 @@ export default function DashboardPage() {
         </div>
       </div>
       <Chatbot />
-    </>
+    </PageTransition>
   );
 }

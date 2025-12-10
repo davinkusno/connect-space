@@ -6,15 +6,14 @@ import { ApiErrorResponse, BaseController } from "./base.controller";
 
 // ==================== Controller Response Types ====================
 
-interface RsvpStatusResponse {
-  hasRsvp: boolean;
-  status: string | null;
-  rsvp: unknown;
+interface InterestStatusResponse {
+  isInterested: boolean;
+  registeredAt: string | null;
 }
 
-interface RsvpActionResponse {
+interface InterestActionResponse {
   message: string;
-  status?: string;
+  interested?: boolean;
 }
 
 interface EventsListResponse {
@@ -40,23 +39,23 @@ export class EventController extends BaseController {
   }
 
   /**
-   * GET /api/events/[id]/rsvp
-   * Check RSVP status for authenticated user
+   * GET /api/events/[id]/interested
+   * Check interest status for authenticated user
    * @param request - The incoming request
    * @param eventId - The event ID to check
-   * @returns NextResponse with RSVP status
+   * @returns NextResponse with interest status
    */
-  public async getRsvpStatus(
+  public async getInterestStatus(
     request: NextRequest, 
     eventId: string
-  ): Promise<NextResponse<RsvpStatusResponse | ApiErrorResponse>> {
+  ): Promise<NextResponse<InterestStatusResponse | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      const result: ServiceResult<RsvpStatusResponse> = 
-        await this.service.getRsvpStatus(eventId, user.id);
+      const result: ServiceResult<InterestStatusResponse> = 
+        await this.service.getInterestStatus(eventId, user.id);
       
-      return this.json<RsvpStatusResponse>(
-        result.data as RsvpStatusResponse, 
+      return this.json<InterestStatusResponse>(
+        result.data as InterestStatusResponse, 
         result.status
       );
     } catch (error: unknown) {
@@ -65,58 +64,58 @@ export class EventController extends BaseController {
   }
 
   /**
-   * POST /api/events/[id]/rsvp
-   * Create or update RSVP for an event
+   * POST /api/events/[id]/interested
+   * Mark interest in an event
    * @param request - The incoming request
-   * @param eventId - The event ID to RSVP to
+   * @param eventId - The event ID to show interest in
    * @returns NextResponse indicating success or failure
    */
-  public async createRsvp(
+  public async markInterested(
     request: NextRequest, 
     eventId: string
-  ): Promise<NextResponse<RsvpActionResponse | ApiErrorResponse>> {
+  ): Promise<NextResponse<InterestActionResponse | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      const result: ServiceResult<RsvpActionResponse> = 
-        await this.service.createRsvp(eventId, user.id);
+      const result: ServiceResult<InterestActionResponse> = 
+        await this.service.markInterested(eventId, user.id);
       
       if (result.success) {
-        return this.json<RsvpActionResponse>(
-          result.data as RsvpActionResponse, 
+        return this.json<InterestActionResponse>(
+          result.data as InterestActionResponse, 
           result.status
         );
       }
       
-      return this.error(result.error?.message || "Failed to create RSVP", result.status);
+      return this.error(result.error?.message || "Failed to mark interest", result.status);
     } catch (error: unknown) {
       return this.handleError(error);
     }
   }
 
   /**
-   * DELETE /api/events/[id]/rsvp
-   * Remove RSVP from an event
+   * DELETE /api/events/[id]/interested
+   * Remove interest from an event
    * @param request - The incoming request
-   * @param eventId - The event ID to remove RSVP from
+   * @param eventId - The event ID to remove interest from
    * @returns NextResponse indicating success or failure
    */
-  public async removeRsvp(
+  public async removeInterest(
     request: NextRequest, 
     eventId: string
-  ): Promise<NextResponse<RsvpActionResponse | ApiErrorResponse>> {
+  ): Promise<NextResponse<InterestActionResponse | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      const result: ServiceResult<RsvpActionResponse> = 
-        await this.service.removeRsvp(eventId, user.id);
+      const result: ServiceResult<InterestActionResponse> = 
+        await this.service.removeInterest(eventId, user.id);
       
       if (result.success) {
-        return this.json<RsvpActionResponse>(
-          result.data as RsvpActionResponse, 
+        return this.json<InterestActionResponse>(
+          result.data as InterestActionResponse, 
           result.status
         );
       }
       
-      return this.error(result.error?.message || "Failed to remove RSVP", result.status);
+      return this.error(result.error?.message || "Failed to remove interest", result.status);
     } catch (error: unknown) {
       return this.handleError(error);
     }

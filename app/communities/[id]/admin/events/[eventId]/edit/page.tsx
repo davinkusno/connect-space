@@ -3,12 +3,15 @@
 import { ContentEnhancerDialog } from "@/components/ai/content-enhancer-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { FloatingElements } from "@/components/ui/floating-elements"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PageTransition } from "@/components/ui/page-transition"
+import { SmoothReveal } from "@/components/ui/smooth-reveal"
 import { Textarea } from "@/components/ui/textarea"
 import {
     ArrowLeft,
-    Clock, Globe, Image as ImageIcon, Loader2, MapPin, Search, Sparkles,
+    Calendar, Clock, Globe, Image as ImageIcon, Loader2, MapPin, Search, Sparkles,
     Wand2
 } from "lucide-react"
 import Link from "next/link"
@@ -720,43 +723,60 @@ export default function EditEventPage({
 
 
   if (isLoadingEvent) {
-  return (
-      <div className="min-h-screen bg-white">
-        <div className="max-w-4xl mx-auto px-6 py-12">
-          <div className="text-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400" />
-            <p className="text-gray-500 mt-4">Loading event data...</p>
-          </div>
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-violet-600 mx-auto mb-4" />
+          <p className="text-gray-600 font-medium">Loading event data...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        {/* Header */}
-        <div className="mb-12">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-4xl font-light text-gray-900 mb-3">Edit Event</h1>
-              <p className="text-gray-600">Update your event details</p>
+    <PageTransition>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative overflow-hidden">
+        <FloatingElements variant="default" density="low" />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+          {/* Header */}
+          <SmoothReveal delay={100} direction="up">
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-6">
+                <Link href={communityId ? `/communities/${communityId}/admin/events` : "/communities/admin"}>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="hover:bg-violet-50 transition-colors group"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                    Back
+                  </Button>
+                </Link>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200 shadow-sm">
+                  <div className="w-2 h-2 rounded-full bg-violet-500"></div>
+                  <span className="text-sm font-medium text-violet-700">{communityName}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-r from-violet-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <Calendar className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">Edit Event</h1>
+                  <p className="text-gray-600 mt-1">Update your event details for {communityName}</p>
+                </div>
+              </div>
             </div>
-            <Link href={communityId ? `/communities/${communityId}/admin/events` : "/communities/admin"}>
-              <Button variant="outline" size="icon" className="border-gray-200 hover:border-purple-300 hover:bg-purple-50">
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </Link>
-          </div>
-        </div>
+          </SmoothReveal>
 
-        <form onSubmit={handleSave} className="space-y-8">
+          <form onSubmit={handleSave} className="space-y-8">
             {/* Basic Information */}
-          <Card className="border-gray-100">
-              <CardHeader>
-              <CardTitle className="text-xl font-medium text-gray-900">Event Details</CardTitle>
-              <p className="text-gray-600">Update your event information</p>
-              </CardHeader>
+            <SmoothReveal delay={200} direction="up">
+              <Card className="bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold text-gray-900">Event Details</CardTitle>
+                  <p className="text-gray-600">Update your event information</p>
+                </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3">
                 <Label htmlFor="title">Event Title *</Label>
@@ -793,16 +813,18 @@ export default function EditEventPage({
                   className="min-h-[120px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none"
                   required
                 />
-                <p className="text-sm text-gray-500">{eventData.description.length}/1000 characters</p>
+                  <p className="text-sm text-gray-500">{eventData.description.length}/1000 characters</p>
                 </div>
               </CardContent>
             </Card>
+            </SmoothReveal>
 
-          {/* Date, Time & Location */}
-          <Card className="border-gray-100">
-              <CardHeader>
-              <CardTitle className="text-xl font-medium text-gray-900">When & Where</CardTitle>
-              </CardHeader>
+            {/* Date, Time & Location */}
+            <SmoothReveal delay={300} direction="up">
+              <Card className="bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold text-gray-900">When & Where</CardTitle>
+                </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
@@ -1023,19 +1045,21 @@ export default function EditEventPage({
                   </div>
                 )}
                 </div>
-              )}
+                )}
               </CardContent>
             </Card>
+            </SmoothReveal>
 
-          {/* Event Image */}
-          <Card className="border-gray-100">
-              <CardHeader>
-              <CardTitle className="text-xl font-medium text-gray-900 flex items-center gap-2">
-                <ImageIcon className="w-5 h-5" />
-                Event Image
-              </CardTitle>
-              <p className="text-gray-600">Upload an image for your event (this will be the background in the hero section)</p>
-              </CardHeader>
+            {/* Event Image */}
+            <SmoothReveal delay={400} direction="up">
+              <Card className="bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5" />
+                    Event Image
+                  </CardTitle>
+                  <p className="text-gray-600">Upload an image for your event (this will be the background in the hero section)</p>
+                </CardHeader>
               <CardContent className="space-y-4">
               <div className="space-y-3">
                 <Label htmlFor="eventImage">Event Image</Label>
@@ -1066,27 +1090,36 @@ export default function EditEventPage({
                       </div>
                     )}
                   </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+            </SmoothReveal>
 
-          {/* Submit Button */}
-          <div className="flex justify-end">
-                          <Button
-              type="submit" 
-              disabled={isSubmitting}
-              className="bg-violet-700 hover:bg-violet-800 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving Changes...
-                </>
-              ) : (
-                "Save Changes"
-              )}
-                      </Button>
-                  </div>
-        </form>
+            {/* Submit Button */}
+            <SmoothReveal delay={500} direction="up">
+              <div className="flex justify-end gap-4">
+                <Link href={communityId ? `/communities/${communityId}/admin/events` : "/communities/admin"}>
+                  <Button variant="outline" className="border-gray-200 hover:bg-gray-50">
+                    Cancel
+                  </Button>
+                </Link>
+                <Button
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white px-8 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving Changes...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
+              </div>
+            </SmoothReveal>
+          </form>
+        </div>
       </div>
 
       {/* AI Enhancement Dialog */}
@@ -1103,7 +1136,7 @@ export default function EditEventPage({
           onAccept={handleAcceptEnhancedContent}
         />
       )}
-    </div>
+    </PageTransition>
   )
 }
 

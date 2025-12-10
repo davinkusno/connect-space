@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dialog";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/loading-indicators";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1028,14 +1027,6 @@ export default function SuperadminPage() {
   const [reportDetailPage, setReportDetailPage] = useState(1);
   const [reportDetailItemsPerPage] = useState(5);
 
-  // Ad requests state
-  const [adRequests, setAdRequests] = useState<any[]>([]);
-  const [isLoadingAdRequests, setIsLoadingAdRequests] = useState(true);
-  const [selectedAdRequest, setSelectedAdRequest] = useState<any>(null);
-  const [isAdRequestDialogOpen, setIsAdRequestDialogOpen] = useState(false);
-  const [adRequestFilter, setAdRequestFilter] = useState<"unread" | "all">("unread");
-  const [adRequestSort, setAdRequestSort] = useState<"desc" | "asc">("desc");
-
   // Community management state
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
   const [communityFilterStatus, setCommunityFilterStatus] = useState("all");
@@ -1230,51 +1221,6 @@ export default function SuperadminPage() {
       setIsProcessingAction(false);
     }
   };
-
-  // Fetch ad requests
-  useEffect(() => {
-    const fetchAdRequests = async () => {
-      setIsLoadingAdRequests(true);
-      try {
-        const response = await fetch("/api/ads?status=pending");
-        if (!response.ok) {
-          throw new Error("Failed to fetch ad requests");
-        }
-        const result = await response.json();
-        setAdRequests(result.data || []);
-      } catch (error) {
-        console.error("Error fetching ad requests:", error);
-        // Fallback to empty array if fetch fails
-        setAdRequests([]);
-      } finally {
-        setIsLoadingAdRequests(false);
-      }
-    };
-
-    fetchAdRequests();
-  }, []);
-
-  // Filter and sort ad requests
-  const filteredAdRequests = adRequests
-    .filter((req) => {
-      if (adRequestFilter === "unread") {
-        return !req.is_read;
-      }
-      return true; // "all"
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      if (adRequestSort === "desc") {
-        return dateB - dateA; // Newest first
-      } else {
-        return dateA - dateB; // Oldest first
-      }
-    });
-
-  // Calculate ad request statistics
-  const unreadAdRequests = adRequests.filter((req) => !req.is_read);
-  const readAdRequests = adRequests.filter((req) => req.is_read);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("en-US", {
@@ -2506,67 +2452,6 @@ export default function SuperadminPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Ad Request Detail Dialog */}
-      <Dialog open={isAdRequestDialogOpen} onOpenChange={setIsAdRequestDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-gray-900">
-              Ad Request Details
-            </DialogTitle>
-            <DialogDescription>
-              View the details of this ad request
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedAdRequest && (
-            <div className="space-y-6 mt-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-700">User Name</Label>
-                <p className="text-base text-gray-900">{selectedAdRequest.user_name || "Unknown User"}</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-700">Email</Label>
-                <p className="text-base text-gray-900 break-all">{selectedAdRequest.email || "No email provided"}</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-700">Message</Label>
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-base text-gray-700 whitespace-pre-wrap">
-                    {selectedAdRequest.message || "No message provided"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-700">Request Date</Label>
-                <p className="text-base text-gray-900">{formatDate(selectedAdRequest.created_at)}</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-gray-700">Status</Label>
-                <div>
-                  {selectedAdRequest.is_read ? (
-                    <Badge className="bg-green-500 text-white">Read</Badge>
-                  ) : (
-                    <Badge className="bg-yellow-500 text-white">Unread</Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsAdRequestDialogOpen(false)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

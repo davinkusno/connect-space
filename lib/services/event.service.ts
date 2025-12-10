@@ -4,6 +4,7 @@ import {
 import {
     ApiResponse, BaseService, ServiceResult
 } from "./base.service";
+import { pointsService } from "./points.service";
 
 // ==================== Event Service Types ====================
 
@@ -32,15 +33,14 @@ interface EventWithCommunity extends EventData {
   community?: CommunityInfo | null;
 }
 
-interface RsvpResult {
+interface InterestResult {
   message: string;
-  status?: AttendeeStatus;
+  interested?: boolean;
 }
 
-interface RsvpStatusResult {
-  hasRsvp: boolean;
-  status: AttendeeStatus | null;
-  rsvp: EventAttendee | null;
+interface InterestStatusResult {
+  isInterested: boolean;
+  registeredAt: string | null;
 }
 
 interface SavedEventResult extends EventData {
@@ -102,15 +102,15 @@ export class EventService extends BaseService {
   }
 
   /**
-   * Create RSVP for an event
-   * @param eventId - The event ID to RSVP to
-   * @param userId - The user ID making the RSVP
+   * Mark interest in an event
+   * @param eventId - The event ID to show interest in
+   * @param userId - The user ID showing interest
    * @returns ServiceResult indicating success or failure
    */
-  public async createRsvp(
+  public async markInterested(
     eventId: string, 
     userId: string
-  ): Promise<ServiceResult<RsvpResult>> {
+  ): Promise<ServiceResult<InterestResult>> {
     // Validate event exists
     const eventResult: ServiceResult<EventData> = await this.getById(eventId);
     if (!eventResult.success) {
@@ -136,16 +136,16 @@ export class EventService extends BaseService {
         .eq("id", existingRsvp.id);
 
       if (updateError) {
-        return ApiResponse.error("Failed to update RSVP", 500);
+        return ApiResponse.error("Failed to mark as interested", 500);
       }
 
-      return ApiResponse.success<RsvpResult>({ 
-        message: "RSVP updated", 
-        status: "going" 
+      return ApiResponse.success<InterestResult>({ 
+        message: "Marked as interested", 
+        interested: true 
       });
     }
 
-    // Create new RSVP
+    // Create new interest record
     const { error: insertError } = await this.supabaseAdmin
       .from("event_attendees")
       .insert({
@@ -168,34 +168,37 @@ export class EventService extends BaseService {
           .eq("user_id", userId);
 
         if (updateError) {
-          return ApiResponse.error("Failed to update RSVP", 500);
+          return ApiResponse.error("Failed to mark as interested", 500);
         }
 
-        return ApiResponse.success<RsvpResult>({ 
-          message: "RSVP updated", 
-          status: "going" 
+        return ApiResponse.success<InterestResult>({ 
+          message: "Marked as interested", 
+          interested: true 
         });
       }
 
-      return ApiResponse.error("Failed to create RSVP", 500);
+      return ApiResponse.error("Failed to mark as interested", 500);
     }
 
-    return ApiResponse.created<RsvpResult>({ 
-      message: "RSVP created", 
-      status: "going" 
+    // Award points for joining event using pointsService
+    await pointsService.onEventJoined(userId, eventId);
+
+    return ApiResponse.created<InterestResult>({ 
+      message: "Marked as interested", 
+      interested: true 
     });
   }
 
   /**
-   * Remove RSVP from an event
-   * @param eventId - The event ID to remove RSVP from
-   * @param userId - The user ID removing their RSVP
+   * Remove interest from an event
+   * @param eventId - The event ID to remove interest from
+   * @param userId - The user ID removing their interest
    * @returns ServiceResult indicating success or failure
    */
-  public async removeRsvp(
+  public async removeInterest(
     eventId: string, 
     userId: string
-  ): Promise<ServiceResult<RsvpResult>> {
+  ): Promise<ServiceResult<InterestResult>> {
     const { error } = await this.supabaseAdmin
       .from("event_attendees")
       .delete()
@@ -203,22 +206,22 @@ export class EventService extends BaseService {
       .eq("user_id", userId);
 
     if (error) {
-      return ApiResponse.error("Failed to remove RSVP", 500);
+      return ApiResponse.error("Failed to remove interest", 500);
     }
 
-    return ApiResponse.success<RsvpResult>({ message: "RSVP removed" });
+    return ApiResponse.success<InterestResult>({ message: "Interest removed", interested: false });
   }
 
   /**
-   * Get RSVP status for a user and event
+   * Get interest status for a user and event
    * @param eventId - The event ID to check
    * @param userId - The user ID to check
-   * @returns ServiceResult containing RSVP status
+   * @returns ServiceResult containing interest status
    */
-  public async getRsvpStatus(
+  public async getInterestStatus(
     eventId: string, 
     userId: string
-  ): Promise<ServiceResult<RsvpStatusResult>> {
+  ): Promise<ServiceResult<InterestStatusResult>> {
     const { data, error } = await this.supabaseAdmin
       .from("event_attendees")
       .select("id, status, registered_at")
@@ -227,20 +230,19 @@ export class EventService extends BaseService {
       .maybeSingle();
 
     if (error && error.code !== "PGRST116") {
-      return ApiResponse.error("Failed to check RSVP", 500);
+      return ApiResponse.error("Failed to check interest", 500);
     }
 
-    const result: RsvpStatusResult = {
-      hasRsvp: !!data,
-      status: (data?.status as AttendeeStatus) || null,
-      rsvp: data as EventAttendee | null,
+    const result: InterestStatusResult = {
+      isInterested: !!data && data.status === "going",
+      registeredAt: data?.registered_at || null,
     };
 
-    return ApiResponse.success<RsvpStatusResult>(result);
+    return ApiResponse.success<InterestStatusResult>(result);
   }
 
   /**
-   * Get all events a user is interested in (RSVP'd to)
+   * Get all events a user is interested in
    * @param userId - The user ID to fetch events for
    * @returns ServiceResult containing array of events with community info
    */
@@ -252,7 +254,7 @@ export class EventService extends BaseService {
       .from("event_attendees")
       .select("event_id, status, registered_at")
       .eq("user_id", userId)
-      .in("status", ["going", "maybe"])
+      .eq("status", "going")
       .order("registered_at", { ascending: false });
 
     if (attendeeError) {
@@ -324,7 +326,7 @@ export class EventService extends BaseService {
   public async saveEvent(
     eventId: string, 
     userId: string
-  ): Promise<ServiceResult<RsvpResult>> {
+  ): Promise<ServiceResult<InterestResult>> {
     // Check if already saved
     const { data: existing } = await this.supabaseAdmin
       .from("event_save")
@@ -334,7 +336,7 @@ export class EventService extends BaseService {
       .maybeSingle();
 
     if (existing) {
-      return ApiResponse.success<RsvpResult>({ message: "Event already saved" });
+      return ApiResponse.success<InterestResult>({ message: "Event already saved" });
     }
 
     const { error } = await this.supabaseAdmin
@@ -345,7 +347,7 @@ export class EventService extends BaseService {
       return ApiResponse.error("Failed to save event", 500);
     }
 
-    return ApiResponse.created<RsvpResult>({ message: "Event saved" });
+    return ApiResponse.created<InterestResult>({ message: "Event saved" });
   }
 
   /**
@@ -357,7 +359,7 @@ export class EventService extends BaseService {
   public async unsaveEvent(
     eventId: string, 
     userId: string
-  ): Promise<ServiceResult<RsvpResult>> {
+  ): Promise<ServiceResult<InterestResult>> {
     const { error } = await this.supabaseAdmin
       .from("event_save")
       .delete()
@@ -368,7 +370,7 @@ export class EventService extends BaseService {
       return ApiResponse.error("Failed to unsave event", 500);
     }
 
-    return ApiResponse.success<RsvpResult>({ message: "Event unsaved" });
+    return ApiResponse.success<InterestResult>({ message: "Event unsaved" });
   }
 
   /**

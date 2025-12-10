@@ -2,12 +2,23 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getUserReputation, type UserReputation } from "@/lib/points/user-points";
 import { cn } from "@/lib/utils";
 import {
     Activity, AlertTriangle, Calendar, Loader2, MessageSquare, Star, TrendingDown, TrendingUp, Users
 } from "lucide-react";
 import { useEffect, useState } from "react";
+
+interface UserReputation {
+  activity_points: number;
+  report_points: number;
+  report_count: number;
+  posts_created: number;
+  events_joined: number;
+  communities_joined: number;
+  active_days: number;
+  last_activity_at: string | null;
+  reputation_score: number;
+}
 
 interface UserReputationCardProps {
   userId: string;
@@ -26,8 +37,18 @@ export function UserReputationCard({
   useEffect(() => {
     const loadReputation = async () => {
       setIsLoading(true);
-      const data = await getUserReputation(userId);
-      setReputation(data);
+      try {
+        const response = await fetch(`/api/user/${userId}/reputation/full`);
+        if (response.ok) {
+          const data = await response.json();
+          setReputation(data);
+        } else {
+          setReputation(null);
+        }
+      } catch (error) {
+        console.error("Error fetching reputation:", error);
+        setReputation(null);
+      }
       setIsLoading(false);
     };
 

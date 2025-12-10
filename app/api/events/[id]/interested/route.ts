@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return eventController.getRsvpStatus(request, id);
+  return eventController.getInterestStatus(request, id);
 }
 
 export async function POST(
@@ -14,7 +14,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return eventController.createRsvp(request, id);
+  return eventController.markInterested(request, id);
 }
 
 export async function DELETE(
@@ -22,5 +22,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return eventController.removeRsvp(request, id);
+  return eventController.removeInterest(request, id);
 }
+

@@ -105,7 +105,20 @@ export default function ProfilePage() {
             metadata.username || session.user.email?.split("@")[0] || "",
           interests: metadata.interests || ["Technology", "Community", "Networking"],
         });
-        setPoints(metadata.points || 1250);
+        
+        // Fetch real points from API
+        try {
+          const pointsResponse = await fetch("/api/user/points");
+          if (pointsResponse.ok) {
+            const pointsData = await pointsResponse.json();
+            setPoints(pointsData.total || 0);
+          } else {
+            setPoints(0);
+          }
+        } catch (error) {
+          console.error("Error fetching points:", error);
+          setPoints(0);
+        }
         
         // Load location from metadata
         if (metadata.location_city) {

@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { getClientSession, getSupabaseBrowser } from "@/lib/supabase/client";
 import {
-    ArrowLeft, Calendar, ChevronRight, Clock, Crown, Globe, Loader2, Lock, MapPin, MessageCircle, Navigation, Reply,
+    ArrowLeft, Calendar, ChevronRight, Clock, Crown, Globe, Loader2, MapPin, MessageCircle, Navigation, Reply,
     Send, Settings, Share2, Shield,
     Star, Trash2, TrendingUp, UserMinus, UserPlus, Users
 } from "lucide-react";
@@ -1004,209 +1004,23 @@ export default function CommunityPage({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Check if user can access content - must be approved member or creator */}
+        {/* Content visible to all users - Discussion Forum only for approved members */}
         {(() => {
           const canAccessContent = membershipStatus === "approved" || userRole === "creator" || userRole === "admin";
           const isPending = membershipStatus === "pending";
-          const isNotMember = !membershipStatus && !userRole;
           
-          // Show waiting message if pending approval
-          if (isPending && userRole !== "creator") {
-            return (
-              <Card className="border-yellow-200 bg-yellow-50/50">
-                <CardContent className="p-8 text-center">
-                  <Clock className="h-16 w-16 text-yellow-600 mx-auto mb-4" />
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Waiting For Approval</h2>
-                  <p className="text-gray-600 mb-4">
-                    Your join request has been sent to the community admin. 
-                    You'll be able to view the community content once your request is approved.
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    We'll notify you when your request is reviewed.
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          }
-          
-          // Show join prompt for non-members
-          if (isNotMember) {
-            return (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Main Content - Limited View */}
-                <div className="lg:col-span-2 space-y-6">
-                  {/* About Section - Public */}
-                  <Card className="border-gray-100">
-                    <CardHeader>
-                      <CardTitle className="text-xl font-medium text-gray-900">
-                        About This Community
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <p className="text-gray-700 leading-relaxed">
-                        {community.description || "No description available."}
-                      </p>
-                      
-                      {community.category && (
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="border-violet-200 text-violet-700">
-                            {community.category}
-                          </Badge>
-                        </div>
-                      )}
-                      
-                      {community.location && (
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <MapPin className="h-4 w-4 text-violet-600" />
-                          <span>
-                            {typeof community.location === 'string' 
-                              ? community.location 
-                              : community.location?.city || community.location?.address || 'Location not specified'}
-                          </span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                  
-                  {/* Join to Access Content Card */}
-                  <Card className="border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50">
-                    <CardContent className="p-8 text-center">
-                      <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Lock className="h-8 w-8 text-violet-600" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-gray-900 mb-2">Join to Access Content</h2>
-                      <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                        Become a member to access discussions, events, member list, and participate in the community.
-                      </p>
-                      
-                      <div className="bg-white border border-violet-200 rounded-lg p-4 mb-6 max-w-sm mx-auto">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center">
-                            <Star className="h-5 w-5 text-violet-600" />
-                          </div>
-                          <div className="text-left">
-                            <p className="font-semibold text-violet-900">Earn 25 Points!</p>
-                            <p className="text-sm text-violet-700">
-                              When your join request is approved
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <Button
-                        onClick={handleJoinClick}
-                        disabled={isJoining}
-                        className="bg-violet-600 hover:bg-violet-700 text-white px-8"
-                        size="lg"
-                      >
-                        {isJoining ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Joining...
-                          </>
-                        ) : (
-                          <>
-                            <UserPlus className="h-4 w-4 mr-2" />
-                            Request to Join
-                          </>
-                        )}
-                      </Button>
-                      
-                      <div className="mt-6 flex items-center justify-center gap-6 text-sm text-gray-500">
-                        <div className="flex items-center gap-1.5">
-                          <MessageCircle className="h-4 w-4" />
-                          <span>Discussion Forum</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="h-4 w-4" />
-                          <span>Events</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Users className="h-4 w-4" />
-                          <span>Members</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                {/* Sidebar - Limited Stats */}
-                <div className="space-y-6">
-                  {/* Community Stats */}
-                  <Card className="border-gray-200">
-                    <CardHeader>
-                      <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5 text-violet-600" />
-                        Community Stats
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600 flex items-center gap-2">
-                          <Users className="h-4 w-4" />
-                          Total Members
-                        </span>
-                        <span className="font-semibold text-gray-900">
-                          {memberCount.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600 flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          Founded
-                        </span>
-                        <span className="font-semibold text-gray-900">
-                          {community?.created_at 
-                            ? (() => {
-                                try {
-                                  const date = new Date(community.created_at);
-                                  if (isNaN(date.getTime())) return "Unknown";
-                                  return date.toLocaleDateString("en-US", {
-                                    month: "short",
-                                    year: "numeric",
-                                  });
-                                } catch {
-                                  return "Unknown";
-                                }
-                              })()
-                            : "Unknown"}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Creator Info */}
-                  <Card className="border-gray-200">
-                    <CardHeader>
-                      <CardTitle className="text-lg font-semibold">Created By</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={creatorData?.avatar_url || community.creator?.avatar_url} />
-                          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
-                            {(creatorData?.username || community.creator?.username || "U").charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900">
-                            {creatorData?.full_name || creatorData?.username || "Loading..."}
-                          </p>
-                          <p className="text-sm text-violet-600">Founder</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  {/* Ad Carousel */}
-                  <AdCarousel communityId={id} placement="sidebar" autoRotateInterval={5000} />
-                </div>
-              </div>
-            );
-          }
-          
-          // Show full content for approved members
           return (
+        <>
+          {/* Subtle pending banner */}
+          {isPending && (
+            <div className="mb-4 px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-3">
+              <Clock className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+              <p className="text-sm text-yellow-800">
+                Your join request is pending approval. You can browse the community while waiting.
+              </p>
+            </div>
+          )}
+          
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -1339,51 +1153,108 @@ export default function CommunityPage({
 
               {/* Discussion Forum Tab */}
               <TabsContent value="announcements" className="space-y-6 mt-8">
-                {/* New Thread - All Members Can Post */}
-                {isMember && currentUser && (
-                  <Card className="border-gray-200 shadow-sm">
-                    <CardContent className="p-4">
-                      <div className="flex gap-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={currentUser?.user_metadata?.avatar_url} />
-                          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
-                            {currentUser?.email?.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 space-y-3">
-                          <Textarea
-                            placeholder="Start a new discussion..."
-                            value={newPost}
-                            onChange={(e) => setNewPost(e.target.value)}
-                            className="min-h-[80px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none text-sm"
-                          />
-                          <div className="flex justify-end">
-                            <Button
-                              disabled={!newPost.trim() || isSubmitting}
-                              onClick={handlePostDiscussion}
-                              size="sm"
-                              className="bg-violet-600 hover:bg-violet-700 text-white"
-                            >
-                              {isSubmitting ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Posting...
-                                </>
-                              ) : (
-                                <>
-                                  <Send className="h-4 w-4 mr-2" /> Post
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </div>
+                {/* Show join message for non-members and pending users */}
+                {!canAccessContent ? (
+                  <Card className="border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50">
+                    <CardContent className="p-12 text-center">
+                      <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <MessageCircle className="h-8 w-8 text-violet-600" />
                       </div>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                        Join to View Discussions
+                      </h3>
+                      <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                        {isPending 
+                          ? "Your membership is pending approval. Once approved, you'll be able to view and participate in community discussions."
+                          : "Become a member to see what the community is talking about and join the conversation."}
+                      </p>
+                      {!isPending && !currentUser && (
+                        <Button
+                          onClick={handleJoinClick}
+                          disabled={isJoining}
+                          className="bg-violet-600 hover:bg-violet-700 text-white"
+                        >
+                          {isJoining ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Joining...
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              Join Community
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      {!isPending && currentUser && !isMember && (
+                        <Button
+                          onClick={handleJoinClick}
+                          disabled={isJoining}
+                          className="bg-violet-600 hover:bg-violet-700 text-white"
+                        >
+                          {isJoining ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Joining...
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              Request to Join
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
-                )}
+                ) : (
+                  <>
+                    {/* New Thread - All Members Can Post */}
+                    {isMember && currentUser && (
+                      <Card className="border-gray-200 shadow-sm">
+                        <CardContent className="p-4">
+                          <div className="flex gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={currentUser?.user_metadata?.avatar_url} />
+                              <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
+                                {currentUser?.email?.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 space-y-3">
+                              <Textarea
+                                placeholder="Start a new discussion..."
+                                value={newPost}
+                                onChange={(e) => setNewPost(e.target.value)}
+                                className="min-h-[80px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none text-sm"
+                              />
+                              <div className="flex justify-end">
+                                <Button
+                                  disabled={!newPost.trim() || isSubmitting}
+                                  onClick={handlePostDiscussion}
+                                  size="sm"
+                                  className="bg-violet-600 hover:bg-violet-700 text-white"
+                                >
+                                  {isSubmitting ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Posting...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Send className="h-4 w-4 mr-2" /> Post
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
 
-                {/* Discussion Threads */}
-                {isLoadingTab ? (
+                    {/* Discussion Threads */}
+                    {isLoadingTab ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
                   </div>
@@ -1620,6 +1491,8 @@ export default function CommunityPage({
                       );
                     })}
                   </div>
+                )}
+                  </>
                 )}
               </TabsContent>
 
@@ -2144,6 +2017,7 @@ export default function CommunityPage({
             <AdCarousel communityId={id} placement="sidebar" autoRotateInterval={5000} />
           </div>
         </div>
+        </>
           );
         })()}
       </div>

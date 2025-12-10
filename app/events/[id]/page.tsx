@@ -211,20 +211,20 @@ export default function EventDetailsPage({
 
         const registeredCount = attendeesResult.count || 0;
 
-        // Check if current user has RSVP'd to this event using API (bypasses RLS)
+        // Check if current user is interested in this event using API (bypasses RLS)
         if (user) {
-          console.log("[Event Detail] Checking RSVP status for user:", user.id, "event:", id);
+          console.log("[Event Detail] Checking interest status for user:", user.id, "event:", id);
           
           try {
-            const rsvpResponse = await fetch(`/api/events/${id}/rsvp`);
-            const rsvpData = await rsvpResponse.json();
-            console.log("[Event Detail] RSVP API response:", rsvpData);
+            const interestResponse = await fetch(`/api/events/${id}/interested`);
+            const interestData = await interestResponse.json();
+            console.log("[Event Detail] Interest API response:", interestData);
             
-            if (rsvpData.hasRsvp && (rsvpData.status === "going" || rsvpData.status === "maybe")) {
-              console.log("[Event Detail] User has RSVP, setting isRegistered to true");
+            if (interestData.isInterested) {
+              console.log("[Event Detail] User is interested, setting isRegistered to true");
               setIsRegistered(true);
             } else {
-              console.log("[Event Detail] User does not have valid RSVP");
+              console.log("[Event Detail] User is not interested");
               setIsRegistered(false);
             }
           } catch (rsvpError) {
@@ -573,7 +573,7 @@ export default function EventDetailsPage({
     if (!event) return;
 
     try {
-      const response = await fetch(`/api/events/${event.id}/rsvp`, {
+      const response = await fetch(`/api/events/${event.id}/interested`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -582,7 +582,7 @@ export default function EventDetailsPage({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to RSVP");
+        throw new Error(error.error || "Failed to mark interest");
       }
 
       const data = await response.json();
@@ -631,7 +631,7 @@ export default function EventDetailsPage({
     if (!event) return;
 
     try {
-      const response = await fetch(`/api/events/${event.id}/rsvp`, {
+      const response = await fetch(`/api/events/${event.id}/interested`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -640,7 +640,7 @@ export default function EventDetailsPage({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to remove RSVP");
+        throw new Error(error.error || "Failed to remove interest");
       }
 
       // Update state
