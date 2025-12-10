@@ -1033,22 +1033,209 @@ export default function CommunityPage({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Show waiting message if pending approval */}
-        {membershipStatus === "pending" && userRole !== "creator" ? (
-          <Card className="border-yellow-200 bg-yellow-50/50">
-            <CardContent className="p-8 text-center">
-              <Clock className="h-16 w-16 text-yellow-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Waiting For Approval</h2>
-              <p className="text-gray-600 mb-4">
-                Your join request has been sent to the community admin. 
-                You'll be able to view the community content once your request is approved.
-              </p>
-              <p className="text-sm text-gray-500">
-                We'll notify you when your request is reviewed.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
+        {/* Check if user can access content - must be approved member or creator */}
+        {(() => {
+          const canAccessContent = membershipStatus === "approved" || userRole === "creator" || userRole === "admin";
+          const isPending = membershipStatus === "pending";
+          const isNotMember = !membershipStatus && !userRole;
+          
+          // Show waiting message if pending approval
+          if (isPending && userRole !== "creator") {
+            return (
+              <Card className="border-yellow-200 bg-yellow-50/50">
+                <CardContent className="p-8 text-center">
+                  <Clock className="h-16 w-16 text-yellow-600 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Waiting For Approval</h2>
+                  <p className="text-gray-600 mb-4">
+                    Your join request has been sent to the community admin. 
+                    You'll be able to view the community content once your request is approved.
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    We'll notify you when your request is reviewed.
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          }
+          
+          // Show join prompt for non-members
+          if (isNotMember) {
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Content - Limited View */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* About Section - Public */}
+                  <Card className="border-gray-100">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-medium text-gray-900">
+                        About This Community
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <p className="text-gray-700 leading-relaxed">
+                        {community.description || "No description available."}
+                      </p>
+                      
+                      {community.category && (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="border-violet-200 text-violet-700">
+                            {community.category}
+                          </Badge>
+                        </div>
+                      )}
+                      
+                      {community.location && (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <MapPin className="h-4 w-4 text-violet-600" />
+                          <span>
+                            {typeof community.location === 'string' 
+                              ? community.location 
+                              : community.location?.city || community.location?.address || 'Location not specified'}
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                  
+                  {/* Join to Access Content Card */}
+                  <Card className="border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50">
+                    <CardContent className="p-8 text-center">
+                      <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Lock className="h-8 w-8 text-violet-600" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">Join to Access Content</h2>
+                      <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                        Become a member to access discussions, events, member list, and participate in the community.
+                      </p>
+                      
+                      <div className="bg-white border border-violet-200 rounded-lg p-4 mb-6 max-w-sm mx-auto">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center">
+                            <Star className="h-5 w-5 text-violet-600" />
+                          </div>
+                          <div className="text-left">
+                            <p className="font-semibold text-violet-900">Earn 25 Points!</p>
+                            <p className="text-sm text-violet-700">
+                              When your join request is approved
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <Button
+                        onClick={handleJoinClick}
+                        disabled={isJoining}
+                        className="bg-violet-600 hover:bg-violet-700 text-white px-8"
+                        size="lg"
+                      >
+                        {isJoining ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Joining...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Request to Join
+                          </>
+                        )}
+                      </Button>
+                      
+                      <div className="mt-6 flex items-center justify-center gap-6 text-sm text-gray-500">
+                        <div className="flex items-center gap-1.5">
+                          <MessageCircle className="h-4 w-4" />
+                          <span>Discussion Forum</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-4 w-4" />
+                          <span>Events</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-4 w-4" />
+                          <span>Members</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Sidebar - Limited Stats */}
+                <div className="space-y-6">
+                  {/* Community Stats */}
+                  <Card className="border-gray-200">
+                    <CardHeader>
+                      <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-violet-600" />
+                        Community Stats
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          Total Members
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {memberCount.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          Founded
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {community?.created_at 
+                            ? (() => {
+                                try {
+                                  const date = new Date(community.created_at);
+                                  if (isNaN(date.getTime())) return "Unknown";
+                                  return date.toLocaleDateString("en-US", {
+                                    month: "short",
+                                    year: "numeric",
+                                  });
+                                } catch {
+                                  return "Unknown";
+                                }
+                              })()
+                            : "Unknown"}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Creator Info */}
+                  <Card className="border-gray-200">
+                    <CardHeader>
+                      <CardTitle className="text-lg font-semibold">Created By</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={creatorData?.avatar_url || community.creator?.avatar_url} />
+                          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
+                            {(creatorData?.username || community.creator?.username || "U").charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900">
+                            {creatorData?.full_name || creatorData?.username || "Loading..."}
+                          </p>
+                          <p className="text-sm text-violet-600">Founder</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  {/* Ad Carousel */}
+                  <AdCarousel communityId={id} placement="sidebar" autoRotateInterval={5000} />
+                </div>
+              </div>
+            );
+          }
+          
+          // Show full content for approved members
+          return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -1986,7 +2173,8 @@ export default function CommunityPage({
             <AdCarousel communityId={id} placement="sidebar" autoRotateInterval={5000} />
           </div>
         </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Join Confirmation Dialog with Points Info */}
