@@ -1027,7 +1027,7 @@ export default function SuperadminPage() {
   const fetchInactiveCommunities = useCallback(async () => {
     setIsLoadingInactive(true);
     try {
-      const response = await fetch("/api/superadmin/inactive-communities");
+      const response = await fetch("/api/admin/inactive-communities");
       if (!response.ok) {
         throw new Error("Failed to fetch inactive communities");
       }
@@ -1046,7 +1046,7 @@ export default function SuperadminPage() {
     const fetchReports = async () => {
       setIsLoadingReports(true);
       try {
-        const response = await fetch("/api/superadmin/reports");
+        const response = await fetch("/api/admin/reports");
         if (!response.ok) {
           throw new Error("Failed to fetch reports");
         }
@@ -1247,7 +1247,7 @@ export default function SuperadminPage() {
   ) => {
     setIsProcessingAction(true);
     try {
-      const response = await fetch(`/api/superadmin/reports/${communityId}`, {
+      const response = await fetch(`/api/admin/reports/${communityId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -1268,7 +1268,7 @@ export default function SuperadminPage() {
 
       // Refresh reports if action was on a reported community
       if (action === "suspend" || action === "dismiss" || action === "resolve") {
-        const refreshResponse = await fetch("/api/superadmin/reports");
+        const refreshResponse = await fetch("/api/admin/reports");
         if (refreshResponse.ok) {
           const refreshData = await refreshResponse.json();
           setReportedCommunities(refreshData.reports || []);
@@ -1297,7 +1297,7 @@ export default function SuperadminPage() {
     const fetchAdRequests = async () => {
       setIsLoadingAdRequests(true);
       try {
-        const response = await fetch("/api/superadmin/ads-requests");
+        const response = await fetch("/api/ads?status=pending");
         if (!response.ok) {
           throw new Error("Failed to fetch ad requests");
         }

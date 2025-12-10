@@ -18,5 +18,5 @@ export { ReportService, reportService } from "./report.service";
 export { AdsService, adsService } from "./ads.service";
 export { AIService, aiService } from "./ai.service";
 export { PostService, postService } from "./post.service";
-export { SuperAdminService, superAdminService } from "./superadmin.service";
+export { AdminService, adminService } from "./admin.service";
 

@@ -1,18 +1,19 @@
 import { NextRequest } from "next/server";
-import { superAdminController } from "@/lib/controllers";
+import { communityController } from "@/lib/controllers";
 
-export async function GET(
+export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return superAdminController.getReportById(request, id);
+  return communityController.approveRequest(request, id);
 }
 
-export async function PATCH(
+export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return superAdminController.updateReport(request, id);
+  return communityController.rejectRequest(request, id);
 }
+

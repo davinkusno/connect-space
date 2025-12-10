@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { User } from "@supabase/supabase-js";
+import { ServiceResult } from "@/lib/services/base.service";
+
+/**
+ * Standard API response structure
+ */
+export interface ApiSuccessResponse<T> {
+  success: true;
+  data: T;
+}
+
+export interface ApiErrorResponse {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+}
+
+export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
 
 /**
  * Base controller class providing common HTTP handling functionality
@@ -20,9 +40,10 @@ export abstract class BaseController {
   /**
    * Require authentication - throws if not authenticated
    * @returns Authenticated user
+   * @throws UnauthorizedError if not authenticated
    */
   protected async requireAuth(): Promise<User> {
-    const user = await this.getAuthenticatedUser();
+    const user: User | null = await this.getAuthenticatedUser();
     if (!user) {
       throw new UnauthorizedError();
     }
@@ -30,67 +51,99 @@ export abstract class BaseController {
   }
 
   /**
-   * Create JSON response
+   * Create JSON response with proper typing
    */
-  protected json<T>(data: T, status: number = 200): NextResponse {
+  protected json<T>(data: T, status: number = 200): NextResponse<T> {
     return NextResponse.json(data, { status });
   }
 
   /**
-   * Create success response
+   * Create success response with data
    */
-  protected success<T>(data: T, status: number = 200): NextResponse {
+  protected success<T>(data: T, status: number = 200): NextResponse<ApiSuccessResponse<T>> {
     return NextResponse.json({ success: true, data }, { status });
   }
 
   /**
    * Create error response
    */
-  protected error(message: string, status: number = 500): NextResponse {
-    return NextResponse.json({ error: message }, { status });
+  protected error(
+    message: string, 
+    status: number = 500, 
+    code: string = "INTERNAL_ERROR"
+  ): NextResponse<ApiErrorResponse> {
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: { code, message } 
+      }, 
+      { status }
+    );
   }
 
   /**
    * 401 Unauthorized response
    */
-  protected unauthorized(message: string = "Unauthorized"): NextResponse {
-    return this.error(message, 401);
+  protected unauthorized(message: string = "Unauthorized"): NextResponse<ApiErrorResponse> {
+    return this.error(message, 401, "UNAUTHORIZED");
   }
 
   /**
    * 403 Forbidden response
    */
-  protected forbidden(message: string = "Forbidden"): NextResponse {
-    return this.error(message, 403);
+  protected forbidden(message: string = "Forbidden"): NextResponse<ApiErrorResponse> {
+    return this.error(message, 403, "FORBIDDEN");
   }
 
   /**
    * 404 Not Found response
    */
-  protected notFound(message: string = "Not found"): NextResponse {
-    return this.error(message, 404);
+  protected notFound(message: string = "Not found"): NextResponse<ApiErrorResponse> {
+    return this.error(message, 404, "NOT_FOUND");
   }
 
   /**
    * 400 Bad Request response
    */
-  protected badRequest(message: string = "Bad request"): NextResponse {
-    return this.error(message, 400);
+  protected badRequest(message: string = "Bad request"): NextResponse<ApiErrorResponse> {
+    return this.error(message, 400, "BAD_REQUEST");
+  }
+
+  /**
+   * 409 Conflict response
+   */
+  protected conflict(message: string = "Resource conflict"): NextResponse<ApiErrorResponse> {
+    return this.error(message, 409, "CONFLICT");
   }
 
   /**
    * 500 Internal Server Error response
    */
-  protected serverError(message: string = "Internal server error"): NextResponse {
-    return this.error(message, 500);
+  protected serverError(message: string = "Internal server error"): NextResponse<ApiErrorResponse> {
+    return this.error(message, 500, "INTERNAL_ERROR");
   }
 
   /**
-   * Parse JSON body from request
+   * Convert service result to HTTP response
+   */
+  protected serviceResultToResponse<T>(result: ServiceResult<T>): NextResponse {
+    if (result.success) {
+      return this.success(result.data, result.status);
+    }
+    return this.error(
+      result.error?.message || "An error occurred",
+      result.status,
+      result.error?.code || "ERROR"
+    );
+  }
+
+  /**
+   * Parse JSON body from request with type safety
    */
   protected async parseBody<T>(request: NextRequest): Promise<T> {
     try {
-      return await request.json();
+      const body: T = await request.json();
+      return body;
     } catch {
       throw new BadRequestError("Invalid JSON body");
     }
@@ -105,12 +158,26 @@ export abstract class BaseController {
   }
 
   /**
+   * Get query parameter as number
+   */
+  protected getQueryParamAsNumber(
+    request: NextRequest, 
+    key: string, 
+    defaultValue: number
+  ): number {
+    const value: string | null = this.getQueryParam(request, key);
+    if (!value) return defaultValue;
+    const parsed: number = parseInt(value, 10);
+    return isNaN(parsed) ? defaultValue : parsed;
+  }
+
+  /**
    * Get all query parameters as object
    */
   protected getQueryParams(request: NextRequest): Record<string, string> {
     const { searchParams } = new URL(request.url);
     const params: Record<string, string> = {};
-    searchParams.forEach((value, key) => {
+    searchParams.forEach((value: string, key: string) => {
       params[key] = value;
     });
     return params;
@@ -119,7 +186,7 @@ export abstract class BaseController {
   /**
    * Handle controller errors uniformly
    */
-  protected handleError(error: unknown): NextResponse {
+  protected handleError(error: unknown): NextResponse<ApiErrorResponse> {
     if (error instanceof UnauthorizedError) {
       return this.unauthorized(error.message);
     }
@@ -132,14 +199,26 @@ export abstract class BaseController {
     if (error instanceof BadRequestError) {
       return this.badRequest(error.message);
     }
+    if (error instanceof ConflictError) {
+      return this.conflict(error.message);
+    }
+    
+    // Log unexpected errors in development
+    if (process.env.NODE_ENV === "development") {
+      console.error("Controller error:", error);
+    }
+    
     return this.serverError();
   }
 }
 
 /**
- * Controller error classes
+ * Controller error classes with proper typing
  */
 export class UnauthorizedError extends Error {
+  public readonly statusCode: number = 401;
+  public readonly code: string = "UNAUTHORIZED";
+  
   constructor(message: string = "Unauthorized") {
     super(message);
     this.name = "UnauthorizedError";
@@ -147,6 +226,9 @@ export class UnauthorizedError extends Error {
 }
 
 export class ForbiddenError extends Error {
+  public readonly statusCode: number = 403;
+  public readonly code: string = "FORBIDDEN";
+  
   constructor(message: string = "Forbidden") {
     super(message);
     this.name = "ForbiddenError";
@@ -154,6 +236,9 @@ export class ForbiddenError extends Error {
 }
 
 export class NotFoundError extends Error {
+  public readonly statusCode: number = 404;
+  public readonly code: string = "NOT_FOUND";
+  
   constructor(message: string = "Not found") {
     super(message);
     this.name = "NotFoundError";
@@ -161,9 +246,21 @@ export class NotFoundError extends Error {
 }
 
 export class BadRequestError extends Error {
+  public readonly statusCode: number = 400;
+  public readonly code: string = "BAD_REQUEST";
+  
   constructor(message: string = "Bad request") {
     super(message);
     this.name = "BadRequestError";
   }
 }
 
+export class ConflictError extends Error {
+  public readonly statusCode: number = 409;
+  public readonly code: string = "CONFLICT";
+  
+  constructor(message: string = "Resource conflict") {
+    super(message);
+    this.name = "ConflictError";
+  }
+}

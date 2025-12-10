@@ -2,9 +2,18 @@ import {
   BaseService,
   ApiResponse,
   ServiceResult,
-  NotFoundError,
-  AuthorizationError,
 } from "./base.service";
+import {
+  Community,
+  CommunityLocation,
+  CommunityMember,
+  MemberRole,
+  MemberStatus,
+  User,
+  PaginatedResponse,
+} from "@/lib/types";
+
+// ==================== Community Service Types ====================
 
 interface CommunityData {
   id: string;
@@ -13,45 +22,98 @@ interface CommunityData {
   logo_url?: string;
   banner_url?: string;
   category_id?: string;
-  location?: string;
+  location?: string | CommunityLocation;
   member_count: number;
   creator_id: string;
   status?: string;
 }
 
-interface JoinRequest {
+interface UserInfo {
+  id: string;
+  full_name: string;
+  avatar_url?: string;
+  email: string;
+  username?: string;
+}
+
+interface JoinRequestData {
   id: string;
   user_id: string;
   community_id: string;
-  status: "pending" | "approved" | "rejected";
+  status: MemberStatus | boolean;
   requested_at: string;
-  user?: {
-    id: string;
-    full_name: string;
-    avatar_url?: string;
-    email: string;
-  };
-  activityCount?: number;
-  reportCount?: number;
+  users?: UserInfo;
+  user?: UserInfo;
 }
 
-interface MemberWithPoints extends JoinRequest {
+interface MemberWithPoints {
+  id: string;
+  user_id: string;
+  community_id: string;
+  status: MemberStatus | boolean;
+  requested_at: string;
+  user?: UserInfo;
   activityCount: number;
   reportCount: number;
 }
 
+interface UserPointsCount {
+  activityCount: number;
+  reportCount: number;
+}
+
+interface ApproveResult {
+  message: string;
+}
+
+interface BulkApproveResult {
+  message: string;
+  approved: number;
+  failed: number;
+}
+
+interface JoinResult {
+  message: string;
+  member?: CommunityMember;
+}
+
+interface MembersResult {
+  members: CommunityMember[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+interface MembersQueryOptions {
+  page?: number;
+  pageSize?: number;
+  role?: MemberRole;
+  search?: string;
+}
+
+interface PointRecord {
+  points: number;
+  reason: string | null;
+}
+
+// ==================== Community Service Class ====================
+
 /**
  * Service for managing communities and memberships
+ * Handles community CRUD, member management, and join requests
  */
 export class CommunityService extends BaseService {
   private static instance: CommunityService;
-  private readonly JOIN_POINTS = 25;
+  private readonly JOIN_POINTS: number = 25;
 
   private constructor() {
     super();
   }
 
-  static getInstance(): CommunityService {
+  /**
+   * Get singleton instance of CommunityService
+   */
+  public static getInstance(): CommunityService {
     if (!CommunityService.instance) {
       CommunityService.instance = new CommunityService();
     }
@@ -60,8 +122,10 @@ export class CommunityService extends BaseService {
 
   /**
    * Get community by ID
+   * @param communityId - The community ID to fetch
+   * @returns ServiceResult containing community data or error
    */
-  async getById(communityId: string): Promise<ServiceResult<CommunityData>> {
+  public async getById(communityId: string): Promise<ServiceResult<CommunityData>> {
     const { data, error } = await this.supabaseAdmin
       .from("communities")
       .select("*")
@@ -69,16 +133,23 @@ export class CommunityService extends BaseService {
       .single();
 
     if (error || !data) {
-      return ApiResponse.error("Community not found", 404);
+      return ApiResponse.notFound("Community");
     }
 
-    return ApiResponse.success(data);
+    return ApiResponse.success<CommunityData>(data as CommunityData);
   }
 
   /**
    * Check if user is admin or creator of community
+   * @param communityId - The community to check
+   * @param userId - The user to check
+   * @returns Boolean indicating if user is admin/creator
    */
-  async isAdminOrCreator(communityId: string, userId: string): Promise<boolean> {
+  public async isAdminOrCreator(
+    communityId: string, 
+    userId: string
+  ): Promise<boolean> {
+    // Check if user is creator
     const { data: community } = await this.supabaseAdmin
       .from("communities")
       .select("creator_id")
@@ -89,6 +160,7 @@ export class CommunityService extends BaseService {
       return true;
     }
 
+    // Check if user is admin
     const { data: membership } = await this.supabaseAdmin
       .from("community_members")
       .select("role")
@@ -101,8 +173,12 @@ export class CommunityService extends BaseService {
 
   /**
    * Get pending join requests for a community
+   * @param communityId - The community ID to fetch requests for
+   * @returns ServiceResult containing array of requests with user points
    */
-  async getPendingRequests(communityId: string): Promise<ServiceResult<MemberWithPoints[]>> {
+  public async getPendingRequests(
+    communityId: string
+  ): Promise<ServiceResult<MemberWithPoints[]>> {
     const { data: requests, error } = await this.supabaseAdmin
       .from("community_members")
       .select(`
@@ -118,35 +194,46 @@ export class CommunityService extends BaseService {
     }
 
     // Fetch user points for each request
-    const userIds = requests?.map((r) => r.user_id) || [];
     const requestsWithPoints: MemberWithPoints[] = [];
 
-    for (const request of requests || []) {
-      const { activityCount, reportCount } = await this.getUserPoints(request.user_id);
+    for (const request of (requests || [])) {
+      const pointsData: UserPointsCount = await this.getUserPoints(request.user_id);
+      
+      // Handle users relation which comes as array from Supabase
+      const userInfo = Array.isArray(request.users) 
+        ? request.users[0] as UserInfo
+        : request.users as unknown as UserInfo;
+      
       requestsWithPoints.push({
-        ...request,
-        user: request.users as any,
-        activityCount,
-        reportCount,
+        id: request.id,
+        user_id: request.user_id,
+        community_id: request.community_id,
+        status: request.status as MemberStatus,
+        requested_at: request.requested_at,
+        user: userInfo,
+        activityCount: pointsData.activityCount,
+        reportCount: pointsData.reportCount,
       });
     }
 
-    return ApiResponse.success(requestsWithPoints);
+    return ApiResponse.success<MemberWithPoints[]>(requestsWithPoints);
   }
 
   /**
    * Get user activity and report counts
+   * @param userId - The user ID to fetch points for
+   * @returns Object containing activity and report counts
    */
-  private async getUserPoints(userId: string): Promise<{ activityCount: number; reportCount: number }> {
+  private async getUserPoints(userId: string): Promise<UserPointsCount> {
     const { data: points } = await this.supabaseAdmin
       .from("user_points")
       .select("points, reason")
       .eq("user_id", userId);
 
-    let activityCount = 0;
-    let reportCount = 0;
+    let activityCount: number = 0;
+    let reportCount: number = 0;
 
-    (points || []).forEach((p) => {
+    ((points || []) as PointRecord[]).forEach((p: PointRecord) => {
       if (p.points > 0) {
         activityCount += 1;
       } else if (p.reason?.toLowerCase().includes("report")) {
@@ -159,16 +246,20 @@ export class CommunityService extends BaseService {
 
   /**
    * Approve a join request
+   * @param memberId - The member record ID to approve
+   * @param communityId - The community ID
+   * @param adminUserId - The admin user making the approval
+   * @returns ServiceResult indicating success or failure
    */
-  async approveRequest(
+  public async approveRequest(
     memberId: string,
     communityId: string,
     adminUserId: string
-  ): Promise<ServiceResult<any>> {
+  ): Promise<ServiceResult<ApproveResult>> {
     // Verify admin permission
-    const isAdmin = await this.isAdminOrCreator(communityId, adminUserId);
+    const isAdmin: boolean = await this.isAdminOrCreator(communityId, adminUserId);
     if (!isAdmin) {
-      return ApiResponse.error("Permission denied", 403);
+      return ApiResponse.forbidden("Permission denied");
     }
 
     // Get member record
@@ -179,19 +270,19 @@ export class CommunityService extends BaseService {
       .single();
 
     if (memberError || !member) {
-      return ApiResponse.error("Member request not found", 404);
+      return ApiResponse.notFound("Member request");
     }
 
     if (member.status !== "pending") {
-      return ApiResponse.error("Request already processed", 400);
+      return ApiResponse.badRequest("Request already processed");
     }
 
     // Update member status
     const { error: updateError } = await this.supabaseAdmin
       .from("community_members")
       .update({
-        status: "approved",
-        role: "member",
+        status: "approved" as MemberStatus,
+        role: "member" as MemberRole,
         joined_at: new Date().toISOString(),
       })
       .eq("id", memberId);
@@ -208,52 +299,65 @@ export class CommunityService extends BaseService {
     // Award points
     await this.awardJoinPoints(member.user_id, communityId);
 
-    return ApiResponse.success({ message: "Request approved" });
+    return ApiResponse.success<ApproveResult>({ message: "Request approved" });
   }
 
   /**
    * Reject a join request
+   * @param memberId - The member record ID to reject
+   * @param communityId - The community ID
+   * @param adminUserId - The admin user making the rejection
+   * @returns ServiceResult indicating success or failure
    */
-  async rejectRequest(
+  public async rejectRequest(
     memberId: string,
     communityId: string,
     adminUserId: string
-  ): Promise<ServiceResult<any>> {
-    const isAdmin = await this.isAdminOrCreator(communityId, adminUserId);
+  ): Promise<ServiceResult<ApproveResult>> {
+    const isAdmin: boolean = await this.isAdminOrCreator(communityId, adminUserId);
     if (!isAdmin) {
-      return ApiResponse.error("Permission denied", 403);
+      return ApiResponse.forbidden("Permission denied");
     }
 
     const { error } = await this.supabaseAdmin
       .from("community_members")
-      .update({ status: "rejected" })
+      .update({ status: "rejected" as MemberStatus })
       .eq("id", memberId);
 
     if (error) {
       return ApiResponse.error("Failed to reject request", 500);
     }
 
-    return ApiResponse.success({ message: "Request rejected" });
+    return ApiResponse.success<ApproveResult>({ message: "Request rejected" });
   }
 
   /**
-   * Bulk approve join requests
+   * Bulk approve multiple join requests
+   * @param memberIds - Array of member record IDs to approve
+   * @param communityId - The community ID
+   * @param adminUserId - The admin user making the approvals
+   * @returns ServiceResult with counts of approved and failed
    */
-  async bulkApprove(
+  public async bulkApprove(
     memberIds: string[],
     communityId: string,
     adminUserId: string
-  ): Promise<ServiceResult<any>> {
-    const isAdmin = await this.isAdminOrCreator(communityId, adminUserId);
+  ): Promise<ServiceResult<BulkApproveResult>> {
+    const isAdmin: boolean = await this.isAdminOrCreator(communityId, adminUserId);
     if (!isAdmin) {
-      return ApiResponse.error("Permission denied", 403);
+      return ApiResponse.forbidden("Permission denied");
     }
 
-    let approved = 0;
-    let failed = 0;
+    let approved: number = 0;
+    let failed: number = 0;
 
     for (const memberId of memberIds) {
-      const result = await this.approveRequest(memberId, communityId, adminUserId);
+      const result: ServiceResult<ApproveResult> = await this.approveRequest(
+        memberId, 
+        communityId, 
+        adminUserId
+      );
+      
       if (result.success) {
         approved++;
       } else {
@@ -261,7 +365,7 @@ export class CommunityService extends BaseService {
       }
     }
 
-    return ApiResponse.success({
+    return ApiResponse.success<BulkApproveResult>({
       message: `Approved ${approved} members`,
       approved,
       failed,
@@ -270,8 +374,13 @@ export class CommunityService extends BaseService {
 
   /**
    * Award points for joining a community
+   * @param userId - The user to award points to
+   * @param communityId - The community being joined
    */
-  private async awardJoinPoints(userId: string, communityId: string): Promise<void> {
+  private async awardJoinPoints(
+    userId: string, 
+    communityId: string
+  ): Promise<void> {
     // Check if already awarded
     const { data: existing } = await this.supabaseAdmin
       .from("user_points")
@@ -291,13 +400,224 @@ export class CommunityService extends BaseService {
   }
 
   /**
-   * Parse location to readable string
+   * Join a community (send request)
+   * @param communityId - The community to join
+   * @param userId - The user requesting to join
+   * @returns ServiceResult with join status
    */
-  static parseLocationDisplay(location: any): string {
+  public async joinCommunity(
+    communityId: string, 
+    userId: string
+  ): Promise<ServiceResult<JoinResult>> {
+    // Check if already a member
+    const { data: existingMember } = await this.supabaseAdmin
+      .from("community_members")
+      .select("id, status")
+      .eq("community_id", communityId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (existingMember) {
+      const status = existingMember.status;
+      if (status === false || status === "pending") {
+        return ApiResponse.success<JoinResult>({ 
+          message: "Join request is already pending", 
+          member: existingMember as unknown as CommunityMember 
+        });
+      }
+      return ApiResponse.success<JoinResult>({ 
+        message: "Already a member", 
+        member: existingMember as unknown as CommunityMember 
+      });
+    }
+
+    // Insert with status = false (pending approval)
+    const { data: insertData, error: insertError } = await this.supabaseAdmin
+      .from("community_members")
+      .insert({
+        community_id: communityId,
+        user_id: userId,
+        role: "member" as MemberRole,
+        status: false,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      if (insertError.code === "23505") {
+        return ApiResponse.badRequest("You already have a pending request or are a member");
+      }
+      return ApiResponse.error("Failed to join community", 500);
+    }
+
+    return ApiResponse.created<JoinResult>({ 
+      message: "Join request sent", 
+      member: insertData as CommunityMember 
+    });
+  }
+
+  /**
+   * Update member role
+   * @param memberId - The member record ID to update
+   * @param role - The new role to assign
+   * @param adminUserId - The admin making the change
+   * @returns ServiceResult indicating success or failure
+   */
+  public async updateMemberRole(
+    memberId: string,
+    role: MemberRole,
+    adminUserId: string
+  ): Promise<ServiceResult<ApproveResult>> {
+    // Fetch member record
+    const { data: memberRecord, error: fetchError } = await this.supabaseAdmin
+      .from("community_members")
+      .select("id, community_id, user_id")
+      .eq("id", memberId)
+      .single();
+
+    if (fetchError || !memberRecord) {
+      return ApiResponse.notFound("Member");
+    }
+
+    // Verify permission
+    const isAdmin: boolean = await this.isAdminOrCreator(
+      memberRecord.community_id, 
+      adminUserId
+    );
+    if (!isAdmin) {
+      return ApiResponse.forbidden("Permission denied");
+    }
+
+    // Update role
+    const { error: updateError } = await this.supabaseAdmin
+      .from("community_members")
+      .update({ role })
+      .eq("id", memberId);
+
+    if (updateError) {
+      return ApiResponse.error("Failed to update member role", 500);
+    }
+
+    return ApiResponse.success<ApproveResult>({ message: "Member role updated" });
+  }
+
+  /**
+   * Get community members with pagination
+   * @param communityId - The community to fetch members for
+   * @param options - Query options (page, pageSize, role, search)
+   * @returns ServiceResult with paginated member list
+   */
+  public async getMembers(
+    communityId: string,
+    options?: MembersQueryOptions
+  ): Promise<ServiceResult<MembersResult>> {
+    const page: number = options?.page || 1;
+    const pageSize: number = options?.pageSize || 10;
+    const from: number = (page - 1) * pageSize;
+    const to: number = from + pageSize - 1;
+
+    let query = this.supabaseAdmin
+      .from("community_members")
+      .select(`
+        *,
+        user:user_id(id, username, full_name, avatar_url)
+      `, { count: "exact" })
+      .eq("community_id", communityId);
+
+    if (options?.role) {
+      query = query.eq("role", options.role);
+    }
+
+    const { data: members, count, error } = await query
+      .order("joined_at", { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      return ApiResponse.error("Failed to fetch members", 500);
+    }
+
+    return ApiResponse.success<MembersResult>({
+      members: (members || []) as CommunityMember[],
+      total: count || 0,
+      page,
+      pageSize,
+    });
+  }
+
+  /**
+   * Add member to community (by admin)
+   * @param communityId - The community to add member to
+   * @param targetUserId - The user to add
+   * @param role - The role to assign
+   * @param adminUserId - The admin making the addition
+   * @returns ServiceResult with new member data
+   */
+  public async addMember(
+    communityId: string,
+    targetUserId: string,
+    role: MemberRole,
+    adminUserId: string
+  ): Promise<ServiceResult<CommunityMember>> {
+    // Verify permission
+    const isAdmin: boolean = await this.isAdminOrCreator(communityId, adminUserId);
+    if (!isAdmin) {
+      return ApiResponse.forbidden("Permission denied");
+    }
+
+    // Check if already a member
+    const { data: existingMember } = await this.supabaseAdmin
+      .from("community_members")
+      .select("id")
+      .eq("community_id", communityId)
+      .eq("user_id", targetUserId)
+      .maybeSingle();
+
+    if (existingMember) {
+      return ApiResponse.error("User is already a member", 409);
+    }
+
+    // Add member
+    const { data: newMember, error } = await this.supabaseAdmin
+      .from("community_members")
+      .insert({
+        community_id: communityId,
+        user_id: targetUserId,
+        role: role || "member",
+        status: true,
+      })
+      .select(`*, user:user_id(id, username, full_name, avatar_url)`)
+      .single();
+
+    if (error) {
+      return ApiResponse.error("Failed to add member", 500);
+    }
+
+    // Create notification
+    await this.supabaseAdmin.from("notifications").insert({
+      user_id: targetUserId,
+      type: "community_invite",
+      content: "You have been added to a community",
+      reference_id: communityId,
+      reference_type: "community",
+    });
+
+    return ApiResponse.created<CommunityMember>(newMember as CommunityMember);
+  }
+
+  /**
+   * Parse location to readable string
+   * @param location - The location data to parse
+   * @returns Formatted location string
+   */
+  public static parseLocationDisplay(location: unknown): string {
     if (!location) return "";
 
     try {
-      const locData = typeof location === "string" ? JSON.parse(location) : location;
+      const locData: CommunityLocation = 
+        typeof location === "string" 
+          ? JSON.parse(location) 
+          : (location as CommunityLocation);
+      
       return locData.city || locData.address || "";
     } catch {
       return typeof location === "string" ? location : "";
@@ -305,5 +625,5 @@ export class CommunityService extends BaseService {
   }
 }
 
-export const communityService = CommunityService.getInstance();
-
+// Export singleton instance
+export const communityService: CommunityService = CommunityService.getInstance();

@@ -246,7 +246,7 @@ export default function CommunityAdminRequestsPage({
     if (!communityId) return
 
     try {
-      const response = await fetch(`/api/community-members/${requestId}/approve`, {
+      const response = await fetch(`/api/communities/members/${requestId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ community_id: communityId })

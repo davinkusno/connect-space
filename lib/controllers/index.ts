@@ -5,6 +5,10 @@ export {
   ForbiddenError,
   NotFoundError,
   BadRequestError,
+  ConflictError,
+  type ApiSuccessResponse,
+  type ApiErrorResponse,
+  type ApiResponse,
 } from "./base.controller";
 
 // Domain controllers
@@ -15,5 +19,5 @@ export { ReportController, reportController } from "./report.controller";
 export { AdsController, adsController } from "./ads.controller";
 export { AIController, aiController } from "./ai.controller";
 export { PostController, postController } from "./post.controller";
-export { SuperAdminController, superAdminController } from "./superadmin.controller";
+export { AdminController, adminController } from "./admin.controller";
 

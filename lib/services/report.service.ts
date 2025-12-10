@@ -2,8 +2,15 @@ import {
   BaseService,
   ApiResponse,
   ServiceResult,
-  ValidationError,
 } from "./base.service";
+import {
+  Report,
+  ReportReason,
+  ReportStatus,
+  User,
+} from "@/lib/types";
+
+// ==================== Report Service Types ====================
 
 interface ReportData {
   id: string;
@@ -11,32 +18,48 @@ interface ReportData {
   reported_user_id?: string;
   reported_community_id?: string;
   reported_event_id?: string;
-  reason: string;
+  reason: ReportReason;
   description?: string;
-  status: "pending" | "reviewed" | "resolved" | "dismissed";
+  status: ReportStatus;
+  resolution?: string;
+  resolved_by?: string;
   created_at: string;
+  resolved_at?: string;
 }
 
 interface CreateReportInput {
   reported_user_id?: string;
   reported_community_id?: string;
   reported_event_id?: string;
-  reason: string;
+  reason: ReportReason;
   description?: string;
 }
 
+interface ReportWithRelations extends ReportData {
+  reporter?: Partial<User>;
+  reported_user?: Partial<User>;
+  reported_community?: { id: string; name: string; logo_url?: string };
+  reported_event?: { id: string; title: string };
+}
+
+// ==================== Report Service Class ====================
+
 /**
- * Service for managing reports
+ * Service for managing user reports
+ * Handles report creation, retrieval, and resolution
  */
 export class ReportService extends BaseService {
   private static instance: ReportService;
-  private readonly REPORT_PENALTY_POINTS = -10;
+  private readonly REPORT_PENALTY_POINTS: number = -10;
 
   private constructor() {
     super();
   }
 
-  static getInstance(): ReportService {
+  /**
+   * Get singleton instance of ReportService
+   */
+  public static getInstance(): ReportService {
     if (!ReportService.instance) {
       ReportService.instance = new ReportService();
     }
@@ -45,18 +68,21 @@ export class ReportService extends BaseService {
 
   /**
    * Create a new report
+   * @param reporterId - The user ID creating the report
+   * @param input - The report data
+   * @returns ServiceResult containing created report or error
    */
-  async create(
+  public async create(
     reporterId: string,
     input: CreateReportInput
   ): Promise<ServiceResult<ReportData>> {
-    // Validate at least one target
+    // Validate at least one target is specified
     if (!input.reported_user_id && !input.reported_community_id && !input.reported_event_id) {
-      return ApiResponse.error("Report target is required", 400);
+      return ApiResponse.badRequest("Report target is required");
     }
 
     if (!input.reason) {
-      return ApiResponse.error("Report reason is required", 400);
+      return ApiResponse.badRequest("Report reason is required");
     }
 
     const { data, error } = await this.supabaseAdmin
@@ -68,7 +94,7 @@ export class ReportService extends BaseService {
         reported_event_id: input.reported_event_id,
         reason: input.reason,
         description: input.description,
-        status: "pending",
+        status: "pending" as ReportStatus,
       })
       .select()
       .single();
@@ -77,13 +103,15 @@ export class ReportService extends BaseService {
       return ApiResponse.error("Failed to create report", 500);
     }
 
-    return ApiResponse.created(data);
+    return ApiResponse.created<ReportData>(data as ReportData);
   }
 
   /**
-   * Get all reports (admin only)
+   * Get all reports with optional status filter
+   * @param status - Optional status filter
+   * @returns ServiceResult containing array of reports
    */
-  async getAll(status?: string): Promise<ServiceResult<ReportData[]>> {
+  public async getAll(status?: string): Promise<ServiceResult<ReportWithRelations[]>> {
     let query = this.supabaseAdmin
       .from("reports")
       .select(`
@@ -105,15 +133,21 @@ export class ReportService extends BaseService {
       return ApiResponse.error("Failed to fetch reports", 500);
     }
 
-    return ApiResponse.success(data || []);
+    return ApiResponse.success<ReportWithRelations[]>(
+      (data || []) as ReportWithRelations[]
+    );
   }
 
   /**
    * Update report status
+   * @param reportId - The report ID to update
+   * @param status - The new status
+   * @param resolution - Optional resolution notes
+   * @returns ServiceResult containing updated report
    */
-  async updateStatus(
+  public async updateStatus(
     reportId: string,
-    status: ReportData["status"],
+    status: ReportStatus,
     resolution?: string
   ): Promise<ServiceResult<ReportData>> {
     const { data, error } = await this.supabaseAdmin
@@ -136,13 +170,18 @@ export class ReportService extends BaseService {
       await this.applyReportPenalty(data.reported_user_id, reportId);
     }
 
-    return ApiResponse.success(data);
+    return ApiResponse.success<ReportData>(data as ReportData);
   }
 
   /**
    * Apply penalty points for upheld report
+   * @param userId - The user to penalize
+   * @param reportId - The report ID for reference
    */
-  private async applyReportPenalty(userId: string, reportId: string): Promise<void> {
+  private async applyReportPenalty(
+    userId: string, 
+    reportId: string
+  ): Promise<void> {
     await this.supabaseAdmin.from("user_points").insert({
       user_id: userId,
       points: this.REPORT_PENALTY_POINTS,
@@ -152,5 +191,5 @@ export class ReportService extends BaseService {
   }
 }
 
-export const reportService = ReportService.getInstance();
-
+// Export singleton instance
+export const reportService: ReportService = ReportService.getInstance();

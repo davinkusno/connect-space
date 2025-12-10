@@ -487,7 +487,7 @@ export default function CommunityAdminPage({
       let result
       try {
         console.log("Sending approve request:", { requestId, communityId: community.id })
-        const response = await fetch(`/api/community-members/${requestId}/approve`, {
+        const response = await fetch(`/api/communities/members/${requestId}/approve`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

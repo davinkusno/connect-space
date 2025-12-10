@@ -3,7 +3,14 @@ import {
   ApiResponse,
   ServiceResult,
 } from "./base.service";
-import { createClient } from "@supabase/supabase-js";
+import {
+  Ad,
+  AdStatus,
+  AdType,
+  AdTargetAudience,
+} from "@/lib/types";
+
+// ==================== Ads Service Types ====================
 
 interface AdData {
   id: string;
@@ -13,12 +20,14 @@ interface AdData {
   video_url?: string;
   link_url: string;
   community_id: string;
-  status: "pending" | "approved" | "rejected" | "active" | "inactive";
+  creator_id: string;
+  status: AdStatus;
   start_date?: string;
   end_date?: string;
   impressions: number;
   clicks: number;
   created_at: string;
+  updated_at?: string;
 }
 
 interface CreateAdInput {
@@ -32,8 +41,25 @@ interface CreateAdInput {
   end_date?: string;
 }
 
+interface AdWithCommunity extends AdData {
+  community?: {
+    id: string;
+    name: string;
+    logo_url?: string;
+  };
+}
+
+interface AdsQueryOptions {
+  status?: string;
+  communityId?: string;
+  limit?: number;
+}
+
+// ==================== Ads Service Class ====================
+
 /**
  * Service for managing advertisements
+ * Handles ad CRUD, tracking, and analytics
  */
 export class AdsService extends BaseService {
   private static instance: AdsService;
@@ -42,7 +68,10 @@ export class AdsService extends BaseService {
     super();
   }
 
-  static getInstance(): AdsService {
+  /**
+   * Get singleton instance of AdsService
+   */
+  public static getInstance(): AdsService {
     if (!AdsService.instance) {
       AdsService.instance = new AdsService();
     }
@@ -51,8 +80,10 @@ export class AdsService extends BaseService {
 
   /**
    * Get ad by ID
+   * @param adId - The ad ID to fetch
+   * @returns ServiceResult containing ad data or error
    */
-  async getById(adId: string): Promise<ServiceResult<AdData>> {
+  public async getById(adId: string): Promise<ServiceResult<AdData>> {
     const { data, error } = await this.supabaseAdmin
       .from("ads")
       .select("*")
@@ -60,20 +91,20 @@ export class AdsService extends BaseService {
       .single();
 
     if (error || !data) {
-      return ApiResponse.error("Ad not found", 404);
+      return ApiResponse.notFound("Ad");
     }
 
-    return ApiResponse.success(data);
+    return ApiResponse.success<AdData>(data as AdData);
   }
 
   /**
    * Get all ads with optional filters
+   * @param options - Query options (status, communityId, limit)
+   * @returns ServiceResult containing array of ads
    */
-  async getAll(options?: {
-    status?: string;
-    communityId?: string;
-    limit?: number;
-  }): Promise<ServiceResult<AdData[]>> {
+  public async getAll(
+    options?: AdsQueryOptions
+  ): Promise<ServiceResult<AdWithCommunity[]>> {
     let query = this.supabaseAdmin
       .from("ads")
       .select(`
@@ -100,19 +131,27 @@ export class AdsService extends BaseService {
       return ApiResponse.error("Failed to fetch ads", 500);
     }
 
-    return ApiResponse.success(data || []);
+    return ApiResponse.success<AdWithCommunity[]>(
+      (data || []) as AdWithCommunity[]
+    );
   }
 
   /**
    * Create a new ad
+   * @param userId - The user creating the ad
+   * @param input - The ad data
+   * @returns ServiceResult containing created ad
    */
-  async create(userId: string, input: CreateAdInput): Promise<ServiceResult<AdData>> {
+  public async create(
+    userId: string, 
+    input: CreateAdInput
+  ): Promise<ServiceResult<AdData>> {
     const { data, error } = await this.supabaseAdmin
       .from("ads")
       .insert({
         ...input,
         creator_id: userId,
-        status: "pending",
+        status: "pending" as AdStatus,
         impressions: 0,
         clicks: 0,
       })
@@ -123,15 +162,18 @@ export class AdsService extends BaseService {
       return ApiResponse.error("Failed to create ad", 500);
     }
 
-    return ApiResponse.created(data);
+    return ApiResponse.created<AdData>(data as AdData);
   }
 
   /**
    * Update ad status
+   * @param adId - The ad ID to update
+   * @param status - The new status
+   * @returns ServiceResult containing updated ad
    */
-  async updateStatus(
+  public async updateStatus(
     adId: string,
-    status: AdData["status"]
+    status: AdStatus
   ): Promise<ServiceResult<AdData>> {
     const { data, error } = await this.supabaseAdmin
       .from("ads")
@@ -144,13 +186,15 @@ export class AdsService extends BaseService {
       return ApiResponse.error("Failed to update ad status", 500);
     }
 
-    return ApiResponse.success(data);
+    return ApiResponse.success<AdData>(data as AdData);
   }
 
   /**
    * Track ad impression
+   * @param adId - The ad ID to track
+   * @returns ServiceResult indicating success
    */
-  async trackImpression(adId: string): Promise<ServiceResult<void>> {
+  public async trackImpression(adId: string): Promise<ServiceResult<void>> {
     const { error } = await this.supabaseAdmin.rpc("increment_ad_impressions", {
       ad_id: adId,
     });
@@ -171,13 +215,15 @@ export class AdsService extends BaseService {
       }
     }
 
-    return ApiResponse.success(undefined);
+    return ApiResponse.success<void>(undefined);
   }
 
   /**
    * Track ad click
+   * @param adId - The ad ID to track
+   * @returns ServiceResult indicating success
    */
-  async trackClick(adId: string): Promise<ServiceResult<void>> {
+  public async trackClick(adId: string): Promise<ServiceResult<void>> {
     const { error } = await this.supabaseAdmin.rpc("increment_ad_clicks", {
       ad_id: adId,
     });
@@ -198,13 +244,15 @@ export class AdsService extends BaseService {
       }
     }
 
-    return ApiResponse.success(undefined);
+    return ApiResponse.success<void>(undefined);
   }
 
   /**
    * Delete an ad
+   * @param adId - The ad ID to delete
+   * @returns ServiceResult indicating success
    */
-  async delete(adId: string): Promise<ServiceResult<void>> {
+  public async delete(adId: string): Promise<ServiceResult<void>> {
     const { error } = await this.supabaseAdmin
       .from("ads")
       .delete()
@@ -218,5 +266,5 @@ export class AdsService extends BaseService {
   }
 }
 
-export const adsService = AdsService.getInstance();
-
+// Export singleton instance
+export const adsService: AdsService = AdsService.getInstance();

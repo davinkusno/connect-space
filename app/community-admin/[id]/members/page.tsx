@@ -330,7 +330,7 @@ export default function CommunityMembersPage({
         return
       }
 
-      const response = await fetch(`/api/community-members/${memberId}/update-role`, {
+      const response = await fetch(`/api/communities/members/${memberId}/role`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

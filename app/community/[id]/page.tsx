@@ -663,7 +663,7 @@ export default function CommunityPage({
           }
 
           // Join community - use API endpoint to ensure status is set correctly
-          const response = await fetch("/api/community-members/join", {
+          const response = await fetch("/api/communities/members/join", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

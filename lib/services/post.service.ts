@@ -3,6 +3,16 @@ import {
   ApiResponse,
   ServiceResult,
 } from "./base.service";
+import {
+  Post,
+  PostType,
+  User,
+  Community,
+} from "@/lib/types";
+
+// ==================== Post Service Types ====================
+
+type PostStatus = "draft" | "published" | "archived";
 
 interface PostData {
   id: string;
@@ -10,10 +20,11 @@ interface PostData {
   content: string;
   author_id: string;
   community_id: string;
-  type: "discussion" | "announcement" | "question" | "poll";
-  status: "draft" | "published" | "archived";
+  type: PostType;
+  status: PostStatus;
   likes_count: number;
   comments_count: number;
+  is_pinned: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -22,10 +33,10 @@ interface CreatePostInput {
   title: string;
   content: string;
   community_id: string;
-  type?: PostData["type"];
+  type?: PostType;
 }
 
-interface PostWithAuthor extends PostData {
+interface PostWithRelations extends PostData {
   author?: {
     id: string;
     full_name: string;
@@ -37,8 +48,31 @@ interface PostWithAuthor extends PostData {
   };
 }
 
+interface PostsQueryOptions {
+  communityId?: string;
+  authorId?: string;
+  type?: PostType;
+  status?: PostStatus;
+  page?: number;
+  pageSize?: number;
+}
+
+interface PostsResult {
+  posts: PostWithRelations[];
+  total: number;
+}
+
+interface UpdatePostInput {
+  title?: string;
+  content?: string;
+  status?: PostStatus;
+}
+
+// ==================== Post Service Class ====================
+
 /**
  * Service for managing posts and discussions
+ * Handles post CRUD, likes, and community activity tracking
  */
 export class PostService extends BaseService {
   private static instance: PostService;
@@ -47,7 +81,10 @@ export class PostService extends BaseService {
     super();
   }
 
-  static getInstance(): PostService {
+  /**
+   * Get singleton instance of PostService
+   */
+  public static getInstance(): PostService {
     if (!PostService.instance) {
       PostService.instance = new PostService();
     }
@@ -55,9 +92,11 @@ export class PostService extends BaseService {
   }
 
   /**
-   * Get post by ID
+   * Get post by ID with author and community info
+   * @param postId - The post ID to fetch
+   * @returns ServiceResult containing post data or error
    */
-  async getById(postId: string): Promise<ServiceResult<PostWithAuthor>> {
+  public async getById(postId: string): Promise<ServiceResult<PostWithRelations>> {
     const { data, error } = await this.supabaseAdmin
       .from("posts")
       .select(`
@@ -69,27 +108,24 @@ export class PostService extends BaseService {
       .single();
 
     if (error || !data) {
-      return ApiResponse.error("Post not found", 404);
+      return ApiResponse.notFound("Post");
     }
 
-    return ApiResponse.success(data);
+    return ApiResponse.success<PostWithRelations>(data as PostWithRelations);
   }
 
   /**
-   * Get posts with filters
+   * Get posts with filters and pagination
+   * @param options - Query options
+   * @returns ServiceResult containing paginated posts
    */
-  async getAll(options?: {
-    communityId?: string;
-    authorId?: string;
-    type?: PostData["type"];
-    status?: PostData["status"];
-    page?: number;
-    pageSize?: number;
-  }): Promise<ServiceResult<{ posts: PostWithAuthor[]; total: number }>> {
-    const page = options?.page || 1;
-    const pageSize = options?.pageSize || 20;
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+  public async getAll(
+    options?: PostsQueryOptions
+  ): Promise<ServiceResult<PostsResult>> {
+    const page: number = options?.page || 1;
+    const pageSize: number = options?.pageSize || 20;
+    const from: number = (page - 1) * pageSize;
+    const to: number = from + pageSize - 1;
 
     let query = this.supabaseAdmin
       .from("posts")
@@ -124,16 +160,22 @@ export class PostService extends BaseService {
       return ApiResponse.error("Failed to fetch posts", 500);
     }
 
-    return ApiResponse.success({
-      posts: data || [],
+    return ApiResponse.success<PostsResult>({
+      posts: (data || []) as PostWithRelations[],
       total: count || 0,
     });
   }
 
   /**
    * Create a new post
+   * @param authorId - The user creating the post
+   * @param input - The post data
+   * @returns ServiceResult containing created post
    */
-  async create(authorId: string, input: CreatePostInput): Promise<ServiceResult<PostData>> {
+  public async create(
+    authorId: string, 
+    input: CreatePostInput
+  ): Promise<ServiceResult<PostData>> {
     const { data, error } = await this.supabaseAdmin
       .from("posts")
       .insert({
@@ -142,7 +184,7 @@ export class PostService extends BaseService {
         community_id: input.community_id,
         author_id: authorId,
         type: input.type || "discussion",
-        status: "published",
+        status: "published" as PostStatus,
         likes_count: 0,
         comments_count: 0,
       })
@@ -153,7 +195,7 @@ export class PostService extends BaseService {
       return ApiResponse.error("Failed to create post", 500);
     }
 
-    // Update community activity
+    // Update community activity timestamp
     await this.supabaseAdmin
       .from("communities")
       .update({
@@ -162,16 +204,20 @@ export class PostService extends BaseService {
       })
       .eq("id", input.community_id);
 
-    return ApiResponse.created(data);
+    return ApiResponse.created<PostData>(data as PostData);
   }
 
   /**
    * Update a post
+   * @param postId - The post ID to update
+   * @param authorId - The user making the update (must be author)
+   * @param updates - The fields to update
+   * @returns ServiceResult containing updated post
    */
-  async update(
+  public async update(
     postId: string,
     authorId: string,
-    updates: Partial<Pick<PostData, "title" | "content" | "status">>
+    updates: UpdatePostInput
   ): Promise<ServiceResult<PostData>> {
     // Verify ownership
     const { data: post } = await this.supabaseAdmin
@@ -181,7 +227,7 @@ export class PostService extends BaseService {
       .single();
 
     if (!post || post.author_id !== authorId) {
-      return ApiResponse.error("Permission denied", 403);
+      return ApiResponse.forbidden("Permission denied");
     }
 
     const { data, error } = await this.supabaseAdmin
@@ -198,13 +244,19 @@ export class PostService extends BaseService {
       return ApiResponse.error("Failed to update post", 500);
     }
 
-    return ApiResponse.success(data);
+    return ApiResponse.success<PostData>(data as PostData);
   }
 
   /**
    * Delete a post
+   * @param postId - The post ID to delete
+   * @param userId - The user deleting (must be author or admin)
+   * @returns ServiceResult indicating success
    */
-  async delete(postId: string, userId: string): Promise<ServiceResult<void>> {
+  public async delete(
+    postId: string, 
+    userId: string
+  ): Promise<ServiceResult<void>> {
     // Verify ownership or admin status
     const { data: post } = await this.supabaseAdmin
       .from("posts")
@@ -213,7 +265,7 @@ export class PostService extends BaseService {
       .single();
 
     if (!post) {
-      return ApiResponse.error("Post not found", 404);
+      return ApiResponse.notFound("Post");
     }
 
     // Check if user is author or community admin
@@ -226,7 +278,7 @@ export class PostService extends BaseService {
         .single();
 
       if (membership?.role !== "admin") {
-        return ApiResponse.error("Permission denied", 403);
+        return ApiResponse.forbidden("Permission denied");
       }
     }
 
@@ -244,8 +296,14 @@ export class PostService extends BaseService {
 
   /**
    * Like a post
+   * @param postId - The post ID to like
+   * @param userId - The user liking the post
+   * @returns ServiceResult indicating success
    */
-  async like(postId: string, userId: string): Promise<ServiceResult<void>> {
+  public async like(
+    postId: string, 
+    userId: string
+  ): Promise<ServiceResult<void>> {
     // Check if already liked
     const { data: existingLike } = await this.supabaseAdmin
       .from("post_likes")
@@ -255,7 +313,7 @@ export class PostService extends BaseService {
       .maybeSingle();
 
     if (existingLike) {
-      return ApiResponse.error("Already liked", 400);
+      return ApiResponse.badRequest("Already liked");
     }
 
     // Create like
@@ -270,13 +328,19 @@ export class PostService extends BaseService {
     // Increment count
     await this.supabaseAdmin.rpc("increment_post_likes", { post_id: postId });
 
-    return ApiResponse.success(undefined);
+    return ApiResponse.success<void>(undefined);
   }
 
   /**
    * Unlike a post
+   * @param postId - The post ID to unlike
+   * @param userId - The user unliking the post
+   * @returns ServiceResult indicating success
    */
-  async unlike(postId: string, userId: string): Promise<ServiceResult<void>> {
+  public async unlike(
+    postId: string, 
+    userId: string
+  ): Promise<ServiceResult<void>> {
     const { error } = await this.supabaseAdmin
       .from("post_likes")
       .delete()
@@ -290,9 +354,9 @@ export class PostService extends BaseService {
     // Decrement count
     await this.supabaseAdmin.rpc("decrement_post_likes", { post_id: postId });
 
-    return ApiResponse.success(undefined);
+    return ApiResponse.success<void>(undefined);
   }
 }
 
-export const postService = PostService.getInstance();
-
+// Export singleton instance
+export const postService: PostService = PostService.getInstance();
