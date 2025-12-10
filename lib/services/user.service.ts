@@ -309,6 +309,50 @@ export class UserService extends BaseService {
   ): Promise<ServiceResult<UserPointsSummary>> {
     return this.getPoints(userId);
   }
+
+  /**
+   * Upload user profile picture
+   * @param userId - The user ID to update
+   * @param avatarUrl - The new avatar URL
+   * @returns ServiceResult indicating success
+   */
+  public async updateAvatar(
+    userId: string,
+    avatarUrl: string
+  ): Promise<ServiceResult<{ avatar_url: string }>> {
+    // Update user metadata via auth
+    const { error: updateError } = await this.supabaseAdmin.auth.admin.updateUserById(
+      userId,
+      { user_metadata: { avatar_url: avatarUrl } }
+    );
+
+    if (updateError) {
+      return ApiResponse.error("Failed to update user metadata", 500);
+    }
+
+    // Also update the users table if it has an avatar_url column
+    await this.supabaseAdmin
+      .from("users")
+      .update({ avatar_url: avatarUrl })
+      .eq("id", userId);
+
+    return ApiResponse.success<{ avatar_url: string }>({ avatar_url: avatarUrl });
+  }
+
+  /**
+   * Get user's username or generate one from email
+   * @param userId - The user ID
+   * @returns Username string
+   */
+  public async getUsername(userId: string): Promise<string> {
+    const { data } = await this.supabaseAdmin
+      .from("users")
+      .select("username, email")
+      .eq("id", userId)
+      .single();
+
+    return data?.username || data?.email?.split("@")[0] || userId.slice(0, 8);
+  }
 }
 
 // Export singleton instance

@@ -20,4 +20,5 @@ export { AdsController, adsController } from "./ads.controller";
 export { AIController, aiController } from "./ai.controller";
 export { PostController, postController } from "./post.controller";
 export { AdminController, adminController } from "./admin.controller";
+export { StorageController, storageController } from "./storage.controller";
 
