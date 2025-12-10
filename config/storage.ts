@@ -30,6 +30,7 @@ export const STORAGE_CONFIG = {
   // Allowed MIME types
   allowedTypes: {
     images: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+    videos: ["video/mp4", "video/webm", "video/ogg"],
   },
 
   // Cache control settings (in seconds)
@@ -99,10 +100,17 @@ export function extractPathFromUrl(
 }
 
 /**
- * Helper function to validate file type
+ * Helper function to validate image file type
  */
 export function isValidImageType(mimeType: string): boolean {
   return STORAGE_CONFIG.allowedTypes.images.includes(mimeType as any);
+}
+
+/**
+ * Helper function to validate video file type
+ */
+export function isValidVideoType(mimeType: string): boolean {
+  return STORAGE_CONFIG.allowedTypes.videos.includes(mimeType as any);
 }
 
 /**
