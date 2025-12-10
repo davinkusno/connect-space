@@ -372,222 +372,93 @@ export default function DashboardPage() {
     fetchCommunities();
   }, []);
 
-  // Fetch joined/interested events function
+  // Fetch joined/interested events function using API (bypasses RLS)
   const fetchJoinedEvents = useCallback(async () => {
     console.log("[Dashboard] fetchJoinedEvents called, activeTab:", activeTab);
     setIsLoadingEvents(true);
     try {
-      console.log("[Dashboard] Getting session...");
-      const session = await getClientSession();
-      console.log("[Dashboard] Session:", session ? "exists" : "null");
-      if (!session?.user) {
-        console.log("[Dashboard] No session or user, skipping fetch");
-        setIsLoadingEvents(false);
-        return;
-      }
+      // Use API endpoint to fetch interested events (bypasses RLS)
+      const response = await fetch("/api/events/interested");
+      const data = await response.json();
       
-      console.log("[Dashboard] User ID:", session.user.id);
-
-      const supabase = getSupabaseBrowser();
-
-      // Fetch events where user has RSVP'd (going or maybe)
-      console.log("[Dashboard] Fetching events for user:", session.user.id);
+      console.log("[Dashboard] API response:", data);
       
-      // First, get attendee records
-      const { data: attendeeRecords, error: attendeeError } = await supabase
-        .from("event_attendees")
-        .select("event_id, status, registered_at")
-        .eq("user_id", session.user.id)
-        .in("status", ["going", "maybe"])
-        .order("registered_at", { ascending: false });
-      
-      console.log("[Dashboard] Attendee records:", attendeeRecords);
-      console.log("[Dashboard] Attendee error:", attendeeError);
-      
-      if (attendeeError) {
-        console.error("[Dashboard] Error fetching attendee records:", attendeeError);
+      if (!response.ok) {
+        console.error("[Dashboard] API error:", data.error);
         setJoinedEvents([]);
         setIsLoadingEvents(false);
         return;
       }
       
-      if (!attendeeRecords || attendeeRecords.length === 0) {
-        console.log("[Dashboard] No attendee records found");
-        setJoinedEvents([]);
-        setIsLoadingEvents(false);
-        return;
-      }
+      const eventsData = data.events || [];
       
-      // Get event IDs
-      const eventIds = attendeeRecords.map((r: any) => r.event_id);
-      console.log("[Dashboard] Event IDs to fetch:", eventIds);
-      
-      if (eventIds.length === 0) {
-        console.log("[Dashboard] No event IDs to fetch");
-        setJoinedEvents([]);
-        setIsLoadingEvents(false);
-        return;
-      }
-      
-      // Fetch events data with start_time (for calendar integration)
-      // Query without category column (may not exist in database)
-      let eventsData: any[] = [];
-      let eventsError: any = null;
-      
-      try {
-        // First try with minimal columns to avoid errors
-        const result = await supabase
-          .from("events")
-          .select(`
-            id,
-            title,
-            description,
-            start_time,
-            end_time,
-            location,
-            image_url,
-            community_id
-          `)
-          .in("id", eventIds);
-        
-        eventsData = result.data || [];
-        eventsError = result.error;
-        
-        console.log("[Dashboard] Events data (minimal query):", eventsData);
-        console.log("[Dashboard] Events error (minimal query):", eventsError);
-        
-        if (eventsError) {
-          console.error("[Dashboard] Error fetching events:", eventsError);
-          console.error("[Dashboard] Error details:", JSON.stringify(eventsError, null, 2));
-          setJoinedEvents([]);
-          setIsLoadingEvents(false);
-          return;
-        }
-        
-        // If we got events, try to fetch communities separately
-        if (eventsData.length > 0) {
-          const communityIds = [...new Set(eventsData.map(e => e.community_id).filter(Boolean))];
-          if (communityIds.length > 0) {
-            const { data: communitiesData } = await supabase
-              .from("communities")
-              .select("id, name, logo_url")
-              .in("id", communityIds);
-            
-            // Map communities to events
-            if (communitiesData) {
-              const communityMap = new Map(communitiesData.map(c => [c.id, c]));
-              eventsData = eventsData.map(event => ({
-                ...event,
-                communities: event.community_id ? communityMap.get(event.community_id) : null,
-                category: null // Set default since column may not exist
-              }));
-            } else {
-              // Add null category if no communities
-              eventsData = eventsData.map(event => ({
-                ...event,
-                communities: null,
-                category: null
-              }));
-            }
-          } else {
-            // Add null category if no community_ids
-            eventsData = eventsData.map(event => ({
-              ...event,
-              communities: null,
-              category: null
-            }));
-          }
-        }
-      } catch (err: any) {
-        console.error("[Dashboard] Exception fetching events:", err);
-        eventsError = err;
-      }
-      
-      if (eventsError) {
-        console.error("[Dashboard] Final error:", eventsError);
-        setJoinedEvents([]);
-        setIsLoadingEvents(false);
-        return;
-      }
-      
-      if (!eventsData || eventsData.length === 0) {
-        console.log("[Dashboard] No events data returned");
-        setJoinedEvents([]);
-        setIsLoadingEvents(false);
-        return;
-      }
-      
-      console.log("[Dashboard] Final events data:", eventsData);
-      
-      // Combine attendee records with events data
-      // Map attendee records to events, using start_time from events table
-      const attendeeData = attendeeRecords.map((record: any) => {
-        const event = eventsData?.find((e: any) => e.id === record.event_id);
-        if (!event) {
-          console.log(`[Dashboard] Event not found for event_id: ${record.event_id}`);
-          return null;
-        }
-        return {
-          ...record,
-          events: event
-        };
-      }).filter((item: any) => item !== null && item.events !== null);
-      
-      console.log("[Dashboard] Combined attendee data:", attendeeData);
-      console.log(`[Dashboard] Found ${attendeeData.length} attendee records with events`);
-      
-      if (!attendeeData || attendeeData.length === 0) {
-        console.log("[Dashboard] No attendee data with events found");
+      if (eventsData.length === 0) {
+        console.log("[Dashboard] No interested events found");
         setJoinedEvents([]);
         setIsLoadingEvents(false);
         return;
       }
       
       // Filter to only upcoming events and map to calendar format
-      // Use start_time from events table for calendar integration
       const now = new Date();
-      const upcomingEvents = attendeeData
-        .filter((item: any) => {
-          if (!item.events || !item.events.start_time) {
-            console.log("[Dashboard] Skipping item - no events or start_time:", item);
+      const upcomingEvents = eventsData
+        .filter((event: any) => {
+          if (!event.start_time) {
+            console.log("[Dashboard] Skipping event - no start_time:", event);
             return false;
           }
-          const eventStart = new Date(item.events.start_time);
+          const eventStart = new Date(event.start_time);
           const isUpcoming = eventStart >= now;
-          console.log(`[Dashboard] Event "${item.events.title}": ${eventStart.toISOString()} >= ${now.toISOString()}? ${isUpcoming}`);
+          console.log(`[Dashboard] Event "${event.title}": ${eventStart.toISOString()} >= ${now.toISOString()}? ${isUpcoming}`);
           return isUpcoming;
         })
-        .map((item: any) => {
-          // Use start_time from events table for calendar
-          const startTime = item.events.start_time;
-          return {
-            id: item.events.id,
-            title: item.events.title,
-            description: item.events.description,
-            date: startTime, // Use start_time directly from events table
-            time: new Date(startTime).toLocaleTimeString(
-              "en-US",
-              {
-                hour: "2-digit",
-                minute: "2-digit",
+        .map((event: any) => {
+          const startTime = event.start_time;
+          
+          // Parse location to get readable string
+          let locationDisplay = "";
+          if (event.location) {
+            try {
+              const locData = typeof event.location === "string" 
+                ? JSON.parse(event.location) 
+                : event.location;
+              
+              // Handle online events
+              if (locData.meetingLink) {
+                locationDisplay = locData.meetingLink;
+              } else if (locData.isOnline && locData.meetingLink) {
+                locationDisplay = locData.meetingLink;
+              } else {
+                // Handle physical events - prefer city, then venue, then address
+                locationDisplay = locData.city || locData.venue || locData.address || "";
               }
-            ),
-            location: item.events.location,
-            image: item.events.image_url,
-            category: item.events.category,
-            community: item.events.communities?.name || "Community",
-            communityId: item.events.community_id,
-            communityLogo: item.events.communities?.logo_url,
-            status: item.status, // 'going' or 'maybe'
-            registeredAt: item.registered_at,
+            } catch {
+              // If not JSON, use as-is
+              locationDisplay = event.location;
+            }
+          }
+          
+          return {
+            id: event.id,
+            title: event.title,
+            description: event.description,
+            date: startTime,
+            time: new Date(startTime).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            location: locationDisplay,
+            image: event.image_url,
+            category: null,
+            community: event.community?.name || "Community",
+            communityId: event.community_id,
+            communityLogo: event.community?.logo_url,
+            status: "going",
           };
         })
-        .sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-        );
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       console.log(`[Dashboard] Loaded ${upcomingEvents.length} interested events:`, upcomingEvents);
-      console.log(`[Dashboard] Sample event date:`, upcomingEvents[0]?.date);
       setJoinedEvents(upcomingEvents);
     } catch (error) {
       console.error("Error fetching interested events:", error);

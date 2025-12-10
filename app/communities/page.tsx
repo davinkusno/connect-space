@@ -56,8 +56,6 @@ import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
 import { PaginationControls } from "@/components/ui/pagination-controls";
-import { CitySearch } from "@/components/ui/city-search";
-import type { City } from "@/lib/api/cities";
 import React from "react";
 import type { Community } from "@/types/community";
 import { Chatbot } from "@/components/ai/chatbot";
@@ -69,8 +67,6 @@ export default function DiscoverPage() {
   // Search states (real-time filtering)
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
-
-  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -377,26 +373,27 @@ export default function DiscoverPage() {
 
     // Location filter
     if (locationQuery) {
+      const query = locationQuery.toLowerCase();
       filtered = filtered.filter((community) => {
         if (!community.location) return false;
         const city = community.location.city;
-        return city && city.toLowerCase().includes(locationQuery.toLowerCase());
+        const address = community.location.address;
+        return (city && city.toLowerCase().includes(query)) || 
+               (address && address.toLowerCase().includes(query));
       });
     }
 
     // General search filter
     if (searchQuery) {
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (community) =>
-          community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          community.description
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          community.tags.some((tag) =>
-            tag.toLowerCase().includes(searchQuery.toLowerCase())
-          ) ||
-          community.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (community.location?.city?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
+          community.name.toLowerCase().includes(query) ||
+          community.description.toLowerCase().includes(query) ||
+          community.tags.some((tag) => tag.toLowerCase().includes(query)) ||
+          community.category.toLowerCase().includes(query) ||
+          (community.location?.city?.toLowerCase().includes(query) ?? false) ||
+          (community.location?.address?.toLowerCase().includes(query) ?? false)
       );
     }
 
@@ -630,30 +627,31 @@ export default function DiscoverPage() {
                   {/* Divider */}
                   <div className="w-px bg-gray-300 my-2"></div>
 
-                  {/* Location Input with City Search */}
+                  {/* Location Input - Search DB directly */}
                   <div className="relative w-64">
-                    <CitySearch
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search by city or location..."
                       value={locationQuery}
-                      onCitySelect={(city) => {
-                        const cityName = city.name + (city.country ? `, ${city.country}` : '');
-                        setLocationQuery(cityName);
-                        setShowLocationDropdown(false);
-                      }}
-                      placeholder="Search by city or country..."
-                      className="h-full"
+                      onChange={(e) => setLocationQuery(e.target.value)}
+                      className="pl-10 pr-4 h-full border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                     />
+                    {locationQuery && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-gray-100 rounded-full"
+                        onClick={() => setLocationQuery("")}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
 
-                  {/* Search Button */}
+                  {/* Search Button - Search is real-time, button is for visual consistency */}
                   <Button
                     className="bg-purple-600 hover:bg-purple-700 text-white rounded-none px-6 py-5 shadow-lg h-full"
-                    onClick={() => {
-                      // Trigger search logic here
-                      console.log("Search triggered:", {
-                        searchQuery,
-                        locationQuery,
-                      });
-                    }}
+                    type="button"
                   >
                     <Search className="h-5 w-5" />
                   </Button>

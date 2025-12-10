@@ -36,6 +36,27 @@ import { getSupabaseBrowser } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import type { DateRange } from "react-day-picker"
 
+// Helper function to parse location and get readable string
+function getLocationDisplay(location: any): string {
+  if (!location) return "";
+  try {
+    const locData = typeof location === "string" ? JSON.parse(location) : location;
+    
+    // Handle online events
+    if (locData.meetingLink) {
+      return locData.meetingLink;
+    }
+    if (locData.isOnline && locData.meetingLink) {
+      return locData.meetingLink;
+    }
+    
+    // Handle physical events
+    return locData.city || locData.venue || locData.address || "";
+  } catch {
+    return typeof location === "string" ? location : "";
+  }
+}
+
 interface Event {
   id: string
   title: string
@@ -714,7 +735,7 @@ export default function CommunityAdminEventsPage({
                           </div>
                           <div className="flex items-center gap-2">
                             <MapPin className="w-4 h-4 text-purple-600" />
-                            <span className="truncate">{event.location}</span>
+                            <span className="truncate">{getLocationDisplay(event.location)}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Users className="w-4 h-4 text-purple-600" />

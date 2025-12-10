@@ -74,6 +74,27 @@ import {
   HoverScale,
 } from "@/components/ui/micro-interactions";
 
+// Helper function to parse location and get readable string
+function getLocationDisplay(location: any): string {
+  if (!location) return "";
+  try {
+    const locData = typeof location === "string" ? JSON.parse(location) : location;
+    
+    // Handle online events
+    if (locData.meetingLink) {
+      return locData.meetingLink;
+    }
+    if (locData.isOnline && locData.meetingLink) {
+      return locData.meetingLink;
+    }
+    
+    // Handle physical events
+    return locData.city || locData.venue || locData.address || "";
+  } catch {
+    return typeof location === "string" ? location : "";
+  }
+}
+
 // Dynamic import for Leaflet map
 const LeafletMap = dynamic(
   () => import("@/components/ui/interactive-leaflet-map").then(mod => mod.InteractiveLeafletMap),
@@ -1602,7 +1623,7 @@ export default function CommunityPage({
                                       <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
                                     <MapPin className="h-4 w-4" />
                                       </div>
-                                      <span className="flex-1 truncate">{event.location}</span>
+                                      <span className="flex-1 truncate">{getLocationDisplay(event.location)}</span>
                                     </div>
                                   )}
                                   
@@ -1738,7 +1759,7 @@ export default function CommunityPage({
                                             {event.location && (
                                               <div className="flex items-center gap-2 text-gray-700">
                                                 <MapPin className="h-4 w-4 text-gray-600 flex-shrink-0" />
-                                                <span className="truncate">{event.location}</span>
+                                                <span className="truncate">{getLocationDisplay(event.location)}</span>
                                               </div>
                                             )}
                                             
