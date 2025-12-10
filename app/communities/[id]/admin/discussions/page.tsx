@@ -98,18 +98,11 @@ export default function CommunityDiscussionsPage({
         return
       }
 
-      // Verify user is admin or creator
+      // Verify user is creator only
       const isCreator = communityData.creator_id === user.id
-      const { data: membership } = await supabase
-        .from("community_members")
-        .select("role")
-        .eq("community_id", id)
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle()
 
-      if (!isCreator && !membership) {
-        console.error("User is not admin or creator")
+      if (!isCreator) {
+        console.error("User is not the creator")
         setIsLoading(false)
         return
       }

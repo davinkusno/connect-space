@@ -64,13 +64,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
 
         // Check if user has completed onboarding
         if (!data.onboardingCompleted) {
-          // Community admin goes to create community
-          if (data.userType === "community_admin") {
-            router.push("/communities/create");
-          } else {
-            // Regular user goes to interest onboarding
-            router.push("/onboarding");
-          }
+          router.push("/onboarding");
           return;
         }
 

@@ -1,4 +1,4 @@
-import { aiClient } from "@/lib/ai-client"
+import { aiClient } from "@/lib/ai"
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 
@@ -63,23 +63,23 @@ export async function POST(request: NextRequest) {
       default:
         return NextResponse.json({ error: "Invalid content type" }, { status: 400 })
     }
-  } catch (error: any) {
-    console.error("Content generation error:", error)
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     
     // Check if it's a content filter error
-    if (error?.message?.includes("content management policy") || 
-        error?.message?.includes("content filtering") ||
-        error?.message?.includes("content policy")) {
+    if (errorMessage.includes("content management policy") || 
+        errorMessage.includes("content filtering") ||
+        errorMessage.includes("content policy")) {
       return NextResponse.json({ 
-        error: "Content generation was blocked by content policy. Please try with different community information.",
+        error: "Content generation was blocked by content policy. Please try with different information.",
         code: "CONTENT_FILTERED"
       }, { status: 400 })
     }
     
     // Check if it's a validation/parse error
-    if (error?.message?.includes("Failed to parse") || 
-        error?.message?.includes("validation") ||
-        error?.message?.includes("Zod")) {
+    if (errorMessage.includes("Failed to parse") || 
+        errorMessage.includes("validation") ||
+        errorMessage.includes("Zod")) {
       return NextResponse.json({ 
         error: "Failed to process AI response. Please try again.",
         code: "VALIDATION_ERROR"
@@ -89,7 +89,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       error: "Failed to generate content. Please try again later.",
       code: "GENERAL_ERROR",
-      details: process.env.NODE_ENV === "development" ? error?.message : undefined
     }, { status: 500 })
   }
 }
@@ -152,7 +151,6 @@ Return JSON with:
 
     // Validate result has required fields
     if (!result || !result.description) {
-      console.warn("AI returned invalid result, using fallback")
       return NextResponse.json(createFallbackDescription())
     }
 
@@ -185,27 +183,8 @@ Return JSON with:
     }
 
     return NextResponse.json(validatedResult)
-  } catch (error: any) {
-    console.error("Error generating community description:", error)
-    
-    // Always return a fallback instead of throwing
-    // This ensures the API never fails completely
-    const fallback = createFallbackDescription()
-    
-    // Log the error but still return fallback
-    if (error?.message?.includes("content management policy") || 
-        error?.message?.includes("content filtering") ||
-        error?.message?.includes("content policy")) {
-      console.warn("Content filter triggered, using fallback description")
-    } else if (error?.message?.includes("parse") || 
-               error?.message?.includes("validation") ||
-               error?.message?.includes("Zod")) {
-      console.warn("Validation error, using fallback description")
-    } else {
-      console.warn("Unknown error, using fallback description:", error?.message)
-    }
-    
-    return NextResponse.json(fallback)
+  } catch {
+    return NextResponse.json(createFallbackDescription())
   }
 }
 
@@ -232,9 +211,7 @@ async function generateCommunityTags(params: any) {
     })
 
     return NextResponse.json(result)
-  } catch (error: any) {
-    console.error("Error generating tags:", error)
-    // Fallback tags
+  } catch {
     const fallbackTags = params?.category ? [params.category] : ["General"]
     return NextResponse.json({ tags: fallbackTags })
   }
@@ -264,9 +241,7 @@ async function generateCommunityRules(params: any) {
     })
 
     return NextResponse.json(result)
-  } catch (error: any) {
-    console.error("Error generating rules:", error)
-    // Fallback rules
+  } catch {
     const fallbackRules = [
       "Be respectful and kind to all members",
       "No spam or self-promotion without permission",
@@ -328,35 +303,23 @@ async function generateEventDescription(params: any) {
     };
     
     return NextResponse.json(truncatedResult)
-    } catch (aiError: any) {
-      // If AI generation fails, return fallback immediately without throwing
-      console.warn("AI generation failed, using fallback:", aiError?.message || aiError)
-      const fallbackDescription = `${params?.title || "This event"} is a ${params?.category || "general"} event. Join us for an engaging experience where you'll learn, network, and connect with like-minded individuals.`
+    } catch {
+      const fallbackDescription = `${params?.title || "This event"} is a ${params?.category || "general"} event. Join us for an engaging experience.`
       return NextResponse.json({
         description: fallbackDescription,
         targetAudience: `People interested in ${params?.category || "general events"}`,
-        expectedOutcomes: [
-          "Learn new skills and knowledge",
-          "Network with professionals",
-          "Gain valuable insights"
-        ],
+        expectedOutcomes: ["Learn new skills", "Network with professionals", "Gain insights"],
         alternativeDescriptions: []
-      }, { status: 200 }) // Always return 200 with fallback
+      })
     }
-  } catch (error: any) {
-    console.error("Error generating event description:", error)
-    // Fallback description
-    const fallbackDescription = `${params?.title || "This event"} is a ${params?.category || "general"} event. Join us for an engaging experience where you'll learn, network, and connect with like-minded individuals.`
+  } catch {
+    const fallbackDescription = `${params?.title || "This event"} is a ${params?.category || "general"} event. Join us for an engaging experience.`
     return NextResponse.json({
       description: fallbackDescription,
       targetAudience: `People interested in ${params?.category || "general events"}`,
-      expectedOutcomes: [
-        "Learn new skills and knowledge",
-        "Network with professionals",
-        "Gain valuable insights"
-      ],
-      alternativeDescriptions: []
-    }, { status: 200 }) // Always return 200 with fallback
+        expectedOutcomes: ["Learn new skills", "Network with professionals", "Gain insights"],
+        alternativeDescriptions: []
+    })
   }
 }
 
@@ -386,9 +349,7 @@ async function generateEventAgenda(params: any) {
     })
 
     return NextResponse.json(result)
-  } catch (error: any) {
-    console.error("Error generating agenda:", error)
-    // Fallback agenda
+  } catch {
     const fallbackAgenda = [
       "Welcome and Introduction (15 minutes)",
       "Main Session (60 minutes)",

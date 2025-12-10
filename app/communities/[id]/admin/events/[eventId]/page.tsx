@@ -472,25 +472,12 @@ export default function EventDetailsPage({
         }
         setCommunityCategories(categories);
 
-        // Get admin user_id for this community
+        // Get creator user_id for this community
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // Check if user is admin
-          const { data: membership } = await supabase
-            .from("community_members")
-            .select("user_id")
-            .eq("community_id", communityIdValue)
-            .eq("user_id", user.id)
-            .eq("role", "admin")
-            .maybeSingle();
-
-          if (membership) {
+          // Only allow creator access
+          if (communityData && communityData.creator_id === user.id) {
             setAdminUserId(user.id);
-          } else {
-            // Check if user is creator
-            if (communityData && communityData.creator_id === user.id) {
-              setAdminUserId(user.id);
-            }
           }
         }
 

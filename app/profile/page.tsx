@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import {
-    Award, Calendar, Camera, Crown, Edit3, Mail,
+    Award, Calendar, Camera, Edit3, Mail,
     MapPin, Plus, Save, User, X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -40,7 +40,6 @@ interface UserProfile {
     location_province?: string;
     interests?: string[];
     points?: number;
-    is_community_admin?: boolean;
   };
 }
 
@@ -57,7 +56,6 @@ export default function ProfilePage() {
     interests: [] as string[],
   });
   const [points, setPoints] = useState(0);
-  const [isCommunityAdmin, setIsCommunityAdmin] = useState(false);
   const [selectedInterest, setSelectedInterest] = useState("");
   
   // Available categories for interests
@@ -108,7 +106,6 @@ export default function ProfilePage() {
           interests: metadata.interests || ["Technology", "Community", "Networking"],
         });
         setPoints(metadata.points || 1250);
-        setIsCommunityAdmin(metadata.is_community_admin || false);
         
         // Load location from metadata
         if (metadata.location_city) {
@@ -211,7 +208,6 @@ export default function ProfilePage() {
           location_province: selectedLocation?.id_provinsi || null,
           interests: formData.interests,
           points: points,
-          is_community_admin: isCommunityAdmin,
         },
       });
 
@@ -233,7 +229,6 @@ export default function ProfilePage() {
                 location_province: selectedLocation?.id_provinsi || null,
                 interests: formData.interests,
                 points: points,
-                is_community_admin: isCommunityAdmin,
               },
             }
           : null
@@ -269,7 +264,6 @@ export default function ProfilePage() {
         interests: user.user_metadata?.interests || ["Technology", "Community", "Networking"],
       });
       setPoints(user.user_metadata?.points || 1250);
-      setIsCommunityAdmin(user.user_metadata?.is_community_admin || false);
       
       // Reset location
       if (user.user_metadata?.location_city) {
@@ -682,16 +676,9 @@ export default function ProfilePage() {
 
                   {/* Status Badge */}
                   <div className="flex flex-wrap justify-center gap-2 mb-6">
-                    {isCommunityAdmin ? (
-                      <Badge className="bg-gradient-to-r from-amber-100 to-amber-200 text-amber-800 border-amber-300 px-3 py-1 flex items-center gap-1">
-                        <Crown className="h-3 w-3" />
-                        Community Admin
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-300 px-3 py-1">
-                        Community Member
-                      </Badge>
-                    )}
+                    <Badge className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-300 px-3 py-1">
+                      Community Member
+                    </Badge>
                   </div>
 
                   {/* Points */}

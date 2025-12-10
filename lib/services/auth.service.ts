@@ -31,7 +31,7 @@ interface RedirectResult {
 }
 
 // Authorization types
-export type UserRole = "user" | "community_admin" | "super_admin";
+export type UserRole = "user" | "super_admin";
 
 export interface RouteConfig {
   path: string;
@@ -60,57 +60,56 @@ export class AuthService extends BaseService {
   // Role hierarchy (higher roles inherit permissions from lower roles)
   private readonly roleHierarchy: Record<UserRole, number> = {
     user: 1,
-    community_admin: 2,
-    super_admin: 3,
+    super_admin: 2,
   };
 
   // Default redirect paths for each role
   private readonly defaultRedirectPaths: Record<UserRole, string> = {
     user: "/home",
-    community_admin: "/home",
     super_admin: "/superadmin",
   };
 
   // Route access rules configuration
+  // Note: Community admin pages are protected by creator check in middleware, not role
   private readonly routeAccessRules: RouteConfig[] = [
     // Public routes (no authentication required)
-    { path: "/", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/auth/login", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/auth/signup", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/auth/forgot-password", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/auth/reset-password", allowedRoles: ["user", "community_admin", "super_admin"] },
+    { path: "/", allowedRoles: ["user", "super_admin"] },
+    { path: "/auth/login", allowedRoles: ["user", "super_admin"] },
+    { path: "/auth/signup", allowedRoles: ["user", "super_admin"] },
+    { path: "/auth/forgot-password", allowedRoles: ["user", "super_admin"] },
+    { path: "/auth/reset-password", allowedRoles: ["user", "super_admin"] },
 
     // Onboarding routes
-    { path: "/onboarding", allowedRoles: ["user", "community_admin", "super_admin"] },
+    { path: "/onboarding", allowedRoles: ["user", "super_admin"] },
 
-    // User routes (regular users and above)
-    { path: "/dashboard", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/home", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/profile", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/settings", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/discover", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/events", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/events/[id]", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/events/create", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/communities", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/communities/[id]", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/communities/create", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/messages", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/leaderboard", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/recommendations", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/daily-summary", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/help-center", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/store", allowedRoles: ["user", "community_admin", "super_admin"] },
+    // User routes (all authenticated users)
+    { path: "/dashboard", allowedRoles: ["user", "super_admin"] },
+    { path: "/home", allowedRoles: ["user", "super_admin"] },
+    { path: "/profile", allowedRoles: ["user", "super_admin"] },
+    { path: "/settings", allowedRoles: ["user", "super_admin"] },
+    { path: "/discover", allowedRoles: ["user", "super_admin"] },
+    { path: "/events", allowedRoles: ["user", "super_admin"] },
+    { path: "/events/[id]", allowedRoles: ["user", "super_admin"] },
+    { path: "/events/create", allowedRoles: ["user", "super_admin"] },
+    { path: "/communities", allowedRoles: ["user", "super_admin"] },
+    { path: "/communities/[id]", allowedRoles: ["user", "super_admin"] },
+    { path: "/communities/create", allowedRoles: ["user", "super_admin"] },
+    { path: "/messages", allowedRoles: ["user", "super_admin"] },
+    { path: "/leaderboard", allowedRoles: ["user", "super_admin"] },
+    { path: "/recommendations", allowedRoles: ["user", "super_admin"] },
+    { path: "/daily-summary", allowedRoles: ["user", "super_admin"] },
+    { path: "/help-center", allowedRoles: ["user", "super_admin"] },
+    { path: "/store", allowedRoles: ["user", "super_admin"] },
 
-    // Community Admin routes (permission checked in middleware)
-    { path: "/communities/[id]/admin", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/communities/[id]/admin/members", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/communities/[id]/admin/discussions", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/communities/[id]/admin/events", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/communities/[id]/admin/events/[eventId]", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/communities/[id]/admin/events/[eventId]/edit", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/communities/[id]/admin/notifications", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/communities/[id]/admin/requests", allowedRoles: ["user", "community_admin", "super_admin"] },
+    // Community Admin routes (creator check handled in page/middleware)
+    { path: "/communities/[id]/admin", allowedRoles: ["user", "super_admin"] },
+    { path: "/communities/[id]/admin/members", allowedRoles: ["user", "super_admin"] },
+    { path: "/communities/[id]/admin/discussions", allowedRoles: ["user", "super_admin"] },
+    { path: "/communities/[id]/admin/events", allowedRoles: ["user", "super_admin"] },
+    { path: "/communities/[id]/admin/events/[eventId]", allowedRoles: ["user", "super_admin"] },
+    { path: "/communities/[id]/admin/events/[eventId]/edit", allowedRoles: ["user", "super_admin"] },
+    { path: "/communities/[id]/admin/notifications", allowedRoles: ["user", "super_admin"] },
+    { path: "/communities/[id]/admin/requests", allowedRoles: ["user", "super_admin"] },
 
     // Super Admin routes (super admins only)
     { path: "/superadmin", allowedRoles: ["super_admin"] },
@@ -118,8 +117,8 @@ export class AuthService extends BaseService {
     { path: "/superadmin/ads", allowedRoles: ["super_admin"] },
 
     // Test routes
-    { path: "/test-auth", allowedRoles: ["user", "community_admin", "super_admin"] },
-    { path: "/test-profile", allowedRoles: ["user", "community_admin", "super_admin"] },
+    { path: "/test-auth", allowedRoles: ["user", "super_admin"] },
+    { path: "/test-profile", allowedRoles: ["user", "super_admin"] },
   ];
 
   private constructor() {
@@ -363,12 +362,9 @@ export class AuthService extends BaseService {
    */
   public needsOnboarding(
     userRole: UserRole,
-    userData: { has_community?: boolean }
+    userData: { onboarding_completed?: boolean }
   ): boolean {
-    if (userRole === "community_admin") {
-      return !userData?.has_community;
-    }
-    return false;
+    return !userData?.onboarding_completed;
   }
 
   /**
@@ -419,10 +415,9 @@ export const authService = AuthService.getInstance();
 
 // Constants
 export const ROUTE_ACCESS_RULES = authService.getRouteRules();
-export const ROLE_HIERARCHY = { user: 1, community_admin: 2, super_admin: 3 };
+export const ROLE_HIERARCHY = { user: 1, super_admin: 2 };
 export const DEFAULT_REDIRECT_PATHS = {
   user: "/home",
-  community_admin: "/home",
   super_admin: "/superadmin",
 };
 

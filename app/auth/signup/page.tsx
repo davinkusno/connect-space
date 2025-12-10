@@ -14,8 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import {
     AlertCircle,
-    CheckCircle, Crown, Eye,
-    EyeOff, Lock, Mail, User, Users
+    CheckCircle, Eye,
+    EyeOff, Lock, Mail, User
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -42,9 +42,7 @@ interface ValidationErrors {
 }
 
 export default function SignupPage() {
-  const [selectedRole, setSelectedRole] = useState<
-    "user" | "community_admin" | null
-  >(null);
+  const [selectedRole] = useState<"user">("user");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -164,16 +162,8 @@ export default function SignupPage() {
           variant: "success",
         });
 
-        // Redirect based on user role
-        switch (selectedRole) {
-          case "community_admin":
-            router.push("/communities/create");
-            break;
-          case "user":
-          default:
-            router.push("/onboarding");
-            break;
-        }
+        // Redirect to onboarding after signup
+        router.push("/onboarding");
       }
     } catch (err: any) {
       console.error("Signup error:", err);
@@ -242,9 +232,6 @@ export default function SignupPage() {
     }
   };
 
-  const handleRoleSelect = (role: "user" | "community_admin") => {
-    setSelectedRole(role);
-  };
 
   return (
     <PageTransition>
@@ -298,91 +285,6 @@ export default function SignupPage() {
                 )}
 
                 <div className="space-y-4">
-                  {/* Role Selection */}
-                  <SmoothReveal>
-                    <div className="space-y-3">
-                      <div className="text-center">
-                        <h3 className="text-base font-semibold text-gray-900 mb-2">
-                          Choose Your Role
-                        </h3>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => handleRoleSelect("user")}
-                          className={`p-3 rounded-lg border-2 transition-all duration-200 text-left ${
-                            selectedRole === "user"
-                              ? "border-purple-500 bg-purple-50"
-                              : "border-gray-200 hover:border-purple-300 hover:bg-purple-25"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`p-1.5 rounded-full ${
-                                selectedRole === "user"
-                                  ? "bg-purple-100"
-                                  : "bg-gray-100"
-                              }`}
-                            >
-                              <Users
-                                className={`h-4 w-4 ${
-                                  selectedRole === "user"
-                                    ? "text-purple-600"
-                                    : "text-gray-600"
-                                }`}
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-medium text-sm text-gray-900">
-                                Member
-                              </h4>
-                            </div>
-                            {selectedRole === "user" && (
-                              <CheckCircle className="h-4 w-4 text-purple-600" />
-                            )}
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRoleSelect("community_admin")}
-                          className={`p-3 rounded-lg border-2 transition-all duration-200 text-left ${
-                            selectedRole === "community_admin"
-                              ? "border-purple-500 bg-purple-50"
-                              : "border-gray-200 hover:border-purple-300 hover:bg-purple-25"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`p-1.5 rounded-full ${
-                                selectedRole === "community_admin"
-                                  ? "bg-purple-100"
-                                  : "bg-gray-100"
-                              }`}
-                            >
-                              <Crown
-                                className={`h-4 w-4 ${
-                                  selectedRole === "community_admin"
-                                    ? "text-purple-600"
-                                    : "text-gray-600"
-                                }`}
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-medium text-sm text-gray-900">
-                                Admin
-                              </h4>
-                            </div>
-                            {selectedRole === "community_admin" && (
-                              <CheckCircle className="h-4 w-4 text-purple-600" />
-                            )}
-                          </div>
-                        </button>
-                      </div>
-                    </div>
-                  </SmoothReveal>
-
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <SmoothReveal delay={50}>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

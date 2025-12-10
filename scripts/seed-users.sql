@@ -143,7 +143,8 @@ INSERT INTO public.users (
   interests = EXCLUDED.interests,
   updated_at = NOW();
 
--- User 4: Community Admin (Tech Community)
+-- User 4: Regular User (Tech Community Creator)
+-- Note: Community creators are regular users who have created communities
 INSERT INTO public.users (
   id,
   username,
@@ -173,7 +174,7 @@ INSERT INTO public.users (
   'https://mikejtech.com',
   'https://linkedin.com/in/mikejohnson',
   '1988-05-20',
-  'community_admin',
+  'user',
   5000,
   '["Education", "Hobbies"]'::jsonb,
   true,
@@ -188,7 +189,7 @@ INSERT INTO public.users (
   interests = EXCLUDED.interests,
   updated_at = NOW();
 
--- User 5: Community Admin (Arts & Culture)
+-- User 5: Regular User (Arts & Culture Community Creator)
 INSERT INTO public.users (
   id,
   username,
@@ -216,7 +217,7 @@ INSERT INTO public.users (
   'Bali, Denpasar',
   'https://lisamartinezart.com',
   '1990-09-12',
-  'community_admin',
+  'user',
   4200,
   '["Art", "Music"]'::jsonb,
   true,
@@ -351,12 +352,10 @@ DO $$
 DECLARE
   total_users INTEGER;
   regular_users INTEGER;
-  community_admins INTEGER;
   super_admins INTEGER;
 BEGIN
   SELECT COUNT(*) INTO total_users FROM public.users;
   SELECT COUNT(*) INTO regular_users FROM public.users WHERE user_type = 'user';
-  SELECT COUNT(*) INTO community_admins FROM public.users WHERE user_type = 'community_admin';
   SELECT COUNT(*) INTO super_admins FROM public.users WHERE user_type = 'super_admin';
   
   RAISE NOTICE '========================================';
@@ -364,7 +363,6 @@ BEGIN
   RAISE NOTICE '========================================';
   RAISE NOTICE 'Total Users: %', total_users;
   RAISE NOTICE 'Regular Users: %', regular_users;
-  RAISE NOTICE 'Community Admins: %', community_admins;
   RAISE NOTICE 'Super Admins: %', super_admins;
   RAISE NOTICE '========================================';
 END $$;

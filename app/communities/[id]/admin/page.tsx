@@ -134,24 +134,12 @@ export default function CommunityAdminPage({
         .eq("id", id)
         .single()
 
-      // Verify user has permission (creator or admin)
+      // Verify user has permission (creator only)
       if (communityData) {
         const isCreator = communityData.creator_id === user.id
-        
-        // Check if user is admin
-        const { data: memberData } = await supabase
-          .from("community_members")
-          .select("role")
-          .eq("community_id", id)
-          .eq("user_id", user.id)
-          .eq("role", "admin")
-          .maybeSingle()
-        
-        const isAdmin = memberData !== null
 
-        if (!isCreator && !isAdmin) {
-          console.error("User does not have permission to access this community")
-          toast.error("You don't have permission to access this page")
+        if (!isCreator) {
+          toast.error("Only the community creator can access this page")
           setIsLoading(false)
           return
         }

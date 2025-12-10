@@ -20,7 +20,7 @@ export interface User {
   updated_at?: string;
 }
 
-export type UserType = "regular" | "community_admin" | "super_admin";
+export type UserType = "regular" | "super_admin";
 export type UserStatus = "active" | "suspended" | "banned";
 
 export interface UserPoints {

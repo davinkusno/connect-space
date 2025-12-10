@@ -156,8 +156,8 @@ The seeder includes these test users:
 | `techguru_john`   | John Anderson      | user            | 2500   | Tech, AI, Startups   |
 | `sarah_outdoors`  | Sarah Chen         | user            | 1800   | Outdoor, Hiking      |
 | `emma_writes`     | Emma Davis         | user            | 3200   | Writing, Poetry      |
-| `mike_techleader` | Mike Johnson       | community_admin | 5000   | Tech, Leadership     |
-| `lisa_artlover`   | Lisa Martinez      | community_admin | 4200   | Arts, Culture        |
+| `mike_techleader` | Mike Johnson       | user            | 5000   | Tech, Leadership (Community Creator) |
+| `lisa_artlover`   | Lisa Martinez      | user            | 4200   | Arts, Culture (Community Creator) |
 | `admin_connect`   | ConnectSpace Admin | super_admin     | 10000  | Platform Mgmt        |
 | `newbie_alex`     | Alex Brown         | user            | 0      | Not onboarded        |
 | `david_network`   | David Park         | user            | 2800   | Business, Networking |
@@ -170,9 +170,9 @@ The seeder includes these test users:
 
 Use `john.anderson@example.com` (user role, 2500 points)
 
-### Test Community Admin Flow
+### Test Community Creator Flow
 
-Use `mike.johnson@example.com` (community_admin role)
+Use `mike.johnson@example.com` (user who has created communities)
 
 ### Test Super Admin Flow
 

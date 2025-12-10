@@ -240,6 +240,7 @@ export class ContentBasedFilteringAlgorithm {
         weight: WEIGHTS.activity,
         evidence: { userLevel: user.activityLevel, communityLevel: community.activityLevel },
       })
+    }
 
     const finalScore = totalWeight > 0 ? totalScore / totalWeight : 0
     const confidence = Math.min(0.9, totalWeight)

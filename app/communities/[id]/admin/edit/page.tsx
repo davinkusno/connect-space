@@ -92,18 +92,11 @@ export default function EditCommunityPage({
           return
         }
 
-        // Verify user is creator or admin
+        // Verify user is creator only
         const isCreator = communityData.creator_id === user.id
-        const { data: membership } = await supabase
-          .from("community_members")
-          .select("role")
-          .eq("community_id", communityIdFromParams)
-          .eq("user_id", user.id)
-          .eq("role", "admin")
-          .maybeSingle()
 
-        if (!isCreator && !membership) {
-          toast.error("You don't have permission to edit this community")
+        if (!isCreator) {
+          toast.error("Only the community creator can edit this community")
           setIsLoading(false)
           return
         }
