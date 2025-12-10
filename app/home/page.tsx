@@ -922,7 +922,7 @@ export default function DashboardPage() {
       title: "Create Community",
       description: "Start your own community",
       icon: Plus,
-      href: "/create-community",
+      href: "/communities/create",
       color: "bg-purple-500 hover:bg-purple-600",
     },
     {
@@ -1542,7 +1542,7 @@ export default function DashboardPage() {
                         Communities you created and manage
                       </CardDescription>
                     </div>
-                    <Link href="/create-community">
+                    <Link href="/communities/create">
                       <Button variant="outline" size="sm">
                         <Plus className="h-3 w-3 mr-1" />
                         Create Community
@@ -1588,7 +1588,7 @@ export default function DashboardPage() {
                                 </Avatar>
 
                                 <div className="flex-1 min-w-0">
-                                  <Link href={`/community/${community.id}`}>
+                                  <Link href={`/communities/${community.id}`}>
                                     <h3 className="text-base font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2">
                                       {community.name}
                                     </h3>
@@ -1626,7 +1626,7 @@ export default function DashboardPage() {
                               {/* Action Buttons */}
                               <div className="flex gap-2">
                                 <Link
-                                  href={`/community/${community.id}`}
+                                  href={`/communities/${community.id}`}
                                   className="flex-1"
                                 >
                                   <Button
@@ -1637,7 +1637,7 @@ export default function DashboardPage() {
                                   </Button>
                                 </Link>
                                 <Link
-                                  href={`/community-admin/${community.id}`}
+                                  href={`/communities/${community.id}/admin`}
                                   className="flex-1"
                                 >
                                   <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
@@ -1747,7 +1747,7 @@ export default function DashboardPage() {
                                 </Avatar>
 
                                 <div className="flex-1 min-w-0">
-                                  <Link href={`/community/${community.id}`}>
+                                  <Link href={`/communities/${community.id}`}>
                                     <h3 className="text-base font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2">
                                       {community.name}
                                     </h3>
@@ -1785,7 +1785,7 @@ export default function DashboardPage() {
                               {/* Action Buttons */}
                               <div className="flex gap-2">
                                 <Link
-                                  href={`/community/${community.id}`}
+                                  href={`/communities/${community.id}`}
                                   className="flex-1"
                                 >
                                   <Button variant="outline" className="w-full">
@@ -1795,7 +1795,7 @@ export default function DashboardPage() {
                                 {/* Show Manage button if user is admin with status = true or null */}
                                 {community.role === "admin" && (community.status === true || community.status === null) && (
                                   <Link
-                                    href={`/community-admin/${community.id}`}
+                                    href={`/communities/${community.id}/admin`}
                                     className="flex-1"
                                   >
                                     <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">

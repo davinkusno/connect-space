@@ -527,7 +527,7 @@ export default function DiscoverPage() {
               </div>
             </div>
             <div className="pt-4 mt-auto border-t border-gray-200/80">
-              <Link href={`/community/${community.id}`} className="w-full">
+              <Link href={`/communities/${community.id}`} className="w-full">
                 <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300 transform hover:-translate-y-0.5">
                   View Community
                   <ChevronRight className="h-4 w-4 ml-2" />

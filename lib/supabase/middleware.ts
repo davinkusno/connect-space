@@ -76,10 +76,10 @@ export async function updateSession(request: NextRequest) {
       userRole = "user"
     }
 
-    // Special handling for community-admin routes
+    // Special handling for communities admin routes
     // Check if user is creator or admin of the specific community
-    if (currentPath.startsWith("/community-admin/")) {
-      const pathMatch = currentPath.match(/^\/community-admin\/([^/]+)/)
+    if (currentPath.includes("/admin")) {
+      const pathMatch = currentPath.match(/^\/communities\/([^/]+)\/admin/)
       if (pathMatch && pathMatch[1]) {
         const communityId = pathMatch[1]
         // Use service client for middleware to bypass RLS

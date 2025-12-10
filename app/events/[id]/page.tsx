@@ -103,7 +103,7 @@ export default function EventDetailsPage({
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const fromCommunityAdmin = searchParams.get("from") === "community-admin";
+  const fromCommunityAdmin = searchParams.get("from") === "admin";
   const communityId = searchParams.get("community_id");
   const [event, setEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -809,7 +809,7 @@ export default function EventDetailsPage({
       <div className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 py-3">
           {fromCommunityAdmin ? (
-            <Link href={communityId ? `/community-admin/${communityId}/events` : "/community-admin/events"}>
+            <Link href={communityId ? `/communities/${communityId}/admin/events` : "/communities/admin"}>
               <Button
                 variant="ghost"
                 className="hover:bg-gray-100 -ml-2"

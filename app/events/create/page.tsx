@@ -231,7 +231,7 @@ export default function CreateEventPage() {
       setTimeout(() => {
         // Redirect to community page with events tab to show the new event
         if (communityId) {
-          router.push(`/community/${communityId}?tab=events`);
+          router.push(`/communities/${communityId}?tab=events`);
         } else if (data.id) {
           router.push(`/events/${data.id}`);
         } else {
@@ -270,7 +270,7 @@ export default function CreateEventPage() {
           <SmoothReveal delay={100} direction="up">
             <div className="mb-8">
               <div className="flex items-center justify-between mb-6">
-                <Link href={communityId ? `/community/${communityId}` : "/events"}>
+                <Link href={communityId ? `/communities/${communityId}` : "/events"}>
                   <Button 
                     variant="ghost" 
                     size="sm" 

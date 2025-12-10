@@ -184,7 +184,7 @@ export async function joinCommunity(communityId: string) {
       throw new Error(error.message)
     }
 
-    revalidatePath(`/community/${communityId}`)
+    revalidatePath(`/communities/${communityId}`)
     return { success: true, message: "Successfully joined community" }
   } catch (error: any) {
     console.error("Error joining community:", error)
@@ -224,7 +224,7 @@ export async function leaveCommunity(communityId: string) {
       throw new Error(error.message)
     }
 
-    revalidatePath(`/community/${communityId}`)
+    revalidatePath(`/communities/${communityId}`)
     return { success: true, message: "Successfully left community" }
   } catch (error: any) {
     console.error("Error leaving community:", error)

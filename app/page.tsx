@@ -232,7 +232,7 @@ export default function HomePage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-            <Link href="/create-community">
+            <Link href="/communities/create">
             <AnimatedButton
               variant="glass"
               size="lg"
@@ -312,7 +312,7 @@ export default function HomePage() {
                 </li>
                 <li>
                   <Link
-                    href="/create-community"
+                    href="/communities/create"
                     className="hover:text-purple-400 transition-colors duration-300 hover:translate-x-1 inline-block"
                   >
                     Create Community

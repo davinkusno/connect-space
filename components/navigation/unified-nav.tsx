@@ -126,14 +126,14 @@ export function UnifiedNav() {
               uiType = "community";
               title = "Community Invitation";
               if (notif.reference_type === "community" && notif.reference_id) {
-                actionUrl = `/community/${notif.reference_id}`;
+                actionUrl = `/communities/${notif.reference_id}`;
               }
               break;
             case "community_update":
               uiType = "community";
               title = "Community Update";
               if (notif.reference_type === "community" && notif.reference_id) {
-                actionUrl = `/community/${notif.reference_id}`;
+                actionUrl = `/communities/${notif.reference_id}`;
               }
               break;
             default:

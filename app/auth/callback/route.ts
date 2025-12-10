@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
           const hasCreatedCommunity = communities && communities.length > 0;
           
           if (!hasCreatedCommunity && !onboardingCompleted) {
-            return NextResponse.redirect(`${origin}/create-community`);
+            return NextResponse.redirect(`${origin}/communities/create`);
           }
           
           return NextResponse.redirect(`${origin}/home`);

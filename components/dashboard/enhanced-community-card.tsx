@@ -47,7 +47,7 @@ export function EnhancedCommunityCard({ community, variant = "detailed", classNa
 
   if (variant === "compact") {
     return (
-      <Link href={`/community/${community.id}`}>
+      <Link href={`/communities/${community.id}`}>
         <Card
           className={cn(
             "border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all duration-300 group cursor-pointer h-full",
@@ -171,7 +171,7 @@ export function EnhancedCommunityCard({ community, variant = "detailed", classNa
 
         {/* Action Buttons */}
         <div className="flex space-x-2">
-          <Link href={`/community/${community.id}`} className="flex-1">
+          <Link href={`/communities/${community.id}`} className="flex-1">
             <Button variant="outline" size="sm" className="w-full">
               <ExternalLink className="h-3 w-3 mr-1" />
               View Community

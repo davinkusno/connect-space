@@ -58,7 +58,7 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community/[id]",
+    path: "/communities/[id]",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
@@ -89,11 +89,7 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
 
   // Community creation and management (all authenticated users can create)
   {
-    path: "/create-community",
-    allowedRoles: ["user", "community_admin", "super_admin"],
-  },
-  {
-    path: "/community/[id]/manage",
+    path: "/communities/create",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
@@ -103,35 +99,35 @@ export const ROUTE_ACCESS_RULES: RouteConfig[] = [
   // Community Admin routes (permission checked in middleware - creator/admin of specific community)
   // All authenticated users can access, but middleware will verify they are creator/admin
   {
-    path: "/community-admin/[id]",
+    path: "/communities/[id]/admin",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/[id]/members",
+    path: "/communities/[id]/admin/members",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/[id]/discussions",
+    path: "/communities/[id]/admin/discussions",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/[id]/events",
+    path: "/communities/[id]/admin/events",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/[id]/events/[eventId]",
+    path: "/communities/[id]/admin/events/[eventId]",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/[id]/events/[eventId]/edit",
+    path: "/communities/[id]/admin/events/[eventId]/edit",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/[id]/notifications",
+    path: "/communities/[id]/admin/notifications",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
   {
-    path: "/community-admin/[id]/requests",
+    path: "/communities/[id]/admin/requests",
     allowedRoles: ["user", "community_admin", "super_admin"],
   },
 
