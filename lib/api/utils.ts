@@ -1,7 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { createServerClient } from "@/lib/supabase/server"
+import { NextResponse, type NextRequest } from "next/server"
 import { ZodError, type ZodSchema } from "zod"
 import type { ApiResponse } from "./types"
-import { createServerClient } from "@/lib/supabase/server"
 
 // Validate request data against a schema
 export async function validateRequest<T>(

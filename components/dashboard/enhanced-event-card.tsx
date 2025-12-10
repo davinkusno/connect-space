@@ -1,23 +1,15 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import {
-  MapPin,
-  Clock,
-  Calendar,
-  Heart,
-  Share,
-  MoreHorizontal,
-  ExternalLink,
-  Bell,
-  Star,
+    Bell, Calendar, Clock, ExternalLink, Heart, MapPin, MoreHorizontal, Share, Star
 } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
 
 interface EventData {
   id: number;

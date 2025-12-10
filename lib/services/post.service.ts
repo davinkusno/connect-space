@@ -1,14 +1,9 @@
 import {
-  BaseService,
-  ApiResponse,
-  ServiceResult,
-} from "./base.service";
-import {
-  Post,
-  PostType,
-  User,
-  Community,
+    PostType
 } from "@/lib/types";
+import {
+    ApiResponse, BaseService, ServiceResult
+} from "./base.service";
 
 // ==================== Post Service Types ====================
 

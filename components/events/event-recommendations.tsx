@@ -1,37 +1,24 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { AnimatedCard } from "@/components/ui/animated-card"
+import { AnimatedCounter } from "@/components/ui/animated-counter"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card, CardContent } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
+import { SmoothReveal } from "@/components/ui/smooth-reveal"
+import { StaggerContainer } from "@/components/ui/stagger-container"
 import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
 import {
-  Calendar,
-  MapPin,
-  Users,
-  Star,
-  Heart,
-  Share2,
-  TrendingUp,
-  Brain,
-  UserCheck,
-  Sparkles,
-  Filter,
-  RefreshCw,
-  Info,
-  ChevronRight,
+    Brain, Calendar, ChevronRight, Filter, Heart, Info, MapPin, RefreshCw, Share2, Sparkles, Star, TrendingUp, UserCheck, Users
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { cn } from "@/lib/utils"
-import { AnimatedCard } from "@/components/ui/animated-card"
-import { SmoothReveal } from "@/components/ui/smooth-reveal"
-import { StaggerContainer } from "@/components/ui/stagger-container"
-import { AnimatedCounter } from "@/components/ui/animated-counter"
+import { useEffect, useMemo, useState } from "react"
 
 interface Event {
   id: string

@@ -1,8 +1,8 @@
+import { HybridRecommendationEngine } from "@/lib/recommendation-engine/hybrid-recommender"
+import type { Community, User } from "@/lib/recommendation-engine/types"
+import { createServerClient } from "@/lib/supabase/server"
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
-import { HybridRecommendationEngine } from "@/lib/recommendation-engine/hybrid-recommender"
-import type { User, Community } from "@/lib/recommendation-engine/types"
 
 /**
  * @route GET /api/communities/recommendations

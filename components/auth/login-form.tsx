@@ -1,21 +1,21 @@
 "use client";
 
-import type React from "react";
-import { useState } from "react";
-import Image from "next/image";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { AnimatedCard } from "@/components/ui/animated-card";
 import { FloatingElements } from "@/components/ui/floating-elements";
-import { PageTransition } from "@/components/ui/page-transition";
-import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageTransition } from "@/components/ui/page-transition";
 import { Separator } from "@/components/ui/separator";
-import { Eye, EyeOff, Mail, Lock, Sparkles } from "lucide-react";
-import Link from "next/link";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { useToast } from "@/hooks/use-toast";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type React from "react";
+import { useState } from "react";
 
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);

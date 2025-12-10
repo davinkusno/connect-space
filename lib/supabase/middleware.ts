@@ -1,8 +1,8 @@
-import { createServerClient } from "@supabase/ssr"
-import { type NextRequest, NextResponse } from "next/server"
-import { hasAccess, getRedirectPath, type UserRole } from "@/lib/auth/rbac"
-import { createServiceClient } from "@/lib/supabase/service"
+import { getRedirectPath, hasAccess, type UserRole } from "@/lib/auth/rbac"
 import { isCreatorOrAdminOfCommunity } from "@/lib/supabase/community-roles"
+import { createServiceClient } from "@/lib/supabase/service"
+import { createServerClient } from "@supabase/ssr"
+import { NextResponse, type NextRequest } from "next/server"
 
 export async function updateSession(request: NextRequest) {
   const supabaseResponse = NextResponse.next({

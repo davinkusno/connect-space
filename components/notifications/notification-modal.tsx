@@ -1,25 +1,22 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { NotificationItem } from "./notification-item";
 import {
-  Search,
-  Bell,
-  CheckCheck,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
+    Bell,
+    CheckCheck, ChevronLeft,
+    ChevronRight, Search, Trash2
 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { NotificationItem } from "./notification-item";
 
 export interface Notification {
   id: string;

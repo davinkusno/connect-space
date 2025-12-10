@@ -1,7 +1,7 @@
 // GitHub Models AI Client Implementation
+import OpenAI from "openai";
 import { z } from "zod";
 import { AI_CONFIG } from "./ai-config";
-import OpenAI from "openai";
 
 class AIClient {
   private client: OpenAI | null = null;

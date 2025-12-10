@@ -1,10 +1,5 @@
 import type {
-  User,
-  Event,
-  EventRecommendationResult,
-  EventRecommendationOptions,
-  EventRecommendationScore,
-  EventRecommendationReason,
+    Event, EventRecommendationOptions, EventRecommendationReason, EventRecommendationResult, EventRecommendationScore, User
 } from "./types"
 
 // Keywords mapping for matching interests to event categories

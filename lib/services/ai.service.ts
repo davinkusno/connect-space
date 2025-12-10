@@ -1,9 +1,7 @@
-import {
-  BaseService,
-  ApiResponse,
-  ServiceResult,
-} from "./base.service";
 import { ChatMessage } from "@/lib/types";
+import {
+    ApiResponse, BaseService, ServiceResult
+} from "./base.service";
 
 // ==================== AI Service Types ====================
 

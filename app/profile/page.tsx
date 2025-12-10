@@ -1,34 +1,25 @@
 "use client";
 
-import type React from "react";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
-import { AnimatedCard } from "@/components/ui/animated-card";
 import { AnimatedButton } from "@/components/ui/animated-button";
+import { AnimatedCard } from "@/components/ui/animated-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FloatingElements } from "@/components/ui/floating-elements";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageTransition } from "@/components/ui/page-transition";
-import { FloatingElements } from "@/components/ui/floating-elements";
-import {
-  User,
-  Mail,
-  MapPin,
-  Calendar,
-  Edit3,
-  Save,
-  X,
-  Camera,
-  Award,
-  Crown,
-  Plus,
-} from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import {
+    Award, Calendar, Camera, Crown, Edit3, Mail,
+    MapPin, Plus, Save, User, X
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import type React from "react";
+import { useEffect, useState } from "react";
 
 interface City {
   id: string;

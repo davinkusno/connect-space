@@ -1,7 +1,7 @@
-import type { User, Community, RecommendationResult, RecommendationOptions, RecommendationScore } from "./types"
 import { CollaborativeFilteringAlgorithm } from "./algorithms/collaborative-filtering"
 import { ContentBasedFilteringAlgorithm } from "./algorithms/content-based-filtering"
 import { PopularityBasedAlgorithm } from "./algorithms/popularity-based"
+import type { Community, RecommendationOptions, RecommendationResult, RecommendationScore, User } from "./types"
 
 export class HybridRecommendationEngine {
   private collaborativeAlgorithm: CollaborativeFilteringAlgorithm

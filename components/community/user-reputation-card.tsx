@@ -1,21 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  TrendingUp,
-  TrendingDown,
-  MessageSquare,
-  Calendar,
-  Users,
-  AlertTriangle,
-  Activity,
-  Star,
-  Loader2,
-} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUserReputation, type UserReputation } from "@/lib/points/user-points";
 import { cn } from "@/lib/utils";
+import {
+    Activity, AlertTriangle, Calendar, Loader2, MessageSquare, Star, TrendingDown, TrendingUp, Users
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface UserReputationCardProps {
   userId: string;

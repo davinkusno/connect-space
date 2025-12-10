@@ -1,40 +1,28 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { Card, CardContent } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { FloatingElements } from "@/components/ui/floating-elements"
+import { Input } from "@/components/ui/input"
+import { PageTransition } from "@/components/ui/page-transition"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { 
-  Calendar as CalendarIcon,
-  Clock,
-  MapPin,
-  Users,
-  Search,
-  Filter,
-  Plus,
-  ChevronDown,
-  ChevronRight,
-  ChevronLeft,
-  Trash2,
-  Edit,
-  Upload,
-  ArrowLeft
-} from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
-import { cn } from "@/lib/utils"
-import { PageTransition } from "@/components/ui/page-transition"
-import { FloatingElements } from "@/components/ui/floating-elements"
-import { format } from "date-fns"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
-import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import {
+    ArrowLeft, Calendar as CalendarIcon, ChevronDown,
+    ChevronRight, Clock, Edit, MapPin, Plus, Search, Trash2, Upload, Users
+} from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 import type { DateRange } from "react-day-picker"
+import { toast } from "sonner"
 
 // Helper function to parse location and get readable string
 function getLocationDisplay(location: any): string {

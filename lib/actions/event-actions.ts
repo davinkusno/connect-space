@@ -1,7 +1,7 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase/server"
 import { requireAuth } from "@/lib/supabase/auth-helpers"
+import { createServerClient } from "@/lib/supabase/server"
 import type { InsertTables, Tables } from "@/lib/supabase/types"
 
 // Create a new event

@@ -1,14 +1,9 @@
 import {
-  BaseService,
-  ApiResponse,
-  ServiceResult,
-} from "./base.service";
-import {
-  Ad,
-  AdStatus,
-  AdType,
-  AdTargetAudience,
+    AdStatus
 } from "@/lib/types";
+import {
+    ApiResponse, BaseService, ServiceResult
+} from "./base.service";
 
 // ==================== Ads Service Types ====================
 

@@ -1,15 +1,10 @@
 import {
-  BaseService,
-  ApiResponse,
-  ServiceResult,
-} from "./base.service";
-import {
-  Report,
-  ReportStatus,
-  AdminStats,
-  InactiveCommunity,
-  UserType,
+    AdminStats,
+    InactiveCommunity, ReportStatus
 } from "@/lib/types";
+import {
+    ApiResponse, BaseService, ServiceResult
+} from "./base.service";
 
 // ==================== Admin Service Types ====================
 

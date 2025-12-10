@@ -1,31 +1,20 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
-import { 
-  Bell, 
-  Search, 
-  Filter, 
-  Calendar as CalendarIcon,
-  Users,
-  Calendar as EventIcon,
-  X,
-  Trash2,
-  UserPlus,
-  UserMinus,
-  Clock,
-  CheckCircle,
-  ChevronDown
-} from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
-import { cn } from "@/lib/utils"
+import {
+    Bell, Calendar as CalendarIcon, Calendar as EventIcon, CheckCircle,
+    ChevronDown, Clock, Search, Trash2,
+    UserPlus, X
+} from "lucide-react"
+import { useMemo, useState } from "react"
 
 interface Notification {
   id: string

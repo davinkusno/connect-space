@@ -1,59 +1,35 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { LeafletEventsMap } from "@/components/maps/leaflet-events-map";
+import { AnimatedCard } from "@/components/ui/animated-card";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { FloatingElements } from "@/components/ui/floating-elements";
 import { Input } from "@/components/ui/input";
+import { PageTransition } from "@/components/ui/page-transition";
 import { Progress } from "@/components/ui/progress";
 import {
-  Calendar,
-  MapPin,
-  Star,
-  Heart,
-  Share2,
-  Search,
-  Grid,
-  List,
-  Map,
-  Plus,
-  TrendingUp,
-  Brain,
-  Clock,
-  Filter,
-  SlidersHorizontal,
-  Bookmark,
-  ArrowRight,
-  Sparkles,
-  Award,
-  Zap,
-  Globe,
-  ChevronDown,
-  X,
-  RefreshCw,
-  Users,
-  SortDesc,
-  Check,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
+import { SmoothReveal } from "@/components/ui/smooth-reveal";
+import { StaggerContainer } from "@/components/ui/stagger-container";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import {
+    ArrowRight, Award, Bookmark, Brain, Calendar, Check, ChevronDown, Clock,
+    Filter, Globe, Grid, Heart, List,
+    Map, MapPin, RefreshCw, Search, Share2, SlidersHorizontal, SortDesc, Sparkles, Star, TrendingUp, Users, X, Zap
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { AnimatedCard } from "@/components/ui/animated-card";
-import { SmoothReveal } from "@/components/ui/smooth-reveal";
-import { StaggerContainer } from "@/components/ui/stagger-container";
-import { AnimatedCounter } from "@/components/ui/animated-counter";
-import { LeafletEventsMap } from "@/components/maps/leaflet-events-map";
-import { FloatingElements } from "@/components/ui/floating-elements";
-import { PageTransition } from "@/components/ui/page-transition";
+import { useMemo, useState } from "react";
 
 interface Event {
   id: number;

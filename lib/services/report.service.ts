@@ -1,14 +1,11 @@
 import {
-  BaseService,
-  ApiResponse,
-  ServiceResult,
-} from "./base.service";
-import {
-  Report,
-  ReportReason,
-  ReportStatus,
-  User,
+    ReportReason,
+    ReportStatus,
+    User
 } from "@/lib/types";
+import {
+    ApiResponse, BaseService, ServiceResult
+} from "./base.service";
 
 // ==================== Report Service Types ====================
 

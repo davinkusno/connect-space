@@ -1,69 +1,45 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Chatbot } from "@/components/ai/chatbot";
+import { LeafletEventsMap } from "@/components/maps/leaflet-events-map";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { FloatingElements } from "@/components/ui/floating-elements";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
+import { PageTransition } from "@/components/ui/page-transition";
 import {
-  Calendar,
-  MapPin,
-  Star,
-  Heart,
-  Share2,
-  Search,
-  Map,
-  Plus,
-  Brain,
-  Clock,
-  Filter,
-  Bookmark,
-  ArrowRight,
-  Award,
-  Zap,
-  Globe,
-  X,
-  Users,
-  Lock,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle2,
-  Ticket,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
+import { SmoothReveal } from "@/components/ui/smooth-reveal";
+import { StaggerContainer } from "@/components/ui/stagger-container";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
+import {
+    Calendar, CheckCircle2, ChevronLeft,
+    ChevronRight, Clock,
+    Filter, Heart, Lock, Map, MapPin, Search, Users, X
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { AnimatedCard } from "@/components/ui/animated-card";
-import { SmoothReveal } from "@/components/ui/smooth-reveal";
-import { StaggerContainer } from "@/components/ui/stagger-container";
-import { AnimatedCounter } from "@/components/ui/animated-counter";
-import { LeafletEventsMap } from "@/components/maps/leaflet-events-map";
-import { FloatingElements } from "@/components/ui/floating-elements";
-import { PageTransition } from "@/components/ui/page-transition";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
-import { toast } from "sonner";
-import { Chatbot } from "@/components/ai/chatbot";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface Event {
   id: string | number;

@@ -1,38 +1,20 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import { use } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ContentEnhancerDialog } from "@/components/ai/content-enhancer-dialog"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
-import { 
-  ArrowLeft,
-  Clock,
-  MapPin,
-  Users,
-  DollarSign,
-  Image as ImageIcon,
-  Plus,
-  X,
-  Tag,
-  Gift,
-  Globe,
-  Search,
-  Loader2,
-  Sparkles,
-  Wand2
+import {
+    ArrowLeft,
+    Clock, Globe, Image as ImageIcon, Loader2, MapPin, Search, Sparkles,
+    Wand2
 } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
-import { cn } from "@/lib/utils"
+import { usePathname, useRouter } from "next/navigation"
+import { use, useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import { ContentEnhancerDialog } from "@/components/ai/content-enhancer-dialog"
 
 interface Event {
   id: string

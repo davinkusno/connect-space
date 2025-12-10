@@ -1,6 +1,6 @@
+import { isCommunityAdmin } from "@/lib/supabase/community-roles";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
-import { isCommunityAdmin } from "@/lib/supabase/community-roles";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

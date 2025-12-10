@@ -2,9 +2,9 @@
 
 import type React from "react"
 
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MessageCircle, Calendar, Award, Settings, Users, Check, RotateCcw, Trash2, ExternalLink } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Award, Calendar, Check, ExternalLink, MessageCircle, RotateCcw, Settings, Trash2, Users } from "lucide-react"
 
 interface Notification {
   id: string

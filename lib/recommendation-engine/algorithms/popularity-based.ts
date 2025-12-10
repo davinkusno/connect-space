@@ -1,4 +1,4 @@
-import type { User, Community, RecommendationScore } from "../types"
+import type { Community, RecommendationScore, User } from "../types"
 
 export class PopularityBasedAlgorithm {
   /**

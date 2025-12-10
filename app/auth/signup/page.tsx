@@ -1,34 +1,27 @@
 "use client";
 
-import type React from "react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { AnimatedCard } from "@/components/ui/animated-card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FloatingElements } from "@/components/ui/floating-elements";
-import { PageTransition } from "@/components/ui/page-transition";
-import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageTransition } from "@/components/ui/page-transition";
 import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Eye,
-  EyeOff,
-  Mail,
-  Lock,
-  User,
-  AlertCircle,
-  CheckCircle,
-  Sparkles,
-  Users,
-  Crown,
-} from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import Link from "next/link";
+import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { useToast } from "@/hooks/use-toast";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import {
+    AlertCircle,
+    CheckCircle, Crown, Eye,
+    EyeOff, Lock, Mail, User, Users
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type React from "react";
+import { useState } from "react";
 
 interface FormData {
   firstName: string;

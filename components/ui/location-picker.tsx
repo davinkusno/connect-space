@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { MapPin, Search, Loader2, Navigation } from "lucide-react"
-import { toast } from "sonner"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { Loader2, MapPin, Navigation, Search } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
 
 // Google Places API configuration
 const GOOGLE_PLACES_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY

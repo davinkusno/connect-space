@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { getClientSession } from "@/lib/supabase/client";
 import { Spinner } from "@/components/ui/loading-indicators";
+import { getClientSession } from "@/lib/supabase/client";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface OnboardingGuardProps {
   children: React.ReactNode;

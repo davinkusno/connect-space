@@ -1,58 +1,37 @@
 "use client";
 
-import { use } from "react";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InteractiveLeafletMap } from "@/components/ui/interactive-leaflet-map";
+import { AttendeesDialog } from "@/components/events/attendees-dialog";
 import { EventDiscussion } from "@/components/events/event-discussion";
 import { UpdateRsvpDialog } from "@/components/events/update-rsvp-dialog";
-import { AttendeesDialog } from "@/components/events/attendees-dialog";
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle
+} from "@/components/ui/card";
+import { InteractiveLeafletMap } from "@/components/ui/interactive-leaflet-map";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  MapPin,
-  Calendar,
-  Clock,
-  Users,
-  Heart,
-  ExternalLink,
-  User2,
-  ChevronRight,
-  ChevronLeft,
-  Ticket,
-  BookOpen,
-  Award,
-  Globe,
-  Sparkles,
-  Bookmark,
-  ArrowLeft,
-  Video,
-  Copy,
-  CheckCheck,
-  PenLine,
-  Check,
+    ArrowLeft, Award, BookOpen, Calendar, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, Globe, MapPin, Sparkles, User2, Users, Video
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { use, useEffect, useState } from "react";
 
 interface Event {
   id: string;

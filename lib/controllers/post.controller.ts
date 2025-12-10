@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { User } from "@supabase/supabase-js";
-import { BaseController, ApiErrorResponse } from "./base.controller";
 import { postService, PostService } from "@/lib/services";
 import { ServiceResult } from "@/lib/services/base.service";
 import { Post, PostType } from "@/lib/types";
+import { User } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+import { ApiErrorResponse, BaseController } from "./base.controller";
 
 // ==================== Request Body Types ====================
 
@@ -17,7 +17,7 @@ interface CreatePostBody {
 // ==================== Response Types ====================
 
 interface PostsListResponse {
-  posts: Post[];
+  posts: any[];  // Using any to allow PostWithRelations from service
   total: number;
 }
 
@@ -55,7 +55,7 @@ export class PostController extends BaseController {
       const page: number = this.getQueryParamAsNumber(request, "page", 1);
       const pageSize: number = this.getQueryParamAsNumber(request, "pageSize", 20);
 
-      const result: ServiceResult<PostsListResponse> = await this.service.getAll({
+      const result = await this.service.getAll({
         communityId: communityId || undefined,
         authorId: authorId || undefined,
         type: type as PostType | undefined,
@@ -122,7 +122,7 @@ export class PostController extends BaseController {
     postId: string
   ): Promise<NextResponse<Post | ApiErrorResponse>> {
     try {
-      const result: ServiceResult<Post> = await this.service.getById(postId);
+      const result = await this.service.getById(postId);
 
       if (result.success) {
         return this.json<Post>(result.data as Post, result.status);

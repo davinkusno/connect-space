@@ -1,43 +1,36 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Input } from "@/components/ui/input"
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger
 } from "@/components/ui/alert-dialog"
-import { 
-  Users, 
-  Search, 
-  UserMinus,
-  Mail,
-  Calendar,
-  ArrowLeft,
-  UserPlus,
-  Shield
-} from "lucide-react"
-import { PageTransition } from "@/components/ui/page-transition"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { FloatingElements } from "@/components/ui/floating-elements"
+import { Input } from "@/components/ui/input"
+import { PageTransition } from "@/components/ui/page-transition"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
+import {
+    ArrowLeft, Calendar, Mail, Search, Shield, UserMinus, Users
+} from "lucide-react"
+import Link from "next/link"
+import { useEffect, useState } from "react"
 import { toast as sonnerToast } from "sonner"
 
 interface Member {

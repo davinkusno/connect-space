@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react"
 
 interface ButtonPulseProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode

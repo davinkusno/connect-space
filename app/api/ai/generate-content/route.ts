@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from "next/server"
 import { aiClient } from "@/lib/ai-client"
+import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 
 const CommunityDescriptionSchema = z.object({

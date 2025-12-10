@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { BaseController, ApiErrorResponse } from "./base.controller";
 import { aiService, AIService } from "@/lib/services";
 import { ServiceResult } from "@/lib/services/base.service";
 import { ChatMessage } from "@/lib/types";
+import { NextRequest, NextResponse } from "next/server";
+import { ApiErrorResponse, BaseController } from "./base.controller";
 
 // ==================== Request Body Types ====================
 

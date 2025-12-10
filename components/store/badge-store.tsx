@@ -2,41 +2,26 @@
 
 import type React from "react"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { InViewTransition } from "@/components/ui/content-transitions"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { ButtonPulse } from "@/components/ui/micro-interactions"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { InViewTransition } from "@/components/ui/content-transitions"
-import { ButtonPulse } from "@/components/ui/micro-interactions"
-import { BadgeCard } from "./badge-card"
-import {
-  Search,
-  Filter,
-  ShoppingCart,
-  Coins,
-  Star,
-  Crown,
-  Award,
-  Trophy,
-  Medal,
-  Target,
-  Zap,
-  Heart,
-  Gift,
-  Sparkles,
-  CheckCircle,
-  AlertCircle,
+    AlertCircle, Award, CheckCircle, Coins, Crown, Filter, Gift, Heart, Medal, Search, ShoppingCart, Sparkles, Star, Target, Trophy, Zap
 } from "lucide-react"
+import { useState } from "react"
+import { BadgeCard } from "./badge-card"
 
 interface StoreBadge {
   id: string

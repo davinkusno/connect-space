@@ -1,5 +1,5 @@
 import { createServerClient } from "./server"
-import type { InsertTables, UpdateTables, Database } from "./types"
+import type { Database, InsertTables, UpdateTables } from "./types"
 
 // Generic CRUD operations for any table
 export const dbHelpers = {

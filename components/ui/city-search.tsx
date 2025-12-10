@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MapPin, X, Loader2, Globe, ChevronRight } from "lucide-react";
-import { searchCities, getCitiesByCountry, searchCountries, type City, type Country } from "@/lib/api/cities";
+import { Input } from "@/components/ui/input";
+import { getCitiesByCountry, searchCities, searchCountries, type City, type Country } from "@/lib/api/cities";
 import { cn } from "@/lib/utils";
+import { ChevronRight, Globe, Loader2, MapPin, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 interface CitySearchProps {
   value?: string;

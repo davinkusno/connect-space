@@ -1,39 +1,22 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { useRouter } from "next/navigation"
-import { use } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
-import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { 
-  ArrowLeft,
-  Calendar as CalendarIcon,
-  Clock,
-  MapPin,
-  Users,
-  DollarSign,
-  Image as ImageIcon,
-  Plus,
-  X,
-  Tag,
-  Gift,
-  Globe,
-  Search,
-  Loader2,
-  Sparkles
-} from "lucide-react"
-import { format } from "date-fns"
-import Link from "next/link"
-import Image from "next/image"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import {
+    ArrowLeft,
+    Calendar as CalendarIcon, Globe, Image as ImageIcon, Loader2, MapPin, Search, Sparkles
+} from "lucide-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { use, useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 interface Event {

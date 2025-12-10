@@ -1,28 +1,16 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Textarea } from "@/components/ui/textarea"
 import {
-  X,
-  Heart,
-  MessageCircle,
-  Share2,
-  Download,
-  Flag,
-  Send,
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Maximize,
-  Eye,
-  Calendar,
+    Calendar, Download, Eye, Flag, Heart, Maximize, MessageCircle, Pause, Play, Send, Share2, Volume2,
+    VolumeX, X
 } from "lucide-react"
 import Image from "next/image"
+import { useState } from "react"
 
 interface MediaItem {
   id: string

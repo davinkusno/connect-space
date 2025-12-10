@@ -1,5 +1,5 @@
-import { NextRequest } from "next/server";
 import { userController } from "@/lib/controllers";
+import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
   return userController.getRole(request);

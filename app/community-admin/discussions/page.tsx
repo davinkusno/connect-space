@@ -1,30 +1,22 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { 
-  Search, 
-  Calendar, 
-  Edit, 
-  Trash2, 
-  MessageSquare, 
-  Pin, 
-  ArrowLeft,
-  Filter,
-  SortAsc,
-  SortDesc,
-  X
+import { Textarea } from "@/components/ui/textarea"
+import { getSupabaseBrowser } from "@/lib/supabase/client"
+import {
+    ArrowLeft, Calendar,
+    Edit, MessageSquare,
+    Pin, Search, SortAsc,
+    SortDesc, Trash2, X
 } from "lucide-react"
 import Link from "next/link"
-import { getSupabaseBrowser } from "@/lib/supabase/client"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface AnnouncementTopic {
   id: string

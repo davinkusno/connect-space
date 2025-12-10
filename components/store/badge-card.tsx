@@ -2,11 +2,11 @@
 
 import type React from "react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { HoverScale, AnimatedIcon } from "@/components/ui/micro-interactions"
-import { Coins, CheckCircle, Clock, Sparkles } from "lucide-react"
+import { AnimatedIcon, HoverScale } from "@/components/ui/micro-interactions"
+import { CheckCircle, Clock, Coins, Sparkles } from "lucide-react"
 
 interface StoreBadge {
   id: string

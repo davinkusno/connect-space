@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getClientSession } from "@/lib/supabase/client";
-import { toast } from "sonner";
-import { Upload, X, Loader2, Image as ImageIcon, Video } from "lucide-react";
+import { Loader2, Upload, X } from "lucide-react";
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface AdImageUploadProps {
   onImageUrlChange: (url: string) => void;

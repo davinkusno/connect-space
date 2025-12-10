@@ -1,4 +1,4 @@
-import type { User, Community, RecommendationScore } from "../types"
+import type { Community, RecommendationScore, User } from "../types"
 
 // Keywords mapping for user interests to help match with community content
 const INTEREST_KEYWORDS: Record<string, string[]> = {

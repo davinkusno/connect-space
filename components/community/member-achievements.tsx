@@ -2,36 +2,21 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { InViewTransition } from "@/components/ui/content-transitions"
+import { AnimatedIcon, HoverScale } from "@/components/ui/micro-interactions"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { InViewTransition } from "@/components/ui/content-transitions"
-import { HoverScale, AnimatedIcon } from "@/components/ui/micro-interactions"
 import {
-  Trophy,
-  Star,
-  Award,
-  Target,
-  Users,
-  Calendar,
-  MessageCircle,
-  Heart,
-  TrendingUp,
-  Zap,
-  Crown,
-  Medal,
-  Gift,
-  Sparkles,
-  Lock,
-  CheckCircle,
-  Clock,
+    Award, Calendar, CheckCircle,
+    Clock, Crown, Gift, Heart, Lock, Medal, MessageCircle, Sparkles, Star, Target, TrendingUp, Trophy, Users, Zap
 } from "lucide-react"
-import Link from "next/link"
 import Image from "next/image"
+import Link from "next/link"
+import { useState } from "react"
 
 interface Achievement {
   id: string

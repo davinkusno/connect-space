@@ -1,23 +1,23 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, Loader2, MapPin, Clock, Users, Globe, FileText, Sparkles, Map, Wand2, Upload, Image as ImageIcon, X, RefreshCw } from "lucide-react";
-import Link from "next/link";
-import { toast } from "sonner";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
-import { LocationPicker } from "@/components/ui/location-picker";
-import { EnhanceContentButton } from "@/components/ai/enhance-content-button";
 import { ContentEnhancerDialog } from "@/components/ai/content-enhancer-dialog";
+import { EnhanceContentButton } from "@/components/ai/enhance-content-button";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { LocationPicker } from "@/components/ui/location-picker";
 import { PageTransition } from "@/components/ui/page-transition";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
+import { Textarea } from "@/components/ui/textarea";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { ArrowLeft, Calendar, Clock, FileText, Globe, Loader2, Map, MapPin, RefreshCw, Sparkles, Upload, Users, Wand2, X } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import React, { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -732,71 +732,73 @@ export default function CreateEventPage() {
 
               {/* Submit Buttons */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-4 bg-gradient-to-r from-gray-50 to-purple-50/30 -mx-6 px-6 py-6 rounded-b-xl">
-                <Link href={communityId ? `/community/${communityId}` : "/events"} className="flex-1 sm:flex-initial sm:w-auto">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-              onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
-              disabled={currentStep === 1}
-              className="border-gray-200 hover:border-violet-300 hover:bg-violet-50"
-            >
-              Previous
-            </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
+                  disabled={currentStep === 1}
+                  className="border-gray-200 hover:border-violet-300 hover:bg-violet-50"
+                >
+                  Previous
+                </Button>
 
-            {currentStep < 2 ? (
-              <Button
-                type="button"
-                onClick={() => {
-                  // Validation before moving to next step
-                  if (currentStep === 1 && (!formData.title || !formData.description)) {
-                    toast.error("Please fill in title and description");
-                    return;
-                  }
-                  setCurrentStep(Math.min(2, currentStep + 1));
-                }}
-                className="bg-violet-700 hover:bg-violet-800 text-white"
-              >
-                Next
-              </Button>
-            ) : (
-              <Button 
-                type="submit"
-                className="bg-violet-700 hover:bg-violet-800 text-white"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
+                {currentStep < 2 ? (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      // Validation before moving to next step
+                      if (currentStep === 1 && (!formData.title || !formData.description)) {
+                        toast.error("Please fill in title and description");
+                        return;
+                      }
+                      setCurrentStep(Math.min(2, currentStep + 1));
+                    }}
+                    className="bg-violet-700 hover:bg-violet-800 text-white"
+                  >
+                    Next
+                  </Button>
                 ) : (
-                  <>
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Create Event
-                  </>
+                  <Button 
+                    type="submit"
+                    className="bg-violet-700 hover:bg-violet-800 text-white"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Create Event
+                      </>
+                    )}
+                  </Button>
                 )}
-              </Button>
-            )}
-          </div>
+              </div>
+            </CardContent>
+          </Card>
           </SmoothReveal>
+          )}
         </form>
-      </div>
+        </div>
 
-      {/* AI Enhancement Dialog */}
-      {enhancingContentType === "description" && (
-        <ContentEnhancerDialog
-          open={enhanceDialogOpen}
-          onOpenChange={setEnhanceDialogOpen}
-          originalContent={formData.description}
-          contentType="description"
-          context={{
-            name: formData.title,
-            category: community?.name || "",
-          }}
-          onAccept={handleAcceptEnhancedContent}
-        />
-      )}
-    </div>
+        {/* AI Enhancement Dialog */}
+        {enhancingContentType === "description" && (
+          <ContentEnhancerDialog
+            open={enhanceDialogOpen}
+            onOpenChange={setEnhanceDialogOpen}
+            originalContent={formData.description}
+            contentType="description"
+            context={{
+              name: formData.title,
+              category: community?.name || "",
+            }}
+            onAccept={handleAcceptEnhancedContent}
+          />
+        )}
+      </div>
     </PageTransition>
   );
 }

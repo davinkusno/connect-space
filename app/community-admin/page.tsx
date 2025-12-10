@@ -1,22 +1,19 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { 
-  LayoutDashboard, 
-  Users, 
-  MapPin,
-  Loader2,
-  Plus
-} from "lucide-react"
-import { PageTransition } from "@/components/ui/page-transition"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FloatingElements } from "@/components/ui/floating-elements"
+import { PageTransition } from "@/components/ui/page-transition"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
+import {
+    LayoutDashboard, Loader2,
+    Plus, Users
+} from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 
 interface Community {
   id: string

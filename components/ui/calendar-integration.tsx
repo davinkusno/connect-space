@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Calendar, CalendarPlus, Download, Clock, MapPin, ExternalLink, CheckCircle } from "lucide-react"
-import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { Calendar, CalendarPlus, CheckCircle, Clock, Download, ExternalLink, MapPin } from "lucide-react"
+import { useState } from "react"
+import { toast } from "sonner"
 
 interface EventData {
   title: string

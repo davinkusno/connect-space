@@ -1,64 +1,50 @@
 "use client";
 
-import { use, useState } from "react";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  SlideTransition,
-  InViewTransition,
+    InViewTransition, SlideTransition
 } from "@/components/ui/content-transitions";
-import { ButtonPulse, HoverScale } from "@/components/ui/micro-interactions";
-import { Spinner } from "@/components/ui/loading-indicators";
 import {
-  Users,
-  UserMinus,
-  UserCheck,
-  UserX,
-  Calendar,
-  Plus,
-  Search,
-  Shield,
-  Settings,
-  Clock,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Eye,
-  Crown,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/loading-indicators";
+import { ButtonPulse, HoverScale } from "@/components/ui/micro-interactions";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+    AlertTriangle, Calendar, CheckCircle, Clock, Crown, Eye, Plus,
+    Search, Settings, Shield, UserCheck, UserMinus, Users, UserX, XCircle
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { use, useState } from "react";
 
 // Mock data for demonstration
 const mockCommunity = {

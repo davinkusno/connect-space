@@ -1,10 +1,10 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Crown, Medal, Award, Star, TrendingUp, Flame } from "lucide-react";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Award, Crown, Flame, Medal, Star, TrendingUp } from "lucide-react";
 
 interface TopPerformersProps {
   topUsers: Array<{

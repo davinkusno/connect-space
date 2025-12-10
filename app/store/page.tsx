@@ -2,59 +2,35 @@
 
 import type React from "react";
 
-import { useState, useEffect } from "react";
-import { getClientSession } from "@/lib/supabase/client";
+import { Badge as BadgeComponent } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge as BadgeComponent } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
 import { InViewTransition } from "@/components/ui/content-transitions";
 import {
-  HoverScale,
-  ButtonPulse,
-  AnimatedIcon,
-} from "@/components/ui/micro-interactions";
-import { Spinner } from "@/components/ui/loading-indicators";
+    Dialog,
+    DialogContent, DialogFooter, DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
 import { FloatingElements } from "@/components/ui/floating-elements";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/loading-indicators";
 import {
-  Trophy,
-  Star,
-  Award,
-  Target,
-  Search,
-  Filter,
-  SortDesc,
-  ShoppingCart,
-  Check,
-  AlertCircle,
-  ArrowLeft,
-  Sparkles,
-  Crown,
-  Medal,
-  Gift,
-  TrendingUp,
-  Clock,
-  Zap,
-  Heart,
+    HoverScale
+} from "@/components/ui/micro-interactions";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { getClientSession } from "@/lib/supabase/client";
+import {
+    AlertCircle, Award, Check, Crown, Gift, Search, ShoppingCart, SortDesc, Sparkles, Star, Target, Trophy
 } from "lucide-react";
-import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 
 interface StoreBadge {
   id: string;

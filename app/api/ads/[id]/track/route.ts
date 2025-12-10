@@ -1,5 +1,5 @@
-import { NextRequest } from "next/server";
 import { adsController } from "@/lib/controllers";
+import { NextRequest } from "next/server";
 
 export async function POST(
   request: NextRequest,

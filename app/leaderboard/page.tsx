@@ -1,22 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Calendar, Filter, User } from "lucide-react";
+import { AchievementBadges } from "@/components/leaderboard/achievement-badges";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard-table";
 import { TopPerformers } from "@/components/leaderboard/top-performers";
-import { AchievementBadges } from "@/components/leaderboard/achievement-badges";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { PageTransition } from "@/components/ui/page-transition";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
 import { StaggerContainer } from "@/components/ui/stagger-container";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar, Filter, Trophy, User } from "lucide-react";
+import { useEffect, useState } from "react";
 
 // Mock data for demonstration
 const generateMockUsers = (count: number, currentUserEmail?: string) => {

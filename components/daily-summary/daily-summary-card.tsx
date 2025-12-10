@@ -1,32 +1,18 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  MessageCircle,
-  Users,
-  Calendar,
-  Star,
-  Target,
-  ArrowRight,
-  Clock,
-  Award,
-  Lightbulb,
-  ChevronRight,
-  Settings,
-  RefreshCw,
-  Eye,
-  EyeOff,
-} from "lucide-react"
 import type { DailySummary } from "@/lib/ai-services/daily-summary-service"
 import { cn } from "@/lib/utils"
+import {
+    ArrowRight, Award, Calendar, ChevronRight, Clock, Eye,
+    EyeOff, Lightbulb, MessageCircle, Minus, RefreshCw, Settings, Star,
+    Target, TrendingDown, TrendingUp, Users
+} from "lucide-react"
+import { useState } from "react"
 
 interface DailySummaryCardProps {
   summary: DailySummary

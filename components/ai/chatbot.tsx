@@ -1,18 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
-  MessageCircle,
-  Send,
-  X,
-  Bot,
-  User,
-  Loader2,
-  ChevronDown,
+    Bot, ChevronDown, Loader2, MessageCircle,
+    Send, User, X
 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface Message {
   id: string;

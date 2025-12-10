@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { uploadBadgeImage } from "@/lib/supabase";
 import { getClientSession } from "@/lib/supabase/client";
-import { Upload, Loader2, AlertCircle, X } from "lucide-react";
+import { AlertCircle, Loader2, Upload, X } from "lucide-react";
+import { useState } from "react";
 
 interface BadgeImageUploadProps {
   onImageUrlChange: (url: string) => void;

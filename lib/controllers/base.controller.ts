@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { ServiceResult } from "@/lib/services/base.service";
 import { createServerClient } from "@/lib/supabase/server";
 import { User } from "@supabase/supabase-js";
-import { ServiceResult } from "@/lib/services/base.service";
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Standard API response structure

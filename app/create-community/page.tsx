@@ -1,29 +1,24 @@
 "use client"
 
-import type React from "react"
-import React, { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
-import { Label } from "@/components/ui/label"
-import {
-  Users,
-  Wand2,
-  Sparkles,
-  RefreshCw,
-  Copy,
-  Lightbulb,
-} from "lucide-react"
-import Link from "next/link"
 import { EnhanceContentButton } from "@/components/ai/enhance-content-button"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { PageTransition } from "@/components/ui/page-transition"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SmoothReveal } from "@/components/ui/smooth-reveal"
+import { Textarea } from "@/components/ui/textarea"
+import {
+    Copy,
+    Lightbulb, RefreshCw, Sparkles, Users,
+    Wand2
+} from "lucide-react"
+import { useRouter } from "next/navigation"
+import type React from "react"
+import { useState } from "react"
+import { toast } from "sonner"
 
 export default function CreateCommunityPage() {
   const router = useRouter()

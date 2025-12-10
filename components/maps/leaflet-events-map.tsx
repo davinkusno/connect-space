@@ -1,20 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  MapPin,
-  Navigation,
-  ZoomIn,
-  ZoomOut,
-  Layers,
-  RotateCcw,
-  Locate,
-  Search,
-  Calendar,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+    Calendar, Layers, Locate, MapPin,
+    Navigation, RotateCcw, Search, ZoomIn,
+    ZoomOut
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface Event {

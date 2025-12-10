@@ -4,8 +4,8 @@ import type React from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 
 interface StatItem {
   title: string;

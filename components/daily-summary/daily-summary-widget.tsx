@@ -1,14 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import type { DailySummary, SummaryPreferences } from "@/lib/ai-services/daily-summary-service"
+import { ChevronDown, ChevronUp, Settings, Star } from "lucide-react"
+import { useEffect, useState } from "react"
 import { DailySummaryCard } from "./daily-summary-card"
 import { SummaryPreferencesDialog } from "./summary-preferences-dialog"
-import { Star, Settings, ChevronDown, ChevronUp } from "lucide-react"
-import type { DailySummary, SummaryPreferences } from "@/lib/ai-services/daily-summary-service"
 
 interface DailySummaryWidgetProps {
   userId: string

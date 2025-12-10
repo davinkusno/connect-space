@@ -2,7 +2,7 @@
 
 import { AnimatedCard } from "@/components/ui/animated-card"
 import { AnimatedCounter } from "@/components/ui/animated-counter"
-import { Users, CheckCircle, Clock, TrendingUp } from "lucide-react"
+import { CheckCircle, Clock, TrendingUp, Users } from "lucide-react"
 
 export function SuperadminStats() {
   // Mock statistics data

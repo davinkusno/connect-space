@@ -2,12 +2,12 @@
 
 import React from "react"
 
-import { useState } from "react"
-import { AnimatedCard } from "@/components/ui/animated-card"
 import { AnimatedButton } from "@/components/ui/animated-button"
+import { AnimatedCard } from "@/components/ui/animated-card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { User, Edit3, Save, LogOut, CheckCircle, ArrowRight, Info } from "lucide-react"
+import { ArrowRight, CheckCircle, Edit3, Info, LogOut, Save, User } from "lucide-react"
+import { useState } from "react"
 
 const steps = [
   {

@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
-import { getSupabaseBrowser } from "@/lib/supabase/client"
-import { AnimatedCard } from "@/components/ui/animated-card"
 import { AnimatedButton } from "@/components/ui/animated-button"
+import { AnimatedCard } from "@/components/ui/animated-card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { getSupabaseBrowser } from "@/lib/supabase/client"
+import { AlertCircle, CheckCircle, XCircle } from "lucide-react"
+import { useState } from "react"
 
 interface TestResult {
   name: string

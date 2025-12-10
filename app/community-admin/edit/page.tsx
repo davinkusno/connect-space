@@ -1,18 +1,18 @@
 "use client"
 
-import { useEffect, useMemo, useState, useRef, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { FloatingElements } from "@/components/ui/floating-elements"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { PageTransition } from "@/components/ui/page-transition"
-import { FloatingElements } from "@/components/ui/floating-elements"
+import { getSupabaseBrowser } from "@/lib/supabase/client"
+import { ArrowLeft, Loader2, MapPin, Save, Search, Upload } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { MapPin, Save, Upload, ArrowLeft, Search, Loader2 } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { getSupabaseBrowser } from "@/lib/supabase/client"
 
 interface CommunityProfile {
   name: string

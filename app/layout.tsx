@@ -1,9 +1,9 @@
-import type React from "react";
-import type { Metadata } from "next";
-import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
-import { NavbarWrapper } from "@/components/navigation/navbar-wrapper";
 import { OnboardingGuard } from "@/components/auth/onboarding-guard";
+import { NavbarWrapper } from "@/components/navigation/navbar-wrapper";
+import { Toaster } from "@/components/ui/toaster";
+import type { Metadata } from "next";
+import type React from "react";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ConnectSpace",

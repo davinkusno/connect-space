@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { FadeTransition, SlideTransition } from "@/components/ui/content-transitions"
-import { HoverScale } from "@/components/ui/micro-interactions"
+import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/loading-indicators"
-import { Search, MapPin, Navigation, X, Clock } from "lucide-react"
+import { HoverScale } from "@/components/ui/micro-interactions"
 import { cn } from "@/lib/utils"
+import { Clock, MapPin, Navigation, Search, X } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 
 interface LocationResult {
   id: string

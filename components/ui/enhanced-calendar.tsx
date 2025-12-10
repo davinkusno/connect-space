@@ -1,29 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import {
-  format,
-  addMonths,
-  subMonths,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  parseISO,
-  isToday,
+    addMonths, eachDayOfInterval, endOfMonth, format, isSameDay, isSameMonth, isToday, parseISO, startOfMonth, subMonths
 } from "date-fns";
 import {
-  ChevronLeft,
-  ChevronRight,
-  CalendarIcon,
-  Clock,
-  MapPin,
-  Users,
+    CalendarIcon, ChevronLeft,
+    ChevronRight, Clock,
+    MapPin
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { AnimatedButton } from "./animated-button";
-import { AnimatedCard } from "./animated-card";
-import { Badge } from "./badge";
 
 // Sample event data
 const eventData = [

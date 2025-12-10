@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { User } from "@supabase/supabase-js";
-import { BaseController, ForbiddenError, ApiErrorResponse } from "./base.controller";
 import { adminService, AdminService } from "@/lib/services";
 import { ServiceResult } from "@/lib/services/base.service";
-import { Report, InactiveCommunity } from "@/lib/types";
+import { InactiveCommunity, Report } from "@/lib/types";
+import { User } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+import { ApiErrorResponse, BaseController, ForbiddenError } from "./base.controller";
 
 // ==================== Request Body Types ====================
 

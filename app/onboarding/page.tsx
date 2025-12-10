@@ -1,22 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tag, Sparkles, CheckCircle } from "lucide-react";
-import { toast } from "sonner";
-import { getClientSession } from "@/lib/supabase/client";
+import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
-import { FloatingElements } from "@/components/ui/floating-elements";
+import { getClientSession } from "@/lib/supabase/client";
+import { CheckCircle, Sparkles, Tag } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 
 // Interest categories

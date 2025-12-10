@@ -5,12 +5,10 @@ import { AnimatedCard } from "@/components/ui/animated-card";
 import { Badge } from "@/components/ui/badge";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import {
-  ArrowRight,
-  Sparkles,
-  Users,
-  Calendar,
-  Compass,
-  MessageCircle,
+    ArrowRight, Calendar,
+    Compass,
+    MessageCircle, Sparkles,
+    Users
 } from "lucide-react";
 import Link from "next/link";
 

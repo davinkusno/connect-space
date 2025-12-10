@@ -1,77 +1,48 @@
 "use client";
 
-import { use, useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { getClientSession, getSupabaseBrowser } from "@/lib/supabase/client";
 import {
-  MapPin,
-  Users,
-  Calendar,
-  MessageCircle,
-  Share2,
-  Bell,
-  UserPlus,
-  UserMinus,
-  ThumbsUp,
-  Reply,
-  Send,
-  ImageIcon,
-  Hash,
-  Settings,
-  Globe,
-  Lock,
-  Loader2,
-  ArrowLeft,
-  Crown,
-  Shield,
-  Star,
-  TrendingUp,
-  Clock,
-  X,
-  Trash2,
-  ChevronRight,
-  AlertTriangle,
-  Navigation,
+    ArrowLeft, Calendar, ChevronRight, Clock, Crown, Globe, Loader2, Lock, MapPin, MessageCircle, Navigation, Reply,
+    Send, Settings, Share2, Shield,
+    Star, Trash2, TrendingUp, UserMinus, UserPlus, Users
 } from "lucide-react";
-import Link from "next/link";
-import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
-import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
 import dynamic from "next/dynamic";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { use, useEffect, useState } from "react";
+import { toast } from "sonner";
 // import { FloatingChat } from "@/components/chat/floating-chat"; // Component not found
 import {
-  FadeTransition,
-  SlideTransition,
-  InViewTransition,
-} from "@/components/ui/content-transitions";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import {
-  ButtonPulse,
-  HoverScale,
+    SlideTransition
+} from "@/components/ui/content-transitions";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+import {
+    HoverScale
 } from "@/components/ui/micro-interactions";
 
 // Helper function to parse location and get readable string
@@ -101,9 +72,9 @@ const LeafletMap = dynamic(
   { ssr: false, loading: () => <div className="h-[400px] bg-gray-100 rounded-lg flex items-center justify-center">Loading map...</div> }
 );
 
-import { PaginationControls } from "@/components/ui/pagination-controls";
-import { ReportDialog } from "@/components/community/report-dialog";
 import { AdCarousel } from "@/components/community/ad-carousel";
+import { ReportDialog } from "@/components/community/report-dialog";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 
 export default function CommunityPage({
   params,

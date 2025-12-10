@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
 import { Button, type ButtonProps } from "@/components/ui/button"
-import { ContentEnhancerDialog } from "./content-enhancer-dialog"
-import { Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Sparkles } from "lucide-react"
+import { useState } from "react"
+import { ContentEnhancerDialog } from "./content-enhancer-dialog"
 
 interface EnhanceContentButtonProps extends ButtonProps {
   content: string

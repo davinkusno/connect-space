@@ -1,40 +1,34 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import dynamic from "next/dynamic";
-import { Card, CardContent } from "@/components/ui/card";
+import { Chatbot } from "@/components/ai/chatbot";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { FloatingElements } from "@/components/ui/floating-elements";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageTransition } from "@/components/ui/page-transition";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
 } from "@/components/ui/select";
-import {
-  Users,
-  MapPin,
-  Star,
-  Search,
-  ChevronRight,
-  ChevronLeft,
-  Map,
-  Calendar,
-  X,
-  Award,
-  CheckCircle2,
-  Clock,
-  UserPlus,
-} from "lucide-react";
-import Link from "next/link";
-import Image from "next/image";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { StaggerContainer } from "@/components/ui/stagger-container";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
+import type { Community } from "@/types/community";
+import {
+    Award, Calendar, CheckCircle2, ChevronLeft, ChevronRight, Clock, Search, Users, X
+} from "lucide-react";
+import dynamic from "next/dynamic";
+import Image from "next/image";
+import Link from "next/link";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 // Dynamic import for Leaflet map to avoid SSR issues
@@ -52,13 +46,6 @@ const LeafletCommunitiesMap = dynamic(
     ),
   }
 );
-import { AnimatedCounter } from "@/components/ui/animated-counter";
-import { FloatingElements } from "@/components/ui/floating-elements";
-import { PageTransition } from "@/components/ui/page-transition";
-import { PaginationControls } from "@/components/ui/pagination-controls";
-import React from "react";
-import type { Community } from "@/types/community";
-import { Chatbot } from "@/components/ai/chatbot";
 
 export default function DiscoverPage() {
   const [communities, setCommunities] = useState<Community[]>([]);

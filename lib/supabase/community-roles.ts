@@ -1,5 +1,5 @@
-import { createServerClient } from "./server";
 import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "./server";
 
 /**
  * Check if a user is admin of any community (server-side)

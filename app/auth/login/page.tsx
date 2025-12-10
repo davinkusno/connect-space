@@ -1,6 +1,6 @@
+import { LoginForm } from "@/components/auth/login-form"
 import { createServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { LoginForm } from "@/components/auth/login-form"
 
 export default async function LoginPage() {
   // Check if user is already logged in

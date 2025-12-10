@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import type { StoreBadge } from "@/app/superadmin/page"
-import { Eye, Edit, Trash2, Check, X, Gift } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Check, Edit, Eye, Gift, Trash2, X } from "lucide-react"
+import { useState } from "react"
 
 interface BadgeListProps {
   badges: StoreBadge[]

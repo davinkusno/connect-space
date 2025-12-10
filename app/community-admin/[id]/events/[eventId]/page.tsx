@@ -1,52 +1,31 @@
 "use client";
 
-import { use } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InteractiveLeafletMap } from "@/components/ui/interactive-leaflet-map";
-import { useState, useEffect } from "react";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle
 } from "@/components/ui/dialog";
-import { useRouter, usePathname } from "next/navigation";
-import Link from "next/link";
+import { InteractiveLeafletMap } from "@/components/ui/interactive-leaflet-map";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import {
-  MapPin,
-  Calendar,
-  Clock,
-  Users,
-  Heart,
-  ExternalLink,
-  User2,
-  ChevronRight,
-  ChevronLeft,
-  Ticket,
-  BookOpen,
-  Award,
-  Globe,
-  Sparkles,
-  Bookmark,
-  ArrowLeft,
-  Video,
-  Copy,
-  CheckCheck,
-  PenLine,
-  Check,
+    ArrowLeft, Award, Bookmark, BookOpen, Calendar, Check, Clock, Globe, Heart, MapPin, PenLine, User2, Users, Video
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { use, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 interface Event {

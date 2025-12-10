@@ -1,5 +1,5 @@
-import { createClient, SupabaseClient, User } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase/server";
+import { createClient, SupabaseClient, User } from "@supabase/supabase-js";
 
 /**
  * Base service class providing common database operations

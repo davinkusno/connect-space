@@ -1,13 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+    generateUniqueFilename, getStoragePath, isValidFileSize, isValidImageType, STORAGE_CONFIG
+} from "@/config/storage";
 import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
-import {
-  STORAGE_CONFIG,
-  getStoragePath,
-  generateUniqueFilename,
-  isValidImageType,
-  isValidFileSize,
-} from "@/config/storage";
+import { NextRequest, NextResponse } from "next/server";
 
 // Create Supabase client with service role key for storage operations
 const supabaseAdmin = createClient(

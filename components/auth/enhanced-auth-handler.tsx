@@ -2,10 +2,10 @@
 
 import type React from "react";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface AuthUser {
   id: string;

@@ -1,91 +1,30 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { getClientSession } from "@/lib/supabase/client";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageTransition } from "@/components/ui/page-transition";
-import { FloatingElements } from "@/components/ui/floating-elements";
-import { AnimatedCard } from "@/components/ui/animated-card";
+import { SuperAdminNav } from "@/components/navigation/superadmin-nav";
+import { AdsManagement } from "@/components/superadmin/ads-management";
 import { AnimatedButton } from "@/components/ui/animated-button";
+import { AnimatedCard } from "@/components/ui/animated-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent, DialogDescription,
+    DialogFooter, DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+import { FloatingElements } from "@/components/ui/floating-elements";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/loading-indicators";
+import { PageTransition } from "@/components/ui/page-transition";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Sparkles,
-  Shield,
-  Activity,
-  Users,
-  Clock,
-  Bell,
-  Settings,
-  Filter,
-  Download,
-  CalendarIcon,
-  FileText,
-  ShoppingBag,
-  Plus,
-  Search,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  TrendingUp,
-  TrendingDown,
-  Eye,
-  Zap,
-  UserCheck,
-  Ban,
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
-  RefreshCcw,
-  MessageSquare,
-  Star,
-  Edit,
-  Trash2,
-  Crown,
-  Trophy,
-  Award,
-  Gift,
-  Medal,
-  Heart,
-  Target,
-  Flame,
-  MessageCircle,
-  CalendarDays,
-  Megaphone,
+    Activity, AlertTriangle, Award, Ban, Bell, CalendarDays, CheckCircle2, ChevronLeft,
+    ChevronRight, Clock, Crown, Eye, FileText, Flame, Gift, Heart, Medal, Megaphone, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trophy, Users, XCircle
 } from "lucide-react";
-import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
-import { SuperAdminNav } from "@/components/navigation/superadmin-nav";
-import { AdsManagement } from "@/components/superadmin/ads-management";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 // Badge data types

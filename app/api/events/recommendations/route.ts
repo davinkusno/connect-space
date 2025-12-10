@@ -1,8 +1,8 @@
+import { HybridEventRecommendationEngine } from "@/lib/recommendation-engine/hybrid-event-recommender"
+import type { Event, User } from "@/lib/recommendation-engine/types"
+import { createServerClient } from "@/lib/supabase/server"
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
-import { HybridEventRecommendationEngine } from "@/lib/recommendation-engine/hybrid-event-recommender"
-import type { User, Event } from "@/lib/recommendation-engine/types"
 
 /**
  * @route GET /api/events/recommendations

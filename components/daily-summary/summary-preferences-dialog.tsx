@@ -1,31 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Settings,
-  Mail,
-  Bell,
-  Target,
-  Users,
-  Calendar,
-  MessageCircle,
-  TrendingUp,
-  Award,
-  Lightbulb,
-  X,
-} from "lucide-react"
 import type { SummaryPreferences } from "@/lib/ai-services/daily-summary-service"
+import {
+    Award, Bell, Calendar, Lightbulb, Mail, MessageCircle, Settings, Target, TrendingUp, Users, X
+} from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface SummaryPreferencesDialogProps {
   isOpen: boolean

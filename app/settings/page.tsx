@@ -1,41 +1,32 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { getSupabaseBrowser } from "@/lib/supabase/client"
-import { AnimatedCard } from "@/components/ui/animated-card"
-import { AnimatedButton } from "@/components/ui/animated-button"
-import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { PageTransition } from "@/components/ui/page-transition"
-import { FloatingElements } from "@/components/ui/floating-elements"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger
 } from "@/components/ui/alert-dialog"
-import {
-  Bell,
-  Shield,
-  Eye,
-  Trash2,
-  Key,
-  Smartphone,
-  Mail,
-  MessageSquare,
-  Users,
-  Calendar,
-  AlertTriangle,
-} from "lucide-react"
+import { AnimatedButton } from "@/components/ui/animated-button"
+import { AnimatedCard } from "@/components/ui/animated-card"
+import { Badge } from "@/components/ui/badge"
+import { FloatingElements } from "@/components/ui/floating-elements"
+import { Label } from "@/components/ui/label"
+import { PageTransition } from "@/components/ui/page-transition"
+import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
+import { getSupabaseBrowser } from "@/lib/supabase/client"
+import {
+    AlertTriangle, Bell, Calendar, Eye, Key, Mail,
+    MessageSquare, Shield, Smartphone, Trash2, Users
+} from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 
 interface UserSettings {
   notifications: {

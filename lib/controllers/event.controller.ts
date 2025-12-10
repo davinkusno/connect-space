@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { User } from "@supabase/supabase-js";
-import { BaseController, ApiErrorResponse } from "./base.controller";
 import { eventService, EventService } from "@/lib/services";
 import { ServiceResult } from "@/lib/services/base.service";
+import { User } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+import { ApiErrorResponse, BaseController } from "./base.controller";
 
 // ==================== Controller Response Types ====================
 

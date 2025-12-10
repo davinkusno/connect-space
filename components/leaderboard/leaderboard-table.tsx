@@ -1,31 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle
+} from "@/components/ui/card";
+import { LoadingSkeleton } from "@/components/ui/loading-indicators";
 import { Progress } from "@/components/ui/progress";
 import {
-  Trophy,
-  Medal,
-  Award,
-  TrendingUp,
-  Users,
-  Flame,
-  Star,
-  Crown,
-  Zap,
-  Eye,
-  MessageCircle,
+    Award, Crown, Eye, Flame, Medal, MessageCircle, Star, TrendingUp, Trophy, Users, Zap
 } from "lucide-react";
-import { LoadingSkeleton } from "@/components/ui/loading-indicators";
+import { useState } from "react";
 
 interface LeaderboardUser {
   id: number;

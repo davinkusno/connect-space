@@ -1,33 +1,20 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { 
-  Mail, 
-  Edit, 
-  Users, 
-  ChevronRight,
-  UserPlus,
-  Calendar,
-  Loader2,
-  Save,
-  X,
-  Star,
-  AlertTriangle,
-  FileText,
-  LayoutGrid
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { FloatingElements } from "@/components/ui/floating-elements"
+import { PageTransition } from "@/components/ui/page-transition"
+import { Textarea } from "@/components/ui/textarea"
+import { getSupabaseBrowser } from "@/lib/supabase/client"
+import {
+    AlertTriangle, Calendar, ChevronRight, Edit, FileText,
+    LayoutGrid, Loader2, Mail, Save, Star, UserPlus, Users, X
 } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
-import { cn } from "@/lib/utils"
-import { PageTransition } from "@/components/ui/page-transition"
-import { FloatingElements } from "@/components/ui/floating-elements"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { getSupabaseBrowser } from "@/lib/supabase/client"
-import { Textarea } from "@/components/ui/textarea"
 
 // Component to fetch and display event count
 function EventCount({ communityId }: { communityId?: string }) {

@@ -1,52 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FloatingElements } from "@/components/ui/floating-elements";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { PageTransition } from "@/components/ui/page-transition";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
-  Search,
-  HelpCircle,
-  MessageCircle,
-  Mail,
-  Phone,
-  BookOpen,
-  Video,
-  FileText,
-  ChevronRight,
-  ExternalLink,
-  CheckCircle,
-  AlertCircle,
-  Info,
-  Lightbulb,
-  User,
-  Users,
-  Settings,
-  Shield,
-  CreditCard,
-  Globe,
-  Smartphone,
-  Laptop,
-  Headphones,
-  Zap,
-  Star,
-  Heart,
-  Trophy,
-  Calendar,
-  MapPin,
-  Clock,
+    BookOpen, Calendar, ChevronRight, Clock, CreditCard, HelpCircle, Mail, MessageCircle, Search, Settings, User,
+    Users, Zap
 } from "lucide-react";
-import Link from "next/link";
-import { PageTransition } from "@/components/ui/page-transition";
-import { FloatingElements } from "@/components/ui/floating-elements";
+import { useState } from "react";
 
 const faqData = [
   {

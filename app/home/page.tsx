@@ -1,59 +1,35 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
-import { format, isSameDay } from "date-fns";
+import { Chatbot } from "@/components/ai/chatbot";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { EnhancedCalendar } from "@/components/ui/enhanced-calendar";
-import { NotificationModal } from "@/components/notifications/notification-modal";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
+    Card,
+    CardContent, CardDescription, CardHeader,
+    CardTitle
 } from "@/components/ui/card";
+import { EnhancedCalendar } from "@/components/ui/enhanced-calendar";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getSupabaseBrowser, getClientSession } from "@/lib/supabase/client";
+import { getClientSession, getSupabaseBrowser } from "@/lib/supabase/client";
+import { isSameDay } from "date-fns";
 import {
-  CalendarIcon,
-  Users,
-  MessageCircle,
-  Bell,
-  TrendingUp,
-  Plus,
-  Search,
-  Sparkles,
-  Star,
-  Compass,
-  ChevronRight,
-  BarChart3,
-  Calendar,
-  BookOpen,
-  Award,
-  Bookmark,
-  Clock,
-  MapPin,
-  Building2,
-  Crown,
-  UserPlus,
-  Lightbulb,
+    Award, BarChart3, Bookmark, BookOpen, Building2, Calendar, CalendarIcon, ChevronRight, Clock, Compass, Crown, MapPin, MessageCircle, Plus,
+    Search, Star, UserPlus, Users
 } from "lucide-react";
-import Link from "next/link";
 import Image from "next/image";
-import { PaginationControls } from "@/components/ui/pagination-controls";
-import { Chatbot } from "@/components/ai/chatbot";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 // Import new enhanced components
-import { EnhancedEventCard } from "@/components/dashboard/enhanced-event-card";
 
 interface Community {
   id: string;

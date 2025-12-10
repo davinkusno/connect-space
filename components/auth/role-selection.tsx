@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Users, Crown, ArrowRight, CheckCircle } from "lucide-react";
 import { AnimatedButton } from "@/components/ui/animated-button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
+import { ArrowRight, CheckCircle, Crown, Users } from "lucide-react";
 
 interface RoleSelectionProps {
   selectedRole: "user" | "community_admin" | null;

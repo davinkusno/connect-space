@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { User } from "@supabase/supabase-js";
-import { BaseController, ForbiddenError, ApiErrorResponse } from "./base.controller";
 import { userService, UserService } from "@/lib/services";
 import { ServiceResult } from "@/lib/services/base.service";
-import { UserType, ReputationLevel } from "@/lib/types";
+import { ReputationLevel, UserType } from "@/lib/types";
+import { User } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+import { ApiErrorResponse, BaseController, ForbiddenError } from "./base.controller";
 
 // ==================== Response Types ====================
 

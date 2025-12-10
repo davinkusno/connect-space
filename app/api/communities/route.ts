@@ -1,7 +1,7 @@
-import type { NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
-import { validateRequest, formatResponse, formatError } from "@/lib/api/utils"
 import { communityQuerySchema, createCommunitySchema } from "@/lib/api/types"
+import { formatError, formatResponse, validateRequest } from "@/lib/api/utils"
+import { createServerClient } from "@/lib/supabase/server"
+import type { NextRequest, NextResponse } from "next/server"
 
 /**
  * @route GET /api/communities

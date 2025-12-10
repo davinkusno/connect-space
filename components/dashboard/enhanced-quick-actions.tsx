@@ -2,11 +2,11 @@
 
 import type React from "react"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Zap, ArrowRight } from "lucide-react"
-import Link from "next/link"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { ArrowRight, Zap } from "lucide-react"
+import Link from "next/link"
 
 interface QuickAction {
   title: string

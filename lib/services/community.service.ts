@@ -1,17 +1,12 @@
 import {
-  BaseService,
-  ApiResponse,
-  ServiceResult,
-} from "./base.service";
-import {
-  Community,
-  CommunityLocation,
-  CommunityMember,
-  MemberRole,
-  MemberStatus,
-  User,
-  PaginatedResponse,
+    CommunityLocation,
+    CommunityMember,
+    MemberRole,
+    MemberStatus
 } from "@/lib/types";
+import {
+    ApiResponse, BaseService, ServiceResult
+} from "./base.service";
 
 // ==================== Community Service Types ====================
 

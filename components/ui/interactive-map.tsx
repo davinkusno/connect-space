@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { FadeTransition, SlideTransition } from "@/components/ui/content-transitions"
-import { HoverScale } from "@/components/ui/micro-interactions"
 import { Spinner } from "@/components/ui/loading-indicators"
-import { MapPin, Users, Calendar, Navigation, ZoomIn, ZoomOut, Layers, Filter, X, ChevronRight } from "lucide-react"
+import { HoverScale } from "@/components/ui/micro-interactions"
 import { cn } from "@/lib/utils"
+import { Calendar, ChevronRight, Filter, Layers, MapPin, Navigation, Users, X, ZoomIn, ZoomOut } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 interface Community {
   id: number

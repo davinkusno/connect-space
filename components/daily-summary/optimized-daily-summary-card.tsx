@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Star, TrendingUp, Target, ChevronDown, ChevronUp, Sparkles } from "lucide-react"
 import type { DailySummary } from "@/lib/ai-services/daily-summary-service"
+import { ChevronDown, ChevronUp, Sparkles, Star, Target, TrendingUp } from "lucide-react"
+import { useState } from "react"
 
 interface OptimizedDailySummaryCardProps {
   summary: DailySummary

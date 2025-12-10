@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { MapPin, Navigation, ZoomIn, ZoomOut, Layers, RotateCcw, Locate, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { toast } from "sonner"
 import type { Community } from "@/types/community"
+import { Layers, Locate, MapPin, Navigation, RotateCcw, Search, ZoomIn, ZoomOut } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
 
 interface LeafletCommunitiesMapProps {
   communities: Community[]

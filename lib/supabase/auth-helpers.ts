@@ -1,5 +1,5 @@
-import { getServerUser, getServerSession } from "./server"
 import { redirect } from "next/navigation"
+import { getServerSession, getServerUser } from "./server"
 
 export async function requireAuth() {
   const user = await getServerUser()

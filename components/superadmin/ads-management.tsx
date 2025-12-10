@@ -1,52 +1,44 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getClientSession } from "@/lib/supabase/client";
+import { AdImageUpload } from "@/components/superadmin/ad-image-upload";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { getClientSession } from "@/lib/supabase/client";
 import {
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  ExternalLink,
-  Loader2,
-  Image as ImageIcon,
-  Search,
-  X,
+    Edit, ExternalLink, Eye, Image as ImageIcon, Loader2, Plus, Search, Trash2, X
 } from "lucide-react";
 import Image from "next/image";
-import { AdImageUpload } from "@/components/superadmin/ad-image-upload";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 interface Ad {
   id: string;

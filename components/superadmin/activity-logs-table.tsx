@@ -2,21 +2,21 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AnimatedButton } from "@/components/ui/animated-button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Search, Filter, Eye, CheckCircle, XCircle, UserPlus, Settings, AlertTriangle, Calendar } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { AlertTriangle, Calendar, CheckCircle, Eye, Filter, Search, Settings, UserPlus, XCircle } from "lucide-react"
+import { useState } from "react"
 
 // Mock data for activity logs
 const mockActivityLogs = [

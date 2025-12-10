@@ -1,30 +1,21 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { 
-  UserPlus, 
-  CheckCircle, 
-  XCircle, 
-  Calendar as CalendarIcon,
-  ChevronDown,
-  Users,
-  Clock,
-  ArrowLeft,
-  Loader2,
-  Star,
-  AlertTriangle
-} from "lucide-react"
-import { format } from "date-fns"
-import { cn } from "@/lib/utils"
-import Link from "next/link"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import {
+    AlertTriangle, ArrowLeft, Calendar as CalendarIcon, CheckCircle, ChevronDown, Clock, Loader2,
+    Star, UserPlus, XCircle
+} from "lucide-react"
+import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 interface JoinRequest {

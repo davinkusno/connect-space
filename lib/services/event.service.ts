@@ -1,15 +1,9 @@
 import {
-  BaseService,
-  ApiResponse,
-  ServiceResult,
-} from "./base.service";
-import {
-  Event,
-  EventLocation,
-  EventAttendee,
-  AttendeeStatus,
-  Community,
+    AttendeeStatus, EventAttendee, EventLocation
 } from "@/lib/types";
+import {
+    ApiResponse, BaseService, ServiceResult
+} from "./base.service";
 
 // ==================== Event Service Types ====================
 

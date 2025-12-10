@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { getSupabaseBrowser } from "@/lib/supabase/client"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CheckCircle, XCircle, AlertCircle, User, UserCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { getSupabaseBrowser } from "@/lib/supabase/client"
+import { AlertCircle, CheckCircle, User, UserCircle, XCircle } from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface TestResult {
   name: string

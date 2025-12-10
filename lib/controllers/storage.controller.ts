@@ -1,15 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import { User } from "@supabase/supabase-js";
-import { BaseController, ForbiddenError, ApiErrorResponse } from "./base.controller";
-import { storageService, StorageService, adminService, userService } from "@/lib/services";
-import { ServiceResult } from "@/lib/services/base.service";
 import {
-  STORAGE_CONFIG,
-  getStoragePath,
-  generateProfileFilename,
-  getPublicUrl,
-  extractPathFromUrl,
+    extractPathFromUrl, generateProfileFilename
 } from "@/config/storage";
+import { adminService, storageService, StorageService, userService } from "@/lib/services";
+import { ServiceResult } from "@/lib/services/base.service";
+import { User } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+import { ApiErrorResponse, BaseController, ForbiddenError } from "./base.controller";
 
 // ==================== Response Types ====================
 

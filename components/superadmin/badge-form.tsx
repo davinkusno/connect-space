@@ -2,16 +2,15 @@
 
 import type React from "react";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { AnimatedButton } from "@/components/ui/animated-button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { AnimatedButton } from "@/components/ui/animated-button";
 import { Spinner } from "@/components/ui/loading-indicators";
-import { Trophy, Eye, Save, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Eye, Save, Trophy, X } from "lucide-react";
+import { useState } from "react";
 import { BadgeImageUpload } from "./badge-image-upload";
 
 export interface StoreBadge {

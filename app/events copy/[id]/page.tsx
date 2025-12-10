@@ -1,32 +1,14 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { InteractiveLeafletMap } from "@/components/ui/interactive-leaflet-map"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { CalendarIntegration } from "@/components/ui/calendar-integration"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { EventReviews } from "@/components/ui/event-reviews"
+import { InteractiveLeafletMap } from "@/components/ui/interactive-leaflet-map"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  MapPin,
-  Calendar,
-  Clock,
-  Users,
-  Heart,
-  Share2,
-  ExternalLink,
-  User2,
-  ChevronRight,
-  Star,
-  Ticket,
-  Wifi,
-  Coffee,
-  Car,
-  Camera,
-  Utensils,
-  Gift,
-  BookOpen,
-  Award,
-  Globe,
+    Award, BookOpen, Calendar, Camera, Car, ChevronRight, Clock, Coffee, ExternalLink, Gift, Globe, Heart, MapPin, Share2, Star,
+    Ticket, User2, Users, Utensils, Wifi
 } from "lucide-react"
 
 interface Event {

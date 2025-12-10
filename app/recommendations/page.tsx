@@ -1,42 +1,24 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { AnimatedCard } from "@/components/ui/animated-card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { Label } from "@/components/ui/label"
-import {
-  Sparkles,
-  Users,
-  Calendar,
-  FileText,
-  User,
-  TrendingUp,
-  MapPin,
-  Clock,
-  Star,
-  RefreshCw,
-  ChevronRight,
-  Bookmark,
-  Share2,
-  SlidersHorizontal,
-  Target,
-  Zap,
-  Brain,
-  ThumbsUp,
-  ThumbsDown,
-  X,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import Link from "next/link"
-import { AnimatedCard } from "@/components/ui/animated-card"
 import { SmoothReveal } from "@/components/ui/smooth-reveal"
 import { StaggerContainer } from "@/components/ui/stagger-container"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { cn } from "@/lib/utils"
+import {
+    Bookmark, Brain, Calendar, ChevronRight, Clock, FileText, MapPin, RefreshCw, Share2,
+    SlidersHorizontal, Sparkles, Star, Target, ThumbsDown, ThumbsUp, TrendingUp, User, Users, X, Zap
+} from "lucide-react"
+import Link from "next/link"
+import { useEffect, useState } from "react"
 
 interface Recommendation {
   id: string
