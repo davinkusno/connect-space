@@ -1,4 +1,4 @@
-import { getRedirectPath, hasAccess, type UserRole } from "@/lib/auth/rbac"
+import { getRedirectPath, hasAccess, type UserRole } from "@/lib/services/auth.service"
 import { isCreatorOrAdminOfCommunity } from "@/lib/supabase/community-roles"
 import { createServiceClient } from "@/lib/supabase/service"
 import { createServerClient } from "@supabase/ssr"

@@ -2,6 +2,7 @@ import { ServiceResult } from "@/lib/services/base.service";
 import { createServerClient } from "@/lib/supabase/server";
 import { User } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError, type ZodSchema } from "zod";
 
 /**
  * Standard API response structure
@@ -184,6 +185,79 @@ export abstract class BaseController {
   }
 
   /**
+   * Validate request body against a Zod schema
+   */
+  protected async validateBody<T>(
+    request: NextRequest,
+    schema: ZodSchema<T>
+  ): Promise<T> {
+    try {
+      const body = await request.json().catch(() => ({}));
+      return schema.parse(body);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new ValidationError("Invalid request data", error.format());
+      }
+      throw new BadRequestError("Failed to validate request data");
+    }
+  }
+
+  /**
+   * Validate query parameters against a Zod schema
+   */
+  protected validateQuery<T>(
+    request: NextRequest,
+    schema: ZodSchema<T>
+  ): T {
+    try {
+      const params = this.getQueryParams(request);
+      return schema.parse(params);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new ValidationError("Invalid query parameters", error.format());
+      }
+      throw new BadRequestError("Failed to validate query parameters");
+    }
+  }
+
+  /**
+   * Validate request (body for POST/PUT/PATCH, query for GET)
+   */
+  protected async validateRequest<T>(
+    request: NextRequest,
+    schema: ZodSchema<T>
+  ): Promise<T> {
+    if (request.method === "GET") {
+      return this.validateQuery(request, schema);
+    }
+    return this.validateBody(request, schema);
+  }
+
+  /**
+   * Parse path parameters from URL
+   * Example: /api/events/123 -> getPathParam(request, "events") returns "123"
+   */
+  protected getPathParam(request: NextRequest, afterSegment: string): string | null {
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const index = pathParts.findIndex((part) => part === afterSegment);
+
+    if (index !== -1 && index < pathParts.length - 1) {
+      return pathParts[index + 1];
+    }
+
+    return null;
+  }
+
+  /**
+   * Rate limiting check (placeholder - can be extended with Redis)
+   */
+  protected async checkRateLimit(_request: NextRequest): Promise<boolean> {
+    // Rate limiting disabled by default - implement with Redis if needed
+    return true;
+  }
+
+  /**
    * Handle controller errors uniformly
    */
   protected handleError(error: unknown): NextResponse<ApiErrorResponse> {
@@ -198,6 +272,19 @@ export abstract class BaseController {
     }
     if (error instanceof BadRequestError) {
       return this.badRequest(error.message);
+    }
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: error.message,
+            details: error.details,
+          },
+        },
+        { status: 400 }
+      );
     }
     if (error instanceof ConflictError) {
       return this.conflict(error.message);
@@ -262,5 +349,17 @@ export class ConflictError extends Error {
   constructor(message: string = "Resource conflict") {
     super(message);
     this.name = "ConflictError";
+  }
+}
+
+export class ValidationError extends Error {
+  public readonly statusCode: number = 400;
+  public readonly code: string = "VALIDATION_ERROR";
+  public readonly details: unknown;
+  
+  constructor(message: string = "Validation failed", details?: unknown) {
+    super(message);
+    this.name = "ValidationError";
+    this.details = details;
   }
 }

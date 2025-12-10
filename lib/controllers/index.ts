@@ -6,6 +6,7 @@ export {
   ForbiddenError,
   NotFoundError,
   UnauthorizedError,
+  ValidationError,
   type ApiErrorResponse,
   type ApiResponse,
   type ApiSuccessResponse,

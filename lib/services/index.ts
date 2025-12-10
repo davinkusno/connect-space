@@ -13,12 +13,30 @@ export {
 // Domain services (with database tables)
 export { AdminService, adminService } from "./admin.service";
 export { AdsService, adsService } from "./ads.service";
-export { AuthService, authService } from "./auth.service";
+export {
+  AuthService,
+  authService,
+  // Authorization exports (RBAC)
+  ROUTE_ACCESS_RULES,
+  ROLE_HIERARCHY,
+  DEFAULT_REDIRECT_PATHS,
+  hasAccess,
+  getRedirectPath,
+  needsOnboarding,
+  type UserRole,
+  type RouteConfig,
+  type AccessCheckResult,
+  type CommunityAccessResult,
+} from "./auth.service";
 export { CommunityService, communityService } from "./community.service";
 export { EventService, eventService } from "./event.service";
+export { PointsService, pointsService, POINT_VALUES, PointsHelper, type PointType, type PointTransaction, type UserReputation } from "./points.service";
 export { PostService, postService } from "./post.service";
 export { ReportService, reportService } from "./report.service";
 export { UserService, userService } from "./user.service";
+
+// Recommendation service
+export { RecommendationService, recommendationService } from "./recommendation.service";
 
 // Infrastructure services (external integrations)
 export { AIService, aiService } from "./ai.service";

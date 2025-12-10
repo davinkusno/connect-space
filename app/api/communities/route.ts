@@ -1,147 +1,128 @@
-import { communityQuerySchema, createCommunitySchema } from "@/lib/api/types"
-import { formatError, formatResponse, validateRequest } from "@/lib/api/utils"
-import { createServerClient } from "@/lib/supabase/server"
-import type { NextRequest, NextResponse } from "next/server"
+import { createServerClient } from "@/lib/supabase/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 
-/**
- * @route GET /api/communities
- * @description Get a list of communities with filtering and pagination
- * @access Public
- */
+const communityQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional().default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).optional().default(10),
+  search: z.string().optional(),
+  category: z.string().optional(),
+  sortBy: z.enum(["created_at", "name", "member_count"]).optional().default("created_at"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+const createCommunitySchema = z.object({
+  name: z.string().min(3).max(100),
+  description: z.string().min(10).max(1000),
+  category: z.string().optional(),
+  location: z.string().optional(),
+  logo_url: z.string().url().optional(),
+  banner_url: z.string().url().optional(),
+});
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
+    const url = new URL(req.url);
+    const params: Record<string, string> = {};
+    url.searchParams.forEach((value, key) => {
+      params[key] = value;
+    });
 
-    // Validate query parameters
-    const { success, data: query, error } = await validateRequest(req, communityQuerySchema)
-
-    if (!success) {
-      return formatError(error!.code, error!.message, error!.details)
+    const parsed = communityQuerySchema.safeParse(params);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Invalid query parameters" } },
+        { status: 400 }
+      );
     }
 
-    const { page = 1, pageSize = 10, search, category, sortBy = "created_at", sortOrder = "desc" } = query!
+    const { page = 1, pageSize = 10, search, category, sortBy = "created_at", sortOrder = "desc" } = parsed.data;
+    const supabase = await createServerClient();
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
-    const supabase = await createServerClient()
-
-    // Calculate pagination values
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
-
-    // Build the query
     let queryBuilder = supabase
       .from("communities")
-      .select(
-        `
-        *,
-        creator:creator_id(id, username, avatar_url),
-        members:community_members(count)
-      `,
-        { count: "exact" },
-      )
-      // Filter out suspended communities from public view
-      .or("status.is.null,status.eq.active")
+      .select(`*, creator:creator_id(id, username, avatar_url), members:community_members(count)`, { count: "exact" })
+      .or("status.is.null,status.eq.active");
 
-    // Apply filters
     if (search) {
-      queryBuilder = queryBuilder.or(`name.ilike.%${search}%,description.ilike.%${search}%`)
+      queryBuilder = queryBuilder.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
     }
-
     if (category) {
-      queryBuilder = queryBuilder.eq("category", category)
+      queryBuilder = queryBuilder.eq("category", category);
     }
 
-    // Apply sorting
     if (sortBy === "member_count") {
-      // For member_count sorting, we need a different approach
-      // This is a simplified version - in production, you might use a more optimized query
-      const { data: communities, count, error } = await queryBuilder.range(from, to)
-
+      const { data: communities, count, error } = await queryBuilder.range(from, to);
       if (error) {
-        return formatError("DATABASE_ERROR", "Failed to fetch communities", null, 500)
+        return NextResponse.json({ success: false, error: { code: "DATABASE_ERROR", message: "Failed to fetch communities" } }, { status: 500 });
       }
 
-      // Sort by member count manually
       const sortedCommunities = communities?.sort((a, b) => {
-        const countA = a.members?.length || 0
-        const countB = b.members?.length || 0
-        return sortOrder === "desc" ? countB - countA : countA - countB
-      })
+        const countA = a.members?.length || 0;
+        const countB = b.members?.length || 0;
+        return sortOrder === "desc" ? countB - countA : countA - countB;
+      });
 
-      return formatResponse(sortedCommunities, {
-        page,
-        pageSize,
-        totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      })
+      return NextResponse.json({
+        success: true,
+        data: sortedCommunities,
+        meta: { page, pageSize, totalCount: count || 0, totalPages: Math.ceil((count || 0) / pageSize) },
+      });
     } else {
-      // For other fields, we can use the built-in sorting
-      queryBuilder = queryBuilder.order(sortBy, { ascending: sortOrder === "asc" })
-
-      const { data: communities, count, error } = await queryBuilder.range(from, to)
-
+      queryBuilder = queryBuilder.order(sortBy, { ascending: sortOrder === "asc" });
+      const { data: communities, count, error } = await queryBuilder.range(from, to);
       if (error) {
-        return formatError("DATABASE_ERROR", "Failed to fetch communities", null, 500)
+        return NextResponse.json({ success: false, error: { code: "DATABASE_ERROR", message: "Failed to fetch communities" } }, { status: 500 });
       }
 
-      return formatResponse(communities, {
-        page,
-        pageSize,
-        totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      })
+      return NextResponse.json({
+        success: true,
+        data: communities,
+        meta: { page, pageSize, totalCount: count || 0, totalPages: Math.ceil((count || 0) / pageSize) },
+      });
     }
   } catch {
-    return formatError("SERVER_ERROR", "An unexpected error occurred", null, 500)
+    return NextResponse.json({ success: false, error: { code: "SERVER_ERROR", message: "An unexpected error occurred" } }, { status: 500 });
   }
 }
 
-/**
- * @route POST /api/communities
- * @description Create a new community
- * @access Private
- */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const supabase = await createServerClient()
-
-    // Check authentication
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    const supabase = await createServerClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
     if (!session) {
-      return formatError("UNAUTHORIZED", "Authentication required", null, 401)
+      return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } }, { status: 401 });
     }
 
-    // Validate request body
-    const { success, data: communityData, error } = await validateRequest(req, createCommunitySchema)
-
-    if (!success) {
-      return formatError(error!.code, error!.message, error!.details)
+    const body = await req.json().catch(() => ({}));
+    const parsed = createCommunitySchema.safeParse(body);
+    
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Invalid request data" } }, { status: 400 });
     }
 
-    // Create the community
     const { data: community, error: createError } = await supabase
       .from("communities")
-      .insert({
-        ...communityData,
-        creator_id: session.user.id,
-      })
+      .insert({ ...parsed.data, creator_id: session.user.id })
       .select()
-      .single()
+      .single();
 
     if (createError) {
-      return formatError("DATABASE_ERROR", "Failed to create community", null, 500)
+      return NextResponse.json({ success: false, error: { code: "DATABASE_ERROR", message: "Failed to create community" } }, { status: 500 });
     }
 
-    // Add creator as admin member with status = true (approved)
     await supabase.from("community_members").insert({
       community_id: community.id,
       user_id: session.user.id,
       role: "admin",
-      status: true, // Creator is automatically approved
-    })
+      status: true,
+    });
 
-    return formatResponse(community, undefined, 201)
+    return NextResponse.json({ success: true, data: community }, { status: 201 });
   } catch {
-    return formatError("SERVER_ERROR", "An unexpected error occurred", null, 500)
+    return NextResponse.json({ success: false, error: { code: "SERVER_ERROR", message: "An unexpected error occurred" } }, { status: 500 });
   }
 }
