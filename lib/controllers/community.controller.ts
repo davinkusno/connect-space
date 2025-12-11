@@ -368,6 +368,136 @@ export class CommunityController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  // ==================== Community CRUD ====================
+
+  /**
+   * POST /api/communities
+   * Create a new community
+   * @param request - The incoming request with community data
+   * @returns NextResponse with created community
+   */
+  public async createCommunity(
+    request: NextRequest
+  ): Promise<NextResponse<{ communityId: string; message: string } | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      const body = await this.parseBody<{
+        name: string;
+        description: string;
+        logoUrl?: string;
+        categoryName?: string;
+        location?: { lat: number; lng: number; address?: string; city?: string };
+      }>(request);
+
+      if (!body.name || !body.description) {
+        return this.badRequest("Name and description are required");
+      }
+
+      // Validate description length
+      const wordCount = body.description.trim().split(/\s+/).filter(word => word.length > 0).length;
+      if (wordCount > 500) {
+        return this.badRequest(`Description must be 500 words or less. Current: ${wordCount}`);
+      }
+
+      const result = await this.service.createCommunity(body, user.id);
+
+      if (result.success && result.data) {
+        return this.json({ communityId: result.data.id, message: "Community created successfully" }, 201);
+      }
+      
+      return this.error(result.error?.message || "Failed to create community", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/communities
+   * Get all communities with optional filters
+   * @param request - The incoming request with query params
+   * @returns NextResponse with communities list
+   */
+  public async getCommunities(
+    request: NextRequest
+  ): Promise<NextResponse<{ communities: unknown[]; total: number } | ApiErrorResponse>> {
+    try {
+      const { searchParams } = new URL(request.url);
+      const categoryId = searchParams.get("category") || undefined;
+      const search = searchParams.get("search") || undefined;
+      const limit = parseInt(searchParams.get("limit") || "20");
+      const offset = parseInt(searchParams.get("offset") || "0");
+
+      const result = await this.service.getCommunities({
+        categoryId,
+        search,
+        limit,
+        offset,
+      });
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+      
+      return this.error(result.error?.message || "Failed to fetch communities", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/communities/[id]
+   * Get a community by ID
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @returns NextResponse with community data
+   */
+  public async getCommunityById(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const result = await this.service.getCommunityById(communityId);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+      
+      return this.error(result.error?.message || "Community not found", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/communities/membership-status
+   * Get membership status for current user across multiple communities
+   * @param request - The incoming request with community IDs
+   * @returns NextResponse with membership status map
+   */
+  public async getMembershipStatus(
+    request: NextRequest
+  ): Promise<NextResponse<Record<string, string> | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      const { searchParams } = new URL(request.url);
+      const ids = searchParams.get("ids")?.split(",").filter(Boolean) || [];
+
+      if (ids.length === 0) {
+        return this.json({}, 200);
+      }
+
+      const result = await this.service.getMembershipStatus(user.id, ids);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+      
+      return this.error(result.error?.message || "Failed to fetch membership status", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

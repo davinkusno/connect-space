@@ -690,6 +690,212 @@ export class CommunityService extends BaseService {
       return typeof location === "string" ? location : "";
     }
   }
+
+  // ==================== Community CRUD ====================
+
+  /**
+   * Create a new community
+   * @param input - Community creation data
+   * @param userId - The user creating the community
+   * @returns ServiceResult containing the created community
+   */
+  public async createCommunity(
+    input: {
+      name: string;
+      description: string;
+      logoUrl?: string;
+      categoryName?: string;
+      location?: CommunityLocation;
+    },
+    userId: string
+  ): Promise<ServiceResult<CommunityData>> {
+    // Generate slug from name
+    const slug = input.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
+    // Find or create category
+    let categoryId: string | null = null;
+    if (input.categoryName) {
+      const { data: categoryData } = await this.supabaseAdmin
+        .from("categories")
+        .select("id")
+        .ilike("name", input.categoryName)
+        .maybeSingle();
+
+      if (categoryData) {
+        categoryId = categoryData.id;
+      } else {
+        // Create new category
+        const { data: newCategory } = await this.supabaseAdmin
+          .from("categories")
+          .insert({ name: input.categoryName })
+          .select("id")
+          .single();
+        
+        if (newCategory) {
+          categoryId = newCategory.id;
+        }
+      }
+    }
+
+    // Create community
+    const { data: community, error: communityError } = await this.supabaseAdmin
+      .from("communities")
+      .insert({
+        name: input.name,
+        description: input.description,
+        slug,
+        logo_url: input.logoUrl || null,
+        creator_id: userId,
+        member_count: 1,
+        category_id: categoryId,
+        location: input.location ? JSON.stringify(input.location) : null,
+      })
+      .select()
+      .single();
+
+    if (communityError) {
+      return ApiResponse.error(`Failed to create community: ${communityError.message}`, 500);
+    }
+
+    // Add creator as admin member
+    const { error: memberError } = await this.supabaseAdmin
+      .from("community_members")
+      .insert({
+        community_id: community.id,
+        user_id: userId,
+        role: "admin" as MemberRole,
+        status: "approved" as MemberStatus,
+      });
+
+    if (memberError) {
+      console.error("[CommunityService] Error adding creator as member:", memberError);
+    }
+
+    // Award points for creating community
+    await pointsService.onCommunityCreated(userId, community.id);
+
+    return ApiResponse.created<CommunityData>(community as CommunityData);
+  }
+
+  /**
+   * Get community by ID
+   * @param communityId - The community ID
+   * @returns ServiceResult containing the community data
+   */
+  public async getCommunityById(
+    communityId: string
+  ): Promise<ServiceResult<CommunityData>> {
+    const { data, error } = await this.supabaseAdmin
+      .from("communities")
+      .select(`
+        *,
+        creator:creator_id(id, full_name, username, avatar_url),
+        category:category_id(id, name)
+      `)
+      .eq("id", communityId)
+      .single();
+
+    if (error) {
+      return ApiResponse.notFound("Community");
+    }
+
+    return ApiResponse.success<CommunityData>(data as CommunityData);
+  }
+
+  /**
+   * Get all communities with optional filters
+   * @param options - Filter and pagination options
+   * @returns ServiceResult containing communities list
+   */
+  public async getCommunities(options?: {
+    categoryId?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ServiceResult<{ communities: CommunityData[]; total: number }>> {
+    let query = this.supabaseAdmin
+      .from("communities")
+      .select(`
+        *,
+        creator:creator_id(id, full_name, username, avatar_url),
+        category:category_id(id, name)
+      `, { count: "exact" });
+
+    if (options?.categoryId) {
+      query = query.eq("category_id", options.categoryId);
+    }
+
+    if (options?.search) {
+      query = query.or(`name.ilike.%${options.search}%,description.ilike.%${options.search}%`);
+    }
+
+    query = query.order("created_at", { ascending: false });
+
+    if (options?.limit) {
+      query = query.limit(options.limit);
+    }
+
+    if (options?.offset) {
+      query = query.range(options.offset, options.offset + (options?.limit || 20) - 1);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      return ApiResponse.error(`Failed to fetch communities: ${error.message}`, 500);
+    }
+
+    return ApiResponse.success({
+      communities: (data || []) as CommunityData[],
+      total: count || 0,
+    });
+  }
+
+  /**
+   * Get membership status for a user across multiple communities
+   * @param userId - The user ID
+   * @param communityIds - Array of community IDs to check
+   * @returns ServiceResult containing membership status map
+   */
+  public async getMembershipStatus(
+    userId: string,
+    communityIds: string[]
+  ): Promise<ServiceResult<Record<string, "approved" | "pending" | "none">>> {
+    if (communityIds.length === 0) {
+      return ApiResponse.success({});
+    }
+
+    const { data: memberships, error } = await this.supabaseAdmin
+      .from("community_members")
+      .select("community_id, status")
+      .eq("user_id", userId)
+      .in("community_id", communityIds);
+
+    if (error) {
+      return ApiResponse.error(`Failed to fetch membership status: ${error.message}`, 500);
+    }
+
+    const statusMap: Record<string, "approved" | "pending" | "none"> = {};
+    
+    // Initialize all as none
+    communityIds.forEach(id => {
+      statusMap[id] = "none";
+    });
+
+    // Update with actual status
+    (memberships || []).forEach((m: { community_id: string; status: string }) => {
+      if (m.status === "approved") {
+        statusMap[m.community_id] = "approved";
+      } else if (m.status === "pending") {
+        statusMap[m.community_id] = "pending";
+      }
+    });
+
+    return ApiResponse.success(statusMap);
+  }
 }
 
 // Export singleton instance

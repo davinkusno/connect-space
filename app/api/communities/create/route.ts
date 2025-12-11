@@ -1,6 +1,7 @@
 import {
     generateUniqueFilename, getStoragePath, isValidFileSize, isValidImageType, STORAGE_CONFIG
 } from "@/config/storage";
+import { communityController } from "@/lib/controllers";
 import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let profileImageUrl = null;
+    let profileImageUrl: string | undefined = undefined;
 
     // Handle profile image upload if provided (using service role for bypassing RLS)
     if (profileImage && profileImage.size > 0) {
@@ -106,99 +107,32 @@ export async function POST(request: NextRequest) {
       profileImageUrl = publicUrl;
     }
 
-    // Generate slug from name
-    const slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-
-    // Get category_id from first interest
-    let categoryId: string | null = null;
-    let categoryName: string = "General";
-    
+    // Get category name from interests
+    let categoryName: string | undefined = undefined;
     if (Array.isArray(interests) && interests.length > 0) {
       categoryName = interests[0];
-    } else if (typeof interests === 'string') {
+    } else if (typeof interests === "string") {
       categoryName = interests;
     }
 
-    console.log("[CREATE COMMUNITY] Looking up category:", categoryName);
-
-    // Try to find the category in the database (case-insensitive)
-    const { data: categoryData, error: categoryError } = await supabase
-      .from("categories")
-      .select("id, name")
-      .ilike("name", categoryName);
-    
-    console.log("[CREATE COMMUNITY] Category lookup result:", { categoryData, categoryError });
-    
-    if (categoryData && categoryData.length > 0) {
-      categoryId = categoryData[0].id;
-      console.log("[CREATE COMMUNITY] Found category_id:", categoryId);
-    } else {
-      // Log available categories for debugging
-      const { data: allCategories } = await supabase
-        .from("categories")
-        .select("id, name");
-      console.log("[CREATE COMMUNITY] Available categories in DB:", allCategories);
-      
-      // AUTO-CREATE the category if it doesn't exist
-      console.log("[CREATE COMMUNITY] Creating new category:", categoryName);
-      const { data: newCategory, error: createCatError } = await supabase
-        .from("categories")
-        .insert({ name: categoryName })
-        .select()
-        .single();
-      
-      if (newCategory && !createCatError) {
-        categoryId = newCategory.id;
-        console.log("[CREATE COMMUNITY] Created new category with id:", categoryId);
-      } else {
-        console.log("[CREATE COMMUNITY] Failed to create category:", createCatError);
-        console.log("[CREATE COMMUNITY] WARNING: Creating community without category_id");
-      }
-    }
-
-    // Create community in database
-    const { data: community, error: communityError } = await supabase
-      .from("communities")
-      .insert({
+    // Create community using the service (via controller logic)
+    // We create a synthetic request with JSON body for the controller
+    const jsonRequest = new NextRequest(request.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         name,
         description,
-        slug,
-        logo_url: profileImageUrl,
-        creator_id: user.id,
-        member_count: 1,
-        category_id: categoryId, // Use category_id foreign key
-      })
-      .select()
-      .single();
+        logoUrl: profileImageUrl,
+        categoryName,
+      }),
+    });
 
-    if (communityError) {
-      console.error("Error creating community:", communityError);
-      return NextResponse.json(
-        { error: "Failed to create community in database" },
-        { status: 500 }
-      );
-    }
+    // Use the controller to create the community
+    const result = await communityController.createCommunity(jsonRequest);
 
-    // Add creator as admin member with status = true (approved)
-    const { error: memberError } = await supabase
-      .from("community_members")
-      .insert({
-        community_id: community.id,
-        user_id: user.id,
-        role: "admin",
-        status: "approved", // Creator is automatically approved
-      });
-
-    if (memberError) {
-      console.error("Error adding creator as member:", memberError);
-      // Continue anyway, community is created
-    }
-
-    // Save all user interests to user_interests table
-    if (Array.isArray(interests) && interests.length > 0) {
+    // If successful, also save user interests
+    if (result.status === 201 && Array.isArray(interests) && interests.length > 0) {
       // Get all category IDs for the interests
       const { data: categoriesData } = await supabase
         .from("categories")
@@ -210,44 +144,30 @@ export async function POST(request: NextRequest) {
         const userInterests = categoriesData.map((cat, index) => ({
           user_id: user.id,
           category_id: cat.id,
-          weight: 1.0 - (index * 0.1), // Decreasing weight for each interest
+          weight: 1.0 - (index * 0.1),
         }));
 
-        const { error: interestsError } = await supabase
+        await supabase
           .from("user_interests")
           .upsert(userInterests, { onConflict: "user_id,category_id" });
-
-        if (interestsError) {
-          console.error("Error saving user interests:", interestsError);
-          // Continue anyway, community is created
-        }
       }
-    }
 
-    // Mark onboarding as completed (no need to set user_type anymore)
-    // User is now admin of this community via community_members table
-    const { error: userUpdateError } = await supabase
-      .from("users")
-      .update({
-        onboarding_completed: true,
-        role_selected: true,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
-
-    if (userUpdateError) {
-      console.error("Error updating user:", userUpdateError);
-      // Continue anyway, community is created
+      // Mark onboarding as completed
+      await supabase
+        .from("users")
+        .update({
+          onboarding_completed: true,
+          role_selected: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
     }
 
     // Revalidate paths
     revalidatePath("/communities");
     revalidatePath("/dashboard");
 
-    return NextResponse.json({
-      communityId: community.id,
-      message: "Community created successfully",
-    });
+    return result;
   } catch (error) {
     console.error("Error in community creation:", error);
     return NextResponse.json(

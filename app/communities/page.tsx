@@ -214,45 +214,45 @@ export default function DiscoverPage() {
   const processCommunitiesData = async (
     communitiesData: any[],
     user: any,
-    supabase: any
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _supabase: any
   ) => {
-    // Fetch membership status for current user if logged in
+    // Fetch membership status for current user via API
     const membershipStatusMap: Record<string, "joined" | "pending" | "not_joined"> = {};
+    
+    // Initialize all as not_joined
+    (communitiesData || []).forEach((comm: any) => {
+      membershipStatusMap[comm.id] = "not_joined";
+    });
+    
     if (user) {
       const communityIds = (communitiesData || []).map((c: any) => c.id);
       if (communityIds.length > 0) {
-        const { data: memberships } = await supabase
-          .from("community_members")
-          .select("community_id, status")
-          .eq("user_id", user.id)
-          .in("community_id", communityIds);
-        
-        // Initialize all as not_joined
-        communityIds.forEach((id: string) => {
-          membershipStatusMap[id] = "not_joined";
-        });
-        
-        // Check if user is creator
+        // Check if user is creator first
         (communitiesData || []).forEach((comm: any) => {
           if (comm.creator_id === user.id) {
             membershipStatusMap[comm.id] = "joined";
           }
         });
         
-        // Update based on memberships
-        (memberships || []).forEach((membership: any) => {
-          if (membership.status === "pending") {
-            membershipStatusMap[membership.community_id] = "pending";
-          } else if (membership.status === "approved") {
-            membershipStatusMap[membership.community_id] = "joined";
+        // Fetch membership status via API
+        try {
+          const response = await fetch(`/api/communities/membership-status?ids=${communityIds.join(",")}`);
+          if (response.ok) {
+            const statusData = await response.json();
+            // Update based on API response
+            Object.entries(statusData).forEach(([communityId, status]) => {
+              if (status === "approved") {
+                membershipStatusMap[communityId] = "joined";
+              } else if (status === "pending") {
+                membershipStatusMap[communityId] = "pending";
+              }
+            });
           }
-        });
+        } catch (error) {
+          console.error("Error fetching membership status:", error);
+        }
       }
-    } else {
-      // User not logged in - all communities are not_joined
-      (communitiesData || []).forEach((comm: any) => {
-        membershipStatusMap[comm.id] = "not_joined";
-      });
     }
     
     setMembershipStatus(membershipStatusMap);
