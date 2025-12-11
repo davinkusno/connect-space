@@ -116,10 +116,7 @@ export class AdminService extends BaseService {
       .from("reports")
       .select(`
         *,
-        reporter:reporter_id (id, full_name, avatar_url),
-        reported_user:reported_user_id (id, full_name, avatar_url),
-        reported_community:reported_community_id (id, name, logo_url),
-        reported_event:reported_event_id (id, title)
+        reporter:reporter_id (id, full_name, avatar_url)
       `, { count: "exact" })
       .order("created_at", { ascending: false });
 
@@ -133,8 +130,47 @@ export class AdminService extends BaseService {
       return ApiResponse.error("Failed to fetch reports", 500);
     }
 
+    // Enrich reports with target data based on report_type
+    const enrichedReports = await Promise.all(
+      (data || []).map(async (report: any) => {
+        let targetData: any = null;
+        
+        if (report.report_type === "community" && report.target_id) {
+          const { data: community } = await this.supabaseAdmin
+            .from("communities")
+            .select("id, name, logo_url")
+            .eq("id", report.target_id)
+            .single();
+          targetData = { reported_community: community };
+        } else if (report.report_type === "member" && report.target_id) {
+          const { data: user } = await this.supabaseAdmin
+            .from("users")
+            .select("id, full_name, avatar_url")
+            .eq("id", report.target_id)
+            .single();
+          targetData = { reported_user: user };
+        } else if (report.report_type === "event" && report.target_id) {
+          const { data: event } = await this.supabaseAdmin
+            .from("events")
+            .select("id, title")
+            .eq("id", report.target_id)
+            .single();
+          targetData = { reported_event: event };
+        } else if (report.report_type === "post" && report.target_id) {
+          const { data: post } = await this.supabaseAdmin
+            .from("discussion_threads")
+            .select("id, title")
+            .eq("id", report.target_id)
+            .single();
+          targetData = { reported_post: post };
+        }
+
+        return { ...report, ...targetData };
+      })
+    );
+
     return ApiResponse.success<ReportsResult>({
-      reports: (data || []) as ReportData[],
+      reports: enrichedReports as ReportData[],
       total: count || 0,
     });
   }
@@ -145,23 +181,53 @@ export class AdminService extends BaseService {
    * @returns ServiceResult containing report data
    */
   public async getReportById(reportId: string): Promise<ServiceResult<ReportData>> {
-    const { data, error } = await this.supabaseAdmin
+    const { data: report, error } = await this.supabaseAdmin
       .from("reports")
       .select(`
         *,
-        reporter:reporter_id (id, full_name, avatar_url, email),
-        reported_user:reported_user_id (id, full_name, avatar_url, email),
-        reported_community:reported_community_id (id, name, logo_url),
-        reported_event:reported_event_id (id, title)
+        reporter:reporter_id (id, full_name, avatar_url, email)
       `)
       .eq("id", reportId)
       .single();
 
-    if (error || !data) {
+    if (error || !report) {
       return ApiResponse.notFound("Report");
     }
 
-    return ApiResponse.success<ReportData>(data as ReportData);
+    // Enrich with target data based on report_type
+    let targetData: any = null;
+    
+    if (report.report_type === "community" && report.target_id) {
+      const { data: community } = await this.supabaseAdmin
+        .from("communities")
+        .select("id, name, logo_url")
+        .eq("id", report.target_id)
+        .single();
+      targetData = { reported_community: community };
+    } else if (report.report_type === "member" && report.target_id) {
+      const { data: user } = await this.supabaseAdmin
+        .from("users")
+        .select("id, full_name, avatar_url, email")
+        .eq("id", report.target_id)
+        .single();
+      targetData = { reported_user: user };
+    } else if (report.report_type === "event" && report.target_id) {
+      const { data: event } = await this.supabaseAdmin
+        .from("events")
+        .select("id, title")
+        .eq("id", report.target_id)
+        .single();
+      targetData = { reported_event: event };
+    } else if (report.report_type === "post" && report.target_id) {
+      const { data: post } = await this.supabaseAdmin
+        .from("discussion_threads")
+        .select("id, title")
+        .eq("id", report.target_id)
+        .single();
+      targetData = { reported_post: post };
+    }
+
+    return ApiResponse.success<ReportData>({ ...report, ...targetData } as ReportData);
   }
 
   /**
@@ -252,10 +318,10 @@ export class AdminService extends BaseService {
     const thresholdDate: Date = new Date();
     thresholdDate.setDate(thresholdDate.getDate() - this.INACTIVE_DAYS_THRESHOLD);
 
+    // Fetch communities with their last activity or created date
     const { data, error } = await this.supabaseAdmin
       .from("communities")
-      .select("id, name, creator_id, member_count, last_activity_date, status")
-      .or(`last_activity_date.lt.${thresholdDate.toISOString()},last_activity_date.is.null`)
+      .select("id, name, creator_id, member_count, last_activity_date, created_at, status")
       .neq("status", "suspended")
       .order("last_activity_date", { ascending: true, nullsFirst: true });
 
@@ -263,12 +329,24 @@ export class AdminService extends BaseService {
       return ApiResponse.error("Failed to fetch inactive communities", 500);
     }
 
-    const communities: InactiveCommunity[] = (data || []).map((c) => ({
-      ...c,
-      days_inactive: c.last_activity_date
-        ? Math.floor((Date.now() - new Date(c.last_activity_date).getTime()) / (1000 * 60 * 60 * 24))
-        : 999,
-    }));
+    // Filter and calculate days inactive
+    const communities: InactiveCommunity[] = (data || [])
+      .map((c) => {
+        // Use last_activity_date if available, otherwise use created_at
+        const lastActiveDate = c.last_activity_date || c.created_at;
+        const daysInactive = lastActiveDate
+          ? Math.floor((Date.now() - new Date(lastActiveDate).getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+        
+        return {
+          ...c,
+          // Store the actual date used for calculation
+          effective_last_activity: lastActiveDate,
+          days_inactive: daysInactive,
+        };
+      })
+      // Only include communities that are actually inactive (more than threshold days)
+      .filter((c) => c.days_inactive >= this.INACTIVE_DAYS_THRESHOLD);
 
     return ApiResponse.success<InactiveCommunity[]>(communities);
   }

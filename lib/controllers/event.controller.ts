@@ -24,6 +24,11 @@ interface SavedStatusResponse {
   saved: boolean;
 }
 
+interface SaveActionResponse {
+  message: string;
+  saved?: boolean;
+}
+
 // ==================== Event Controller Class ====================
 
 /**
@@ -200,15 +205,15 @@ export class EventController extends BaseController {
   public async saveEvent(
     request: NextRequest, 
     eventId: string
-  ): Promise<NextResponse<RsvpActionResponse | ApiErrorResponse>> {
+  ): Promise<NextResponse<SaveActionResponse | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      const result: ServiceResult<RsvpActionResponse> = 
+      const result: ServiceResult<SaveActionResponse> = 
         await this.service.saveEvent(eventId, user.id);
       
       if (result.success) {
-        return this.json<RsvpActionResponse>(
-          result.data as RsvpActionResponse, 
+        return this.json<SaveActionResponse>(
+          result.data as SaveActionResponse, 
           result.status
         );
       }
@@ -229,15 +234,15 @@ export class EventController extends BaseController {
   public async unsaveEvent(
     request: NextRequest, 
     eventId: string
-  ): Promise<NextResponse<RsvpActionResponse | ApiErrorResponse>> {
+  ): Promise<NextResponse<SaveActionResponse | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      const result: ServiceResult<RsvpActionResponse> = 
+      const result: ServiceResult<SaveActionResponse> = 
         await this.service.unsaveEvent(eventId, user.id);
       
       if (result.success) {
-        return this.json<RsvpActionResponse>(
-          result.data as RsvpActionResponse, 
+        return this.json<SaveActionResponse>(
+          result.data as SaveActionResponse, 
           result.status
         );
       }
@@ -296,7 +301,6 @@ export class EventController extends BaseController {
       return this.handleError(error);
     }
   }
-}
 
   /**
    * GET /api/events/batch-status

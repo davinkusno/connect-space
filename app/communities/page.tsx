@@ -214,8 +214,7 @@ export default function DiscoverPage() {
   const processCommunitiesData = async (
     communitiesData: any[],
     user: any,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _supabase: any
+    supabase: any
   ) => {
     // Fetch membership status for current user via API
     const membershipStatusMap: Record<string, "joined" | "pending" | "not_joined"> = {};

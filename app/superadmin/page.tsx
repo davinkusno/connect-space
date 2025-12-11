@@ -970,7 +970,26 @@ export default function SuperadminPage() {
         throw new Error("Failed to fetch inactive communities");
       }
       const data = await response.json();
-      setInactiveCommunities(data.communities || []);
+      
+      // Transform API response to match expected UI structure
+      const transformedCommunities = (data.communities || []).map((community: any) => ({
+        id: community.id,
+        communityId: community.id,
+        communityName: community.name || "Unknown Community",
+        category: community.category || "General",
+        memberCount: community.member_count || 0,
+        inactiveDays: community.days_inactive || 0,
+        // Use effective_last_activity which is the date used for calculation
+        lastActivity: community.effective_last_activity || community.last_activity_date || community.created_at,
+        status: community.status || "active",
+        admin: {
+          name: "Community Admin",
+          email: "admin@example.com",
+        },
+        _originalCommunity: community,
+      }));
+      
+      setInactiveCommunities(transformedCommunities);
     } catch (error) {
       console.error("Error fetching inactive communities:", error);
       toast.error("Failed to load inactive communities");
@@ -989,7 +1008,38 @@ export default function SuperadminPage() {
           throw new Error("Failed to fetch reports");
         }
         const data = await response.json();
-        setReportedCommunities(data.reports || []);
+        
+        // Transform API response to match expected UI structure
+        const transformedReports = (data.reports || []).map((report: any) => ({
+          id: report.id,
+          communityId: report.target_id,
+          communityName: report.reported_community?.name || report.reported_user?.full_name || report.reported_event?.title || "Unknown",
+          category: report.report_type,
+          reportCount: 1,
+          lastReportDate: report.created_at,
+          status: report.status,
+          communityStatus: report.status === "resolved" ? "active" : "active",
+          reports: [{
+            reportedBy: report.reporter?.id,
+            reporterName: report.reporter?.full_name || "Unknown",
+            reason: report.reason,
+            description: report.details || report.reason,
+            reportDate: report.created_at,
+          }],
+          communityDetails: {
+            memberCount: 0,
+            createdAt: report.created_at,
+            lastActivity: report.updated_at || report.created_at,
+            admin: {
+              name: report.reporter?.full_name || "Unknown",
+              email: report.reporter?.email || "unknown@example.com",
+            },
+          },
+          // Keep original data for reference
+          _originalReport: report,
+        }));
+        
+        setReportedCommunities(transformedReports);
       } catch (error) {
         console.error("Error fetching reports:", error);
         toast.error("Failed to load reports");
