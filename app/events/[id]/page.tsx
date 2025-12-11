@@ -248,7 +248,7 @@ export default function EventDetailsPage({
 
           // Check if event is saved
           const { data: savedData, error: savedError } = await supabase
-            .from("event_save")
+            .from("saved_events")
             .select("id")
             .eq("event_id", id)
             .eq("user_id", user.id)

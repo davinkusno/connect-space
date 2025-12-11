@@ -10,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { getClientSession, getSupabaseBrowser } from "@/lib/supabase/client";
 import {
-    ArrowLeft, Calendar, ChevronRight, Clock, Crown, Globe, Loader2, MapPin, MessageCircle, Navigation, Reply,
-    Send, Settings, Share2, Shield,
+    AlertTriangle, ArrowLeft, Calendar, ChevronRight, Clock, Crown, Globe, Loader2, MapPin, MessageCircle, Navigation, Reply,
+    Send, Settings, Shield,
     Star, Trash2, TrendingUp, UserMinus, UserPlus, Users
 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -127,7 +127,6 @@ export default function CommunityPage({
   const [showReplies, setShowReplies] = useState<Record<string, boolean>>({});
 
   // Additional UI states
-  const [showShareOptions, setShowShareOptions] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Load community data from database
@@ -965,38 +964,16 @@ export default function CommunityPage({
               
                     <Button
                       variant="outline"
-                className="border-gray-200 hover:bg-gray-50"
-                onClick={async () => {
-                  const url = window.location.href;
-                  try {
-                    if (navigator.share) {
-                      await navigator.share({
-                        title: community.name,
-                        text: `Check out ${community.name} on ConnectSpace!`,
-                        url: url,
-                      });
-                      toast.success("Shared successfully!");
-                    } else {
-                      // Fallback: Copy to clipboard
-                      await navigator.clipboard.writeText(url);
-                      toast.success("Link copied to clipboard!");
-                    }
-                  } catch (error: any) {
-                    // User cancelled or error occurred
-                    if (error.name !== "AbortError") {
-                      // Fallback: Copy to clipboard
-                      try {
-                        await navigator.clipboard.writeText(url);
-                        toast.success("Link copied to clipboard!");
-                      } catch (clipboardError) {
-                        toast.error("Failed to share. Please copy the URL manually.");
-                      }
-                    }
-                  }
+                className="border-red-200 hover:bg-red-50 text-red-600"
+                onClick={() => {
+                  setReportType("community");
+                  setReportTargetId(community.id);
+                  setReportTargetName(community.name);
+                  setReportDialogOpen(true);
                 }}
               >
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Report
                     </Button>
                 </div>
           </div>

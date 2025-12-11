@@ -124,7 +124,7 @@ export class UserController extends BaseController {
       const data: UserPointsSummary = result.data as UserPointsSummary;
       const response: TransactionsResponse = {
         transactions: [],
-        total: data.total_points || 0,
+        total: data.activity_count || 0,
       };
 
       return this.json<TransactionsResponse>(response);

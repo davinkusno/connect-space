@@ -29,8 +29,8 @@ interface JoinRequest {
   message?: string
   userBio?: string
   joinReason?: string
-  points?: number        // User's activity points
-  report_count?: number  // Number of reports (separate from points)
+  activity_count?: number  // Count of positive activities
+  report_count?: number    // Count of reports (separate from activities)
 }
 
 export default function CommunityAdminRequestsPage({
@@ -105,22 +105,22 @@ export default function CommunityAdminRequestsPage({
       // Fetch user points for each user
       const { data: userPointsData } = await supabase
         .from("user_points")
-        .select("user_id, points, point_type")
+        .select("user_id, point_type")
         .in("user_id", userIds)
 
-      // Sum points and count reports per user (keep separate - don't combine)
-      const userStatsMap: Record<string, { points: number; report_count: number }> = {}
+      // Count activities and reports per user (keep separate - don't combine)
+      const userStatsMap: Record<string, { activity_count: number; report_count: number }> = {}
       if (userPointsData) {
         userPointsData.forEach((record: any) => {
           if (!userStatsMap[record.user_id]) {
-            userStatsMap[record.user_id] = { points: 0, report_count: 0 }
+            userStatsMap[record.user_id] = { activity_count: 0, report_count: 0 }
           }
           if (record.point_type === 'report_received') {
-            // Count reports separately (don't subtract from points)
+            // Count reports separately
             userStatsMap[record.user_id].report_count += 1
-          } else if (record.points > 0) {
-            // Sum positive points for activity
-            userStatsMap[record.user_id].points += record.points
+          } else {
+            // Count positive activities
+            userStatsMap[record.user_id].activity_count += 1
           }
         })
       }
@@ -129,7 +129,7 @@ export default function CommunityAdminRequestsPage({
       const joinRequests: JoinRequest[] = requestsData.map((request: any) => {
         const user = usersData?.find((u: any) => u.id === request.user_id)
         const status = request.status === false ? "pending" : request.status === true ? "approved" : "rejected"
-        const stats = userStatsMap[request.user_id] || { points: 0, report_count: 0 }
+        const stats = userStatsMap[request.user_id] || { activity_count: 0, report_count: 0 }
         
         return {
           id: request.id,
@@ -140,7 +140,7 @@ export default function CommunityAdminRequestsPage({
           requestedAt: request.joined_at,
           status: status as "pending" | "approved" | "rejected",
           userBio: user?.bio || undefined,
-          points: stats.points,
+          activity_count: stats.activity_count,
           report_count: stats.report_count
         }
       })
@@ -544,15 +544,13 @@ export default function CommunityAdminRequestsPage({
                             {format(new Date(request.requestedAt), "MMM dd, yyyy 'at' h:mm a")}
                             </div>
                             <div className="flex items-center gap-1">
-                              <Star className="w-3 h-3 text-purple-500 fill-purple-500" />
-                              <span className="text-xs font-medium text-purple-600">{request.points || 0} pts</span>
+                              <Star className="w-3 h-3 text-green-500 fill-green-500" />
+                              <span className="text-xs font-medium text-green-600">{request.activity_count || 0} {(request.activity_count || 0) === 1 ? 'activity' : 'activities'}</span>
                             </div>
-                            {(request.report_count ?? 0) > 0 && (
-                              <div className="flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3 text-red-500" />
-                                <span className="text-xs font-medium text-red-600">{request.report_count} {request.report_count === 1 ? 'report' : 'reports'}</span>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-1">
+                              <AlertTriangle className={`w-3 h-3 ${(request.report_count ?? 0) > 0 ? 'text-red-500' : 'text-gray-300'}`} />
+                              <span className={`text-xs font-medium ${(request.report_count ?? 0) > 0 ? 'text-red-600' : 'text-gray-400'}`}>{request.report_count || 0} {(request.report_count || 0) === 1 ? 'report' : 'reports'}</span>
+                            </div>
                           </div>
                         </div>
                       </div>

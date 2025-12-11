@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import {
-    Award, Calendar, Camera, Edit3, Mail,
+    AlertTriangle, Award, Calendar, Camera, Edit3, Mail,
     MapPin, Plus, Save, User, X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -39,7 +39,6 @@ interface UserProfile {
     location_city_name?: string;
     location_province?: string;
     interests?: string[];
-    points?: number;
   };
 }
 
@@ -55,7 +54,8 @@ export default function ProfilePage() {
     username: "",
     interests: [] as string[],
   });
-  const [points, setPoints] = useState(0);
+  const [activityCount, setActivityCount] = useState(0);
+  const [reportCount, setReportCount] = useState(0);
   const [selectedInterest, setSelectedInterest] = useState("");
   
   // Available categories for interests
@@ -106,18 +106,21 @@ export default function ProfilePage() {
           interests: metadata.interests || ["Technology", "Community", "Networking"],
         });
         
-        // Fetch real points from API
+        // Fetch activity and report counts from API
         try {
           const pointsResponse = await fetch("/api/user/points");
           if (pointsResponse.ok) {
             const pointsData = await pointsResponse.json();
-            setPoints(pointsData.total || 0);
+            setActivityCount(pointsData.activity_count || 0);
+            setReportCount(pointsData.report_count || 0);
           } else {
-            setPoints(0);
+            setActivityCount(0);
+            setReportCount(0);
           }
         } catch (error) {
-          console.error("Error fetching points:", error);
-          setPoints(0);
+          console.error("Error fetching activity:", error);
+          setActivityCount(0);
+          setReportCount(0);
         }
         
         // Load location from metadata
@@ -220,7 +223,6 @@ export default function ProfilePage() {
           location_city_name: selectedLocation?.name || null,
           location_province: selectedLocation?.id_provinsi || null,
           interests: formData.interests,
-          points: points,
         },
       });
 
@@ -241,7 +243,6 @@ export default function ProfilePage() {
                 location_city_name: selectedLocation?.name || null,
                 location_province: selectedLocation?.id_provinsi || null,
                 interests: formData.interests,
-                points: points,
               },
             }
           : null
@@ -276,7 +277,7 @@ export default function ProfilePage() {
           user.user_metadata?.username || user.email?.split("@")[0] || "",
         interests: user.user_metadata?.interests || ["Technology", "Community", "Networking"],
       });
-      setPoints(user.user_metadata?.points || 1250);
+      // Activity counts are fetched from API, not user metadata
       
       // Reset location
       if (user.user_metadata?.location_city) {
@@ -694,18 +695,38 @@ export default function ProfilePage() {
                     </Badge>
                   </div>
 
-                  {/* Points */}
-                  <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200">
-                    <div className="flex items-center justify-center gap-3">
-                      <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
-                        <Award className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-purple-900">
-                          {points.toLocaleString()}
+                  {/* Activity Stats - Stacked */}
+                  <div className="mb-6 space-y-3">
+                    {/* Activities */}
+                    <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Award className="h-5 w-5 text-white" />
                         </div>
-                        <div className="text-xs text-purple-600 font-medium">
-                          Total Points
+                        <div className="flex-1">
+                          <div className="text-xs text-green-600 font-medium">
+                            Activities
+                          </div>
+                          <div className="text-xl font-bold text-green-900">
+                            {activityCount.toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Reports */}
+                    <div className={`p-3 rounded-xl border ${reportCount > 0 ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 ${reportCount > 0 ? 'bg-red-500' : 'bg-gray-300'} rounded-full flex items-center justify-center flex-shrink-0`}>
+                          <AlertTriangle className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className={`text-xs font-medium ${reportCount > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                            Reports
+                          </div>
+                          <div className={`text-xl font-bold ${reportCount > 0 ? 'text-red-900' : 'text-gray-400'}`}>
+                            {reportCount}
+                          </div>
                         </div>
                       </div>
                     </div>

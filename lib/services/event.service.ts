@@ -329,7 +329,7 @@ export class EventService extends BaseService {
   ): Promise<ServiceResult<InterestResult>> {
     // Check if already saved
     const { data: existing } = await this.supabaseAdmin
-      .from("event_save")
+      .from("saved_events")
       .select("id")
       .eq("event_id", eventId)
       .eq("user_id", userId)
@@ -340,7 +340,7 @@ export class EventService extends BaseService {
     }
 
     const { error } = await this.supabaseAdmin
-      .from("event_save")
+      .from("saved_events")
       .insert({ event_id: eventId, user_id: userId });
 
     if (error) {
@@ -361,7 +361,7 @@ export class EventService extends BaseService {
     userId: string
   ): Promise<ServiceResult<InterestResult>> {
     const { error } = await this.supabaseAdmin
-      .from("event_save")
+      .from("saved_events")
       .delete()
       .eq("event_id", eventId)
       .eq("user_id", userId);
@@ -382,7 +382,7 @@ export class EventService extends BaseService {
     userId: string
   ): Promise<ServiceResult<SavedEventResult[]>> {
     const { data: savedRecords, error: savedError } = await this.supabaseAdmin
-      .from("event_save")
+      .from("saved_events")
       .select("event_id, saved_at")
       .eq("user_id", userId)
       .order("saved_at", { ascending: false });
@@ -458,7 +458,7 @@ export class EventService extends BaseService {
     userId: string
   ): Promise<ServiceResult<boolean>> {
     const { data } = await this.supabaseAdmin
-      .from("event_save")
+      .from("saved_events")
       .select("id")
       .eq("event_id", eventId)
       .eq("user_id", userId)

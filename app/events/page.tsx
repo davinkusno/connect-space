@@ -175,7 +175,7 @@ export default function EventsPage() {
           
           // Fetch saved events
           const { data: savedEventsData } = await supabase
-            .from("event_save")
+            .from("saved_events")
             .select("event_id")
             .eq("user_id", user.id)
             .in("event_id", eventIds);
@@ -236,7 +236,7 @@ export default function EventsPage() {
       }
 
       const { data, error } = await supabase
-        .from("event_save")
+        .from("saved_events")
         .select("event_id")
         .eq("user_id", user.id);
 
@@ -432,7 +432,7 @@ export default function EventsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data } = await supabase
-          .from("event_save")
+          .from("saved_events")
           .select("event_id")
           .eq("user_id", user.id);
         setSavedEvents(data?.map((item) => item.event_id) || []);
@@ -470,7 +470,7 @@ export default function EventsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data } = await supabase
-          .from("event_save")
+          .from("saved_events")
           .select("event_id")
           .eq("user_id", user.id);
         setSavedEvents(data?.map((item) => item.event_id) || []);

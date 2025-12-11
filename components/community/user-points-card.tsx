@@ -15,8 +15,8 @@ import {
 import { useEffect, useState } from "react";
 
 interface UserPointsSummary {
-  total_points: number;
-  report_count: number;
+  activity_count: number;   // Count of positive activities
+  report_count: number;     // Count of reports (separate from activities)
   posts_created: number;
   events_joined: number;
   communities_joined: number;
@@ -84,16 +84,14 @@ export function UserPointsCard({
   if (compact) {
     return (
       <div className={cn("flex items-center gap-2", className)}>
-        <Badge className="bg-purple-100 text-purple-700">
+        <Badge className="bg-green-100 text-green-700">
           <Star className="h-3 w-3 mr-1" />
-          {points.total_points} pts
+          {points.activity_count} {points.activity_count === 1 ? 'activity' : 'activities'}
         </Badge>
-        {points.report_count > 0 && (
-          <Badge variant="outline" className="text-red-600 border-red-300">
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            {points.report_count} reports
-          </Badge>
-        )}
+        <Badge variant="outline" className={points.report_count > 0 ? "text-red-600 border-red-300" : "text-gray-400 border-gray-200"}>
+          <AlertTriangle className="h-3 w-3 mr-1" />
+          {points.report_count} {points.report_count === 1 ? 'report' : 'reports'}
+        </Badge>
       </div>
     );
   }
@@ -101,20 +99,20 @@ export function UserPointsCard({
   return (
     <Card className={cn("border-gray-200", className)}>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg font-semibold">User Points</CardTitle>
+        <CardTitle className="text-lg font-semibold">User Activity</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Points and Reports - Shown Separately */}
+        {/* Activities and Reports - Shown Separately */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 bg-purple-50 rounded-lg">
+          <div className="p-3 bg-green-50 rounded-lg">
             <div className="flex items-center gap-2 mb-1">
-              <Star className="h-4 w-4 text-purple-600" />
+              <Star className="h-4 w-4 text-green-600" />
               <span className="text-sm font-medium text-gray-700">
-                Activity Points
+                Activities
               </span>
             </div>
-            <p className="text-2xl font-bold text-purple-600">
-              {points.total_points}
+            <p className="text-2xl font-bold text-green-600">
+              {points.activity_count}
             </p>
           </div>
 

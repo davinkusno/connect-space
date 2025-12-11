@@ -43,8 +43,8 @@ export type PointSource =
   | "referral";
 
 export interface UserPointsSummary {
-  total_points: number;      // Total activity points (positive only)
-  report_count: number;      // Number of reports received (separate, not subtracted)
+  activity_count: number;    // Count of positive activities (+1 each)
+  report_count: number;      // Count of reports received (separate, not combined)
   posts_created: number;
   events_joined: number;
   communities_joined: number;
@@ -123,8 +123,8 @@ export interface JoinRequest {
   message?: string;
   created_at: string;
   user?: User;
-  points?: number;        // User's activity points
-  report_count?: number;  // Number of reports received (separate from points)
+  activity_count?: number;  // Count of positive activities
+  report_count?: number;    // Count of reports received (separate from activities)
 }
 
 // ==================== Event Types ====================

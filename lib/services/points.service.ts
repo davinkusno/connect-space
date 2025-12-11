@@ -22,8 +22,8 @@ export interface PointTransaction {
 }
 
 export interface UserPointsSummary {
-  total_points: number;      // Total activity points (positive only)
-  report_count: number;      // Number of reports received (separate, not subtracted)
+  activity_count: number;    // Count of positive activities (+1 each)
+  report_count: number;      // Count of reports received (separate, not combined)
   posts_created: number;
   events_joined: number;
   communities_joined: number;
@@ -35,17 +35,17 @@ export interface UserPointsSummary {
 export class PointsService extends BaseService {
   private static instance: PointsService;
 
-  // Point values for different activities
+  // Point values for different activities (+1 for each positive activity)
   public readonly POINT_VALUES = {
-    post_created: 10,
-    post_liked: 2,
-    event_joined: 15,
-    event_created: 20,
-    community_joined: 25,
-    community_created: 50,
-    daily_active: 5,
-    report_received: -50,
-    report_resolved: 10,
+    post_created: 1,
+    post_liked: 1,
+    event_joined: 1,
+    event_created: 1,
+    community_joined: 1,
+    community_created: 1,
+    daily_active: 1,
+    report_received: 1,  // Stored as separate count, not subtracted
+    report_resolved: 1,
   } as const;
 
   private constructor() {
@@ -60,10 +60,26 @@ export class PointsService extends BaseService {
   }
 
   /**
-   * Award points to a user
+   * Award points to a user (with duplicate prevention for related entities)
    */
   public async awardPoints(transaction: PointTransaction): Promise<ServiceResult<void>> {
     const supabase = this.supabaseAdmin;
+
+    // Check for duplicate if there's a related_id (prevent double-counting)
+    if (transaction.related_id) {
+      const { data: existing } = await supabase
+        .from("user_points")
+        .select("id")
+        .eq("user_id", transaction.user_id)
+        .eq("point_type", transaction.point_type)
+        .eq("related_id", transaction.related_id)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        console.log(`[PointsService] Skipping duplicate: ${transaction.point_type} for user ${transaction.user_id}`);
+        return ApiResponse.success(undefined); // Already awarded, skip
+      }
+    }
 
     const { error } = await supabase.from("user_points").insert({
       user_id: transaction.user_id,
@@ -75,9 +91,11 @@ export class PointsService extends BaseService {
     });
 
     if (error) {
+      console.error(`[PointsService] Failed to award points:`, error);
       return ApiResponse.error(`Failed to award points: ${error.message}`, 500);
     }
 
+    console.log(`[PointsService] Awarded ${transaction.point_type} to user ${transaction.user_id}`);
     return ApiResponse.success(undefined);
   }
 
@@ -101,15 +119,23 @@ export class PointsService extends BaseService {
   }
 
   /**
-   * Get user points summary (activity points and report count separately)
+   * Get user points summary (activity count and report count separately)
+   * Uses cached columns on users table for fast reads
    */
   public async getUserPointsSummary(userId: string): Promise<ServiceResult<UserPointsSummary>> {
     const supabase = this.supabaseAdmin;
 
-    // Get all point transactions
+    // Try to get cached counts from users table first (fast)
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("activity_count, report_count")
+      .eq("id", userId)
+      .single();
+
+    // Get detailed breakdown from user_points
     const { data: pointsData, error: pointsError } = await supabase
       .from("user_points")
-      .select("*")
+      .select("point_type, created_at")
       .eq("user_id", userId);
 
     if (pointsError) {
@@ -118,14 +144,21 @@ export class PointsService extends BaseService {
 
     const points = pointsData || [];
 
-    // Calculate total activity points (positive points only, excluding report deductions)
-    const totalPoints = points
-      .filter((p) => p.points > 0)
-      .reduce((sum, p) => sum + p.points, 0);
+    // Use cached counts if available, otherwise count from transactions
+    let activityCount: number;
+    let reportCount: number;
 
-    // Count reports separately (don't subtract from points)
-    const reportCount = points.filter((p) => p.point_type === "report_received").length;
+    if (!userError && userData && (userData.activity_count !== null || userData.report_count !== null)) {
+      // Use cached counts from users table
+      activityCount = userData.activity_count || 0;
+      reportCount = userData.report_count || 0;
+    } else {
+      // Fallback: count from transactions
+      activityCount = points.filter((p) => p.point_type !== "report_received").length;
+      reportCount = points.filter((p) => p.point_type === "report_received").length;
+    }
 
+    // Calculate breakdown (always from transactions for accuracy)
     const postsCreated = points.filter((p) => p.point_type === "post_created").length;
     const eventsJoined = points.filter((p) => p.point_type === "event_joined").length;
     const communitiesJoined = points.filter((p) => p.point_type === "community_joined").length;
@@ -136,13 +169,45 @@ export class PointsService extends BaseService {
       : null;
 
     return ApiResponse.success({
-      total_points: totalPoints,
+      activity_count: activityCount,
       report_count: reportCount,
       posts_created: postsCreated,
       events_joined: eventsJoined,
       communities_joined: communitiesJoined,
       active_days: activeDays,
       last_activity_at: lastActivity,
+    });
+  }
+
+  /**
+   * Get quick activity/report counts from cached columns (fast read)
+   * Use this when you only need the counts, not the full breakdown
+   */
+  public async getQuickCounts(userId: string): Promise<ServiceResult<{ activity_count: number; report_count: number }>> {
+    const supabase = this.supabaseAdmin;
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("activity_count, report_count")
+      .eq("id", userId)
+      .single();
+
+    if (error) {
+      // Fallback to counting if cached columns don't exist
+      return this.getUserPointsSummary(userId).then(result => {
+        if (result.success && result.data) {
+          return ApiResponse.success({
+            activity_count: result.data.activity_count,
+            report_count: result.data.report_count,
+          });
+        }
+        return ApiResponse.success({ activity_count: 0, report_count: 0 });
+      });
+    }
+
+    return ApiResponse.success({
+      activity_count: data?.activity_count || 0,
+      report_count: data?.report_count || 0,
     });
   }
 

@@ -39,7 +39,8 @@ interface Member {
   user_id: string
   role: "admin" | "member"
   joined_at: string
-  points?: number
+  activity_count?: number  // Count of positive activities
+  report_count?: number    // Count of reports (separate from activities)
   user: {
     id: string
     username: string | null
@@ -277,31 +278,44 @@ export default function CommunityMembersPage({
         console.error("Error fetching user data:", usersError)
       }
 
-      // Fetch points for each member
-      const pointsPromises = userIds.map(async (userId: string) => {
+      // Fetch activity and report counts for each member (separate, not combined)
+      const statsPromises = userIds.map(async (userId: string) => {
         try {
           const { data: pointsData } = await supabase
             .from("user_points")
-            .select("points")
+            .select("point_type")
             .eq("user_id", userId)
-          const totalPoints = pointsData?.reduce((sum: number, p: { points: number }) => sum + p.points, 0) || 0
-          return { userId, points: totalPoints }
+          
+          let activityCount = 0
+          let reportCount = 0
+          
+          pointsData?.forEach((p: { point_type: string }) => {
+            if (p.point_type === 'report_received') {
+              reportCount += 1
+            } else {
+              activityCount += 1
+            }
+          })
+          
+          return { userId, activity_count: activityCount, report_count: reportCount }
         } catch {
-          return { userId, points: 0 }
+          return { userId, activity_count: 0, report_count: 0 }
         }
       })
-      const pointsResults = await Promise.all(pointsPromises)
-      const pointsMap = new Map(pointsResults.map(p => [p.userId, p.points]))
+      const statsResults = await Promise.all(statsPromises)
+      const statsMap = new Map(statsResults.map(s => [s.userId, { activity_count: s.activity_count, report_count: s.report_count }]))
 
       // Map database members to Member interface
       const mappedMembers: Member[] = membersData.map((member: any) => {
         const user = usersData?.find((u: any) => u.id === member.user_id)
+        const stats = statsMap.get(member.user_id) || { activity_count: 0, report_count: 0 }
         return {
           id: member.id,
           user_id: member.user_id,
           role: member.role as "admin" | "member",
           joined_at: member.joined_at,
-          points: pointsMap.get(member.user_id) || 0,
+          activity_count: stats.activity_count,
+          report_count: stats.report_count,
           user: {
             id: user?.id || member.user_id,
             username: user?.username || null,
@@ -560,9 +574,14 @@ export default function CommunityMembersPage({
                         
                         <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
                           <div className="flex items-center gap-1">
-                            <Star className="w-3 h-3 text-amber-500" />
-                            <span className="font-medium text-amber-600">{member.points || 0} pts</span>
+                            <Star className="w-3 h-3 text-green-500" />
+                            <span className="font-medium text-green-600">{member.activity_count || 0} {(member.activity_count || 0) === 1 ? 'activity' : 'activities'}</span>
                           </div>
+                          {(member.report_count ?? 0) > 0 && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium text-red-600">{member.report_count} {member.report_count === 1 ? 'report' : 'reports'}</span>
+                            </div>
+                          )}
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             <span>{formatDate(member.joined_at)}</span>
