@@ -216,7 +216,7 @@ export default function DiscoverPage() {
     user: any,
     supabase: any
   ) => {
-    // Fetch membership status for current user via API
+    // Fetch membership status for current user in a single query
     const membershipStatusMap: Record<string, "joined" | "pending" | "not_joined"> = {};
     
     // Initialize all as not_joined
@@ -234,23 +234,21 @@ export default function DiscoverPage() {
           }
         });
         
-        // Fetch membership status via API
-        try {
-          const response = await fetch(`/api/communities/membership-status?ids=${communityIds.join(",")}`);
-          if (response.ok) {
-            const statusData = await response.json();
-            // Update based on API response
-            Object.entries(statusData).forEach(([communityId, status]) => {
-              if (status === "approved") {
-                membershipStatusMap[communityId] = "joined";
-              } else if (status === "pending") {
-                membershipStatusMap[communityId] = "pending";
-              }
-            });
+        // Fetch membership status in a single query (no separate API call)
+        const { data: memberships } = await supabase
+          .from("community_members")
+          .select("community_id, status")
+          .eq("user_id", user.id)
+          .in("community_id", communityIds);
+
+        // Update based on memberships
+        (memberships || []).forEach((m: { community_id: string; status: string }) => {
+          if (m.status === "approved") {
+            membershipStatusMap[m.community_id] = "joined";
+          } else if (m.status === "pending") {
+            membershipStatusMap[m.community_id] = "pending";
           }
-        } catch (error) {
-          console.error("Error fetching membership status:", error);
-        }
+        });
       }
     }
     
@@ -396,6 +394,27 @@ export default function DiscoverPage() {
       filtered = filtered.filter((community) => {
         const status = membershipStatus[community.id] || "not_joined";
         return status === membershipFilter;
+      });
+    }
+
+    // Sort to prioritize communities user hasn't joined (discovery-first approach)
+    // Order: not_joined > pending > joined
+    if (currentUser) {
+      filtered = [...filtered].sort((a, b) => {
+        const statusA = membershipStatus[a.id] || "not_joined";
+        const statusB = membershipStatus[b.id] || "not_joined";
+        
+        const priorityOrder: Record<string, number> = {
+          "not_joined": 0,  // Show first - these are what users are looking for
+          "pending": 1,     // Show second - user already interested
+          "joined": 2,      // Show last - user already has access
+        };
+        
+        const priorityDiff = priorityOrder[statusA] - priorityOrder[statusB];
+        if (priorityDiff !== 0) return priorityDiff;
+        
+        // Within same status, sort by member count (popularity)
+        return b.memberCount - a.memberCount;
       });
     }
 

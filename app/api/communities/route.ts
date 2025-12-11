@@ -41,6 +41,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
+    // Get current user for membership status
+    const { data: { user } } = await supabase.auth.getUser();
+
     let queryBuilder = supabase
       .from("communities")
       .select(`*, creator:creator_id(id, username, avatar_url), members:community_members(count)`, { count: "exact" })
@@ -52,6 +55,43 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (category) {
       queryBuilder = queryBuilder.eq("category", category);
     }
+
+    // Helper function to add membership status to communities
+    const addMembershipStatus = async (communities: any[]) => {
+      if (!user || !communities || communities.length === 0) {
+        return communities?.map(c => ({ ...c, membershipStatus: "none" })) || [];
+      }
+
+      const communityIds = communities.map(c => c.id);
+      const { data: memberships } = await supabase
+        .from("community_members")
+        .select("community_id, status")
+        .eq("user_id", user.id)
+        .in("community_id", communityIds);
+
+      const statusMap: Record<string, string> = {};
+      communityIds.forEach(id => { statusMap[id] = "none"; });
+      
+      (memberships || []).forEach((m: { community_id: string; status: string }) => {
+        if (m.status === "approved") {
+          statusMap[m.community_id] = "approved";
+        } else if (m.status === "pending") {
+          statusMap[m.community_id] = "pending";
+        }
+      });
+
+      // Also mark creators as approved
+      communities.forEach(c => {
+        if (c.creator_id === user.id) {
+          statusMap[c.id] = "approved";
+        }
+      });
+
+      return communities.map(c => ({
+        ...c,
+        membershipStatus: statusMap[c.id] || "none",
+      }));
+    };
 
     if (sortBy === "member_count") {
       const { data: communities, count, error } = await queryBuilder.range(from, to);
@@ -65,9 +105,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         return sortOrder === "desc" ? countB - countA : countA - countB;
       });
 
+      const communitiesWithStatus = await addMembershipStatus(sortedCommunities || []);
+
       return NextResponse.json({
         success: true,
-        data: sortedCommunities,
+        data: communitiesWithStatus,
         meta: { page, pageSize, totalCount: count || 0, totalPages: Math.ceil((count || 0) / pageSize) },
       });
     } else {
@@ -77,9 +119,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ success: false, error: { code: "DATABASE_ERROR", message: "Failed to fetch communities" } }, { status: 500 });
       }
 
+      const communitiesWithStatus = await addMembershipStatus(communities || []);
+
       return NextResponse.json({
         success: true,
-        data: communities,
+        data: communitiesWithStatus,
         meta: { page, pageSize, totalCount: count || 0, totalPages: Math.ceil((count || 0) / pageSize) },
       });
     }

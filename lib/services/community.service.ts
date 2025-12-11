@@ -875,16 +875,20 @@ export class CommunityService extends BaseService {
   }
 
   /**
-   * Get all communities with optional filters
+   * Get all communities with optional filters and membership status
    * @param options - Filter and pagination options
-   * @returns ServiceResult containing communities list
+   * @param userId - Optional user ID to include membership status
+   * @returns ServiceResult containing communities list with membership status
    */
-  public async getCommunities(options?: {
-    categoryId?: string;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<ServiceResult<{ communities: CommunityData[]; total: number }>> {
+  public async getCommunities(
+    options?: {
+      categoryId?: string;
+      search?: string;
+      limit?: number;
+      offset?: number;
+    },
+    userId?: string
+  ): Promise<ServiceResult<{ communities: (CommunityData & { membershipStatus?: "approved" | "pending" | "none" })[]; total: number }>> {
     let query = this.supabaseAdmin
       .from("communities")
       .select(`
@@ -917,8 +921,48 @@ export class CommunityService extends BaseService {
       return ApiResponse.error(`Failed to fetch communities: ${error.message}`, 500);
     }
 
+    const communities = (data || []) as CommunityData[];
+
+    // If userId provided, fetch membership status for all communities
+    if (userId && communities.length > 0) {
+      const communityIds = communities.map(c => c.id);
+      const { data: memberships } = await this.supabaseAdmin
+        .from("community_members")
+        .select("community_id, status")
+        .eq("user_id", userId)
+        .in("community_id", communityIds);
+
+      const statusMap: Record<string, "approved" | "pending" | "none"> = {};
+      communityIds.forEach(id => { statusMap[id] = "none"; });
+      
+      (memberships || []).forEach((m: { community_id: string; status: string }) => {
+        if (m.status === "approved") {
+          statusMap[m.community_id] = "approved";
+        } else if (m.status === "pending") {
+          statusMap[m.community_id] = "pending";
+        }
+      });
+
+      // Also check if user is creator (they're automatically "approved")
+      communities.forEach(c => {
+        if (c.creator_id === userId) {
+          statusMap[c.id] = "approved";
+        }
+      });
+
+      const communitiesWithStatus = communities.map(c => ({
+        ...c,
+        membershipStatus: statusMap[c.id],
+      }));
+
+      return ApiResponse.success({
+        communities: communitiesWithStatus,
+        total: count || 0,
+      });
+    }
+
     return ApiResponse.success({
-      communities: (data || []) as CommunityData[],
+      communities: communities,
       total: count || 0,
     });
   }
