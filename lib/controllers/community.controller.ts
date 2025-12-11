@@ -387,17 +387,13 @@ export class CommunityController extends BaseController {
         description: string;
         logoUrl?: string;
         categoryName?: string;
+        interests?: string[];
         location?: { lat: number; lng: number; address?: string; city?: string };
+        completeOnboarding?: boolean;
       }>(request);
 
       if (!body.name || !body.description) {
         return this.badRequest("Name and description are required");
-      }
-
-      // Validate description length
-      const wordCount = body.description.trim().split(/\s+/).filter(word => word.length > 0).length;
-      if (wordCount > 500) {
-        return this.badRequest(`Description must be 500 words or less. Current: ${wordCount}`);
       }
 
       const result = await this.service.createCommunity(body, user.id);

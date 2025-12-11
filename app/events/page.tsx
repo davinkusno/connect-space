@@ -146,7 +146,7 @@ export default function EventsPage() {
         setEvents(data.events || []);
         setTotalPages(data.pagination?.totalPages || 1);
         
-        // Fetch registration status for current user
+        // Get current user from session
         const { getSupabaseBrowser } = await import("@/lib/supabase/client");
         const supabase = getSupabaseBrowser();
         const { data: { user } } = await supabase.auth.getUser();
@@ -155,33 +155,24 @@ export default function EventsPage() {
         if (user && data.events && data.events.length > 0) {
           const eventIds = data.events.map((e: Event) => String(e.id));
           
-          // Fetch registration status
-          const { data: registrations } = await supabase
-            .from("event_attendees")
-            .select("event_id")
-            .eq("user_id", user.id)
-            .in("event_id", eventIds);
-          
-          const registrationMap: Record<string | number, boolean> = {};
-          eventIds.forEach((id: string | number) => {
-            registrationMap[id] = false;
-          });
-          
-          (registrations || []).forEach((reg: any) => {
-            registrationMap[reg.event_id] = true;
-          });
-          
-          setRegistrationStatus(registrationMap);
-          
-          // Fetch saved events
-          const { data: savedEventsData } = await supabase
-            .from("saved_events")
-            .select("event_id")
-            .eq("user_id", user.id)
-            .in("event_id", eventIds);
-          
-          const savedEventIds = (savedEventsData || []).map((se: any) => se.event_id);
-          setSavedEvents(savedEventIds);
+          // Fetch batch status via API (interested + saved in one call)
+          try {
+            const statusResponse = await fetch(`/api/events/batch-status?ids=${eventIds.join(",")}`);
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              
+              // Set registration status
+              setRegistrationStatus(statusData.interested || {});
+              
+              // Set saved events
+              const savedEventIds = Object.entries(statusData.saved || {})
+                .filter(([, isSaved]) => isSaved)
+                .map(([id]) => id);
+              setSavedEvents(savedEventIds);
+            }
+          } catch (error) {
+            console.error("Error fetching event status:", error);
+          }
         }
       } catch (err: any) {
         console.error("Error fetching events:", err);
@@ -227,27 +218,19 @@ export default function EventsPage() {
   // Fetch saved events from API
   const fetchSavedEvents = async () => {
     try {
-      const supabase = getSupabaseBrowser();
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
+      // Get saved events via API
+      const response = await fetch("/api/events/saved");
+      if (response.ok) {
+        const data = await response.json();
+        // API returns array of saved event objects
+        const savedEventIds = (data || []).map((item: { id: string }) => item.id);
+        setSavedEvents(savedEventIds);
+      } else {
         setSavedEvents([]);
-        return;
       }
-
-      const { data, error } = await supabase
-        .from("saved_events")
-        .select("event_id")
-        .eq("user_id", user.id);
-
-      if (error) {
-        console.error("Error fetching saved events:", error);
-        return;
-      }
-
-      setSavedEvents(data?.map((item) => item.event_id) || []);
     } catch (err) {
       console.error("Error fetching saved events:", err);
+      setSavedEvents([]);
     }
   };
 
@@ -424,22 +407,12 @@ export default function EventsPage() {
         throw new Error(error.error || "Failed to save event");
       }
 
-      // Update local state
-      setSavedEvents((prev) => [...prev, eventId]);
-      
-      // Refresh saved events from database to ensure consistency
-      const supabase = getSupabaseBrowser();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("saved_events")
-          .select("event_id")
-          .eq("user_id", user.id);
-        setSavedEvents(data?.map((item) => item.event_id) || []);
-      }
-    } catch (error: any) {
+      // Update local state - API call was successful
+      setSavedEvents((prev) => [...prev, String(eventId)]);
+    } catch (error: unknown) {
       console.error("Error saving event:", error);
-      alert(error.message || "Failed to save event");
+      const errorMessage = error instanceof Error ? error.message : "Failed to save event";
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -462,25 +435,15 @@ export default function EventsPage() {
         throw new Error(error.error || "Failed to unsave event");
       }
 
-      // Update local state
-      setSavedEvents((prev) => prev.filter((id) => id !== unsaveEventId));
-      
-      // Refresh saved events from database to ensure consistency
-      const supabase = getSupabaseBrowser();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("saved_events")
-          .select("event_id")
-          .eq("user_id", user.id);
-        setSavedEvents(data?.map((item) => item.event_id) || []);
-      }
+      // Update local state - API call was successful
+      setSavedEvents((prev) => prev.filter((id) => String(id) !== String(unsaveEventId)));
       
       setIsUnsaveDialogOpen(false);
       setUnsaveEventId(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error unsaving event:", error);
-      alert(error.message || "Failed to unsave event");
+      const errorMessage = error instanceof Error ? error.message : "Failed to unsave event";
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }

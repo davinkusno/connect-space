@@ -694,8 +694,8 @@ export class CommunityService extends BaseService {
   // ==================== Community CRUD ====================
 
   /**
-   * Create a new community
-   * @param input - Community creation data
+   * Create a new community with full onboarding flow
+   * @param input - Community creation data including interests
    * @param userId - The user creating the community
    * @returns ServiceResult containing the created community
    */
@@ -705,10 +705,18 @@ export class CommunityService extends BaseService {
       description: string;
       logoUrl?: string;
       categoryName?: string;
+      interests?: string[];
       location?: CommunityLocation;
+      completeOnboarding?: boolean;
     },
     userId: string
   ): Promise<ServiceResult<CommunityData>> {
+    // Validate description word count
+    const wordCount = input.description.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (wordCount > 500) {
+      return ApiResponse.badRequest(`Description must be 500 words or less. Current: ${wordCount}`);
+    }
+
     // Generate slug from name
     const slug = input.name
       .toLowerCase()
@@ -717,11 +725,13 @@ export class CommunityService extends BaseService {
 
     // Find or create category
     let categoryId: string | null = null;
-    if (input.categoryName) {
+    const categoryName = input.categoryName || (input.interests?.[0]);
+    
+    if (categoryName) {
       const { data: categoryData } = await this.supabaseAdmin
         .from("categories")
         .select("id")
-        .ilike("name", input.categoryName)
+        .ilike("name", categoryName)
         .maybeSingle();
 
       if (categoryData) {
@@ -730,7 +740,7 @@ export class CommunityService extends BaseService {
         // Create new category
         const { data: newCategory } = await this.supabaseAdmin
           .from("categories")
-          .insert({ name: input.categoryName })
+          .insert({ name: categoryName })
           .select("id")
           .single();
         
@@ -777,7 +787,66 @@ export class CommunityService extends BaseService {
     // Award points for creating community
     await pointsService.onCommunityCreated(userId, community.id);
 
+    // Save user interests if provided
+    if (input.interests && input.interests.length > 0) {
+      await this.saveUserInterests(userId, input.interests);
+    }
+
+    // Complete onboarding if requested
+    if (input.completeOnboarding) {
+      await this.completeUserOnboarding(userId);
+    }
+
     return ApiResponse.created<CommunityData>(community as CommunityData);
+  }
+
+  /**
+   * Save user interests to the database
+   * @param userId - The user ID
+   * @param interests - Array of interest/category names
+   */
+  private async saveUserInterests(userId: string, interests: string[]): Promise<void> {
+    try {
+      // Get all category IDs for the interests
+      const { data: categoriesData } = await this.supabaseAdmin
+        .from("categories")
+        .select("id, name")
+        .in("name", interests);
+
+      if (categoriesData && categoriesData.length > 0) {
+        // Create user_interests records with decreasing weights
+        const userInterests = categoriesData.map((cat, index) => ({
+          user_id: userId,
+          category_id: cat.id,
+          weight: 1.0 - (index * 0.1),
+        }));
+
+        await this.supabaseAdmin
+          .from("user_interests")
+          .upsert(userInterests, { onConflict: "user_id,category_id" });
+      }
+    } catch (error) {
+      console.error("[CommunityService] Error saving user interests:", error);
+    }
+  }
+
+  /**
+   * Mark user onboarding as completed
+   * @param userId - The user ID
+   */
+  private async completeUserOnboarding(userId: string): Promise<void> {
+    try {
+      await this.supabaseAdmin
+        .from("users")
+        .update({
+          onboarding_completed: true,
+          role_selected: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+    } catch (error) {
+      console.error("[CommunityService] Error completing onboarding:", error);
+    }
   }
 
   /**

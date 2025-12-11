@@ -253,5 +253,36 @@ export class EventController extends BaseController {
   }
 }
 
+  /**
+   * GET /api/events/batch-status
+   * Get interest and saved status for multiple events
+   * @param request - The incoming request with event IDs
+   * @returns NextResponse with status map
+   */
+  public async getBatchStatus(
+    request: NextRequest
+  ): Promise<NextResponse<{ interested: Record<string, boolean>; saved: Record<string, boolean> } | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      const { searchParams } = new URL(request.url);
+      const ids = searchParams.get("ids")?.split(",").filter(Boolean) || [];
+
+      if (ids.length === 0) {
+        return this.json({ interested: {}, saved: {} }, 200);
+      }
+
+      const result = await this.service.getBatchEventStatus(user.id, ids);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+      
+      return this.error(result.error?.message || "Failed to fetch event status", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+}
+
 // Export singleton instance
 export const eventController: EventController = new EventController();

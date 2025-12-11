@@ -493,6 +493,109 @@ export class EventService extends BaseService {
       return typeof location === "string" ? location : "";
     }
   }
+
+  // ==================== Batch Status Methods ====================
+
+  /**
+   * Get interest status for multiple events (batch)
+   * @param userId - The user ID
+   * @param eventIds - Array of event IDs to check
+   * @returns ServiceResult containing map of event ID to interested status
+   */
+  public async getBatchInterestStatus(
+    userId: string,
+    eventIds: string[]
+  ): Promise<ServiceResult<Record<string, boolean>>> {
+    if (eventIds.length === 0) {
+      return ApiResponse.success({});
+    }
+
+    const { data, error } = await this.supabaseAdmin
+      .from("event_attendees")
+      .select("event_id")
+      .eq("user_id", userId)
+      .in("event_id", eventIds);
+
+    if (error) {
+      return ApiResponse.error(`Failed to fetch interest status: ${error.message}`, 500);
+    }
+
+    const statusMap: Record<string, boolean> = {};
+    eventIds.forEach(id => {
+      statusMap[id] = false;
+    });
+
+    (data || []).forEach((row: { event_id: string }) => {
+      statusMap[row.event_id] = true;
+    });
+
+    return ApiResponse.success(statusMap);
+  }
+
+  /**
+   * Get saved status for multiple events (batch)
+   * @param userId - The user ID
+   * @param eventIds - Array of event IDs to check
+   * @returns ServiceResult containing map of event ID to saved status
+   */
+  public async getBatchSavedStatus(
+    userId: string,
+    eventIds: string[]
+  ): Promise<ServiceResult<Record<string, boolean>>> {
+    if (eventIds.length === 0) {
+      return ApiResponse.success({});
+    }
+
+    const { data, error } = await this.supabaseAdmin
+      .from("saved_events")
+      .select("event_id")
+      .eq("user_id", userId)
+      .in("event_id", eventIds);
+
+    if (error) {
+      return ApiResponse.error(`Failed to fetch saved status: ${error.message}`, 500);
+    }
+
+    const statusMap: Record<string, boolean> = {};
+    eventIds.forEach(id => {
+      statusMap[id] = false;
+    });
+
+    (data || []).forEach((row: { event_id: string }) => {
+      statusMap[row.event_id] = true;
+    });
+
+    return ApiResponse.success(statusMap);
+  }
+
+  /**
+   * Get both interest and saved status for multiple events (batch)
+   * @param userId - The user ID
+   * @param eventIds - Array of event IDs to check
+   * @returns ServiceResult containing combined status for each event
+   */
+  public async getBatchEventStatus(
+    userId: string,
+    eventIds: string[]
+  ): Promise<ServiceResult<{ interested: Record<string, boolean>; saved: Record<string, boolean> }>> {
+    const [interestedResult, savedResult] = await Promise.all([
+      this.getBatchInterestStatus(userId, eventIds),
+      this.getBatchSavedStatus(userId, eventIds),
+    ]);
+
+    if (!interestedResult.success) {
+      return ApiResponse.error(interestedResult.error?.message || "Failed to fetch interest status", 500);
+    }
+
+    if (!savedResult.success) {
+      return ApiResponse.error(savedResult.error?.message || "Failed to fetch saved status", 500);
+    }
+
+    return ApiResponse.success({
+      interested: interestedResult.data!,
+      saved: savedResult.data!,
+    });
+  }
 }
 
 // Export singleton instance

@@ -1,29 +1,24 @@
 import {
-    generateUniqueFilename, getStoragePath, isValidFileSize, isValidImageType, isValidVideoType, STORAGE_CONFIG
+  generateUniqueFilename,
+  getStoragePath,
+  isValidFileSize,
+  isValidImageType,
+  STORAGE_CONFIG,
+  StorageType,
 } from "@/config/storage";
-import {
-    ApiResponse, BaseService, ServiceResult
-} from "./base.service";
+import { ApiResponse, BaseService, ServiceResult } from "./base.service";
 
 // ==================== Storage Service Types ====================
-
-type StorageFolder = "avatars" | "banners" | "logos" | "events" | "posts";
 
 interface UploadResult {
   url: string;
   path: string;
 }
 
-interface UploadOptions {
-  folder: StorageFolder;
-  maxSizeKey?: "avatar" | "banner" | "logo" | "event" | "post";
-}
-
 // ==================== Storage Service Class ====================
 
 /**
- * Service for handling file uploads to Supabase Storage
- * Handles image and video uploads with validation
+ * Service for handling file storage operations
  */
 export class StorageService extends BaseService {
   private static instance: StorageService;
@@ -43,104 +38,74 @@ export class StorageService extends BaseService {
   }
 
   /**
-   * Upload an image file
+   * Upload an image file to storage
    * @param file - The file to upload
-   * @param options - Upload options (folder, maxSizeKey)
-   * @returns ServiceResult containing upload result (url, path)
+   * @param type - The storage type (determines folder path)
+   * @returns ServiceResult containing the public URL
    */
   public async uploadImage(
     file: File,
-    options: UploadOptions
+    type: StorageType
   ): Promise<ServiceResult<UploadResult>> {
     // Validate file type
     if (!isValidImageType(file.type)) {
-      return ApiResponse.badRequest("File must be an image (JPEG, PNG, GIF, or WebP)");
+      return ApiResponse.badRequest(
+        "File must be an image (JPEG, PNG, GIF, or WebP)"
+      );
     }
 
     // Validate file size
-    const sizeKey = options.maxSizeKey || "banner";
-    if (!isValidFileSize(file.size, sizeKey)) {
-      const maxSizeMB = STORAGE_CONFIG.limits[sizeKey] / (1024 * 1024);
-      return ApiResponse.badRequest(`File size must be less than ${maxSizeMB}MB`);
+    if (!isValidFileSize(file.size, type)) {
+      const maxSizeMB = STORAGE_CONFIG.limits[type] / (1024 * 1024);
+      return ApiResponse.badRequest(
+        `File size must be less than ${maxSizeMB}MB`
+      );
     }
 
-    return this.uploadFile(file, options.folder);
-  }
+    // Generate unique filename and path
+    const filename = generateUniqueFilename(file.name);
+    const path = getStoragePath(
+      type === "community" ? "communityProfile" : 
+      type === "event" ? "eventImage" : 
+      type === "user" ? "userAvatar" : "communityProfile",
+      filename
+    );
 
-  /**
-   * Upload a video file
-   * @param file - The file to upload
-   * @param folder - The storage folder
-   * @returns ServiceResult containing upload result (url, path)
-   */
-  public async uploadVideo(
-    file: File,
-    folder: StorageFolder = "banners"
-  ): Promise<ServiceResult<UploadResult>> {
-    // Validate file type
-    if (!isValidVideoType(file.type)) {
-      return ApiResponse.badRequest("File must be a video (MP4, WebM, or OGG)");
-    }
+    // Convert File to ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    // Videos have larger size limits
-    const maxSize = 100 * 1024 * 1024; // 100MB
-    if (file.size > maxSize) {
-      return ApiResponse.badRequest("Video must be less than 100MB");
-    }
-
-    return this.uploadFile(file, folder);
-  }
-
-  /**
-   * Upload a file to Supabase Storage
-   * @param file - The file to upload
-   * @param folder - The storage folder
-   * @returns ServiceResult containing upload result
-   */
-  private async uploadFile(
-    file: File,
-    folder: StorageFolder
-  ): Promise<ServiceResult<UploadResult>> {
-    try {
-      // Generate unique filename and path
-      const filename: string = generateUniqueFilename(file.name);
-      const path: string = getStoragePath(folder, filename);
-
-      // Convert File to ArrayBuffer then Buffer
-      const arrayBuffer: ArrayBuffer = await file.arrayBuffer();
-      const buffer: Buffer = Buffer.from(arrayBuffer);
-
-      // Upload to Supabase Storage
-      const { data, error } = await this.supabaseAdmin.storage
-        .from(STORAGE_CONFIG.bucket)
-        .upload(path, buffer, {
-          contentType: file.type,
-          cacheControl: STORAGE_CONFIG.cacheControl,
-          upsert: false,
-        });
-
-      if (error) {
-        return ApiResponse.error(error.message || "Upload failed", 500);
-      }
-
-      // Get public URL
-      const { data: { publicUrl } } = this.supabaseAdmin.storage
-        .from(STORAGE_CONFIG.bucket)
-        .getPublicUrl(data.path);
-
-      return ApiResponse.success<UploadResult>({
-        url: publicUrl,
-        path: data.path,
+    // Upload to Supabase Storage (service role bypasses RLS)
+    const { data, error: uploadError } = await this.supabaseAdmin.storage
+      .from(STORAGE_CONFIG.bucket)
+      .upload(path, buffer, {
+        contentType: file.type,
+        cacheControl: STORAGE_CONFIG.cacheControl,
+        upsert: false,
       });
-    } catch (error) {
-      return ApiResponse.error("Upload failed", 500);
+
+    if (uploadError) {
+      console.error("[StorageService] Upload error:", uploadError);
+      return ApiResponse.error(uploadError.message || "Upload failed", 500);
     }
+
+    // Get public URL
+    const {
+      data: { publicUrl },
+    } = this.supabaseAdmin.storage
+      .from(STORAGE_CONFIG.bucket)
+      .getPublicUrl(data.path);
+
+    return ApiResponse.success<UploadResult>({
+      url: publicUrl,
+      path: data.path,
+    });
   }
 
   /**
    * Delete a file from storage
    * @param path - The file path to delete
-   * @returns ServiceResult indicating success
+   * @returns ServiceResult indicating success or failure
    */
   public async deleteFile(path: string): Promise<ServiceResult<void>> {
     const { error } = await this.supabaseAdmin.storage
@@ -148,13 +113,13 @@ export class StorageService extends BaseService {
       .remove([path]);
 
     if (error) {
-      return ApiResponse.error("Failed to delete file", 500);
+      console.error("[StorageService] Delete error:", error);
+      return ApiResponse.error(error.message || "Delete failed", 500);
     }
 
-    return ApiResponse.success<void>(undefined);
+    return ApiResponse.success(undefined);
   }
 }
 
 // Export singleton instance
 export const storageService: StorageService = StorageService.getInstance();
-
