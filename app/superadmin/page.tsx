@@ -1,7 +1,6 @@
 "use client";
 
 import { SuperAdminNav } from "@/components/navigation/superadmin-nav";
-import { AdsManagement } from "@/components/superadmin/ads-management";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { AnimatedCard } from "@/components/ui/animated-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,7 +19,7 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Activity, AlertTriangle, Award, Ban, Bell, CalendarDays, CheckCircle2, ChevronLeft,
-    ChevronRight, Clock, Crown, Eye, FileText, Flame, Gift, Heart, Medal, Megaphone, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trophy, Users, XCircle
+    ChevronRight, Clock, Crown, Eye, FileText, Flame, Gift, Heart, Medal, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trophy, Users, XCircle
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -954,9 +953,7 @@ export default function SuperadminPage() {
 
   // Sync active tab with pathname
   useEffect(() => {
-    if (pathname === "/superadmin/ads") {
-      setActiveTab("ads");
-    } else if (pathname === "/superadmin") {
+    if (pathname === "/superadmin") {
       setActiveTab("reports");
     }
   }, [pathname]);
@@ -1457,20 +1454,13 @@ export default function SuperadminPage() {
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-2 glass-effect border-0 p-2 rounded-2xl mb-8 h-14">
+            <TabsList className="glass-effect border-0 p-2 rounded-2xl mb-8 h-14 w-fit">
               <TabsTrigger
                 value="reports"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
+                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-6"
               >
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium">Reports</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="ads"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-4"
-              >
-                <Megaphone className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium">Ads</span>
+                <span className="font-medium">Reports & Moderation</span>
               </TabsTrigger>
             </TabsList>
 
@@ -1911,11 +1901,6 @@ export default function SuperadminPage() {
                   </div>
                 )}
               </AnimatedCard>
-            </TabsContent>
-
-            {/* Ads Tab */}
-            <TabsContent value="ads" className="space-y-6">
-              <AdsManagement />
             </TabsContent>
           </Tabs>
         </div>

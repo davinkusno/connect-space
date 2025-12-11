@@ -22,7 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import {
-    AlertTriangle, ChevronDown, LogOut, Megaphone, Shield
+    AlertTriangle, LogOut, Shield
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -149,51 +149,71 @@ export function SuperAdminNav() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
-                      className="relative flex items-center gap-2 rounded-full ring-2 ring-purple-500/20 hover:ring-purple-500/40 transition-all pl-1 pr-3"
+                      className="relative h-10 w-10 rounded-full hover:ring-2 hover:ring-red-200 hover:scale-105 transition-all duration-200 group"
                     >
-                      <Avatar className="h-10 w-10">
+                      <Avatar className="h-10 w-10 ring-2 ring-red-100 group-hover:ring-red-300 transition-all duration-200">
                         <AvatarImage
                           src={user.user_metadata?.avatar_url}
                           alt={getUserDisplayName()}
                         />
-                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-500 text-white font-semibold">
+                        <AvatarFallback className="bg-gradient-to-r from-red-500 to-orange-600 text-white font-semibold">
                           {getUserInitials()}
                         </AvatarFallback>
                       </Avatar>
-                      <ChevronDown className="h-4 w-4 text-gray-600" />
+                      {/* Hover indicator */}
+                      <div className="absolute inset-0 rounded-full bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">
-                          {getUserDisplayName()}
-                        </p>
-                        <p className="text-xs leading-none text-muted-foreground">
-                          {user.email}
-                        </p>
-                        <Badge
-                          variant="destructive"
-                          className="mt-1 w-fit text-xs"
-                        >
-                          Super Admin
-                        </Badge>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-72 bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-xl p-2 animate-in slide-in-from-top-2 duration-200"
+                    sideOffset={8}
+                  >
+                    {/* User Header */}
+                    <DropdownMenuLabel className="font-normal p-3 rounded-lg bg-gradient-to-r from-red-50 to-orange-50 border border-red-100/50">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-12 w-12 ring-2 ring-red-200">
+                          <AvatarImage
+                            src={user.user_metadata?.avatar_url}
+                            alt={getUserDisplayName()}
+                          />
+                          <AvatarFallback className="bg-gradient-to-r from-red-500 to-orange-600 text-white font-semibold">
+                            {getUserInitials()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {getUserDisplayName()}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {user.email}
+                          </p>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Shield className="h-3 w-3 text-red-600" />
+                            <span className="text-xs text-red-600 font-medium">
+                              Super Admin
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href="/superadmin/ads" className="cursor-pointer">
-                        <Megaphone className="mr-2 h-4 w-4" />
-                        <span>Ads Management</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
+
+                    <DropdownMenuSeparator className="my-2" />
+
+                    {/* Sign Out */}
                     <DropdownMenuItem
                       onClick={() => setShowLogoutDialog(true)}
-                      className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                      className="cursor-pointer p-3 rounded-lg text-red-600 focus:text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-red-100 transition-all duration-200 group"
                     >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition-colors duration-200">
+                          <LogOut className="h-4 w-4 text-red-600" />
+                        </div>
+                        <div>
+                          <span className="font-medium">Sign Out</span>
+                          <p className="text-xs text-red-500">End your session</p>
+                        </div>
+                      </div>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
