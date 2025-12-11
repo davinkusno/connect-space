@@ -143,37 +143,32 @@ export default function EventsPage() {
         }
 
         const data = await response.json();
-        setEvents(data.events || []);
+        const eventsData = data.events || [];
+        setEvents(eventsData);
         setTotalPages(data.pagination?.totalPages || 1);
         
-        // Get current user from session
+        // Extract user-specific status directly from the events response
+        // (API now includes isInterested and isSaved for each event)
+        const registrationMap: Record<string | number, boolean> = {};
+        const savedEventIds: (string | number)[] = [];
+        
+        eventsData.forEach((event: Event & { isInterested?: boolean; isSaved?: boolean }) => {
+          if (event.isInterested) {
+            registrationMap[event.id] = true;
+          }
+          if (event.isSaved) {
+            savedEventIds.push(event.id);
+          }
+        });
+        
+        setRegistrationStatus(registrationMap);
+        setSavedEvents(savedEventIds);
+        
+        // Still need current user for other operations
         const { getSupabaseBrowser } = await import("@/lib/supabase/client");
         const supabase = getSupabaseBrowser();
         const { data: { user } } = await supabase.auth.getUser();
         setCurrentUser(user);
-        
-        if (user && data.events && data.events.length > 0) {
-          const eventIds = data.events.map((e: Event) => String(e.id));
-          
-          // Fetch batch status via API (interested + saved in one call)
-          try {
-            const statusResponse = await fetch(`/api/events/batch-status?ids=${eventIds.join(",")}`);
-            if (statusResponse.ok) {
-              const statusData = await statusResponse.json();
-              
-              // Set registration status
-              setRegistrationStatus(statusData.interested || {});
-              
-              // Set saved events
-              const savedEventIds = Object.entries(statusData.saved || {})
-                .filter(([, isSaved]) => isSaved)
-                .map(([id]) => id);
-              setSavedEvents(savedEventIds);
-            }
-          } catch (error) {
-            console.error("Error fetching event status:", error);
-          }
-        }
       } catch (err: any) {
         console.error("Error fetching events:", err);
         setError(err.message || "Failed to load events");
@@ -222,8 +217,8 @@ export default function EventsPage() {
       const response = await fetch("/api/events/saved");
       if (response.ok) {
         const data = await response.json();
-        // API returns array of saved event objects
-        const savedEventIds = (data || []).map((item: { id: string }) => item.id);
+        // API returns { events: [...] } format
+        const savedEventIds = (data.events || []).map((item: { id: string }) => item.id);
         setSavedEvents(savedEventIds);
       } else {
         setSavedEvents([]);

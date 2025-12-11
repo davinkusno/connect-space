@@ -52,6 +52,15 @@ export abstract class BaseController {
   }
 
   /**
+   * Get optional authentication - returns user if authenticated, null otherwise
+   * Does not throw if not authenticated
+   * @returns User or null
+   */
+  protected async getOptionalAuth(): Promise<User | null> {
+    return this.getAuthenticatedUser();
+  }
+
+  /**
    * Create JSON response with proper typing
    */
   protected json<T>(data: T, status: number = 200): NextResponse<T> {

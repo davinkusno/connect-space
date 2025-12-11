@@ -102,6 +102,248 @@ export class EventService extends BaseService {
   }
 
   /**
+   * Get events with filtering, pagination, and user status
+   * @param options - Query options
+   * @param userId - Optional user ID for personalized status
+   * @returns ServiceResult containing events and pagination info
+   */
+  public async getEvents(
+    options: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      category?: string;
+      location?: string;
+      dateRange?: "upcoming" | "today" | "week" | "month" | "all";
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    },
+    userId?: string
+  ): Promise<ServiceResult<{
+    events: unknown[];
+    pagination: { page: number; pageSize: number; totalCount: number; totalPages: number };
+  }>> {
+    const {
+      page = 1,
+      pageSize = 20,
+      search,
+      category,
+      location,
+      dateRange = "upcoming",
+      sortBy = "start_time",
+      sortOrder = "asc",
+    } = options;
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    // Build query
+    let query = this.supabaseAdmin
+      .from("events")
+      .select(
+        `
+        *,
+        community:community_id(id, name, logo_url),
+        creator:creator_id(id, username, full_name, avatar_url)
+      `,
+        { count: "exact" }
+      );
+
+    // Apply search filter
+    if (search) {
+      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+    }
+
+    // Apply category filter
+    if (category && category !== "all") {
+      query = query.eq("category", category);
+    }
+
+    // Apply date range filter
+    const now = new Date().toISOString();
+    if (dateRange === "upcoming") {
+      query = query.gte("start_time", now);
+    } else if (dateRange === "today") {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      query = query
+        .gte("start_time", todayStart.toISOString())
+        .lte("start_time", todayEnd.toISOString());
+    } else if (dateRange === "week") {
+      const weekFromNow = new Date();
+      weekFromNow.setDate(weekFromNow.getDate() + 7);
+      query = query
+        .gte("start_time", now)
+        .lte("start_time", weekFromNow.toISOString());
+    } else if (dateRange === "month") {
+      const monthFromNow = new Date();
+      monthFromNow.setMonth(monthFromNow.getMonth() + 1);
+      query = query
+        .gte("start_time", now)
+        .lte("start_time", monthFromNow.toISOString());
+    }
+
+    // Apply location filter
+    if (location === "online") {
+      query = query.eq("is_online", true);
+    } else if (location && location !== "all") {
+      query = query.ilike("location", `%${location}%`);
+    }
+
+    // Apply sorting
+    query = query.order(sortBy, { ascending: sortOrder === "asc" });
+
+    // Apply pagination
+    const { data: events, error, count } = await query.range(from, to);
+
+    if (error) {
+      return ApiResponse.error(`Failed to fetch events: ${error.message}`, 500);
+    }
+
+    const eventIds = (events || []).map((e: { id: string }) => e.id);
+    let attendeeCounts: Record<string, number> = {};
+    let userInterestedMap: Record<string, boolean> = {};
+    let userSavedMap: Record<string, boolean> = {};
+
+    if (eventIds.length > 0) {
+      // Get attendee counts
+      const { data: attendeesData } = await this.supabaseAdmin
+        .from("event_attendees")
+        .select("event_id")
+        .in("event_id", eventIds)
+        .eq("status", "going");
+
+      if (attendeesData) {
+        attendeesData.forEach((att: { event_id: string }) => {
+          attendeeCounts[att.event_id] = (attendeeCounts[att.event_id] || 0) + 1;
+        });
+      }
+
+      // Get user-specific status if userId provided
+      if (userId) {
+        const { data: userAttendees } = await this.supabaseAdmin
+          .from("event_attendees")
+          .select("event_id")
+          .eq("user_id", userId)
+          .in("event_id", eventIds);
+
+        if (userAttendees) {
+          userAttendees.forEach((att: { event_id: string }) => {
+            userInterestedMap[att.event_id] = true;
+          });
+        }
+
+        const { data: userSaved } = await this.supabaseAdmin
+          .from("saved_events")
+          .select("event_id")
+          .eq("user_id", userId)
+          .in("event_id", eventIds);
+
+        if (userSaved) {
+          userSaved.forEach((saved: { event_id: string }) => {
+            userSavedMap[saved.event_id] = true;
+          });
+        }
+      }
+    }
+
+    // Transform events
+    const transformedEvents = (events || []).map((event: any) => {
+      let locationData: any = {};
+      if (event.location) {
+        try {
+          locationData = typeof event.location === "string"
+            ? JSON.parse(event.location)
+            : event.location;
+        } catch {
+          locationData = { address: event.location, city: event.location };
+        }
+      }
+
+      const startDate = new Date(event.start_time);
+      const endDate = new Date(event.end_time);
+      const attendeeCount = attendeeCounts[event.id] || 0;
+
+      return {
+        id: event.id,
+        title: event.title,
+        description: event.description,
+        category: event.category || "General",
+        tags: event.category ? [event.category] : [],
+        date: startDate.toISOString().split("T")[0],
+        time: startDate.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }),
+        endTime: endDate.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }),
+        location: {
+          latitude: locationData.latitude || locationData.lat || 0,
+          longitude: locationData.longitude || locationData.lng || 0,
+          address: locationData.address || event.location || "",
+          venue: locationData.venue || locationData.name || "",
+          city: locationData.city || locationData.town || locationData.municipality || "Unknown",
+          isOnline: event.is_online || false,
+        },
+        organizer: event.community?.name || "Unknown Community",
+        attendees: attendeeCount,
+        maxAttendees: event.max_attendees || null,
+        rating: 4.5,
+        reviewCount: 0,
+        image: event.image_url || "/placeholder.svg?height=300&width=500",
+        gallery: [],
+        trending: false,
+        featured: false,
+        isNew: new Date(event.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000,
+        difficulty: "Intermediate",
+        duration: this.calculateDuration(event.start_time, event.end_time),
+        language: "English",
+        certificates: false,
+        isPrivate: false,
+        community: event.community ? {
+          id: event.community.id,
+          name: event.community.name,
+          logo: event.community.logo_url,
+        } : null,
+        isInterested: userInterestedMap[event.id] || false,
+        isSaved: userSavedMap[event.id] || false,
+      };
+    });
+
+    return ApiResponse.success({
+      events: transformedEvents,
+      pagination: {
+        page,
+        pageSize,
+        totalCount: count || 0,
+        totalPages: Math.ceil((count || 0) / pageSize),
+      },
+    });
+  }
+
+  /**
+   * Calculate duration between two times
+   */
+  private calculateDuration(startTime: string, endTime: string): string {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const diffMs = end.getTime() - start.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (diffHours > 0) {
+      return diffMinutes > 0 ? `${diffHours}h ${diffMinutes}m` : `${diffHours} hours`;
+    }
+    return `${diffMinutes} minutes`;
+  }
+
+  /**
    * Mark interest in an event
    * @param eventId - The event ID to show interest in
    * @param userId - The user ID showing interest

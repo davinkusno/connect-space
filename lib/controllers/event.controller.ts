@@ -39,6 +39,51 @@ export class EventController extends BaseController {
   }
 
   /**
+   * GET /api/events
+   * Get events with filtering, pagination, and user status
+   * @param request - The incoming request with query params
+   * @returns NextResponse with events list and pagination
+   */
+  public async getEvents(
+    request: NextRequest
+  ): Promise<NextResponse<{ events: unknown[]; pagination: unknown } | ApiErrorResponse>> {
+    try {
+      const { searchParams } = new URL(request.url);
+      
+      // Parse query params
+      const options = {
+        page: parseInt(searchParams.get("page") || "1"),
+        pageSize: parseInt(searchParams.get("pageSize") || "20"),
+        search: searchParams.get("search") || undefined,
+        category: searchParams.get("category") || undefined,
+        location: searchParams.get("location") || undefined,
+        dateRange: (searchParams.get("dateRange") || "upcoming") as "upcoming" | "today" | "week" | "month" | "all",
+        sortBy: searchParams.get("sortBy") || "start_time",
+        sortOrder: (searchParams.get("sortOrder") || "asc") as "asc" | "desc",
+      };
+
+      // Try to get current user (optional - for personalized data)
+      let userId: string | undefined;
+      try {
+        const user = await this.getOptionalAuth();
+        userId = user?.id;
+      } catch {
+        // No auth - continue without user-specific data
+      }
+
+      const result = await this.service.getEvents(options, userId);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to fetch events", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * GET /api/events/[id]/interested
    * Check interest status for authenticated user
    * @param request - The incoming request
