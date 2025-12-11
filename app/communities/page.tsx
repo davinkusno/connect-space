@@ -559,6 +559,7 @@ export default function DiscoverPage() {
   );
 
   return (
+    <>
     <PageTransition>
       <div className="bg-gradient-to-br from-slate-50 to-purple-50 min-h-screen relative">
         <FloatingElements />
@@ -864,7 +865,8 @@ export default function DiscoverPage() {
           </div>
         </div>
       </div>
-      <Chatbot />
     </PageTransition>
+    <Chatbot />
+    </>
   );
 }

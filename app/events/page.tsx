@@ -709,6 +709,7 @@ export default function EventsPage() {
   };
 
   return (
+    <>
     <PageTransition>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 relative overflow-hidden">
         <FloatingElements />
@@ -1149,7 +1150,8 @@ export default function EventsPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-      <Chatbot />
     </PageTransition>
+    <Chatbot />
+    </>
   );
 }
