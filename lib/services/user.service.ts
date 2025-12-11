@@ -1,6 +1,7 @@
 import {
     PointSource,
-    UserTransaction, UserType
+    UserPointsSummary,
+    UserType
 } from "@/lib/types";
 import {
     ApiResponse, BaseService, ServiceResult
@@ -21,19 +22,6 @@ interface UserProfile {
   onboarding_completed?: boolean;
   created_at?: string;
   updated_at?: string;
-}
-
-interface UserPointsSummary {
-  total: number;
-  activities: number;
-  reports: number;
-  breakdown: PointBreakdown[];
-}
-
-interface PointBreakdown {
-  reason: string;
-  points: number;
-  created_at: string;
 }
 
 interface OnboardingStatus {
@@ -107,35 +95,11 @@ export class UserService extends BaseService {
   /**
    * Get user's point summary
    * @param userId - The user ID to fetch points for
-   * @returns ServiceResult containing points summary
+   * @returns ServiceResult containing points summary (activity points and report count separate)
    */
   public async getPoints(userId: string): Promise<ServiceResult<UserPointsSummary>> {
-    // Get reputation using pointsService
-    const reputationResult = await pointsService.getUserReputation(userId);
-    
-    if (!reputationResult.success) {
-      return ApiResponse.error("Failed to fetch points", 500);
-    }
-
-    const reputation = reputationResult.data!;
-    
-    // Get transaction breakdown using pointsService
-    const transactionsResult = await pointsService.getTransactions(userId, 50);
-    
-    const breakdown: PointBreakdown[] = transactionsResult.success && transactionsResult.data
-      ? transactionsResult.data.map((t) => ({
-          reason: t.description || t.point_type,
-          points: t.points,
-          created_at: (t as { created_at?: string }).created_at || new Date().toISOString(),
-        }))
-      : [];
-
-    return ApiResponse.success<UserPointsSummary>({ 
-      total: reputation.reputation_score, 
-      activities: reputation.posts_created + reputation.events_joined + reputation.communities_joined + reputation.active_days, 
-      reports: reputation.report_count, 
-      breakdown 
-    });
+    // Delegate to pointsService for consistent data
+    return pointsService.getUserPointsSummary(userId);
   }
 
   /**
@@ -296,17 +260,6 @@ export class UserService extends BaseService {
     return ApiResponse.success<{ role: UserType }>({ 
       role: data.user_type as UserType 
     });
-  }
-
-  /**
-   * Get user reputation summary
-   * @param userId - The user ID to fetch reputation for
-   * @returns ServiceResult containing reputation data
-   */
-  public async getReputation(
-    userId: string
-  ): Promise<ServiceResult<UserPointsSummary>> {
-    return this.getPoints(userId);
   }
 
   /**

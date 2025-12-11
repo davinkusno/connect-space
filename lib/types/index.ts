@@ -42,15 +42,15 @@ export type PointSource =
   | "admin_warning"
   | "referral";
 
-export interface UserReputation {
-  userId: string;
-  totalPoints: number;
-  activityCount: number;
-  reportCount: number;
-  level: ReputationLevel;
+export interface UserPointsSummary {
+  total_points: number;      // Total activity points (positive only)
+  report_count: number;      // Number of reports received (separate, not subtracted)
+  posts_created: number;
+  events_joined: number;
+  communities_joined: number;
+  active_days: number;
+  last_activity_at: string | null;
 }
-
-export type ReputationLevel = "beginner" | "active" | "trusted" | "veteran" | "legend";
 
 export interface UserTransaction {
   id: string;
@@ -123,8 +123,8 @@ export interface JoinRequest {
   message?: string;
   created_at: string;
   user?: User;
-  activityCount?: number;
-  reportCount?: number;
+  points?: number;        // User's activity points
+  report_count?: number;  // Number of reports received (separate from points)
 }
 
 // ==================== Event Types ====================

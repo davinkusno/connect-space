@@ -87,8 +87,8 @@ interface JoinRequest {
   requestedAt: string
   status: "pending" | "approved" | "rejected"
   message?: string
-  activityCount?: number
-  reportCount?: number
+  points?: number        // User's activity points
+  report_count?: number  // Number of reports (separate from points)
 }
 
 export default function CommunityAdminPage({
@@ -385,20 +385,22 @@ export default function CommunityAdminPage({
       // Fetch user points for each user
       const { data: userPointsData } = await supabase
         .from("user_points")
-        .select("user_id, point_type")
+        .select("user_id, points, point_type")
         .in("user_id", userIds)
 
-      // Count activities and reports per user
-      const userStatsMap: Record<string, { activities: number; reports: number }> = {}
+      // Sum points and count reports per user (keep separate - don't combine)
+      const userStatsMap: Record<string, { points: number; report_count: number }> = {}
       if (userPointsData) {
         userPointsData.forEach((record: any) => {
           if (!userStatsMap[record.user_id]) {
-            userStatsMap[record.user_id] = { activities: 0, reports: 0 }
+            userStatsMap[record.user_id] = { points: 0, report_count: 0 }
           }
           if (record.point_type === 'report_received') {
-            userStatsMap[record.user_id].reports += 1
-          } else {
-            userStatsMap[record.user_id].activities += 1
+            // Count reports separately (don't subtract from points)
+            userStatsMap[record.user_id].report_count += 1
+          } else if (record.points > 0) {
+            // Sum positive points for activity
+            userStatsMap[record.user_id].points += record.points
           }
         })
       }
@@ -411,7 +413,7 @@ export default function CommunityAdminPage({
           return null
         }
 
-        const stats = userStatsMap[request.user_id] || { activities: 0, reports: 0 }
+        const stats = userStatsMap[request.user_id] || { points: 0, report_count: 0 }
         return {
           id: request.id,
           userId: request.user_id,
@@ -421,8 +423,8 @@ export default function CommunityAdminPage({
           requestedAt: request.joined_at,
           status: "pending" as const,
           message: undefined,
-          activityCount: stats.activities,
-          reportCount: stats.reports
+          points: stats.points,
+          report_count: stats.report_count
         } as JoinRequest
       })
 
@@ -969,13 +971,13 @@ export default function CommunityAdminPage({
                               <p className="text-xs text-gray-500 truncate">{request.userEmail}</p>
                               <div className="flex items-center gap-3 mt-1">
                                 <div className="flex items-center gap-1">
-                                  <Star className="w-3 h-3 text-green-500 fill-green-500" />
-                                  <span className="text-xs font-medium text-green-600">{request.activityCount || 0} {(request.activityCount || 0) === 1 ? 'activity' : 'activities'}</span>
+                                  <Star className="w-3 h-3 text-purple-500 fill-purple-500" />
+                                  <span className="text-xs font-medium text-purple-600">{request.points || 0} pts</span>
                                 </div>
-                                {(request.reportCount ?? 0) > 0 && (
+                                {(request.report_count ?? 0) > 0 && (
                                   <div className="flex items-center gap-1">
                                     <AlertTriangle className="w-3 h-3 text-red-500" />
-                                    <span className="text-xs font-medium text-red-600">{request.reportCount} {request.reportCount === 1 ? 'report' : 'reports'}</span>
+                                    <span className="text-xs font-medium text-red-600">{request.report_count} {request.report_count === 1 ? 'report' : 'reports'}</span>
                                   </div>
                                 )}
                               </div>

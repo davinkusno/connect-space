@@ -21,16 +21,14 @@ export interface PointTransaction {
   description?: string;
 }
 
-export interface UserReputation {
-  activity_points: number;
-  report_points: number;
-  report_count: number;
+export interface UserPointsSummary {
+  total_points: number;      // Total activity points (positive only)
+  report_count: number;      // Number of reports received (separate, not subtracted)
   posts_created: number;
   events_joined: number;
   communities_joined: number;
   active_days: number;
   last_activity_at: string | null;
-  reputation_score: number;
 }
 
 // ==================== Points Service ====================
@@ -103,9 +101,9 @@ export class PointsService extends BaseService {
   }
 
   /**
-   * Get user reputation (comprehensive stats)
+   * Get user points summary (activity points and report count separately)
    */
-  public async getUserReputation(userId: string): Promise<ServiceResult<UserReputation>> {
+  public async getUserPointsSummary(userId: string): Promise<ServiceResult<UserPointsSummary>> {
     const supabase = this.supabaseAdmin;
 
     // Get all point transactions
@@ -115,20 +113,17 @@ export class PointsService extends BaseService {
       .eq("user_id", userId);
 
     if (pointsError) {
-      return ApiResponse.error(`Failed to get reputation: ${pointsError.message}`, 500);
+      return ApiResponse.error(`Failed to get points: ${pointsError.message}`, 500);
     }
 
     const points = pointsData || [];
 
-    // Calculate reputation metrics
-    const activityPoints = points
+    // Calculate total activity points (positive points only, excluding report deductions)
+    const totalPoints = points
       .filter((p) => p.points > 0)
       .reduce((sum, p) => sum + p.points, 0);
 
-    const reportPoints = points
-      .filter((p) => p.point_type === "report_received")
-      .reduce((sum, p) => sum + Math.abs(p.points), 0);
-
+    // Count reports separately (don't subtract from points)
     const reportCount = points.filter((p) => p.point_type === "report_received").length;
 
     const postsCreated = points.filter((p) => p.point_type === "post_created").length;
@@ -140,19 +135,14 @@ export class PointsService extends BaseService {
       ? points.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at
       : null;
 
-    // Calculate overall reputation score
-    const reputationScore = Math.max(0, activityPoints - reportPoints);
-
     return ApiResponse.success({
-      activity_points: activityPoints,
-      report_points: reportPoints,
+      total_points: totalPoints,
       report_count: reportCount,
       posts_created: postsCreated,
       events_joined: eventsJoined,
       communities_joined: communitiesJoined,
       active_days: activeDays,
       last_activity_at: lastActivity,
-      reputation_score: reputationScore,
     });
   }
 

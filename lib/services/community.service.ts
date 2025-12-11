@@ -49,13 +49,13 @@ interface MemberWithPoints {
   status: MemberStatus | boolean;
   requested_at: string;
   user?: UserInfo;
-  activityCount: number;
-  reportCount: number;
+  points: number;        // Total activity points
+  report_count: number;  // Number of reports (separate from points)
 }
 
 interface UserPointsCount {
-  activityCount: number;
-  reportCount: number;
+  points: number;
+  report_count: number;
 }
 
 interface ApproveResult {
@@ -207,8 +207,8 @@ export class CommunityService extends BaseService {
         status: request.status as MemberStatus,
         requested_at: request.requested_at,
         user: userInfo,
-        activityCount: pointsData.activityCount,
-        reportCount: pointsData.reportCount,
+        points: pointsData.points,
+        report_count: pointsData.report_count,
       });
     }
 
@@ -216,28 +216,31 @@ export class CommunityService extends BaseService {
   }
 
   /**
-   * Get user activity and report counts
+   * Get user points and report count (separate, not combined)
    * @param userId - The user ID to fetch points for
-   * @returns Object containing activity and report counts
+   * @returns Object containing total points and report count
    */
   private async getUserPoints(userId: string): Promise<UserPointsCount> {
-    const { data: points } = await this.supabaseAdmin
+    const { data: pointRecords } = await this.supabaseAdmin
       .from("user_points")
       .select("points, reason")
       .eq("user_id", userId);
 
-    let activityCount: number = 0;
+    let totalPoints: number = 0;
     let reportCount: number = 0;
 
-    ((points || []) as PointRecord[]).forEach((p: PointRecord) => {
+    ((pointRecords || []) as PointRecord[]).forEach((p: PointRecord) => {
+      // Sum positive points for activity
       if (p.points > 0) {
-        activityCount += 1;
-      } else if (p.reason?.toLowerCase().includes("report")) {
+        totalPoints += p.points;
+      }
+      // Count reports separately (don't subtract from points)
+      if (p.reason?.toLowerCase().includes("report")) {
         reportCount += 1;
       }
     });
 
-    return { activityCount, reportCount };
+    return { points: totalPoints, report_count: reportCount };
   }
 
   /**

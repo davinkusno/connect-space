@@ -30,7 +30,7 @@ export {
 } from "./auth.service";
 export { CommunityService, communityService } from "./community.service";
 export { EventService, eventService } from "./event.service";
-export { PointsService, pointsService, POINT_VALUES, PointsHelper, type PointType, type PointTransaction, type UserReputation } from "./points.service";
+export { PointsService, pointsService, POINT_VALUES, PointsHelper, type PointType, type PointTransaction, type UserPointsSummary } from "./points.service";
 export { PostService, postService } from "./post.service";
 export { ReportService, reportService } from "./report.service";
 export { UserService, userService } from "./user.service";
