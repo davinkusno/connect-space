@@ -16,3 +16,12 @@ export async function POST(
   const { id } = await params;
   return communityController.addMember(request, id);
 }
+
+// Cancel pending join request (by the user who submitted it)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  return communityController.cancelJoinRequest(request, id);
+}

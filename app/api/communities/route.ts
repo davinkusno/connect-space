@@ -118,7 +118,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       community_id: community.id,
       user_id: session.user.id,
       role: "admin",
-      status: true,
+      status: "approved",
     });
 
     return NextResponse.json({ success: true, data: community }, { status: 201 });

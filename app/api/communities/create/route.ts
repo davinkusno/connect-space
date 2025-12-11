@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
         community_id: community.id,
         user_id: user.id,
         role: "admin",
-        status: true, // Creator is automatically approved
+        status: "approved", // Creator is automatically approved
       });
 
     if (memberError) {

@@ -236,18 +236,9 @@ export default function CommunityMembersPage({
         }
       })
 
-      // Filter for approved members (status = true or null)
+      // Filter for approved members only
       const membersData = membersWithStatus.filter((member: any) => {
-        // If status is null/undefined, treat as approved
-        if (member.status === null || member.status === undefined) {
-          return true
-        }
-        // If status is true, it's approved
-        if (member.status === true || member.status === "true") {
-          return true
-        }
-        // If status is false, it's pending (not approved yet)
-        return false
+        return member.status === "approved"
       })
 
       if (membersData.length === 0) {

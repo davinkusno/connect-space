@@ -245,6 +245,7 @@ export function NotificationModal({
                   onMarkAsRead={handleMarkAsRead}
                   onMarkAsUnread={handleMarkAsUnread}
                   onDelete={handleDelete}
+                  onNavigate={onClose}
                   style={{ animationDelay: `${index * 50}ms` }}
                 />
               ))}

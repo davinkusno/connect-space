@@ -40,7 +40,7 @@ interface Community {
   banner_url?: string;
   created_at?: string;
   role?: "admin" | "moderator" | "member";
-  status?: boolean | null; // Join request status: false = pending, true = approved, null = legacy (treated as approved)
+  status?: "pending" | "approved" | "rejected" | "banned" | null;
   member_count?: number;
   members?: number;
   upcomingEvents?: number;
@@ -1835,8 +1835,8 @@ export default function DashboardPage() {
                                     View
                                   </Button>
                                 </Link>
-                                {/* Show Manage button if user is admin with status = true or null */}
-                                {community.role === "admin" && (community.status === true || community.status === null) && (
+                                {/* Show Manage button if user is admin with approved status */}
+                                {community.role === "admin" && community.status === "approved" && (
                                   <Link
                                     href={`/communities/${community.id}/admin`}
                                     className="flex-1"

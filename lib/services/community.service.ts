@@ -7,6 +7,7 @@ import {
 import {
     ApiResponse, BaseService, ServiceResult
 } from "./base.service";
+import { notificationService } from "./notification.service";
 import { pointsService } from "./points.service";
 
 // ==================== Community Service Types ====================
@@ -36,7 +37,7 @@ interface JoinRequestData {
   id: string;
   user_id: string;
   community_id: string;
-  status: MemberStatus | boolean;
+  status: MemberStatus;
   requested_at: string;
   users?: UserInfo;
   user?: UserInfo;
@@ -46,7 +47,7 @@ interface MemberWithPoints {
   id: string;
   user_id: string;
   community_id: string;
-  status: MemberStatus | boolean;
+  status: MemberStatus;
   requested_at: string;
   user?: UserInfo;
   activity_count: number;  // Count of positive activities
@@ -178,7 +179,7 @@ export class CommunityService extends BaseService {
         users:user_id (id, full_name, avatar_url, email)
       `)
       .eq("community_id", communityId)
-      .eq("status", false)
+      .eq("status", "pending")
       .order("requested_at", { ascending: false });
 
     if (error) {
@@ -267,17 +268,16 @@ export class CommunityService extends BaseService {
       return ApiResponse.notFound("Member request");
     }
 
-    // Database uses boolean: false = pending, true = approved
-    // Check if already processed (status is not false/pending)
-    if (member.status !== false && member.status !== "pending") {
+    // Check if already processed (status is not pending)
+    if (member.status !== "pending") {
       return ApiResponse.badRequest("Request already processed");
     }
 
-    // Update member status (database uses boolean: true = approved)
+    // Update member status to approved
     const { error: updateError } = await this.supabaseAdmin
       .from("community_members")
       .update({
-        status: true,
+        status: "approved" as MemberStatus,
         role: "member" as MemberRole,
         joined_at: new Date().toISOString(),
       })
@@ -296,6 +296,17 @@ export class CommunityService extends BaseService {
     const pointsResult = await pointsService.onCommunityJoined(member.user_id, communityId);
     if (!pointsResult.success) {
       console.error(`[CommunityService] Failed to award join points:`, pointsResult.error);
+    }
+
+    // Send notification to the user
+    const { data: community } = await this.supabaseAdmin
+      .from("communities")
+      .select("name")
+      .eq("id", communityId)
+      .single();
+    
+    if (community) {
+      await notificationService.onJoinApproved(member.user_id, communityId, community.name);
     }
 
     return ApiResponse.success<ApproveResult>({ message: "Request approved" });
@@ -318,15 +329,36 @@ export class CommunityService extends BaseService {
       return ApiResponse.forbidden("Permission denied");
     }
 
-    // Delete the pending request (database uses boolean so can't store "rejected")
+    // Get member info before deleting (for notification)
+    const { data: member } = await this.supabaseAdmin
+      .from("community_members")
+      .select("user_id")
+      .eq("id", memberId)
+      .eq("status", "pending")
+      .single();
+
+    // Delete the pending request
     const { error } = await this.supabaseAdmin
       .from("community_members")
       .delete()
       .eq("id", memberId)
-      .eq("status", false); // Only delete if still pending
+      .eq("status", "pending"); // Only delete if still pending
 
     if (error) {
       return ApiResponse.error("Failed to reject request", 500);
+    }
+
+    // Send notification to the user
+    if (member) {
+      const { data: community } = await this.supabaseAdmin
+        .from("communities")
+        .select("name")
+        .eq("id", communityId)
+        .single();
+      
+      if (community) {
+        await notificationService.onJoinRejected(member.user_id, communityId, community.name);
+      }
     }
 
     return ApiResponse.success<ApproveResult>({ message: "Request rejected" });
@@ -393,8 +425,7 @@ export class CommunityService extends BaseService {
       .maybeSingle();
 
     if (existingMember) {
-      const status = existingMember.status;
-      if (status === false || status === "pending") {
+      if (existingMember.status === "pending") {
         return ApiResponse.success<JoinResult>({ 
           message: "Join request is already pending", 
           member: existingMember as unknown as CommunityMember 
@@ -406,14 +437,14 @@ export class CommunityService extends BaseService {
       });
     }
 
-    // Insert with status = false (pending approval)
+    // Insert with status = "pending" (awaiting approval)
     const { data: insertData, error: insertError } = await this.supabaseAdmin
       .from("community_members")
       .insert({
         community_id: communityId,
         user_id: userId,
         role: "member" as MemberRole,
-        status: false,
+        status: "pending" as MemberStatus,
       })
       .select()
       .single();
@@ -425,10 +456,71 @@ export class CommunityService extends BaseService {
       return ApiResponse.error("Failed to join community", 500);
     }
 
+    // Send notification to community admins
+    try {
+      // Get community name and user name for the notification
+      const [communityResult, userResult] = await Promise.all([
+        this.supabaseAdmin.from("communities").select("name").eq("id", communityId).single(),
+        this.supabaseAdmin.from("users").select("full_name, username").eq("id", userId).single(),
+      ]);
+
+      const communityName = communityResult.data?.name || "the community";
+      const userName = userResult.data?.full_name || userResult.data?.username || "A user";
+
+      await notificationService.onJoinRequest(communityId, communityName, userId, userName);
+    } catch (notifError) {
+      console.error("[CommunityService] Failed to send join request notification:", notifError);
+      // Don't fail the request if notification fails
+    }
+
     return ApiResponse.created<JoinResult>({ 
       message: "Join request sent", 
       member: insertData as CommunityMember 
     });
+  }
+
+  /**
+   * Cancel a pending join request (by the user who submitted it)
+   * @param communityId - The community ID
+   * @param userId - The user canceling their own request
+   * @returns ServiceResult indicating success or failure
+   */
+  public async cancelJoinRequest(
+    communityId: string,
+    userId: string
+  ): Promise<ServiceResult<ApproveResult>> {
+    // Check if there's a pending request
+    const { data: existingRequest, error: checkError } = await this.supabaseAdmin
+      .from("community_members")
+      .select("id, status")
+      .eq("community_id", communityId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (checkError) {
+      return ApiResponse.error("Failed to check request status", 500);
+    }
+
+    if (!existingRequest) {
+      return ApiResponse.notFound("Join request");
+    }
+
+    // Only allow canceling pending requests
+    if (existingRequest.status !== "pending") {
+      return ApiResponse.badRequest("Can only cancel pending requests");
+    }
+
+    // Delete the pending request
+    const { error: deleteError } = await this.supabaseAdmin
+      .from("community_members")
+      .delete()
+      .eq("id", existingRequest.id);
+
+    if (deleteError) {
+      return ApiResponse.error("Failed to cancel request", 500);
+    }
+
+    return ApiResponse.success<ApproveResult>({ message: "Join request cancelled" });
   }
 
   /**
@@ -551,14 +643,14 @@ export class CommunityService extends BaseService {
       return ApiResponse.error("User is already a member", 409);
     }
 
-    // Add member
+    // Add member (directly approved since added by admin)
     const { data: newMember, error } = await this.supabaseAdmin
       .from("community_members")
       .insert({
         community_id: communityId,
         user_id: targetUserId,
         role: role || "member",
-        status: true,
+        status: "approved" as MemberStatus,
       })
       .select(`*, user:user_id(id, username, full_name, avatar_url)`)
       .single();

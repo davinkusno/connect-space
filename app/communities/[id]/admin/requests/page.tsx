@@ -128,7 +128,6 @@ export default function CommunityAdminRequestsPage({
       // Map requests to JoinRequest format
       const joinRequests: JoinRequest[] = requestsData.map((request: any) => {
         const user = usersData?.find((u: any) => u.id === request.user_id)
-        const status = request.status === false ? "pending" : request.status === true ? "approved" : "rejected"
         const stats = userStatsMap[request.user_id] || { activity_count: 0, report_count: 0 }
         
         return {
@@ -138,7 +137,7 @@ export default function CommunityAdminRequestsPage({
           userEmail: user?.email || "",
           userAvatar: user?.avatar_url || "/placeholder-user.jpg",
           requestedAt: request.joined_at,
-          status: status as "pending" | "approved" | "rejected",
+          status: request.status as "pending" | "approved" | "rejected",
           userBio: user?.bio || undefined,
           activity_count: stats.activity_count,
           report_count: stats.report_count
@@ -190,9 +189,9 @@ export default function CommunityAdminRequestsPage({
       // Update all pending requests to approved
       const { error } = await supabase
         .from("community_members")
-        .update({ status: true })
+        .update({ status: "approved" })
         .eq("community_id", communityId)
-        .eq("status", false)
+        .eq("status", "pending")
 
       if (error) {
         console.error("Error approving all requests:", error)
@@ -219,7 +218,7 @@ export default function CommunityAdminRequestsPage({
         .from("community_members")
         .delete()
         .eq("community_id", communityId)
-        .eq("status", false)
+        .eq("status", "pending")
 
       if (error) {
         console.error("Error rejecting all requests:", error)

@@ -12,7 +12,7 @@ import { getClientSession, getSupabaseBrowser } from "@/lib/supabase/client";
 import {
     AlertTriangle, ArrowLeft, Calendar, ChevronRight, Clock, Crown, Globe, Loader2, MapPin, MessageCircle, Navigation, Reply,
     Send, Settings, Shield,
-    Star, Trash2, TrendingUp, UserMinus, UserPlus, Users
+    Star, Trash2, TrendingUp, UserMinus, UserPlus, Users, X
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -91,10 +91,12 @@ export default function CommunityPage({
   const [userRole, setUserRole] = useState<"creator" | "admin" | "moderator" | "member" | null>(null);
   const [isMember, setIsMember] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
   const [membershipStatus, setMembershipStatus] = useState<"approved" | "pending" | null>(null); // Track membership status
   const [showPendingDialog, setShowPendingDialog] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [showJoinConfirmDialog, setShowJoinConfirmDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "about");
   
   // Tab-specific data
@@ -278,17 +280,22 @@ export default function CommunityPage({
 
           if (membershipData) {
             // User has a row in community_members
-            const memberStatus = membershipData.status
-            if (memberStatus === false) {
+            const memberStatus = membershipData.status;
+            if (memberStatus === "pending") {
               // Pending approval
               setMembershipStatus("pending");
               setIsMember(false); // Not a member yet, waiting for approval
               setUserRole(null);
-            } else {
-              // Approved member (status = true or null)
+            } else if (memberStatus === "approved") {
+              // Approved member
               setIsMember(true);
               setMembershipStatus("approved");
               setUserRole(membershipData.role as any);
+            } else {
+              // Rejected or banned
+              setMembershipStatus(null);
+              setIsMember(false);
+              setUserRole(null);
             }
           } else {
             // No membership record
@@ -502,10 +509,9 @@ export default function CommunityPage({
             break;
           }
 
-          // Filter for approved members (status = true or null, NOT false)
+          // Filter for approved members only
           const approvedMembers = (membersData || []).filter((m: any) => {
-            const status = m.status;
-            return status === true || status === null || status === undefined;
+            return m.status === "approved";
           });
 
           console.log("Approved members:", approvedMembers?.length, approvedMembers);
@@ -678,6 +684,40 @@ export default function CommunityPage({
       }
     } finally {
       setIsJoining(false);
+    }
+  };
+
+  // Cancel pending join request
+  const handleCancelRequest = async () => {
+    if (!currentUser || !community) {
+      toast.error("Unable to cancel request");
+      return;
+    }
+
+    try {
+      setIsCanceling(true);
+
+      const response = await fetch(`/api/communities/${id}/members`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error?.message || result.error || "Failed to cancel request");
+      }
+
+      // Update local state
+      setMembershipStatus(null);
+      setIsMember(false);
+      setShowCancelDialog(false);
+      setShowPendingDialog(false);
+      toast.success("Join request cancelled");
+    } catch (error: any) {
+      console.error("Error canceling request:", error);
+      toast.error(error.message || "Failed to cancel request");
+    } finally {
+      setIsCanceling(false);
     }
   };
 
@@ -927,10 +967,21 @@ export default function CommunityPage({
                   Community Joined
             </div>
               ) : membershipStatus === "pending" ? (
-                <div className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-200 flex items-center">
-                  <Clock className="h-4 w-4 mr-2" />
-                  Waiting For Approval
-              </div>
+                <div className="flex items-center gap-2">
+                  <div className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-200 flex items-center">
+                    <Clock className="h-4 w-4 mr-2" />
+                    Pending Approval
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCancelDialog(true)}
+                    className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
               ) : (
                 <Button
                     onClick={handleJoinClick}
@@ -2049,13 +2100,55 @@ export default function CommunityPage({
               Your join request has been sent to the community admin. Please wait for approval.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end mt-4">
+          <div className="flex justify-between mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowPendingDialog(false);
+                setShowCancelDialog(true);
+              }}
+              className="text-gray-600"
+            >
+              Cancel Request
+            </Button>
             <Button onClick={() => setShowPendingDialog(false)}>
               OK
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Request Confirmation Dialog */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Join Request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel your request to join this community? 
+              You can submit a new request later if you change your mind.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCanceling}>
+              Keep Request
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelRequest}
+              disabled={isCanceling}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isCanceling ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Canceling...
+                </>
+              ) : (
+                "Cancel Request"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Report Dialog */}
       <ReportDialog

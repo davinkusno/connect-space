@@ -5,6 +5,7 @@ import type React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Award, Calendar, Check, ExternalLink, MessageCircle, RotateCcw, Settings, Trash2, Users } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 interface Notification {
   id: string
@@ -22,6 +23,7 @@ interface NotificationItemProps {
   onMarkAsRead: (id: string) => void
   onMarkAsUnread: (id: string) => void
   onDelete: (id: string) => void
+  onNavigate?: () => void
   style?: React.CSSProperties
 }
 
@@ -30,8 +32,11 @@ export function NotificationItem({
   onMarkAsRead,
   onMarkAsUnread,
   onDelete,
+  onNavigate,
   style,
 }: NotificationItemProps) {
+  const router = useRouter()
+
   const getIcon = () => {
     switch (notification.type) {
       case "message":
@@ -66,20 +71,35 @@ export function NotificationItem({
     }
   }
 
-  const handleAction = () => {
-    if (notification.actionUrl) {
-      // In a real app, you would navigate to the URL
-      console.log(`Navigate to: ${notification.actionUrl}`)
+  // Handle clicking on the notification - mark as read and navigate
+  const handleNotificationClick = () => {
+    // Mark as read if not already
+    if (!notification.isRead) {
+      onMarkAsRead(notification.id)
     }
+    
+    // Navigate to the action URL if available
+    if (notification.actionUrl) {
+      onNavigate?.() // Close modal first
+      router.push(notification.actionUrl)
+    }
+  }
+
+  // Handle explicit action button click
+  const handleActionButton = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent triggering the parent click
+    handleNotificationClick()
   }
 
   return (
     <div
       className={`
         p-4 rounded-lg border transition-all duration-200 hover:shadow-md animate-fade-in mb-2
+        ${notification.actionUrl ? "cursor-pointer" : ""}
         ${notification.isRead ? "bg-white border-gray-200" : "bg-blue-50 border-blue-200 border-l-4 border-l-blue-500"}
       `}
       style={style}
+      onClick={notification.actionUrl ? handleNotificationClick : undefined}
     >
       <div className="flex items-start gap-3">
         {/* Icon */}
@@ -112,7 +132,13 @@ export function NotificationItem({
             {/* Actions */}
             <div className="flex items-center gap-1 flex-shrink-0 ml-2">
               {notification.actionUrl && (
-                <Button variant="ghost" size="sm" onClick={handleAction} className="h-8 w-8 p-0" title="View details">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleActionButton} 
+                  className="h-8 w-8 p-0" 
+                  title="View details"
+                >
                   <ExternalLink className="h-3 w-3" />
                 </Button>
               )}
@@ -120,7 +146,10 @@ export function NotificationItem({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => (notification.isRead ? onMarkAsUnread(notification.id) : onMarkAsRead(notification.id))}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  notification.isRead ? onMarkAsUnread(notification.id) : onMarkAsRead(notification.id)
+                }}
                 className="h-8 w-8 p-0"
                 title={notification.isRead ? "Mark as unread" : "Mark as read"}
               >
@@ -130,7 +159,10 @@ export function NotificationItem({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onDelete(notification.id)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(notification.id)
+                }}
                 className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                 title="Delete notification"
               >

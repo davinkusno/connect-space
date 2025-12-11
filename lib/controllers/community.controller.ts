@@ -232,6 +232,35 @@ export class CommunityController extends BaseController {
   }
 
   /**
+   * DELETE /api/communities/[id]/members/cancel
+   * Cancel a pending join request (by the user who submitted it)
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @returns NextResponse indicating success or failure
+   */
+  public async cancelJoinRequest(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<ApproveResponse | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+
+      const result: ServiceResult<ApproveResponse> = await this.service.cancelJoinRequest(
+        communityId,
+        user.id
+      );
+
+      if (result.success) {
+        return this.json<ApproveResponse>(result.data as ApproveResponse, result.status);
+      }
+      
+      return this.error(result.error?.message || "Failed to cancel request", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * PATCH /api/communities/members/[id]/role
    * Update a member's role
    * @param request - The incoming request with new role

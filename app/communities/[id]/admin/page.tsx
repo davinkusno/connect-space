@@ -188,21 +188,14 @@ export default function CommunityAdminPage({
           }
         }
 
-        // Get member count - only approved members (status = true or null)
-        // Do NOT count pending requests (status = false)
-        // Fetch all members first, then filter client-side
+        // Get member count - only approved members
         const { data: allMembers, error: membersError } = await supabase
           .from("community_members")
           .select("status")
           .eq("community_id", communityData.id)
+          .eq("status", "approved")
         
-        // Filter client-side: only count approved members (status = true or null)
-        const approvedMembers = allMembers?.filter((member: any) => {
-          const status = member.status
-          return status === true || status === null
-        }) || []
-        
-        const memberCount = approvedMembers.length
+        const memberCount = allMembers?.length || 0
         
         // Get admin email from community_members
         // First, get admin user_id from community_members
@@ -347,16 +340,9 @@ export default function CommunityAdminPage({
         }
       })
 
-      // Filter for status = false (pending requests)
-      // Only include requests where status is explicitly false
+      // Filter for pending requests only
       const pendingRequests = membersWithStatus.filter((req: any) => {
-        // Only include if status is explicitly false (not null, not undefined, not true)
-        const isPending = req.status === false
-        // Debug logging
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Member ${req.id}: status = ${req.status}, isPending = ${isPending}`)
-        }
-        return isPending
+        return req.status === "pending"
       })
       
       if (pendingRequests.length === 0) {
@@ -535,15 +521,10 @@ export default function CommunityAdminPage({
         .from("community_members")
         .select("status")
         .eq("community_id", community.id)
-      
-      // Filter client-side: only count approved members (status = true or null)
-      const approvedMembers = allMembers?.filter((member: any) => {
-        const status = member.status
-        return status === true || status === null
-      }) || []
+        .eq("status", "approved")
       
       // Update member count in state (only counts approved members)
-      setCommunity((prev) => prev ? { ...prev, memberCount: approvedMembers.length } : null)
+      setCommunity((prev) => prev ? { ...prev, memberCount: allMembers?.length || 0 } : null)
       
       toast.success("Request approved successfully")
     } catch (error: any) {
@@ -611,12 +592,12 @@ export default function CommunityAdminPage({
       
       if (pendingRequests.length === 0) return
 
-      // Update all pending requests status to true in community_members
+      // Update all pending requests status to approved in community_members
       // Only update for the current community's members for security
       const requestIds = pendingRequests.map(r => r.id)
       const { error: updateError } = await supabase
         .from("community_members")
-        .update({ status: true })
+        .update({ status: "approved" })
         .in("id", requestIds)
         .eq("community_id", community.id)
 
@@ -627,21 +608,15 @@ export default function CommunityAdminPage({
       }
 
       // Reload community data to get updated member count from database
-      // This ensures memberCount only counts approved members (status = true or null)
       if (community) {
         const { data: allMembers } = await supabase
           .from("community_members")
           .select("status")
           .eq("community_id", community.id)
-        
-        // Filter client-side: only count approved members (status = true or null)
-        const approvedMembers = allMembers?.filter((member: any) => {
-          const status = member.status
-          return status === true || status === null
-        }) || []
+          .eq("status", "approved")
         
         // Update member count in state (only counts approved members)
-        setCommunity((prev) => prev ? { ...prev, memberCount: approvedMembers.length } : null)
+        setCommunity((prev) => prev ? { ...prev, memberCount: allMembers?.length || 0 } : null)
       }
 
       // Remove all approved requests from UI

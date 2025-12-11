@@ -113,11 +113,10 @@ export default function CommunityAdminSelectorPage() {
           .select("community_id, status")
           .in("community_id", communityIds)
         
-        // Count approved members (status = true or null) for each community
+        // Count approved members for each community
         const counts: Record<string, number> = {}
         memberCounts?.forEach(member => {
-          const status = member.status
-          if (status === true || status === null) {
+          if (member.status === "approved") {
             counts[member.community_id] = (counts[member.community_id] || 0) + 1
           }
         })

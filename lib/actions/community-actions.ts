@@ -27,12 +27,12 @@ export async function createCommunity(
       throw new Error(error.message)
     }
 
-    // Add creator as admin member with status = true (approved)
+    // Add creator as admin member with approved status
     await supabase.from("community_members").insert({
       community_id: data.id,
       user_id: session.user.id,
       role: "admin",
-      status: true, // Creator is automatically approved
+      status: "approved", // Creator is automatically approved
     })
 
     revalidatePath("/communities")

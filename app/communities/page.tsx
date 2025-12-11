@@ -241,9 +241,9 @@ export default function DiscoverPage() {
         
         // Update based on memberships
         (memberships || []).forEach((membership: any) => {
-          if (membership.status === false) {
+          if (membership.status === "pending") {
             membershipStatusMap[membership.community_id] = "pending";
-          } else if (membership.status === true || membership.status === null) {
+          } else if (membership.status === "approved") {
             membershipStatusMap[membership.community_id] = "joined";
           }
         });

@@ -1,9 +1,6 @@
 "use client";
 
-import {
-    NotificationModal,
-    type Notification
-} from "@/components/notifications/notification-modal";
+import { NotificationModal } from "@/components/notifications/notification-modal";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,6 +21,7 @@ import {
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useNotifications } from "@/hooks/use-notifications";
 import { useToast } from "@/hooks/use-toast";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import {
@@ -111,34 +109,49 @@ export function UnifiedNav() {
         const transformedNotifications: Notification[] = (notificationsData || []).map((notif: any) => {
           // Map database types to UI types
           let uiType: "event" | "achievement" | "system" | "community" = "system";
-          let title = "";
           let actionUrl = "";
 
           switch (notif.type) {
             case "event_reminder":
+            case "new_event":
+            case "event_cancelled":
               uiType = "event";
-              title = "Event Reminder";
               if (notif.reference_type === "event" && notif.reference_id) {
                 actionUrl = `/events/${notif.reference_id}`;
               }
               break;
             case "community_invite":
+            case "community_update":
               uiType = "community";
-              title = "Community Invitation";
               if (notif.reference_type === "community" && notif.reference_id) {
                 actionUrl = `/communities/${notif.reference_id}`;
               }
               break;
-            case "community_update":
+            case "join_request":
               uiType = "community";
-              title = "Community Update";
+              // Link to admin requests page for join requests
+              if (notif.reference_type === "community" && notif.reference_id) {
+                actionUrl = `/communities/${notif.reference_id}/admin/requests`;
+              }
+              break;
+            case "join_approved":
+            case "join_rejected":
+              uiType = "community";
+              // Link to the community page
               if (notif.reference_type === "community" && notif.reference_id) {
                 actionUrl = `/communities/${notif.reference_id}`;
+              }
+              break;
+            case "new_post":
+            case "post_reply":
+            case "mention":
+              uiType = "community";
+              if (notif.reference_type === "community" && notif.reference_id) {
+                actionUrl = `/communities/${notif.reference_id}?tab=announcements`;
               }
               break;
             default:
               uiType = "system";
-              title = "Notification";
           }
 
           // Format timestamp
@@ -147,7 +160,7 @@ export function UnifiedNav() {
           return {
             id: notif.id,
             type: uiType,
-            title: title,
+            title: notif.title || "Notification", // Use title from DB
             content: notif.content,
             timestamp: timestamp,
             isRead: notif.is_read || false,
