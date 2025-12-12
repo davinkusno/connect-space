@@ -1,4 +1,4 @@
-import { communityService, CommunityService } from "@/lib/services";
+import { communityService, CommunityService, storageService, StorageService } from "@/lib/services";
 import { ServiceResult } from "@/lib/services/base.service";
 import { CommunityMember, MemberRole } from "@/lib/types";
 import { User } from "@supabase/supabase-js";
@@ -59,16 +59,28 @@ interface MembersResponse {
 
 // ==================== Community Controller Class ====================
 
+interface UpdateCommunityResponse {
+  success: boolean;
+  message: string;
+  data: {
+    logo_url: string | null;
+    banner_url: string | null;
+    location: string | null;
+  };
+}
+
 /**
  * Controller for community-related API endpoints
  * Handles HTTP requests and delegates to CommunityService
  */
 export class CommunityController extends BaseController {
   private readonly service: CommunityService;
+  private readonly storage: StorageService;
 
   constructor() {
     super();
     this.service = communityService;
+    this.storage = storageService;
   }
 
   /**
@@ -373,7 +385,7 @@ export class CommunityController extends BaseController {
 
   /**
    * POST /api/communities
-   * Create a new community
+   * Create a new community (JSON body)
    * @param request - The incoming request with community data
    * @returns NextResponse with created community
    */
@@ -397,6 +409,69 @@ export class CommunityController extends BaseController {
       }
 
       const result = await this.service.createCommunity(body, user.id);
+
+      if (result.success && result.data) {
+        return this.json({ communityId: result.data.id, message: "Community created successfully" }, 201);
+      }
+      
+      return this.error(result.error?.message || "Failed to create community", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * POST /api/communities/create
+   * Create a new community with image upload (FormData)
+   * @param request - The incoming request with form data
+   * @returns NextResponse with created community
+   */
+  public async createCommunityWithImage(
+    request: NextRequest
+  ): Promise<NextResponse<{ communityId: string; message: string } | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+
+      // Parse form data
+      const formData = await request.formData();
+      const interests = JSON.parse(formData.get("interests") as string);
+      const name = formData.get("name") as string;
+      const description = formData.get("description") as string;
+      const profileImage = formData.get("profileImage") as File | null;
+
+      // Validate required fields
+      if (!interests || !name || !description) {
+        return this.badRequest("All required fields must be provided");
+      }
+
+      // Handle profile image upload if provided
+      let profileImageUrl: string | undefined = undefined;
+      if (profileImage && profileImage.size > 0) {
+        const uploadResult = await this.storage.uploadImage(profileImage, "community");
+        
+        if (!uploadResult.success) {
+          return this.error(uploadResult.error?.message || "Failed to upload image", uploadResult.status);
+        }
+        
+        profileImageUrl = uploadResult.data?.url;
+      }
+
+      // Get category name from interests
+      const interestsArray = Array.isArray(interests) ? interests : [interests];
+      const categoryName = interestsArray[0];
+
+      // Create community using the service
+      const result = await this.service.createCommunity(
+        {
+          name,
+          description,
+          logoUrl: profileImageUrl,
+          categoryName,
+          interests: interestsArray,
+          completeOnboarding: true,
+        },
+        user.id
+      );
 
       if (result.success && result.data) {
         return this.json({ communityId: result.data.id, message: "Community created successfully" }, 201);
@@ -490,6 +565,67 @@ export class CommunityController extends BaseController {
       }
       
       return this.error(result.error?.message || "Failed to fetch membership status", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * POST /api/communities/[id]/update
+   * Update community logo, banner, and location
+   * @param request - The incoming request with form data
+   * @param communityId - The community ID to update
+   * @returns NextResponse with updated data
+   */
+  public async updateCommunity(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<UpdateCommunityResponse | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+
+      const formData = await request.formData();
+      const profileImage = formData.get("profileImage") as File | null;
+      const bannerImage = formData.get("bannerImage") as File | null;
+      const location = formData.get("location") as string | null;
+
+      let logoUrl: string | undefined;
+      let bannerUrl: string | undefined;
+
+      // Handle profile image upload
+      if (profileImage && profileImage.size > 0) {
+        const uploadResult = await this.storage.uploadImage(profileImage, "community");
+        if (!uploadResult.success) {
+          return this.error(uploadResult.error?.message || "Failed to upload profile image", uploadResult.status);
+        }
+        logoUrl = uploadResult.data?.url;
+      }
+
+      // Handle banner image upload
+      if (bannerImage && bannerImage.size > 0) {
+        const uploadResult = await this.storage.uploadImage(bannerImage, "banner");
+        if (!uploadResult.success) {
+          return this.error(uploadResult.error?.message || "Failed to upload banner image", uploadResult.status);
+        }
+        bannerUrl = uploadResult.data?.url;
+      }
+
+      // Update community
+      const result = await this.service.updateCommunity(communityId, user.id, {
+        logoUrl,
+        bannerUrl,
+        location: location || undefined,
+      });
+
+      if (result.success) {
+        return this.json<UpdateCommunityResponse>({
+          success: true,
+          message: "Community updated successfully",
+          data: result.data!,
+        }, result.status);
+      }
+      
+      return this.error(result.error?.message || "Failed to update community", result.status);
     } catch (error: unknown) {
       return this.handleError(error);
     }

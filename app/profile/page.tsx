@@ -701,12 +701,12 @@ export default function ProfilePage() {
                     <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Award className="h-5 w-5 text-white" />
-                        </div>
+                        <Award className="h-5 w-5 text-white" />
+                      </div>
                         <div className="flex-1">
                           <div className="text-xs text-green-600 font-medium">
                             Activities
-                          </div>
+                        </div>
                           <div className="text-xl font-bold text-green-900">
                             {activityCount.toLocaleString()}
                           </div>

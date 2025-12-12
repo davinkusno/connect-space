@@ -20,6 +20,7 @@ export { AuthController, authController } from "./auth.controller";
 export { CommunityController, communityController } from "./community.controller";
 export { EventController, eventController } from "./event.controller";
 export { PostController, postController } from "./post.controller";
+export { RecommendationController, recommendationController } from "./recommendation.controller";
 export { ReportController, reportController } from "./report.controller";
 export { StorageController, storageController } from "./storage.controller";
 export { UserController, userController } from "./user.controller";

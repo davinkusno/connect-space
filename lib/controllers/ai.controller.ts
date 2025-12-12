@@ -1,5 +1,6 @@
 import { aiService, AIService } from "@/lib/services";
 import { ServiceResult } from "@/lib/services/base.service";
+import { ContentGenerationParams } from "@/lib/services/ai.service";
 import { ChatMessage } from "@/lib/types";
 import { NextRequest, NextResponse } from "next/server";
 import { ApiErrorResponse, BaseController } from "./base.controller";
@@ -20,6 +21,11 @@ interface ChatBody {
 interface EnhanceContentBody {
   content: string;
   type: "grammar" | "style" | "expand" | "summarize";
+}
+
+interface GenerateContentBody {
+  type: "community-description" | "community-tags" | "community-rules" | "event-description" | "event-agenda";
+  params: ContentGenerationParams;
 }
 
 // ==================== Response Types ====================
@@ -120,8 +126,8 @@ export class AIController extends BaseController {
   }
 
   /**
-   * POST /api/ai/generate-content
-   * Generate or enhance content using AI
+   * POST /api/ai/enhance-content
+   * Enhance content using AI (grammar, style, expand, summarize)
    * @param request - The incoming request with content and type
    * @returns NextResponse with enhanced content
    */
@@ -151,6 +157,53 @@ export class AIController extends BaseController {
       }
       
       return this.error(result.error?.message || "Failed to enhance", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * POST /api/ai/generate-content
+   * Generate content using AI (community description, tags, rules, event description, agenda)
+   * @param request - The incoming request with type and params
+   * @returns NextResponse with generated content
+   */
+  public async generateContent(
+    request: NextRequest
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const body: GenerateContentBody = await this.parseBody<GenerateContentBody>(request);
+
+      if (!body.type || !body.params) {
+        return this.badRequest("Missing required fields: type and params");
+      }
+
+      const validTypes: GenerateContentBody["type"][] = [
+        "community-description", 
+        "community-tags", 
+        "community-rules", 
+        "event-description", 
+        "event-agenda"
+      ];
+      
+      if (!validTypes.includes(body.type)) {
+        return this.badRequest("Invalid content type");
+      }
+
+      const result: ServiceResult<unknown> = await this.service.generateContent(
+        body.type,
+        body.params
+      );
+
+      if (result.success) {
+        return this.json(result.data, result.status);
+      }
+      
+      return this.error(
+        result.error?.message || "Failed to generate content", 
+        result.status,
+        result.error?.code
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }

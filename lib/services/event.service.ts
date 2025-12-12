@@ -838,6 +838,223 @@ export class EventService extends BaseService {
       saved: savedResult.data!,
     });
   }
+
+  // ==================== Event CRUD Methods ====================
+
+  /**
+   * Create a new event
+   * @param data - Event data
+   * @param userId - Creator user ID
+   * @returns ServiceResult with created event
+   */
+  public async createEvent(
+    data: {
+      title: string;
+      description: string;
+      category?: string;
+      location?: string;
+      start_time: string;
+      end_time: string;
+      image_url?: string;
+      community_id: string;
+      is_online?: boolean;
+      max_attendees?: number;
+      link?: string;
+    },
+    userId: string
+  ): Promise<ServiceResult<EventData>> {
+    // Validate required fields
+    if (!data.title || !data.description) {
+      return ApiResponse.badRequest("Title and description are required");
+    }
+
+    const wordCount = data.description.trim().split(/\s+/).filter((word: string) => word.length > 0).length;
+    if (wordCount > 500) {
+      return ApiResponse.badRequest(`Description must be 500 words or less (current: ${wordCount})`);
+    }
+
+    if (!data.start_time || !data.end_time) {
+      return ApiResponse.badRequest("Start and end time are required");
+    }
+
+    if (!data.community_id) {
+      return ApiResponse.badRequest("Community ID is required");
+    }
+
+    // Verify community exists
+    const { data: community, error: communityError } = await this.supabaseAdmin
+      .from("communities")
+      .select("id, name, creator_id, category_id")
+      .eq("id", data.community_id)
+      .single();
+
+    if (communityError || !community) {
+      return ApiResponse.notFound("Community not found");
+    }
+
+    // Check permission (must be admin or creator)
+    const { data: membership } = await this.supabaseAdmin
+      .from("community_members")
+      .select("role")
+      .eq("community_id", data.community_id)
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    const isAdmin = !!membership;
+    const isCreator = community.creator_id === userId;
+
+    if (!isAdmin && !isCreator) {
+      return ApiResponse.error("Permission denied", 403);
+    }
+
+    // Prepare event data
+    const insertData: Record<string, unknown> = {
+      title: data.title,
+      description: data.description,
+      location: data.location || null,
+      start_time: data.start_time,
+      end_time: data.end_time,
+      image_url: data.image_url || null,
+      community_id: data.community_id,
+      creator_id: userId,
+      is_online: data.is_online || false,
+      max_attendees: data.max_attendees || null,
+      link: data.link || null,
+    };
+
+    // Set category
+    if (data.category) {
+      insertData.category = data.category;
+    } else if (community.category_id) {
+      const { data: catData } = await this.supabaseAdmin
+        .from("categories")
+        .select("name")
+        .eq("id", community.category_id)
+        .single();
+
+      if (catData?.name) {
+        insertData.category = catData.name;
+      }
+    }
+
+    // Create event
+    const { data: event, error: eventError } = await this.supabaseAdmin
+      .from("events")
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (eventError || !event) {
+      console.error("[EventService] Create error:", eventError);
+      return ApiResponse.error("Failed to create event", 500);
+    }
+
+    // Update community activity
+    await this.supabaseAdmin
+      .from("communities")
+      .update({
+        last_activity_date: new Date().toISOString(),
+        last_activity_type: "event",
+        status: "active",
+      })
+      .eq("id", data.community_id);
+
+    return ApiResponse.success(event as EventData);
+  }
+
+  /**
+   * Update an existing event
+   * @param eventId - Event ID to update
+   * @param data - Update data
+   * @param userId - User ID performing the update
+   * @returns ServiceResult with updated event
+   */
+  public async updateEvent(
+    eventId: string,
+    data: {
+      title?: string;
+      description?: string;
+      category?: string;
+      location?: string;
+      start_time?: string;
+      end_time?: string;
+      image_url?: string;
+      is_online?: boolean;
+      is_public?: boolean;
+      max_attendees?: number;
+      link?: string;
+    },
+    userId: string
+  ): Promise<ServiceResult<EventData>> {
+    // Fetch existing event to verify ownership
+    const { data: existingEvent, error: fetchError } = await this.supabaseAdmin
+      .from("events")
+      .select("id, community_id, creator_id")
+      .eq("id", eventId)
+      .single();
+
+    if (fetchError || !existingEvent) {
+      return ApiResponse.notFound("Event not found");
+    }
+
+    // Verify user is admin/creator of the community
+    const { data: community } = await this.supabaseAdmin
+      .from("communities")
+      .select("id, creator_id")
+      .eq("id", existingEvent.community_id)
+      .single();
+
+    if (!community) {
+      return ApiResponse.notFound("Community not found");
+    }
+
+    // Check if user is creator or admin
+    const isCreator = community.creator_id === userId;
+    const { data: membership } = await this.supabaseAdmin
+      .from("community_members")
+      .select("role")
+      .eq("community_id", existingEvent.community_id)
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    if (!isCreator && !membership) {
+      return ApiResponse.error("You don't have permission to update this event", 403);
+    }
+
+    // Build update data (only include fields that are provided)
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.location !== undefined) updateData.location = data.location;
+    if (data.start_time !== undefined) updateData.start_time = data.start_time;
+    if (data.end_time !== undefined) updateData.end_time = data.end_time;
+    if (data.image_url !== undefined) updateData.image_url = data.image_url;
+    if (data.is_online !== undefined) updateData.is_online = data.is_online;
+    if (data.is_public !== undefined) updateData.is_public = data.is_public;
+    if (data.max_attendees !== undefined) updateData.max_attendees = data.max_attendees;
+    if (data.link !== undefined) updateData.link = data.link;
+    if (data.category !== undefined) updateData.category = data.category;
+
+    // Update event
+    const { data: updatedEvent, error: updateError } = await this.supabaseAdmin
+      .from("events")
+      .update(updateData)
+      .eq("id", eventId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error("[EventService] Update error:", updateError);
+      return ApiResponse.error(`Failed to update event: ${updateError.message}`, 500);
+    }
+
+    return ApiResponse.success(updatedEvent as EventData);
+  }
 }
 
 // Export singleton instance

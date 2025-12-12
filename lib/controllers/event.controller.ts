@@ -331,6 +331,88 @@ export class EventController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  // ==================== Event CRUD Methods ====================
+
+  /**
+   * POST /api/events/create
+   * Create a new event
+   * @param request - The incoming request with event data
+   * @returns NextResponse with created event
+   */
+  public async createEvent(
+    request: NextRequest
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      const body = await this.parseBody<{
+        title: string;
+        description: string;
+        category?: string;
+        location?: string;
+        start_time: string;
+        end_time: string;
+        image_url?: string;
+        community_id: string;
+        is_online?: boolean;
+        max_attendees?: number;
+        link?: string;
+      }>(request);
+
+      const result = await this.service.createEvent(body, user.id);
+
+      if (result.success) {
+        return this.json(result.data, 201);
+      }
+      
+      return this.error(result.error?.message || "Failed to create event", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * PATCH /api/events/[id]/update
+   * Update an existing event
+   * @param request - The incoming request with update data
+   * @param eventId - The event ID to update
+   * @returns NextResponse with updated event
+   */
+  public async updateEvent(
+    request: NextRequest,
+    eventId: string
+  ): Promise<NextResponse<{ success: boolean; message: string; data: unknown } | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      const body = await this.parseBody<{
+        title?: string;
+        description?: string;
+        category?: string;
+        location?: string;
+        start_time?: string;
+        end_time?: string;
+        image_url?: string;
+        is_online?: boolean;
+        is_public?: boolean;
+        max_attendees?: number;
+        link?: string;
+      }>(request);
+
+      const result = await this.service.updateEvent(eventId, body, user.id);
+
+      if (result.success) {
+        return this.json({
+          success: true,
+          message: "Event updated successfully",
+          data: result.data,
+        }, result.status);
+      }
+      
+      return this.error(result.error?.message || "Failed to update event", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

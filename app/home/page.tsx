@@ -1094,35 +1094,35 @@ export default function DashboardPage() {
                         <div className="flex-1 flex flex-col">
                           <div className="space-y-2 flex-1">
                             {paginatedEvents.map((event) => (
-                              <div
-                                key={event.id}
-                                onClick={() => setSelectedEvent(event)}
+                            <div
+                              key={event.id}
+                              onClick={() => setSelectedEvent(event)}
                                 className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                                  selectedEvent?.id === event.id
-                                    ? "border-violet-500 bg-violet-50"
-                                    : "border-gray-200 hover:border-violet-300 hover:bg-violet-50/50"
-                                }`}
-                              >
+                                selectedEvent?.id === event.id
+                                  ? "border-violet-500 bg-violet-50"
+                                  : "border-gray-200 hover:border-violet-300 hover:bg-violet-50/50"
+                              }`}
+                            >
                                 <div className="flex items-start gap-2">
                                   <div className="w-2 h-2 rounded-full bg-violet-600 mt-1.5 flex-shrink-0" />
-                                  <div className="flex-1 min-w-0">
+                                <div className="flex-1 min-w-0">
                                     <h4 className="font-medium text-sm text-gray-900 mb-1 line-clamp-1">
-                                      {event.title}
-                                    </h4>
+                                    {event.title}
+                                  </h4>
                                     <div className="flex items-center gap-3 text-xs text-gray-500">
                                       <div className="flex items-center gap-1">
                                         <Clock className="h-3 w-3" />
-                                        <span>{event.time}</span>
-                                      </div>
+                                      <span>{event.time}</span>
+                                    </div>
                                       <div className="flex items-center gap-1">
                                         <MapPin className="h-3 w-3" />
                                         <span className="truncate max-w-[80px]">{event.location}</span>
-                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                            ))}
+                            </div>
+                          ))}
                           </div>
                           {totalPages > 1 && (
                             <div className="flex items-center justify-between pt-3 mt-auto border-t">
@@ -1171,13 +1171,13 @@ export default function DashboardPage() {
               {/* Event Detail - Right Column (1/3) - Top Card (from upcoming events) */}
               <Card className="border-0 shadow-sm h-[520px] flex flex-col">
                 <CardHeader className="pb-3 h-[72px] flex-shrink-0">
-                  <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <div className="p-1.5 bg-purple-100 rounded-lg">
-                      <CalendarIcon className="h-4 w-4 text-purple-600" />
-                    </div>
-                    Event Details
-                  </CardTitle>
-                </CardHeader>
+                    <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <div className="p-1.5 bg-purple-100 rounded-lg">
+                        <CalendarIcon className="h-4 w-4 text-purple-600" />
+                      </div>
+                      Event Details
+                    </CardTitle>
+                  </CardHeader>
                 <CardContent className="p-4 pt-0 flex-1 flex flex-col">
                   {selectedEvent ? (
                     <div className="space-y-3 flex-1 flex flex-col">
@@ -1207,31 +1207,31 @@ export default function DashboardPage() {
                           </p>
                         )}
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
                             <CalendarIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
                             <span className="truncate">
-                              {new Date(selectedEvent.date).toLocaleDateString("en-US", {
+                            {new Date(selectedEvent.date).toLocaleDateString("en-US", {
                                 weekday: "short",
                                 month: "short",
-                                day: "numeric",
-                              })}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                              day: "numeric",
+                            })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
                             <Clock className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                            <span>{selectedEvent.time}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <span>{selectedEvent.time}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
                             <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
                             <span className="truncate">{selectedEvent.location}</span>
-                          </div>
-                          {selectedEvent.community && (
-                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                        </div>
+                        {selectedEvent.community && (
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
                               <Users className="h-4 w-4 text-gray-400 flex-shrink-0" />
                               <span className="truncate">{selectedEvent.community}</span>
-                            </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
+                      </div>
                       </div>
                       <div className="pt-3 border-t mt-auto">
                         <Link href={`/events/${selectedEvent.id}`} className="w-full">
@@ -1241,14 +1241,14 @@ export default function DashboardPage() {
                         </Link>
                       </div>
                     </div>
-                  ) : (
+              ) : (
                     <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-lg">
                       <CalendarIcon className="h-10 w-10 mb-2 text-gray-300" />
                       <p className="text-sm text-gray-500">Select an event to view details</p>
-                    </div>
+                      </div>
                   )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
               {/* Saved Events Section - Spans from calendar to upcoming events (cols 1-2) */}
               <div className="lg:col-span-2 lg:col-start-1 lg:row-start-2">
@@ -1631,8 +1631,8 @@ export default function DashboardPage() {
                                   <Badge variant="secondary" className="mt-1 text-xs">
                                     {community.isCreator ? (
                                       <>
-                                        <Crown className="h-3 w-3 mr-1" />
-                                        Creator
+                                    <Crown className="h-3 w-3 mr-1" />
+                                    Creator
                                       </>
                                     ) : (
                                       <>
@@ -2047,7 +2047,7 @@ export default function DashboardPage() {
         </div>
       </div>
     </PageTransition>
-    <Chatbot />
+      <Chatbot />
     </>
   );
 }

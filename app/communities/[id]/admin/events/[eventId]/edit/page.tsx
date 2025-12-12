@@ -723,7 +723,7 @@ export default function EditEventPage({
 
 
   if (isLoadingEvent) {
-    return (
+  return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-violet-600 mx-auto mb-4" />
@@ -738,11 +738,11 @@ export default function EditEventPage({
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative overflow-hidden">
         <FloatingElements variant="default" density="low" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-          {/* Header */}
+        {/* Header */}
           <SmoothReveal delay={100} direction="up">
             <div className="mb-8">
               <div className="flex items-center justify-between mb-6">
-                <Link href={communityId ? `/communities/${communityId}/admin/events` : "/communities/admin"}>
+            <Link href={communityId ? `/communities/${communityId}/admin/events` : "/communities/admin"}>
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -750,13 +750,13 @@ export default function EditEventPage({
                   >
                     <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
                     Back
-                  </Button>
-                </Link>
+              </Button>
+            </Link>
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200 shadow-sm">
                   <div className="w-2 h-2 rounded-full bg-violet-500"></div>
                   <span className="text-sm font-medium text-violet-700">{communityName}</span>
-                </div>
-              </div>
+          </div>
+        </div>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-gradient-to-r from-violet-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                   <Calendar className="h-6 w-6 text-white" />
@@ -769,14 +769,14 @@ export default function EditEventPage({
             </div>
           </SmoothReveal>
 
-          <form onSubmit={handleSave} className="space-y-8">
+        <form onSubmit={handleSave} className="space-y-8">
             {/* Basic Information */}
             <SmoothReveal delay={200} direction="up">
               <Card className="bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-sm">
-                <CardHeader>
+              <CardHeader>
                   <CardTitle className="text-xl font-semibold text-gray-900">Event Details</CardTitle>
-                  <p className="text-gray-600">Update your event information</p>
-                </CardHeader>
+              <p className="text-gray-600">Update your event information</p>
+              </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3">
                 <Label htmlFor="title">Event Title *</Label>
@@ -813,18 +813,18 @@ export default function EditEventPage({
                   className="min-h-[120px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none"
                   required
                 />
-                  <p className="text-sm text-gray-500">{eventData.description.length}/1000 characters</p>
+                <p className="text-sm text-gray-500">{eventData.description.length}/1000 characters</p>
                 </div>
               </CardContent>
             </Card>
             </SmoothReveal>
 
-            {/* Date, Time & Location */}
+          {/* Date, Time & Location */}
             <SmoothReveal delay={300} direction="up">
               <Card className="bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-sm">
-                <CardHeader>
+              <CardHeader>
                   <CardTitle className="text-xl font-semibold text-gray-900">When & Where</CardTitle>
-                </CardHeader>
+              </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
@@ -1045,21 +1045,21 @@ export default function EditEventPage({
                   </div>
                 )}
                 </div>
-                )}
+              )}
               </CardContent>
             </Card>
             </SmoothReveal>
 
-            {/* Event Image */}
+          {/* Event Image */}
             <SmoothReveal delay={400} direction="up">
               <Card className="bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-sm">
-                <CardHeader>
+              <CardHeader>
                   <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5" />
-                    Event Image
-                  </CardTitle>
-                  <p className="text-gray-600">Upload an image for your event (this will be the background in the hero section)</p>
-                </CardHeader>
+                <ImageIcon className="w-5 h-5" />
+                Event Image
+              </CardTitle>
+              <p className="text-gray-600">Upload an image for your event (this will be the background in the hero section)</p>
+              </CardHeader>
               <CardContent className="space-y-4">
               <div className="space-y-3">
                 <Label htmlFor="eventImage">Event Image</Label>
@@ -1090,11 +1090,11 @@ export default function EditEventPage({
                       </div>
                     )}
                   </div>
-              </CardContent>
-            </Card>
+            </CardContent>
+          </Card>
             </SmoothReveal>
 
-            {/* Submit Button */}
+          {/* Submit Button */}
             <SmoothReveal delay={500} direction="up">
               <div className="flex justify-end gap-4">
                 <Link href={communityId ? `/communities/${communityId}/admin/events` : "/communities/admin"}>
@@ -1102,23 +1102,23 @@ export default function EditEventPage({
                     Cancel
                   </Button>
                 </Link>
-                <Button
-                  type="submit" 
-                  disabled={isSubmitting}
+                          <Button
+              type="submit" 
+              disabled={isSubmitting}
                   className="bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white px-8 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving Changes...
-                    </>
-                  ) : (
-                    "Save Changes"
-                  )}
-                </Button>
-              </div>
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving Changes...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+                      </Button>
+                  </div>
             </SmoothReveal>
-          </form>
+        </form>
         </div>
       </div>
 

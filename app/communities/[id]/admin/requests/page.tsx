@@ -546,10 +546,10 @@ export default function CommunityAdminRequestsPage({
                               <Star className="w-3 h-3 text-green-500 fill-green-500" />
                               <span className="text-xs font-medium text-green-600">{request.activity_count || 0} {(request.activity_count || 0) === 1 ? 'activity' : 'activities'}</span>
                             </div>
-                            <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1">
                               <AlertTriangle className={`w-3 h-3 ${(request.report_count ?? 0) > 0 ? 'text-red-500' : 'text-gray-300'}`} />
                               <span className={`text-xs font-medium ${(request.report_count ?? 0) > 0 ? 'text-red-600' : 'text-gray-400'}`}>{request.report_count || 0} {(request.report_count || 0) === 1 ? 'report' : 'reports'}</span>
-                            </div>
+                              </div>
                           </div>
                         </div>
                       </div>

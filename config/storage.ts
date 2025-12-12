@@ -3,6 +3,8 @@
  * Centralized configuration for Supabase Storage buckets and paths
  */
 
+export type StorageType = "community" | "event" | "user" | "banner" | "badge" | "avatar";
+
 export const STORAGE_CONFIG = {
   // Main bucket name
   bucket: "ConnectSpace",

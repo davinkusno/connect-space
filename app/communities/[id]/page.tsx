@@ -968,8 +968,8 @@ export default function CommunityPage({
             </div>
               ) : membershipStatus === "pending" ? (
                 <div className="flex items-center gap-2">
-                  <div className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-200 flex items-center">
-                    <Clock className="h-4 w-4 mr-2" />
+                <div className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-200 flex items-center">
+                  <Clock className="h-4 w-4 mr-2" />
                     Pending Approval
                   </div>
                   <Button
@@ -981,7 +981,7 @@ export default function CommunityPage({
                     <X className="h-4 w-4 mr-1" />
                     Cancel
                   </Button>
-                </div>
+              </div>
               ) : (
                 <Button
                     onClick={handleJoinClick}
@@ -1037,7 +1037,7 @@ export default function CommunityPage({
           const canAccessContent = membershipStatus === "approved" || userRole === "creator" || userRole === "admin";
           const isPending = membershipStatus === "pending";
           
-          return (
+            return (
         <>
           {/* Subtle pending banner */}
           {isPending && (
@@ -1046,9 +1046,9 @@ export default function CommunityPage({
               <p className="text-sm text-yellow-800">
                 Your join request is pending approval. You can browse the community while waiting.
               </p>
-            </div>
-          )}
-          
+                        </div>
+                      )}
+                      
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -1238,51 +1238,51 @@ export default function CommunityPage({
                   </Card>
                 ) : (
                   <>
-                    {/* New Thread - All Members Can Post */}
-                    {isMember && currentUser && (
-                      <Card className="border-gray-200 shadow-sm">
-                        <CardContent className="p-4">
-                          <div className="flex gap-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage src={currentUser?.user_metadata?.avatar_url} />
-                              <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
-                                {currentUser?.email?.charAt(0).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 space-y-3">
-                              <Textarea
-                                placeholder="Start a new discussion..."
-                                value={newPost}
-                                onChange={(e) => setNewPost(e.target.value)}
-                                className="min-h-[80px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none text-sm"
-                              />
-                              <div className="flex justify-end">
-                                <Button
-                                  disabled={!newPost.trim() || isSubmitting}
-                                  onClick={handlePostDiscussion}
-                                  size="sm"
-                                  className="bg-violet-600 hover:bg-violet-700 text-white"
-                                >
-                                  {isSubmitting ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      Posting...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Send className="h-4 w-4 mr-2" /> Post
-                                    </>
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
+                {/* New Thread - All Members Can Post */}
+                {isMember && currentUser && (
+                  <Card className="border-gray-200 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={currentUser?.user_metadata?.avatar_url} />
+                          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
+                            {currentUser?.email?.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-3">
+                          <Textarea
+                            placeholder="Start a new discussion..."
+                            value={newPost}
+                            onChange={(e) => setNewPost(e.target.value)}
+                            className="min-h-[80px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none text-sm"
+                          />
+                          <div className="flex justify-end">
+                            <Button
+                              disabled={!newPost.trim() || isSubmitting}
+                              onClick={handlePostDiscussion}
+                              size="sm"
+                              className="bg-violet-600 hover:bg-violet-700 text-white"
+                            >
+                              {isSubmitting ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Posting...
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="h-4 w-4 mr-2" /> Post
+                                </>
+                              )}
+                            </Button>
                           </div>
-                        </CardContent>
-                      </Card>
-                    )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-                    {/* Discussion Threads */}
-                    {isLoadingTab ? (
+                {/* Discussion Threads */}
+                {isLoadingTab ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
                   </div>

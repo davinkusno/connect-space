@@ -149,9 +149,9 @@ export default function EventsPage() {
         
         // Extract user-specific status directly from the events response
         // (API now includes isInterested and isSaved for each event)
-        const registrationMap: Record<string | number, boolean> = {};
+          const registrationMap: Record<string | number, boolean> = {};
         const savedEventIds: (string | number)[] = [];
-        
+          
         eventsData.forEach((event: Event & { isInterested?: boolean; isSaved?: boolean }) => {
           if (event.isInterested) {
             registrationMap[event.id] = true;
@@ -159,10 +159,10 @@ export default function EventsPage() {
           if (event.isSaved) {
             savedEventIds.push(event.id);
           }
-        });
-        
-        setRegistrationStatus(registrationMap);
-        setSavedEvents(savedEventIds);
+          });
+          
+          setRegistrationStatus(registrationMap);
+          setSavedEvents(savedEventIds);
         
         // Still need current user for other operations
         const { getSupabaseBrowser } = await import("@/lib/supabase/client");

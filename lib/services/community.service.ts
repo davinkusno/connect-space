@@ -1009,6 +1009,73 @@ export class CommunityService extends BaseService {
 
     return ApiResponse.success(statusMap);
   }
+
+  // ==================== Community Update Methods ====================
+
+  /**
+   * Update community details (logo, banner, location)
+   * @param communityId - The community ID to update
+   * @param userId - The user ID performing the update
+   * @param data - The update data
+   * @returns ServiceResult with updated data
+   */
+  public async updateCommunity(
+    communityId: string,
+    userId: string,
+    data: {
+      logoUrl?: string;
+      bannerUrl?: string;
+      location?: string;
+    }
+  ): Promise<ServiceResult<{
+    logo_url: string | null;
+    banner_url: string | null;
+    location: string | null;
+  }>> {
+    // Check permission
+    const isAdmin = await this.isAdminOrCreator(communityId, userId);
+    if (!isAdmin) {
+      return ApiResponse.error("You don't have permission to update this community", 403);
+    }
+
+    // Prepare update data
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (data.location) {
+      updateData.location = data.location;
+    }
+    if (data.logoUrl) {
+      updateData.logo_url = data.logoUrl;
+    }
+    if (data.bannerUrl) {
+      updateData.banner_url = data.bannerUrl;
+    }
+
+    // Check if there's anything to update
+    const hasUpdates = data.logoUrl || data.bannerUrl || data.location;
+    if (!hasUpdates) {
+      return ApiResponse.badRequest("No changes to save");
+    }
+
+    // Update community
+    const { error: updateError } = await this.supabaseAdmin
+      .from("communities")
+      .update(updateData)
+      .eq("id", communityId);
+
+    if (updateError) {
+      console.error("[CommunityService] Update error:", updateError);
+      return ApiResponse.error(`Failed to update community: ${updateError.message}`, 500);
+    }
+
+    return ApiResponse.success({
+      logo_url: data.logoUrl || null,
+      banner_url: data.bannerUrl || null,
+      location: data.location || null,
+    });
+  }
 }
 
 // Export singleton instance

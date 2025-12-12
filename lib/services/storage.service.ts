@@ -64,12 +64,15 @@ export class StorageService extends BaseService {
 
     // Generate unique filename and path
     const filename = generateUniqueFilename(file.name);
-    const path = getStoragePath(
-      type === "community" ? "communityProfile" : 
-      type === "event" ? "eventImage" : 
-      type === "user" ? "userAvatar" : "communityProfile",
-      filename
-    );
+    const folderMap: Record<StorageType, keyof typeof STORAGE_CONFIG.folders> = {
+      "community": "communityProfile",
+      "event": "events",
+      "user": "avatars",
+      "banner": "banners",
+      "badge": "badges",
+      "avatar": "avatars",
+    };
+    const path = getStoragePath(folderMap[type] || "communityProfile", filename);
 
     // Convert File to ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
