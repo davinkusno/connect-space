@@ -78,6 +78,15 @@ interface Community {
   privacy: "public" | "private" | "invite-only"
 }
 
+interface UserReport {
+  id: string
+  reason: string
+  details: string | null
+  status: "pending" | "reviewing" | "resolved" | "dismissed"
+  created_at: string
+  reporter_id: string
+}
+
 interface JoinRequest {
   id: string
   userId: string
@@ -89,6 +98,7 @@ interface JoinRequest {
   message?: string
   activity_count?: number  // Count of positive activities
   report_count?: number    // Count of reports (separate from activities)
+  reports?: UserReport[]   // Actual report details
 }
 
 export default function CommunityAdminPage({
@@ -391,6 +401,32 @@ export default function CommunityAdminPage({
         })
       }
 
+      // Fetch actual reports for each user (where they were reported as a member)
+      const { data: reportsData } = await supabase
+        .from("reports")
+        .select("id, reason, details, status, created_at, reporter_id, target_id")
+        .eq("report_type", "member")
+        .in("target_id", userIds)
+        .order("created_at", { ascending: false })
+
+      // Group reports by user_id (target_id)
+      const reportsByUser: Record<string, UserReport[]> = {}
+      if (reportsData) {
+        reportsData.forEach((report: any) => {
+          if (!reportsByUser[report.target_id]) {
+            reportsByUser[report.target_id] = []
+          }
+          reportsByUser[report.target_id].push({
+            id: report.id,
+            reason: report.reason,
+            details: report.details,
+            status: report.status,
+            created_at: report.created_at,
+            reporter_id: report.reporter_id
+          })
+        })
+      }
+
       // Map to JoinRequest format
       const joinRequestsWithUsers: (JoinRequest | null)[] = pendingRequests.map((request: any) => {
         const userData = usersData?.find((u: any) => u.id === request.user_id)
@@ -410,7 +446,8 @@ export default function CommunityAdminPage({
           status: "pending" as const,
           message: undefined,
           activity_count: stats.activity_count,
-          report_count: stats.report_count
+          report_count: stats.report_count,
+          reports: reportsByUser[request.user_id] || []
         } as JoinRequest
       })
 
@@ -956,6 +993,46 @@ export default function CommunityAdminPage({
                               </div>
                               {request.message && (
                                 <p className="text-xs text-gray-600 mt-1 line-clamp-2">{request.message}</p>
+                              )}
+                              {/* Show reports if user has been reported */}
+                              {request.reports && request.reports.length > 0 && (
+                                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                                    <span className="text-xs font-semibold text-red-700">
+                                      {request.reports.length} Previous {request.reports.length === 1 ? 'Report' : 'Reports'}
+                                    </span>
+                                  </div>
+                                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                                    {request.reports.map((report) => (
+                                      <div key={report.id} className="text-xs bg-white p-2 rounded border border-red-100">
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div className="flex-1">
+                                            <div className="font-medium text-red-800 mb-1">{report.reason}</div>
+                                            {report.details && (
+                                              <div className="text-gray-600 mb-1">{report.details}</div>
+                                            )}
+                                            <div className="flex items-center gap-2 text-gray-500">
+                                              <span className="capitalize">{report.status}</span>
+                                              <span>•</span>
+                                              <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                                            </div>
+                                          </div>
+                                          <Badge 
+                                            className={`text-xs ${
+                                              report.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                              report.status === 'resolved' ? 'bg-green-100 text-green-700' :
+                                              report.status === 'dismissed' ? 'bg-gray-100 text-gray-700' :
+                                              'bg-blue-100 text-blue-700'
+                                            }`}
+                                          >
+                                            {report.status}
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
                               <div className="mt-3 flex items-center gap-2">
                                 <Button 

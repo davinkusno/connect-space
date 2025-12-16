@@ -14,7 +14,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return adsController.updateStatus(request, id);
+  return adsController.update(request, id);
 }
 
 export async function DELETE(

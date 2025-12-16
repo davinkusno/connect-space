@@ -55,7 +55,10 @@ export class RecommendationService extends BaseService {
       // Fetch all communities
       const communitiesResult = await this.fetchCommunities(userId);
       if (!communitiesResult.success || !communitiesResult.data) {
-        return ApiResponse.error("Failed to fetch communities", 500);
+        return ApiResponse.error(
+          communitiesResult.error?.message || "Failed to fetch communities", 
+          communitiesResult.status || 500
+        );
       }
 
       // Generate recommendations
@@ -234,17 +237,17 @@ export class RecommendationService extends BaseService {
         id,
         name,
         description,
-        category,
+        category_id,
         location,
-        member_count,
-        created_at
-      `)
-      .eq("status", "active");
+        created_at,
+        category:category_id(id, name)
+      `);
 
     const { data, error } = await query;
 
     if (error) {
-      return ApiResponse.error("Failed to fetch communities", 500);
+      console.error("Error fetching communities for recommendations:", error);
+      return ApiResponse.error(error.message || "Failed to fetch communities", 500);
     }
 
     // If excludeUserId provided, filter out communities user already joined
@@ -257,24 +260,49 @@ export class RecommendationService extends BaseService {
       userCommunityIds = memberships?.map((m) => m.community_id) || [];
     }
 
+    // Get member counts for communities
+    const communityIds = (data || []).map((c) => c.id);
+    let memberCountMap = new Map<string, number>();
+    
+    if (communityIds.length > 0) {
+      const { data: memberCounts } = await supabase
+        .from("community_members")
+        .select("community_id")
+        .in("community_id", communityIds)
+        .eq("status", "approved");
+      
+      memberCounts?.forEach((m) => {
+        memberCountMap.set(m.community_id, (memberCountMap.get(m.community_id) || 0) + 1);
+      });
+    }
+
     const communities: Community[] = (data || [])
       .filter((c) => !userCommunityIds.includes(c.id))
-      .map((c) => ({
-        id: c.id,
-        name: c.name,
-        description: c.description || "",
-        category: c.category || "general",
-        tags: [],
-        memberCount: c.member_count || 0,
-        activityLevel: this.calculateActivityLevel(c.member_count || 0),
-        location: c.location ? this.parseLocation(c.location) : null,
-        createdAt: new Date(c.created_at),
-        engagementMetrics: {
-          averagePostsPerWeek: 0,
-          averageEventsPerMonth: 0,
-          memberGrowthRate: 0,
-        },
-      }));
+      .map((c) => {
+        const memberCount = memberCountMap.get(c.id) || 0;
+        const categoryData = c.category as { id: string; name: string } | null;
+        const categoryName = categoryData?.name?.toLowerCase() || "general";
+        return {
+          id: c.id,
+          name: c.name,
+          description: c.description || "",
+          category: categoryName,
+          tags: [],
+          memberCount: memberCount,
+          activityLevel: this.calculateActivityLevel(memberCount),
+          location: c.location ? this.parseLocation(c.location) : null,
+          createdAt: new Date(c.created_at),
+          lastActivity: new Date(c.created_at),
+          growthRate: 0,
+          engagementScore: 0,
+          contentTopics: [],
+          memberDemographics: {
+            ageGroups: {},
+            professions: {},
+            locations: {},
+          },
+        };
+      });
 
     return ApiResponse.success(communities);
   }

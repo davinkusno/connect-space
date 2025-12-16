@@ -13,14 +13,15 @@ interface AdData {
   description?: string;
   image_url?: string;
   video_url?: string;
-  link_url: string;
-  community_id: string;
-  creator_id: string;
-  status: AdStatus;
+  link_url?: string;
+  community_id?: string;
+  created_by: string;
+  placement: string;
+  is_active: boolean;
   start_date?: string;
   end_date?: string;
-  impressions: number;
-  clicks: number;
+  view_count: number;
+  click_count: number;
   created_at: string;
   updated_at?: string;
 }
@@ -30,10 +31,12 @@ interface CreateAdInput {
   description?: string;
   image_url?: string;
   video_url?: string;
-  link_url: string;
-  community_id: string;
+  link_url?: string;
+  community_id?: string;
   start_date?: string;
   end_date?: string;
+  is_active?: boolean;
+  placement?: string;
 }
 
 interface AdWithCommunity extends AdData {
@@ -47,6 +50,8 @@ interface AdWithCommunity extends AdData {
 interface AdsQueryOptions {
   status?: string;
   communityId?: string;
+  placement?: string;
+  activeOnly?: boolean;
   limit?: number;
 }
 
@@ -108,12 +113,29 @@ export class AdsService extends BaseService {
       `)
       .order("created_at", { ascending: false });
 
-    if (options?.status && options.status !== "all") {
-      query = query.eq("status", options.status);
+    // Filter by is_active (not status)
+    if (options?.activeOnly) {
+      query = query.eq("is_active", true);
+    } else if (options?.status && options.status !== "all") {
+      // Legacy support: if status is provided, map it to is_active
+      if (options.status === "active") {
+        query = query.eq("is_active", true);
+      } else if (options.status === "inactive") {
+        query = query.eq("is_active", false);
+      }
     }
 
+    // Filter by community_id
+    // If communityId is provided, show ads for that community OR ads for all communities (null)
+    // If communityId is not provided, show all ads
     if (options?.communityId) {
-      query = query.eq("community_id", options.communityId);
+      // Show ads for specific community OR ads for all communities (null)
+      query = query.or(`community_id.eq.${options.communityId},community_id.is.null`);
+    }
+
+    // Filter by placement
+    if (options?.placement) {
+      query = query.eq("placement", options.placement);
     }
 
     if (options?.limit) {
@@ -123,11 +145,37 @@ export class AdsService extends BaseService {
     const { data, error } = await query;
 
     if (error) {
-      return ApiResponse.error("Failed to fetch ads", 500);
+      console.error("Error fetching ads:", error);
+      return ApiResponse.error(error.message || "Failed to fetch ads", 500);
     }
 
+    // Filter by date ranges (start_date and end_date) in memory
+    const now = new Date();
+    const filteredAds = (data || []).filter((ad: any) => {
+      // If active_only is true, check dates
+      if (options?.activeOnly) {
+        // Check start_date
+        if (ad.start_date) {
+          const startDate = new Date(ad.start_date);
+          if (startDate > now) {
+            return false; // Ad hasn't started yet
+          }
+        }
+        
+        // Check end_date
+        if (ad.end_date) {
+          const endDate = new Date(ad.end_date);
+          if (endDate < now) {
+            return false; // Ad has expired
+          }
+        }
+      }
+      
+      return true;
+    });
+
     return ApiResponse.success<AdWithCommunity[]>(
-      (data || []) as AdWithCommunity[]
+      filteredAds as AdWithCommunity[]
     );
   }
 
@@ -141,20 +189,32 @@ export class AdsService extends BaseService {
     userId: string, 
     input: CreateAdInput
   ): Promise<ServiceResult<AdData>> {
+    const insertData: Record<string, unknown> = {
+      title: input.title,
+      created_by: userId,
+      is_active: input.is_active !== undefined ? input.is_active : true,
+      view_count: 0,
+      click_count: 0,
+    };
+
+    if (input.description) insertData.description = input.description;
+    if (input.image_url) insertData.image_url = input.image_url;
+    if (input.video_url) insertData.video_url = input.video_url;
+    if (input.link_url) insertData.link_url = input.link_url;
+    if (input.community_id) insertData.community_id = input.community_id;
+    if (input.start_date) insertData.start_date = input.start_date;
+    if (input.end_date) insertData.end_date = input.end_date;
+    if (input.placement) insertData.placement = input.placement;
+
     const { data, error } = await this.supabaseAdmin
       .from("ads")
-      .insert({
-        ...input,
-        creator_id: userId,
-        status: "pending" as AdStatus,
-        impressions: 0,
-        clicks: 0,
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (error) {
-      return ApiResponse.error("Failed to create ad", 500);
+      console.error("Error creating ad:", error);
+      return ApiResponse.error(error.message || "Failed to create ad", 500);
     }
 
     return ApiResponse.created<AdData>(data as AdData);
@@ -185,28 +245,66 @@ export class AdsService extends BaseService {
   }
 
   /**
-   * Track ad impression
+   * Update ad data
+   * @param adId - The ad ID to update
+   * @param input - The ad data to update
+   * @returns ServiceResult containing updated ad
+   */
+  public async update(
+    adId: string,
+    input: Partial<CreateAdInput & { is_active?: boolean; placement?: string }>
+  ): Promise<ServiceResult<AdData>> {
+    // Map frontend fields to database fields
+    const updateData: Record<string, unknown> = {};
+    
+    if (input.title !== undefined) updateData.title = input.title;
+    if (input.description !== undefined) updateData.description = input.description || null;
+    if (input.image_url !== undefined) updateData.image_url = input.image_url;
+    if (input.video_url !== undefined) updateData.video_url = input.video_url || null;
+    if (input.link_url !== undefined) updateData.link_url = input.link_url || null;
+    if (input.community_id !== undefined) updateData.community_id = input.community_id || null;
+    if (input.start_date !== undefined) updateData.start_date = input.start_date || null;
+    if (input.end_date !== undefined) updateData.end_date = input.end_date || null;
+    if (input.is_active !== undefined) updateData.is_active = input.is_active;
+    if (input.placement !== undefined) updateData.placement = input.placement;
+
+    const { data, error } = await this.supabaseAdmin
+      .from("ads")
+      .update(updateData)
+      .eq("id", adId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating ad:", error);
+      return ApiResponse.error(error.message || "Failed to update ad", 500);
+    }
+
+    return ApiResponse.success<AdData>(data as AdData);
+  }
+
+  /**
+   * Track ad impression (view)
    * @param adId - The ad ID to track
    * @returns ServiceResult indicating success
    */
   public async trackImpression(adId: string): Promise<ServiceResult<void>> {
-    const { error } = await this.supabaseAdmin.rpc("increment_ad_impressions", {
-      ad_id: adId,
-    });
+    // Increment view_count
+    const { data: ad } = await this.supabaseAdmin
+      .from("ads")
+      .select("view_count")
+      .eq("id", adId)
+      .single();
 
-    if (error) {
-      // Fallback: manual increment
-      const { data: ad } = await this.supabaseAdmin
+    if (ad) {
+      const { error } = await this.supabaseAdmin
         .from("ads")
-        .select("impressions")
-        .eq("id", adId)
-        .single();
+        .update({ view_count: (ad.view_count || 0) + 1 })
+        .eq("id", adId);
 
-      if (ad) {
-        await this.supabaseAdmin
-          .from("ads")
-          .update({ impressions: (ad.impressions || 0) + 1 })
-          .eq("id", adId);
+      if (error) {
+        console.error("Error tracking impression:", error);
+        return ApiResponse.error("Failed to track impression", 500);
       }
     }
 
@@ -219,23 +317,22 @@ export class AdsService extends BaseService {
    * @returns ServiceResult indicating success
    */
   public async trackClick(adId: string): Promise<ServiceResult<void>> {
-    const { error } = await this.supabaseAdmin.rpc("increment_ad_clicks", {
-      ad_id: adId,
-    });
+    // Increment click_count
+    const { data: ad } = await this.supabaseAdmin
+      .from("ads")
+      .select("click_count")
+      .eq("id", adId)
+      .single();
 
-    if (error) {
-      // Fallback: manual increment
-      const { data: ad } = await this.supabaseAdmin
+    if (ad) {
+      const { error } = await this.supabaseAdmin
         .from("ads")
-        .select("clicks")
-        .eq("id", adId)
-        .single();
+        .update({ click_count: (ad.click_count || 0) + 1 })
+        .eq("id", adId);
 
-      if (ad) {
-        await this.supabaseAdmin
-          .from("ads")
-          .update({ clicks: (ad.clicks || 0) + 1 })
-          .eq("id", adId);
+      if (error) {
+        console.error("Error tracking click:", error);
+        return ApiResponse.error("Failed to track click", 500);
       }
     }
 

@@ -127,8 +127,54 @@ export default function DashboardPage() {
           console.log("[Dashboard] No events in response or empty array");
         }
 
-        setSavedEventsData(data.events || []);
-        console.log("[Dashboard] Set savedEventsData with", (data.events || []).length, "events");
+        // Process saved events to parse location and extract community name
+        const processedEvents = (data.events || []).map((event: any) => {
+          // Parse location if it's JSON
+          let locationDisplay = event.location || "Location TBD";
+          if (event.location && typeof event.location === 'string') {
+            try {
+              const locData = JSON.parse(event.location);
+              if (event.is_online && locData.meetingLink) {
+                locationDisplay = locData.meetingLink;
+              } else if (locData.address) {
+                locationDisplay = `${locData.address}${locData.city ? `, ${locData.city}` : ''}`;
+              } else if (locData.city) {
+                locationDisplay = locData.city;
+              }
+            } catch {
+              // If not JSON, use as-is
+              locationDisplay = event.location;
+            }
+          } else if (event.location && typeof event.location === 'object') {
+            const locData = event.location;
+            if (event.is_online && locData.meetingLink) {
+              locationDisplay = locData.meetingLink;
+            } else if (locData.address) {
+              locationDisplay = `${locData.address}${locData.city ? `, ${locData.city}` : ''}`;
+            } else if (locData.city) {
+              locationDisplay = locData.city;
+            }
+          }
+
+          // Extract community name if community is an object
+          const communityName = event.community 
+            ? (typeof event.community === 'string' ? event.community : event.community.name)
+            : null;
+
+          return {
+            ...event,
+            location: locationDisplay,
+            community: communityName,
+            date: event.start_time || event.date,
+            time: event.start_time 
+              ? new Date(event.start_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+              : event.time,
+            image: event.image_url || event.image || null,
+          };
+        });
+
+        setSavedEventsData(processedEvents);
+        console.log("[Dashboard] Set savedEventsData with", processedEvents.length, "events");
       } catch (error: any) {
         console.error("[Dashboard] Exception in fetchSavedEvents:", error);
         console.error("[Dashboard] Error message:", error.message);
@@ -162,7 +208,54 @@ export default function DashboardPage() {
           }
 
           const data = await response.json();
-          setSavedEventsData(data.events || []);
+          
+          // Process saved events to parse location and extract community name
+          const processedEvents = (data.events || []).map((event: any) => {
+            // Parse location if it's JSON
+            let locationDisplay = event.location || "Location TBD";
+            if (event.location && typeof event.location === 'string') {
+              try {
+                const locData = JSON.parse(event.location);
+                if (event.is_online && locData.meetingLink) {
+                  locationDisplay = locData.meetingLink;
+                } else if (locData.address) {
+                  locationDisplay = `${locData.address}${locData.city ? `, ${locData.city}` : ''}`;
+                } else if (locData.city) {
+                  locationDisplay = locData.city;
+                }
+              } catch {
+                // If not JSON, use as-is
+                locationDisplay = event.location;
+              }
+            } else if (event.location && typeof event.location === 'object') {
+              const locData = event.location;
+              if (event.is_online && locData.meetingLink) {
+                locationDisplay = locData.meetingLink;
+              } else if (locData.address) {
+                locationDisplay = `${locData.address}${locData.city ? `, ${locData.city}` : ''}`;
+              } else if (locData.city) {
+                locationDisplay = locData.city;
+              }
+            }
+
+            // Extract community name if community is an object
+            const communityName = event.community 
+              ? (typeof event.community === 'string' ? event.community : event.community.name)
+              : null;
+
+            return {
+              ...event,
+              location: locationDisplay,
+              community: communityName,
+              date: event.start_time || event.date,
+              time: event.start_time 
+                ? new Date(event.start_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+                : event.time,
+              image: event.image_url || event.image || null,
+            };
+          });
+
+          setSavedEventsData(processedEvents);
         } catch (error) {
           console.error("[Dashboard] Error refreshing saved events:", error);
         }

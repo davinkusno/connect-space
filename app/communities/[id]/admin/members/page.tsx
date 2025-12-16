@@ -54,6 +54,7 @@ interface Community {
   id: string
   name: string
   profilePicture: string
+  creator_id?: string
 }
 
 export default function CommunityMembersPage({
@@ -158,19 +159,35 @@ export default function CommunityMembersPage({
         return
       }
 
-      // Verify user is creator only
-      const isCreator = communityData.creator_id === user.id
+      // Check if user is creator or admin
+      const userIsCreator = communityData.creator_id === user.id
+      
+      // Check if user is admin (co-admin)
+      const { data: membership } = await supabase
+        .from("community_members")
+        .select("role")
+        .eq("community_id", id)
+        .eq("user_id", user.id)
+        .eq("status", "approved")
+        .single()
 
-      if (!isCreator) {
-        console.error("User is not the creator")
+      const userIsAdmin = membership?.role === "admin"
+      
+      if (!userIsCreator && !userIsAdmin) {
+        console.error("User is not authorized")
+        sonnerToast.error("Only community creators and admins can access this page")
         return
       }
+
+      setIsCreator(userIsCreator)
+      setCurrentUserId(user.id)
 
       // Set community
       setCommunity({
         id: communityData.id,
         name: communityData.name || "Community",
-        profilePicture: communityData.logo_url || "/placeholder.svg?height=200&width=300"
+        profilePicture: communityData.logo_url || "/placeholder.svg?height=200&width=300",
+        creator_id: communityData.creator_id
       })
 
       // Load members from database
@@ -331,7 +348,7 @@ export default function CommunityMembersPage({
     }
   }
 
-  const handleAppointAsAdmin = async (memberId: string, memberName: string) => {
+  const handleAppointAsAdmin = async (memberId: string, memberName: string, newRole: "admin" | "member" = "admin") => {
     try {
       // Don't update dummy members
       if (memberId.startsWith("dummy-")) {
@@ -344,7 +361,7 @@ export default function CommunityMembersPage({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ role: "admin" }),
+        body: JSON.stringify({ role: newRole }),
       })
 
       if (!response.ok) {
@@ -355,11 +372,15 @@ export default function CommunityMembersPage({
       // Update local state
       setMembers(prev => prev.map(member => 
         member.id === memberId 
-          ? { ...member, role: "admin" as const }
+          ? { ...member, role: newRole as "admin" | "member" }
           : member
       ))
 
-      sonnerToast.success(`${memberName} has been appointed as admin`)
+      sonnerToast.success(
+        newRole === "admin" 
+          ? `${memberName} has been appointed as admin`
+          : `${memberName} has been reverted to member`
+      )
     } catch (error: any) {
       console.error("Failed to appoint as admin:", error)
       sonnerToast.error(error.message || "Failed to appoint member as admin")
@@ -379,19 +400,17 @@ export default function CommunityMembersPage({
         return
       }
 
-      const supabase = getSupabaseBrowser()
-      
-      // Delete from community_members table with community_id filter for security
-      const { error: deleteError } = await supabase
-        .from("community_members")
-        .delete()
-        .eq("id", memberId)
-        .eq("community_id", community.id)
+      // Use API endpoint for secure member removal
+      const response = await fetch(`/api/communities/members/${memberId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
 
-      if (deleteError) {
-        console.error("Error removing member:", deleteError)
-        sonnerToast.error("Failed to remove member from community")
-        return
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to remove member")
       }
 
       // Remove from UI
@@ -399,9 +418,9 @@ export default function CommunityMembersPage({
       setTotalCount(prev => prev - 1)
       
       sonnerToast.success(`${memberName} has been removed from the community`)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to kick member:", error)
-      sonnerToast.error("Failed to remove member from community")
+      sonnerToast.error(error.message || "Failed to remove member from community")
     }
   }
 
@@ -558,7 +577,13 @@ export default function CommunityMembersPage({
                           {member.role === "admin" && (
                             <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-none text-xs px-1.5 py-0">
                               <Shield className="w-3 h-3 mr-0.5" />
-                              Admin
+                              {community?.creator_id === member.user_id ? "Creator" : "Admin"}
+                            </Badge>
+                          )}
+                          {community?.creator_id === member.user_id && member.role !== "admin" && (
+                            <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-none text-xs px-1.5 py-0">
+                              <Star className="w-3 h-3 mr-0.5" />
+                              Creator
                             </Badge>
                           )}
                         </div>
@@ -586,7 +611,8 @@ export default function CommunityMembersPage({
 
                     {/* Actions */}
                     <div className="flex items-center space-x-2">
-                      {member.role !== "admin" && (
+                      {/* Only show actions if user is creator, and hide actions for creator member */}
+                      {isCreator && community?.creator_id !== member.user_id && member.role !== "admin" && (
                         <>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -655,6 +681,77 @@ export default function CommunityMembersPage({
                             </AlertDialogContent>
                           </AlertDialog>
                         </>
+                      )}
+                      {/* Show revert to member option for co-admins (not creator) */}
+                      {isCreator && community?.creator_id !== member.user_id && member.role === "admin" && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300"
+                            >
+                              <UserMinus className="w-4 h-4 mr-2" />
+                              Revert to Member
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Revert to Member</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to remove admin privileges from{" "}
+                                <span className="font-semibold">
+                                  {member.user.full_name || member.user.username || "this member"}
+                                </span>? They will become a regular member.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleAppointAsAdmin(member.id, member.user.full_name || member.user.username || "Member", "member")}
+                                className="bg-orange-600 hover:bg-orange-700"
+                              >
+                                Revert to Member
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                      {/* Show kick option for co-admins (not creator) */}
+                      {isCreator && community?.creator_id !== member.user_id && member.role === "admin" && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                            >
+                              <UserMinus className="w-4 h-4 mr-2" />
+                              Kick
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove Admin</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to remove{" "}
+                                <span className="font-semibold">
+                                  {member.user.full_name || member.user.username || "this admin"}
+                                </span>{" "}
+                                from the community? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleKickMember(member.id, member.user.full_name || member.user.username || "Member")}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Remove Admin
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       )}
                     </div>
                   </div>

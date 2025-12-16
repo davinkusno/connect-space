@@ -102,7 +102,7 @@ export default function CommunityAdminEventsPage({
       
       if (!user) {
         console.error("User not found")
-        loadDummyEventsOnly()
+        setEvents([])
         return
       }
 
@@ -115,7 +115,7 @@ export default function CommunityAdminEventsPage({
 
       if (communityError || !communityData) {
         console.error("Community not found:", communityError)
-        loadDummyEventsOnly()
+        setEvents([])
         return
       }
 
@@ -124,7 +124,7 @@ export default function CommunityAdminEventsPage({
 
       if (!isCreator) {
         console.error("User is not the creator")
-        loadDummyEventsOnly()
+        setEvents([])
         return
       }
 
@@ -140,7 +140,7 @@ export default function CommunityAdminEventsPage({
 
       if (eventsError) {
         console.error("Error fetching events:", eventsError)
-        loadDummyEventsOnly()
+        setEvents([])
         return
       }
 
@@ -194,124 +194,30 @@ export default function CommunityAdminEventsPage({
         }
       })
 
-      // Create dummy events (1 for upcoming, 1 for past)
-      const dummyUpcomingDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      const dummyUpcomingEvent: Event = {
-        id: "dummy-upcoming",
-        title: "AI & Machine Learning Workshop",
-        description: "Learn the latest trends in AI and ML with hands-on projects and expert guidance.",
-        date: format(dummyUpcomingDate, "yyyy-MM-dd"), // 7 days from now
-        time: "14:00",
-        location: "Tech Hub, 123 Innovation St",
-        attendeeCount: 45,
-        maxAttendees: 50,
-        image: "/placeholder.svg?height=200&width=300",
-        status: "upcoming",
-        category: "Technology",
-        price: 25,
-        organizer: communityData.name || "Community",
-        organizerAvatar: "/placeholder-user.jpg",
-        startTime: dummyUpcomingDate
-      }
-
-      const dummyPastDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-      const dummyPastEvent: Event = {
-        id: "dummy-past",
-        title: "Networking Mixer",
-        description: "Connect with fellow professionals and entrepreneurs.",
-        date: format(dummyPastDate, "yyyy-MM-dd"), // 7 days ago
-        time: "17:00",
-        location: "Tech Bar, 321 Network St",
-        attendeeCount: 89,
-        maxAttendees: 120,
-        image: "/placeholder.svg?height=200&width=300",
-        status: "past",
-        category: "Networking",
-        price: 10,
-        organizer: communityData.name || "Community",
-        organizerAvatar: "/placeholder-user.jpg",
-        startTime: dummyPastDate
-      }
-
-      // Combine real events with dummy events
-      // Real events first, then dummy events at the end
-      const allEvents = [
-        ...realEvents,
-        dummyUpcomingEvent,
-        dummyPastEvent
-      ]
-
-      setEvents(allEvents)
+      // Set only real events (no dummy events)
+      setEvents(realEvents)
     } catch (error) {
       console.error("Error loading events:", error)
-      loadDummyEventsOnly()
+      setEvents([])
     }
-  }
-
-  const loadDummyEventsOnly = () => {
-    // Fallback: only dummy events if no user/community found
-    const dummyUpcomingDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    const dummyUpcomingEvent: Event = {
-      id: "dummy-upcoming",
-      title: "AI & Machine Learning Workshop",
-      description: "Learn the latest trends in AI and ML with hands-on projects and expert guidance.",
-      date: format(dummyUpcomingDate, "yyyy-MM-dd"),
-      time: "14:00",
-      location: "Tech Hub, 123 Innovation St",
-      attendeeCount: 45,
-      maxAttendees: 50,
-      image: "/placeholder.svg?height=200&width=300",
-      status: "upcoming",
-      category: "Technology",
-      price: 25,
-      organizer: "Community",
-      organizerAvatar: "/placeholder-user.jpg",
-      startTime: dummyUpcomingDate
-    }
-
-    const dummyPastDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    const dummyPastEvent: Event = {
-      id: "dummy-past",
-      title: "Networking Mixer",
-      description: "Connect with fellow professionals and entrepreneurs.",
-      date: format(dummyPastDate, "yyyy-MM-dd"),
-      time: "17:00",
-      location: "Tech Bar, 321 Network St",
-      attendeeCount: 89,
-      maxAttendees: 120,
-      image: "/placeholder.svg?height=200&width=300",
-      status: "past",
-      category: "Networking",
-      price: 10,
-      organizer: "Community",
-      organizerAvatar: "/placeholder-user.jpg",
-      startTime: dummyPastDate
-    }
-
-    setEvents([dummyUpcomingEvent, dummyPastEvent])
   }
 
   const filteredEvents = useMemo(() => {
-    // Separate real events from dummy events
-    const realEvents = events.filter(event => !event.id.startsWith("dummy-"))
-    const dummyEvents = events.filter(event => event.id.startsWith("dummy-"))
-    
     // Filter by status
-    let realFiltered = realEvents.filter(event => event.status === activeTab)
-    let dummyFiltered = dummyEvents.filter(event => event.status === activeTab)
+    let filtered = events.filter(event => event.status === activeTab)
 
-    // Apply search filter to real events
+    // Apply search filter
     if (searchQuery) {
-      realFiltered = realFiltered.filter(event =>
+      filtered = filtered.filter(event =>
         event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.category.toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
 
-    // Apply date filter to real events
+    // Apply date filter
     if (dateRange.from || dateRange.to) {
-      realFiltered = realFiltered.filter(event => {
+      filtered = filtered.filter(event => {
         const eventDate = new Date(event.date)
         eventDate.setHours(0, 0, 0, 0) // Reset time to compare dates only
         
@@ -337,15 +243,14 @@ export default function CommunityAdminEventsPage({
       })
     }
 
-    // Sort real events by date
-    realFiltered.sort((a, b) => {
+    // Sort events by date
+    filtered.sort((a, b) => {
       const dateA = new Date(a.date)
       const dateB = new Date(b.date)
       return activeTab === "upcoming" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
     })
 
-    // Real events first, then dummy events at the end
-    return [...realFiltered, ...dummyFiltered]
+    return filtered
   }, [events, activeTab, searchQuery, dateRange])
 
   const formatEventDate = (dateString: string) => {
@@ -408,12 +313,6 @@ export default function CommunityAdminEventsPage({
   const handleDeleteConfirm = async () => {
     if (!eventToDelete) return;
 
-    // Don't delete dummy events
-    if (eventToDelete.id.startsWith("dummy-")) {
-      setDeleteDialogOpen(false)
-      setEventToDelete(null)
-      return
-    }
 
     try {
       const response = await fetch(`/api/events/${eventToDelete.id}`, {

@@ -164,6 +164,44 @@ export class CommunityService extends BaseService {
   }
 
   /**
+   * Check if user is the creator of the community
+   * @param communityId - The community ID
+   * @param userId - The user ID to check
+   * @returns true if user is the creator
+   */
+  public async isCreator(
+    communityId: string,
+    userId: string
+  ): Promise<boolean> {
+    const { data: community } = await this.supabaseAdmin
+      .from("communities")
+      .select("creator_id")
+      .eq("id", communityId)
+      .single();
+
+    return community?.creator_id === userId;
+  }
+
+  /**
+   * Check if a user is the creator of a community (by member record)
+   * @param memberUserId - The user ID of the member to check
+   * @param communityId - The community ID
+   * @returns true if the member is the creator
+   */
+  public async isMemberCreator(
+    memberUserId: string,
+    communityId: string
+  ): Promise<boolean> {
+    const { data: community } = await this.supabaseAdmin
+      .from("communities")
+      .select("creator_id")
+      .eq("id", communityId)
+      .single();
+
+    return community?.creator_id === memberUserId;
+  }
+
+  /**
    * Get pending join requests for a community
    * @param communityId - The community ID to fetch requests for
    * @returns ServiceResult containing array of requests with user points
@@ -546,13 +584,22 @@ export class CommunityService extends BaseService {
       return ApiResponse.notFound("Member");
     }
 
-    // Verify permission
-    const isAdmin: boolean = await this.isAdminOrCreator(
-      memberRecord.community_id, 
+    // Only the creator can change roles (not co-admins)
+    const isCreator: boolean = await this.isCreator(
+      memberRecord.community_id,
       adminUserId
     );
-    if (!isAdmin) {
-      return ApiResponse.forbidden("Permission denied");
+    if (!isCreator) {
+      return ApiResponse.forbidden("Only the community creator can change member roles");
+    }
+
+    // Prevent changing the creator's role
+    const isMemberCreator: boolean = await this.isMemberCreator(
+      memberRecord.user_id,
+      memberRecord.community_id
+    );
+    if (isMemberCreator) {
+      return ApiResponse.forbidden("Cannot change the creator's role");
     }
 
     // Update role
@@ -566,6 +613,68 @@ export class CommunityService extends BaseService {
     }
 
     return ApiResponse.success<ApproveResult>({ message: "Member role updated" });
+  }
+
+  /**
+   * Remove a member from the community (kick)
+   * @param memberId - The member record ID to remove
+   * @param adminUserId - The admin making the removal
+   * @returns ServiceResult indicating success or failure
+   */
+  public async removeMember(
+    memberId: string,
+    adminUserId: string
+  ): Promise<ServiceResult<ApproveResult>> {
+    // Fetch member record
+    const { data: memberRecord, error: fetchError } = await this.supabaseAdmin
+      .from("community_members")
+      .select("id, community_id, user_id")
+      .eq("id", memberId)
+      .single();
+
+    if (fetchError || !memberRecord) {
+      return ApiResponse.notFound("Member");
+    }
+
+    // Check if user has permission (creator or admin)
+    const isAdmin: boolean = await this.isAdminOrCreator(
+      memberRecord.community_id,
+      adminUserId
+    );
+    if (!isAdmin) {
+      return ApiResponse.forbidden("Permission denied");
+    }
+
+    // Prevent removing the creator
+    const isMemberCreator: boolean = await this.isMemberCreator(
+      memberRecord.user_id,
+      memberRecord.community_id
+    );
+    if (isMemberCreator) {
+      return ApiResponse.forbidden("Cannot remove the community creator");
+    }
+
+    // If the requester is a co-admin (not creator), they cannot remove members
+    // Only creator can remove members
+    const isRequesterCreator: boolean = await this.isCreator(
+      memberRecord.community_id,
+      adminUserId
+    );
+    if (!isRequesterCreator) {
+      return ApiResponse.forbidden("Only the community creator can remove members");
+    }
+
+    // Remove the member
+    const { error: deleteError } = await this.supabaseAdmin
+      .from("community_members")
+      .delete()
+      .eq("id", memberId);
+
+    if (deleteError) {
+      return ApiResponse.error("Failed to remove member", 500);
+    }
+
+    return ApiResponse.success<ApproveResult>({ message: "Member removed successfully" });
   }
 
   /**

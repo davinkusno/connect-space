@@ -1,6 +1,5 @@
 "use client";
 
-import { ContentEnhancerDialog } from "@/components/ai/content-enhancer-dialog";
 import { EnhanceContentButton } from "@/components/ai/enhance-content-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,13 +48,12 @@ export default function CreateEventPage() {
     is_online: false,
     max_attendees: "",
     image_url: "",
-    link: "",
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [enhanceDialogOpen, setEnhanceDialogOpen] = useState(false);
-  const [enhancingContentType, setEnhancingContentType] = useState<"description" | null>(null);
-  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<{
+    alternativeDescriptions?: string[];
+  } | null>(null);
 
   useEffect(() => {
     loadCommunity();
@@ -72,22 +70,9 @@ export default function CreateEventPage() {
     setFormData((prev) => ({ ...prev, location: location.address }));
   }, []);
 
-  // AI Enhancement handlers (only for description)
-  const handleEnhanceDescription = () => {
-    if (!formData.description.trim()) {
-      toast.error("Please enter a description first");
-      return;
-    }
-    setEnhancingContentType("description");
-    setEnhanceDialogOpen(true);
-  };
 
-  const handleAcceptEnhancedContent = (enhancedContent: string) => {
-    if (enhancingContentType === "description") {
-      setFormData((prev) => ({ ...prev, description: enhancedContent }));
-    }
-    setEnhanceDialogOpen(false);
-    setEnhancingContentType(null);
+  const handleInputChange = (field: string, value: string | boolean) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const loadCommunity = async () => {
@@ -341,7 +326,7 @@ export default function CreateEventPage() {
             </div>
           </SmoothReveal>
 
-        <form onSubmit={handleSubmit}>
+        <form id="event-form" onSubmit={handleSubmit}>
           {/* Step 1: Basic Information */}
           {currentStep === 1 && (
             <SmoothReveal delay={300} direction="up">
@@ -455,33 +440,20 @@ export default function CreateEventPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="description" className="text-gray-700">
-                    Description *
-                  </Label>
-                  <div className="flex gap-2">
-                      <EnhanceContentButton
-                        content={formData.description}
-                        contentType="description"
-                        onEnhanced={(enhanced) => handleInputChange("description", enhanced)}
-                        context={{
-                          name: formData.title,
-                          category: community?.name || "",
-                          type: "event",
-                        }}
-                        disabled={!formData.description}
-                      />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleEnhanceDescription}
-                      disabled={!formData.description.trim() || isEnhancing}
-                      className="text-xs border-purple-200 hover:bg-purple-50 hover:border-purple-300"
-                    >
-                      <Wand2 className="h-3 w-3 mr-1" />
-                      Enhance
-                    </Button>
+                      Description *
+                    </Label>
+                    <EnhanceContentButton
+                      content={formData.description}
+                      contentType="description"
+                      onEnhanced={(enhanced) => handleInputChange("description", enhanced)}
+                      context={{
+                        name: formData.title,
+                        category: community?.name || "",
+                        type: "event",
+                      }}
+                      disabled={!formData.description}
+                    />
                   </div>
-                </div>
                 <Textarea
                   id="description"
                     placeholder="Describe your event in detail. What will attendees learn or experience? What should they bring? What makes this event special?"
@@ -706,98 +678,64 @@ export default function CreateEventPage() {
                 </p>
               </div>
 
-              {/* Registration Link Section */}
-              <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
-                <Label htmlFor="link" className="text-base font-semibold text-gray-700 flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-purple-600" />
-                  Registration Link
-                  <span className="text-sm font-normal text-gray-500">(optional)</span>
-                </Label>
-                <Input
-                  type="url"
-                  id="link"
-                  placeholder="https://example.com/register"
-                  value={formData.link}
-                  onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-                  className="h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-all bg-white"
-                />
-                <p className="text-sm text-gray-500 flex items-center gap-1">
-                  <span className="text-purple-600">💡</span>
-                  Add a link to external registration page
-                </p>
-              </div>
 
-              {/* Divider */}
-              <div className="border-t border-gray-200 my-8"></div>
-
-              {/* Submit Buttons */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-4 bg-gradient-to-r from-gray-50 to-purple-50/30 -mx-6 px-6 py-6 rounded-b-xl">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
-                  disabled={currentStep === 1}
-                  className="border-gray-200 hover:border-violet-300 hover:bg-violet-50"
-                >
-                  Previous
-                </Button>
-
-                {currentStep < 2 ? (
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      // Validation before moving to next step
-                      if (currentStep === 1 && (!formData.title || !formData.description)) {
-                        toast.error("Please fill in title and description");
-                        return;
-                      }
-                      setCurrentStep(Math.min(2, currentStep + 1));
-                    }}
-                    className="bg-violet-700 hover:bg-violet-800 text-white"
-                  >
-                    Next
-                  </Button>
-                ) : (
-                  <Button 
-                    type="submit"
-                    className="bg-violet-700 hover:bg-violet-800 text-white"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Create Event
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
             </CardContent>
-          </Card>
+            </Card>
           </SmoothReveal>
           )}
+
+          {/* Navigation Buttons - Always visible */}
+          <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
+              disabled={currentStep === 1}
+              className="border-gray-200 hover:border-violet-300 hover:bg-violet-50"
+            >
+              Previous
+            </Button>
+
+            {currentStep < 2 ? (
+              <Button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  // Validation before moving to next step
+                  if (currentStep === 1 && (!formData.title || !formData.description)) {
+                    toast.error("Please fill in title and description");
+                    return;
+                  }
+                  setCurrentStep(Math.min(2, currentStep + 1));
+                }}
+                className="bg-violet-700 hover:bg-violet-800 text-white flex-1"
+              >
+                Next
+              </Button>
+            ) : (
+              <Button 
+                type="submit"
+                form="event-form"
+                className="bg-violet-700 hover:bg-violet-800 text-white flex-1"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Create Event
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </form>
         </div>
 
-        {/* AI Enhancement Dialog */}
-        {enhancingContentType === "description" && (
-          <ContentEnhancerDialog
-            open={enhanceDialogOpen}
-            onOpenChange={setEnhanceDialogOpen}
-            originalContent={formData.description}
-            contentType="description"
-            context={{
-              name: formData.title,
-              category: community?.name || "",
-            }}
-            onAccept={handleAcceptEnhancedContent}
-          />
-        )}
       </div>
     </PageTransition>
   );

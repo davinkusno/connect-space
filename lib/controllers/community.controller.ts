@@ -309,6 +309,35 @@ export class CommunityController extends BaseController {
   }
 
   /**
+   * DELETE /api/communities/members/[id]
+   * Remove a member from the community (kick)
+   * @param request - The incoming request
+   * @param memberId - The member record ID to remove
+   * @returns NextResponse indicating success or failure
+   */
+  public async removeMember(
+    request: NextRequest,
+    memberId: string
+  ): Promise<NextResponse<ApproveResponse | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+
+      const result: ServiceResult<ApproveResponse> = await this.service.removeMember(
+        memberId,
+        user.id
+      );
+
+      if (result.success) {
+        return this.json<ApproveResponse>(result.data as ApproveResponse, result.status);
+      }
+      
+      return this.error(result.error?.message || "Failed to remove member", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * GET /api/communities/[id]/members
    * Get community members with pagination
    * @param request - The incoming request with query params

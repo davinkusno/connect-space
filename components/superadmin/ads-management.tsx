@@ -11,9 +11,11 @@ import {
     AlertDialogHeader,
     AlertDialogTitle
 } from "@/components/ui/alert-dialog";
+import { AnimatedButton } from "@/components/ui/animated-button";
+import { AnimatedCard } from "@/components/ui/animated-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     Dialog,
     DialogContent,
@@ -34,10 +36,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { getClientSession } from "@/lib/supabase/client";
 import {
-    Edit, ExternalLink, Eye, Image as ImageIcon, Loader2, Plus, Search, Trash2, X
+    Calendar, Edit, ExternalLink, Eye, Filter, Image as ImageIcon, Loader2, Megaphone, Plus, Search, Trash2, TrendingUp, X
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 interface Ad {
@@ -71,6 +73,8 @@ export function AdsManagement() {
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
 
   // Form state
   const [formData, setFormData] = useState({
@@ -79,6 +83,7 @@ export function AdsManagement() {
     image_url: "",
     link_url: "",
     community_id: "",
+    placement: "sidebar" as "sidebar" | "banner" | "inline",
     is_active: true,
     start_date: "",
     end_date: "",
@@ -175,6 +180,7 @@ export function AdsManagement() {
         image_url: ad.image_url,
         link_url: ad.link_url || "",
         community_id: ad.community_id || "",
+        placement: ad.placement,
         is_active: ad.is_active,
         start_date: ad.start_date ? ad.start_date.split("T")[0] : "",
         end_date: ad.end_date ? ad.end_date.split("T")[0] : "",
@@ -187,6 +193,7 @@ export function AdsManagement() {
         image_url: "",
         link_url: "",
         community_id: "",
+        placement: "sidebar" as "sidebar" | "banner" | "inline",
         is_active: true,
         start_date: "",
         end_date: "",
@@ -220,10 +227,8 @@ export function AdsManagement() {
         : "/api/ads";
       const method = selectedAd ? "PATCH" : "POST";
 
-      // Always use sidebar placement since we removed the field
       const payload = {
         ...formData,
-        placement: "sidebar",
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
         community_id: formData.community_id || null,
@@ -239,8 +244,14 @@ export function AdsManagement() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to save ad");
+        const errorData = await response.json();
+        // Extract error message from API response structure
+        const errorMessage = 
+          (typeof errorData.error === 'object' && errorData.error?.message) ||
+          (typeof errorData.error === 'string' && errorData.error) ||
+          errorData.message ||
+          "Failed to save ad";
+        throw new Error(errorMessage);
       }
 
       toast.success(selectedAd ? "Ad updated successfully" : "Ad created successfully");
@@ -273,8 +284,14 @@ export function AdsManagement() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to delete ad");
+        const errorData = await response.json();
+        // Extract error message from API response structure
+        const errorMessage = 
+          (typeof errorData.error === 'object' && errorData.error?.message) ||
+          (typeof errorData.error === 'string' && errorData.error) ||
+          errorData.message ||
+          "Failed to delete ad";
+        throw new Error(errorMessage);
       }
 
       toast.success("Ad deleted successfully");
@@ -289,140 +306,313 @@ export function AdsManagement() {
     }
   };
 
+  // Filter and search ads
+  const filteredAds = useMemo(() => {
+    return ads.filter((ad) => {
+      const matchesSearch = 
+        !searchQuery ||
+        ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ad.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = 
+        filterStatus === "all" ||
+        (filterStatus === "active" && ad.is_active) ||
+        (filterStatus === "inactive" && !ad.is_active);
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [ads, searchQuery, filterStatus]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const activeAds = ads.filter((ad) => ad.is_active).length;
+    const totalViews = ads.reduce((sum, ad) => sum + (ad.view_count || 0), 0);
+    const totalClicks = ads.reduce((sum, ad) => sum + (ad.click_count || 0), 0);
+    const ctr = totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(2) : "0.00";
+
+    return {
+      total: ads.length,
+      active: activeAds,
+      inactive: ads.length - activeAds,
+      totalViews,
+      totalClicks,
+      ctr,
+    };
+  }, [ads]);
+
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Ads Management</h2>
-          <p className="text-gray-600 mt-1">
-            Manage advertisements displayed on community pages
+          <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Megaphone className="h-6 w-6 text-purple-600" />
+            Ads Management
+          </h3>
+          <p className="text-gray-600 mt-1 text-sm">
+            Create and manage advertisements displayed on community pages
           </p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="bg-violet-600 hover:bg-violet-700">
+        <AnimatedButton
+          onClick={() => handleOpenDialog()}
+          className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Create Ad
-        </Button>
+        </AnimatedButton>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <AnimatedCard variant="glass" className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Total Ads</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+            </div>
+            <div className="p-3 bg-purple-100 rounded-lg">
+              <Megaphone className="h-5 w-5 text-purple-600" />
+            </div>
+          </div>
+        </AnimatedCard>
+
+        <AnimatedCard variant="glass" className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Active Ads</p>
+              <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+            </div>
+            <div className="p-3 bg-green-100 rounded-lg">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+            </div>
+          </div>
+        </AnimatedCard>
+
+        <AnimatedCard variant="glass" className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Total Views</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.totalViews.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <Eye className="h-5 w-5 text-blue-600" />
+            </div>
+          </div>
+        </AnimatedCard>
+
+        <AnimatedCard variant="glass" className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Click-Through Rate</p>
+              <p className="text-2xl font-bold text-orange-600">{stats.ctr}%</p>
+            </div>
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <ExternalLink className="h-5 w-5 text-orange-600" />
+            </div>
+          </div>
+        </AnimatedCard>
+      </div>
+
+      {/* Filters and Search */}
+      <AnimatedCard variant="glass" className="p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search ads by title or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Select value={filterStatus} onValueChange={(value: "all" | "active" | "inactive") => setFilterStatus(value)}>
+              <SelectTrigger className="w-[140px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      ) : ads.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <ImageIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+      </AnimatedCard>
+
+      {isLoading ? (
+        <AnimatedCard variant="glass" className="p-12">
+          <div className="flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+          </div>
+        </AnimatedCard>
+      ) : filteredAds.length === 0 ? (
+        <AnimatedCard variant="glass" className="p-12">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ImageIcon className="h-10 w-10 text-gray-400" />
+            </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No ads yet
+              {ads.length === 0 ? "No ads yet" : "No ads match your filters"}
             </h3>
             <p className="text-gray-600 mb-6">
-              Create your first advertisement to display on community pages.
+              {ads.length === 0
+                ? "Create your first advertisement to display on community pages."
+                : "Try adjusting your search or filter criteria."}
             </p>
-            <Button onClick={() => handleOpenDialog()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Ad
-            </Button>
-          </CardContent>
-        </Card>
+            {ads.length === 0 && (
+              <AnimatedButton onClick={() => handleOpenDialog()} className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Ad
+              </AnimatedButton>
+            )}
+          </div>
+        </AnimatedCard>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {ads.map((ad) => (
-            <Card key={ad.id} className="border-gray-200 hover:shadow-lg transition-shadow">
-              <CardContent className="p-0">
-                <div className="relative">
-                  <div className="relative aspect-video w-full overflow-hidden rounded-t-lg">
-                    {ad.image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
-                      <video
-                        src={ad.image_url}
-                        className="w-full h-full object-cover"
-                        controls
-                        muted
-                        playsInline
-                      />
-                    ) : (
-                      <Image
-                        src={ad.image_url}
-                        alt={ad.title}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      />
-                    )}
-                  </div>
-                  <div className="absolute top-2 right-2 flex gap-2 flex-wrap justify-end">
-                    <Badge
-                      variant="secondary"
-                      className={ad.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}
-                    >
-                      {ad.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                    {ad.community_id && (
-                      <Badge
-                        variant="secondary"
-                        className="bg-blue-100 text-blue-700"
-                        title={`Targeted to specific community`}
-                      >
-                        Targeted
-                      </Badge>
-                    )}
-                  </div>
+          {filteredAds.map((ad) => {
+            // Determine border color based on ad status
+            const getBorderColor = () => {
+              if (ad.is_active) {
+                return "border-green-300 hover:border-green-400";
+              }
+              return "border-gray-300 hover:border-gray-400";
+            };
+
+            return (
+            <AnimatedCard key={ad.id} variant="glass" className={`overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full border-2 ${getBorderColor()} bg-white`}>
+              {/* Image Section */}
+              <div className="relative">
+                <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
+                  {ad.image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
+                    <video
+                      src={ad.image_url}
+                      className="w-full h-full object-cover"
+                      controls
+                      muted
+                      playsInline
+                    />
+                  ) : (
+                    <Image
+                      src={ad.image_url}
+                      alt={ad.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    />
+                  )}
                 </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">
+                <div className="absolute top-3 right-3 flex gap-2 flex-wrap justify-end">
+                  <Badge
+                    className={ad.is_active ? "bg-green-500 text-white border-0 shadow-md" : "bg-gray-500 text-white border-0"}
+                  >
+                    {ad.is_active ? "Active" : "Inactive"}
+                  </Badge>
+                  {ad.community_id && (
+                    <Badge
+                      className="bg-blue-500 text-white border-0 shadow-md"
+                      title={`Targeted to specific community`}
+                    >
+                      Targeted
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Content Section - Fixed structure */}
+              <div className="flex flex-col flex-1 p-4">
+                {/* Title and Description - Fixed height area */}
+                <div className="mb-4 min-h-[60px]">
+                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-1 mb-2">
                     {ad.title}
                   </h3>
-                  {ad.description && (
-                    <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                  {ad.description ? (
+                    <p className="text-sm text-gray-600 line-clamp-2">
                       {ad.description}
                     </p>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">
+                      No description
+                    </p>
                   )}
-                  {ad.community_id && (
-                    <div className="mb-2">
-                      <p className="text-xs text-gray-600">
-                        <span className="font-medium">Target:</span>{" "}
-                        {communities.find((c) => c.id === ad.community_id)?.name || "Unknown community"}
-                      </p>
+                </div>
+
+                {/* Metadata Section - Always present with fixed height */}
+                <div className="space-y-2 mb-4 min-h-[60px]">
+                  {ad.community_id ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-600 bg-blue-50 p-2 rounded-lg">
+                      <span className="font-medium">Target:</span>
+                      <span className="truncate">{communities.find((c) => c.id === ad.community_id)?.name || "Unknown community"}</span>
+                    </div>
+                  ) : (
+                    <div className="h-8"></div>
+                  )}
+                  
+                  {(ad.start_date || ad.end_date) ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <Calendar className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">
+                        {ad.start_date && new Date(ad.start_date).toLocaleDateString()}
+                        {ad.start_date && ad.end_date && " - "}
+                        {ad.end_date && new Date(ad.end_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <Calendar className="h-3 w-3 flex-shrink-0" />
+                      <span>No date range</span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                    <div className="flex items-center gap-4">
-                      <span className="flex items-center gap-1">
-                        <Eye className="h-3 w-3" />
-                        {ad.view_count || 0}
+                </div>
+
+                {/* Stats Section - Always present */}
+                <div className="flex items-center justify-between py-3 border-t border-gray-100 mb-4">
+                  <div className="flex items-center gap-3 text-xs text-gray-600 flex-wrap">
+                    <span className="flex items-center gap-1.5">
+                      <Eye className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      <span className="font-medium">{ad.view_count || 0}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <ExternalLink className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="font-medium">{ad.click_count || 0}</span>
+                    </span>
+                    {ad.view_count > 0 && (
+                      <span className="text-orange-600 font-medium">
+                        {((ad.click_count || 0) / ad.view_count * 100).toFixed(1)}% CTR
                       </span>
-                      <span className="flex items-center gap-1">
-                        <ExternalLink className="h-3 w-3" />
-                        {ad.click_count || 0}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenDialog(ad)}
-                      className="flex-1"
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedAd(ad);
-                        setIsDeleteDialogOpen(true);
-                      }}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    )}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                {/* Action Buttons - Always at bottom */}
+                <div className="flex gap-2 mt-auto">
+                  <AnimatedButton
+                    variant="glass"
+                    size="sm"
+                    onClick={() => handleOpenDialog(ad)}
+                    className="flex-1"
+                  >
+                    <Edit className="h-3 w-3 mr-1" />
+                    Edit
+                  </AnimatedButton>
+                  <AnimatedButton
+                    variant="glass"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedAd(ad);
+                      setIsDeleteDialogOpen(true);
+                    }}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </AnimatedButton>
+                </div>
+              </div>
+            </AnimatedCard>
+            );
+          })}
         </div>
       )}
 
@@ -430,13 +620,14 @@ export function AdsManagement() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              <Megaphone className="h-5 w-5 text-purple-600" />
               {selectedAd ? "Edit Ad" : "Create New Ad"}
             </DialogTitle>
             <DialogDescription>
               {selectedAd
-                ? "Update the advertisement details"
-                : "Create a new advertisement to display on community pages"}
+                ? "Update the advertisement details below"
+                : "Fill in the details to create a new advertisement for community pages"}
             </DialogDescription>
           </DialogHeader>
 
@@ -622,10 +813,10 @@ export function AdsManagement() {
             >
               Cancel
             </Button>
-            <Button
+            <AnimatedButton
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="bg-violet-600 hover:bg-violet-700"
+              className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white"
             >
               {isSubmitting ? (
                 <>
@@ -633,9 +824,11 @@ export function AdsManagement() {
                   {selectedAd ? "Updating..." : "Creating..."}
                 </>
               ) : (
-                selectedAd ? "Update Ad" : "Create Ad"
+                <>
+                  {selectedAd ? "Update Ad" : "Create Ad"}
+                </>
               )}
-            </Button>
+            </AnimatedButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

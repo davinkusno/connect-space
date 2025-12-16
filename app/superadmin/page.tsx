@@ -1,6 +1,7 @@
 "use client";
 
 import { SuperAdminNav } from "@/components/navigation/superadmin-nav";
+import { AdsManagement } from "@/components/superadmin/ads-management";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { AnimatedCard } from "@/components/ui/animated-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,7 +20,7 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Activity, AlertTriangle, Award, Ban, Bell, CalendarDays, CheckCircle2, ChevronLeft,
-    ChevronRight, Clock, Crown, Eye, FileText, Flame, Gift, Heart, Medal, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trophy, Users, XCircle
+    ChevronRight, Clock, Crown, Eye, FileText, Flame, Gift, Heart, Medal, Megaphone, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trophy, Users, XCircle
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -955,45 +956,11 @@ export default function SuperadminPage() {
   useEffect(() => {
     if (pathname === "/superadmin") {
       setActiveTab("reports");
+    } else if (pathname === "/superadmin/ads") {
+      setActiveTab("ads");
     }
   }, [pathname]);
 
-  // Fetch inactive communities function (defined outside useEffect for reuse)
-  const fetchInactiveCommunities = useCallback(async () => {
-    setIsLoadingInactive(true);
-    try {
-      const response = await fetch("/api/admin/inactive-communities");
-      if (!response.ok) {
-        throw new Error("Failed to fetch inactive communities");
-      }
-      const data = await response.json();
-      
-      // Transform API response to match expected UI structure
-      const transformedCommunities = (data.communities || []).map((community: any) => ({
-        id: community.id,
-        communityId: community.id,
-        communityName: community.name || "Unknown Community",
-        category: community.category || "General",
-        memberCount: community.member_count || 0,
-        inactiveDays: community.days_inactive || 0,
-        // Use effective_last_activity which is the date used for calculation
-        lastActivity: community.effective_last_activity || community.last_activity_date || community.created_at,
-        status: community.status || "active",
-        admin: {
-          name: "Community Admin",
-          email: "admin@example.com",
-        },
-        _originalCommunity: community,
-      }));
-      
-      setInactiveCommunities(transformedCommunities);
-    } catch (error) {
-      console.error("Error fetching inactive communities:", error);
-      toast.error("Failed to load inactive communities");
-    } finally {
-      setIsLoadingInactive(false);
-    }
-  }, []);
 
   // Fetch reports from API
   useEffect(() => {
@@ -1047,9 +1014,8 @@ export default function SuperadminPage() {
 
     if (activeTab === "reports") {
       fetchReports();
-      fetchInactiveCommunities();
     }
-  }, [activeTab, fetchInactiveCommunities]);
+  }, [activeTab]);
 
   // Reports management state
   const [reportSearchQuery, setReportSearchQuery] = useState("");
@@ -1057,18 +1023,10 @@ export default function SuperadminPage() {
   const [isReportDetailOpen, setIsReportDetailOpen] = useState(false);
   const [currentReportPage, setCurrentReportPage] = useState(1);
   const [reportItemsPerPage] = useState(5);
-  const [inactiveSearchQuery, setInactiveSearchQuery] = useState("");
-  const [currentInactivePage, setCurrentInactivePage] = useState(1);
-  const [inactiveItemsPerPage] = useState(5);
-  
   // API state for reports
   const [reportedCommunities, setReportedCommunities] = useState<any[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(true);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
-  
-  // API state for inactive communities
-  const [inactiveCommunities, setInactiveCommunities] = useState<any[]>([]);
-  const [isLoadingInactive, setIsLoadingInactive] = useState(true);
 
   // Report detail dialog state
   const [reportDetailPage, setReportDetailPage] = useState(1);
@@ -1165,32 +1123,6 @@ export default function SuperadminPage() {
     reportEndIndex
   );
 
-  // Sort inactive communities by inactive days (longest first)
-  // Filter and sort inactive communities
-  const filteredInactiveCommunities = inactiveCommunities.filter(
-    (community) =>
-      community.communityName
-        .toLowerCase()
-        .includes(inactiveSearchQuery.toLowerCase()) ||
-      community.admin.name
-        .toLowerCase()
-        .includes(inactiveSearchQuery.toLowerCase())
-  );
-
-  const sortedInactiveCommunities = [...filteredInactiveCommunities].sort(
-    (a, b) => b.inactiveDays - a.inactiveDays
-  );
-
-  // Pagination for inactive communities
-  const totalInactivePages = Math.ceil(
-    sortedInactiveCommunities.length / inactiveItemsPerPage
-  );
-  const inactiveStartIndex = (currentInactivePage - 1) * inactiveItemsPerPage;
-  const inactiveEndIndex = inactiveStartIndex + inactiveItemsPerPage;
-  const paginatedInactiveCommunities = sortedInactiveCommunities.slice(
-    inactiveStartIndex,
-    inactiveEndIndex
-  );
 
   // Filter and paginate activity logs
   const filteredActivityLogs = mockActivityLogs.filter((log) => {
@@ -1462,6 +1394,13 @@ export default function SuperadminPage() {
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                 <span className="font-medium">Reports & Moderation</span>
               </TabsTrigger>
+              <TabsTrigger
+                value="ads"
+                className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-6"
+              >
+                <Megaphone className="h-4 w-4 flex-shrink-0" />
+                <span className="font-medium">Ads Management</span>
+              </TabsTrigger>
             </TabsList>
 
             {/* Reports Tab - Community Reports & Inactive Communities */}
@@ -1472,8 +1411,7 @@ export default function SuperadminPage() {
                   Community Reports & Moderation
                 </h3>
                 <div className="text-sm text-gray-600">
-                  Total Reports: {reportedCommunities.length} | Inactive:{" "}
-                  {inactiveCommunities.length}
+                  Total Reports: {reportedCommunities.length}
                 </div>
               </div>
 
@@ -1681,226 +1619,11 @@ export default function SuperadminPage() {
                   </div>
                 )}
               </AnimatedCard>
+            </TabsContent>
 
-              {/* Inactive Communities Section */}
-              <AnimatedCard variant="glass" className="p-6">
-                <div className="flex justify-between items-start mb-6">
-                  <div className="flex-1">
-                    <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-2">
-                      <Clock className="h-5 w-5 text-orange-600" />
-                      Inactive Communities (Auto-Suspended)
-                      <Badge className="bg-orange-100 text-orange-700 border-orange-200">
-                        {sortedInactiveCommunities.length} Suspended
-                      </Badge>
-                      {sortedInactiveCommunities.filter(
-                        (c: any) => c.reactivationRequested
-                      ).length > 0 && (
-                        <Badge className="bg-blue-500 text-white">
-                          <Bell className="h-3 w-3 mr-1" />
-                          {
-                            sortedInactiveCommunities.filter(
-                              (c: any) => c.reactivationRequested
-                            ).length
-                          }{" "}
-                          Pending
-                        </Badge>
-                      )}
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      Communities automatically suspended due to no activity
-                      (events or announcements) for more than 30 days
-                    </p>
-                  </div>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      placeholder="Search inactive communities..."
-                      value={inactiveSearchQuery}
-                      onChange={(e) => setInactiveSearchQuery(e.target.value)}
-                      className="pl-10 w-64"
-                    />
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                          Community
-                        </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                          Members
-                        </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                          Inactive Status
-                        </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                          Last Activity
-                        </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                          Reactivation
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {isLoadingInactive ? (
-                        <tr>
-                          <td
-                            colSpan={5}
-                            className="text-center py-12"
-                          >
-                            <div className="flex items-center justify-center">
-                              <Spinner size="lg" />
-                            </div>
-                          </td>
-                        </tr>
-                      ) : paginatedInactiveCommunities.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={5}
-                            className="text-center py-8 text-gray-500"
-                          >
-                            No inactive communities found
-                          </td>
-                        </tr>
-                      ) : (
-                        paginatedInactiveCommunities.map((community) => (
-                          <tr
-                            key={community.id}
-                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                          >
-                            <td className="py-4 px-4">
-                              <div className="flex items-center gap-2">
-                                <div>
-                                  <div className="font-medium text-gray-900">
-                                    {community.communityName}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {community.admin.name}
-                                  </div>
-                                </div>
-                                {community.reactivationRequested && (
-                                  <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
-                                    <Bell className="h-3 w-3 mr-1 inline" />
-                                    Request
-                                  </Badge>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm text-gray-700">
-                                {community.memberCount}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex flex-col gap-1">
-                                <Badge className="bg-orange-500 text-white w-fit">
-                                  {community.inactiveDays} days
-                                </Badge>
-                                <span className="text-xs text-gray-500">
-                                  {community.lastActivityType === "event"
-                                    ? "📅 Event"
-                                    : "📢 Announcement"}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm text-gray-700">
-                                {new Date(
-                                  community.lastActivity
-                                ).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                })}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex items-center gap-2">
-                                {community.reactivationRequested ? (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-xs text-yellow-600 border-yellow-300"
-                                  >
-                                    Reactivation Requested
-                                  </Badge>
-                                ) : (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-xs text-gray-400"
-                                  >
-                                    No request
-                                  </Badge>
-                                )}
-                                <AnimatedButton
-                                  variant="glass"
-                                  size="sm"
-                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                  onClick={() => handleReportAction(community.id, "reactivate")}
-                                  disabled={isProcessingAction}
-                                >
-                                  {isProcessingAction ? (
-                                    <Spinner size="sm" />
-                                  ) : (
-                                    <>
-                                      <RotateCcw className="h-4 w-4 mr-1" />
-                                      Reactivate
-                                    </>
-                                  )}
-                                </AnimatedButton>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination for Inactive Communities */}
-                {totalInactivePages > 1 && (
-                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
-                    <div className="text-sm text-gray-600">
-                      Showing {inactiveStartIndex + 1} to{" "}
-                      {Math.min(
-                        inactiveEndIndex,
-                        sortedInactiveCommunities.length
-                      )}{" "}
-                      of {sortedInactiveCommunities.length} communities
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <AnimatedButton
-                        variant="glass"
-                        size="sm"
-                        onClick={() =>
-                          setCurrentInactivePage((prev) =>
-                            Math.max(1, prev - 1)
-                          )
-                        }
-                        disabled={currentInactivePage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </AnimatedButton>
-                      <span className="text-sm text-gray-600">
-                        Page {currentInactivePage} of {totalInactivePages}
-                      </span>
-                      <AnimatedButton
-                        variant="glass"
-                        size="sm"
-                        onClick={() =>
-                          setCurrentInactivePage((prev) =>
-                            Math.min(totalInactivePages, prev + 1)
-                          )
-                        }
-                        disabled={currentInactivePage === totalInactivePages}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </AnimatedButton>
-                    </div>
-                  </div>
-                )}
-              </AnimatedCard>
+            {/* Ads Management Tab */}
+            <TabsContent value="ads" className="space-y-6">
+              <AdsManagement />
             </TabsContent>
           </Tabs>
         </div>

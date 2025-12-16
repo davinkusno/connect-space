@@ -132,9 +132,10 @@ export class ContentBasedFilteringAlgorithm {
       this.log(`  ${i + 1}. ${comm?.name} - score: ${s.score.toFixed(3)}, category: ${comm?.category}`)
     })
 
-    // Only return communities with a meaningful score (> 0.1)
+    // Return communities with any positive score (lowered threshold to allow more recommendations)
+    // This ensures we return recommendations even when user has no interests
     const result = scores
-      .filter((s) => s.score > 0.1)
+      .filter((s) => s.score > 0.05)
       .sort((a, b) => b.score - a.score)
       .slice(0, maxRecommendations)
     
@@ -176,10 +177,11 @@ export class ContentBasedFilteringAlgorithm {
 
     // FIRST: Check category match - this is the PRIMARY filter
     const categoryMatch = this.checkCategoryMatch(user.preferences.preferredCategories, community.category)
+    const hasUserInterests = user.preferences.preferredCategories.length > 0
     
-    // If community has a proper category (not "General") and it doesn't match user's interests,
-    // give it a very low score
-    const hasCategoryMismatch = community.category !== "General" && !categoryMatch.matched
+    // If user has no interests, don't penalize category mismatches - allow all communities to be scored
+    // If user has interests but category doesn't match and it's not "General", give it a lower score but don't reject it
+    const hasCategoryMismatch = hasUserInterests && community.category !== "General" && !categoryMatch.matched
     
     if (categoryMatch.matched) {
       // Category matches - give high base score
@@ -192,14 +194,20 @@ export class ContentBasedFilteringAlgorithm {
         evidence: { category: community.category, matchedPreference: categoryMatch.matchedPreference },
       })
     } else if (hasCategoryMismatch) {
-      // Category doesn't match and community has a specific category - heavily penalize
+      // Category doesn't match and user has interests - give reduced score but don't reject
+      // This allows communities to still be recommended based on other factors
+      totalScore += 0.2 * WEIGHTS.category
+      totalWeight += WEIGHTS.category
       this.log(`Category mismatch: ${community.name} is "${community.category}" but user wants ${user.preferences.preferredCategories.join(", ")}`)
-      return { score: 0.05, confidence: 0.3, reasons: [] } // Return very low score
+    } else if (!hasUserInterests) {
+      // User has no interests - give neutral category score to allow other factors to determine recommendation
+      totalScore += 0.5 * WEIGHTS.category
+      totalWeight += WEIGHTS.category
     }
-    // For "General" category communities, continue with keyword matching
+    // For "General" category communities or when user has no interests, continue with keyword matching
 
     // Enhanced interest matching - term frequency methodology from Lops et al. (2011)
-    if (categoryMatch.matched) {
+    // Always try interest matching, even if category doesn't match (for diversity)
       const interestScore = this.calculateEnhancedInterestMatch(user.interests, community)
       if (interestScore.score > 0) {
         totalScore += interestScore.score * WEIGHTS.interest
@@ -210,7 +218,10 @@ export class ContentBasedFilteringAlgorithm {
           weight: WEIGHTS.interest,
           evidence: { matchedInterests: interestScore.matchedInterests, score: interestScore.score },
         })
-      }
+    } else if (!hasUserInterests) {
+      // If user has no interests, give a neutral interest score to allow other factors to contribute
+      totalScore += 0.3 * WEIGHTS.interest
+      totalWeight += WEIGHTS.interest
     }
 
     // Location proximity using Haversine distance with exponential decay

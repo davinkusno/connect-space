@@ -13,9 +13,11 @@ interface CreateAdBody {
   image_url?: string;
   video_url?: string;
   link_url: string;
-  community_id: string;
+  community_id?: string;
   start_date?: string;
   end_date?: string;
+  is_active?: boolean;
+  placement?: string;
 }
 
 interface UpdateStatusBody {
@@ -23,7 +25,7 @@ interface UpdateStatusBody {
 }
 
 interface TrackBody {
-  type: "impression" | "click";
+  type: "impression" | "click" | "view";
 }
 
 // ==================== Response Types ====================
@@ -66,11 +68,15 @@ export class AdsController extends BaseController {
     try {
       const status: string | null = this.getQueryParam(request, "status");
       const communityId: string | null = this.getQueryParam(request, "community_id");
+      const placement: string | null = this.getQueryParam(request, "placement");
+      const activeOnly: boolean = this.getQueryParam(request, "active_only") === "true";
       const limit: number | undefined = this.getQueryParamAsNumber(request, "limit", 0) || undefined;
 
       const result: ServiceResult<Ad[]> = await this.service.getAll({ 
         status: status || undefined, 
-        communityId: communityId || undefined, 
+        communityId: communityId || undefined,
+        placement: placement || undefined,
+        activeOnly: activeOnly,
         limit 
       });
 
@@ -135,6 +141,42 @@ export class AdsController extends BaseController {
 
   /**
    * PATCH /api/ads/[id]
+   * Update ad data or status
+   * @param request - The incoming request with ad data or status
+   * @param adId - The ad ID to update
+   * @returns NextResponse with updated ad
+   */
+  public async update(
+    request: NextRequest, 
+    adId: string
+  ): Promise<NextResponse<Ad | ApiErrorResponse>> {
+    try {
+      await this.requireAuth();
+      const body = await this.parseBody<CreateAdBody | UpdateStatusBody>(request);
+      
+      // If body has status field, use updateStatus
+      if ('status' in body && Object.keys(body).length === 1) {
+        const result: ServiceResult<Ad> = await this.service.updateStatus(adId, body.status);
+        if (result.success) {
+          return this.json<Ad>(result.data as Ad, result.status);
+        }
+        return this.error(result.error?.message || "Failed to update status", result.status);
+      }
+      
+      // Otherwise, update full ad data
+      const result: ServiceResult<Ad> = await this.service.update(adId, body);
+      if (result.success) {
+        return this.json<Ad>(result.data as Ad, result.status);
+      }
+      
+      return this.error(result.error?.message || "Failed to update ad", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * PATCH /api/ads/[id] (legacy - for status only updates)
    * Update ad status
    * @param request - The incoming request with new status
    * @param adId - The ad ID to update
@@ -198,12 +240,15 @@ export class AdsController extends BaseController {
     try {
       const body: TrackBody = await this.parseBody<TrackBody>(request);
 
-      if (body.type === "impression") {
+      // Map "view" to "impression" for backward compatibility
+      const trackingType = body.type === "view" ? "impression" : body.type;
+      
+      if (trackingType === "impression") {
         await this.service.trackImpression(adId);
-      } else if (body.type === "click") {
+      } else if (trackingType === "click") {
         await this.service.trackClick(adId);
       } else {
-        return this.badRequest("Invalid tracking type. Must be 'impression' or 'click'");
+        return this.badRequest("Invalid tracking type. Must be 'impression', 'click', or 'view'");
       }
 
       return this.json<SuccessResponse>({ success: true });
