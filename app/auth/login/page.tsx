@@ -33,7 +33,7 @@ export default async function LoginPage() {
     if (userType === "super_admin") {
       redirect("/superadmin")
     } else {
-      redirect("/dashboard")
+      redirect("/home")
     }
   }
 

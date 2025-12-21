@@ -582,25 +582,12 @@ export default function DiscoverPage() {
 
             {/* Quick Stats */}
             <SmoothReveal delay={200}>
-              <div className="grid grid-cols-2 gap-6 mb-8 max-w-2xl mx-auto">
-                <div className="text-center">
-                  <div className="text-3xl font-bold mb-1 text-white">
-                    <AnimatedCounter end={filteredCommunities.length} />
-                  </div>
-                  <div className="text-purple-200 text-sm">
-                    Communities Available
-                  </div>
+              <div className="text-center mb-8 max-w-2xl mx-auto">
+                <div className="text-3xl font-bold mb-1 text-white">
+                  <AnimatedCounter end={filteredCommunities.length} />
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold mb-1 text-white">
-                    <AnimatedCounter
-                      end={filteredCommunities.reduce(
-                        (sum, c) => sum + c.memberCount,
-                        0
-                      )}
-                    />
-                  </div>
-                  <div className="text-purple-200 text-sm">Total Members</div>
+                <div className="text-purple-200 text-sm">
+                  Communities Available
                 </div>
               </div>
             </SmoothReveal>

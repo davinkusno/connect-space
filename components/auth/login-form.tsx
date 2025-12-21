@@ -67,7 +67,7 @@ export function LoginForm() {
           if (userType === "super_admin") {
             router.push("/superadmin");
           } else {
-            router.push("/dashboard");
+            router.push("/home");
           }
         } else {
           router.push("/");

@@ -248,6 +248,7 @@ export class AIService extends BaseService {
     systemPrompt?: string
   ): Promise<ServiceResult<string>> {
     if (!this.openaiApiKey) {
+      console.error("[AIService] OpenAI API key not configured");
       return ApiResponse.error("OpenAI API key not configured", 500);
     }
 
@@ -257,6 +258,8 @@ export class AIService extends BaseService {
     };
 
     try {
+      console.log("[AIService] Sending chat request to OpenAI");
+      
       const response: Response = await fetch(this.OPENAI_API_URL, {
         method: "POST",
         headers: {
@@ -272,15 +275,26 @@ export class AIService extends BaseService {
       });
 
       if (!response.ok) {
-        return ApiResponse.error("Failed to get response", 500);
+        const errorData = await response.json().catch(() => ({}));
+        console.error("[AIService] OpenAI API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        
+        // Return specific error message
+        const errorMessage = errorData.error?.message || errorData.message || "Failed to get response from OpenAI";
+        return ApiResponse.error(errorMessage, response.status);
       }
 
       const data: OpenAIResponse = await response.json();
       const responseText: string = data.choices?.[0]?.message?.content?.trim() || "";
 
+      console.log("[AIService] Chat response received successfully");
       return ApiResponse.success<string>(responseText);
-    } catch {
-      return ApiResponse.error("AI service unavailable", 503);
+    } catch (error: any) {
+      console.error("[AIService] Chat error:", error);
+      return ApiResponse.error(`AI service unavailable: ${error.message}`, 503);
     }
   }
 

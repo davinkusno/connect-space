@@ -466,6 +466,18 @@ export default function EventsPage() {
     setSearchQuery("");
   };
 
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of page smoothly
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, locationQuery, selectedCategory, selectedLocation, dateRange]);
+
   // Pagination Component
   const EventPaginationControls = () => {
     if (calculatedTotalPages <= 1) return null;

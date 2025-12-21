@@ -99,7 +99,7 @@ export function CommunityAdminNav() {
                 </Button>
               </Link>
             )}
-            <Link href="/dashboard">
+            <Link href="/home">
               <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard
