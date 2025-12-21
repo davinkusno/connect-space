@@ -18,6 +18,7 @@ export const STORAGE_CONFIG = {
     banners: "banners",
     communityProfile: "community-profile",
     userProfile: "user-profile",
+    communityMedia: "community-media", // For discussion forum images/videos
   },
 
   // File size limits (in bytes)
@@ -27,6 +28,8 @@ export const STORAGE_CONFIG = {
     event: 10 * 1024 * 1024, // 10MB
     community: 10 * 1024 * 1024, // 10MB
     banner: 5 * 1024 * 1024, // 5MB
+    communityProfile: 5 * 1024 * 1024, // 5MB for forum images
+    communityMedia: 50 * 1024 * 1024, // 50MB for forum videos
   },
 
   // Allowed MIME types

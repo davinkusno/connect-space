@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { getClientSession, getSupabaseBrowser } from "@/lib/supabase/client";
+import { getMediaTypeCategory } from "@/lib/config/media-upload.config";
 import {
     AlertTriangle, ArrowLeft, Calendar, ChevronRight, Clock, Crown, Globe, Loader2, MapPin, MessageCircle, Navigation, Reply,
     Send, Settings, Shield,
@@ -74,6 +75,7 @@ const LeafletMap = dynamic(
 
 import { AdCarousel } from "@/components/community/ad-carousel";
 import { ReportDialog } from "@/components/community/report-dialog";
+import { MediaUpload } from "@/components/community/media-upload";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 
 export default function CommunityPage({
@@ -128,6 +130,14 @@ export default function CommunityPage({
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [showReplies, setShowReplies] = useState<Record<string, boolean>>({});
+  
+  // Media upload states
+  const [threadMediaFile, setThreadMediaFile] = useState<File | null>(null);
+  const [replyMediaFiles, setReplyMediaFiles] = useState<Record<string, File | null>>({});
+  
+  // Delete confirmation states
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{id: string; type: 'thread' | 'reply'} | null>(null);
 
   // Additional UI states
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -357,12 +367,18 @@ export default function CommunityPage({
               created_at,
               updated_at,
               is_edited,
-              sender_id
+              sender_id,
+              media_url,
+              media_type,
+              media_size,
+              media_mime_type
             `)
             .eq("community_id", id)
             .is("parent_id", null)
             .order("created_at", { ascending: false })
             .limit(50);
+
+          console.log("📨 Messages data from DB:", messagesData?.slice(0, 2)); // Log first 2 messages
 
           if (messagesData && messagesData.length > 0) {
             // Get all sender IDs to fetch roles in one query
@@ -402,7 +418,11 @@ export default function CommunityPage({
                     created_at,
                     updated_at,
                     is_edited,
-                    sender_id
+                    sender_id,
+                    media_url,
+                    media_type,
+                    media_size,
+                    media_mime_type
                   `, { count: 'exact' })
                   .eq("parent_id", message.id)
                   .order("created_at", { ascending: true });
@@ -455,6 +475,8 @@ export default function CommunityPage({
                 };
               })
             );
+
+            console.log("📋 First message with users:", messagesWithUsers[0]); // Log complete first message
 
             setDiscussions(messagesWithUsers);
             } else {
@@ -814,6 +836,49 @@ export default function CommunityPage({
 
     try {
       setIsSubmitting(true);
+      
+      let media_url = null;
+      let media_type = null;
+      let media_size = null;
+      let media_mime_type = null;
+
+      // Upload media if present
+      if (threadMediaFile) {
+        try {
+          const formData = new FormData();
+          formData.append('file', threadMediaFile);
+          formData.append('type', 'community');
+          
+          const uploadRes = await fetch('/api/storage/upload', {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (uploadRes.ok) {
+            const { url } = await uploadRes.json();
+            media_url = url;
+            media_type = getMediaTypeCategory(threadMediaFile.type);
+            media_size = threadMediaFile.size;
+            media_mime_type = threadMediaFile.type;
+          } else {
+            const errorData = await uploadRes.json();
+            console.error("Upload failed with status:", uploadRes.status);
+            console.error("Upload error details:", JSON.stringify(errorData, null, 2));
+            
+            // Extract error message properly
+            const errorMessage = typeof errorData.error === 'string' 
+              ? errorData.error 
+              : errorData.error?.message || errorData.message || 'Failed to upload media';
+            
+            throw new Error(errorMessage);
+          }
+        } catch (uploadError: any) {
+          console.error("Error uploading media:", uploadError);
+          const errorMsg = uploadError.message || "Failed to upload media";
+          toast.error(`${errorMsg}. Posting without attachment.`);
+        }
+      }
+
       const supabase = getSupabaseBrowser();
 
       const { error } = await supabase
@@ -823,12 +888,17 @@ export default function CommunityPage({
           community_id: id,
           sender_id: currentUser.id,
           parent_id: null,
+          media_type,
+          media_url,
+          media_size,
+          media_mime_type,
         });
 
       if (error) throw error;
 
       toast.success("Thread created!");
       setNewPost("");
+      setThreadMediaFile(null);
       // Reload discussion forum
       loadTabData("announcements");
     } catch (error: any) {
@@ -867,6 +937,28 @@ export default function CommunityPage({
       toast.error(error.message || "Failed to post reply");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+  
+  const handleDeleteMessage = async () => {
+    if (!deleteTarget) return;
+    
+    try {
+      const supabase = getSupabaseBrowser();
+      const { error } = await supabase
+        .from("messages")
+        .delete()
+        .eq("id", deleteTarget.id);
+      
+      if (error) throw error;
+      
+      toast.success(deleteTarget.type === 'thread' ? "Thread deleted!" : "Reply deleted!");
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
+      loadTabData("announcements");
+    } catch (error: any) {
+      console.error("Error deleting message:", error);
+      toast.error(error.message || "Failed to delete message");
     }
   };
 
@@ -1305,6 +1397,14 @@ export default function CommunityPage({
                             onChange={(e) => setNewPost(e.target.value)}
                             className="min-h-[80px] border-gray-200 focus:border-violet-300 focus:ring-violet-200 resize-none text-sm"
                           />
+                          
+                          {/* Media Upload */}
+                          <MediaUpload
+                            onMediaSelect={setThreadMediaFile}
+                            currentMedia={threadMediaFile}
+                            disabled={isSubmitting}
+                          />
+                          
                           <div className="flex justify-end">
                             <Button
                               disabled={!newPost.trim() || isSubmitting}
@@ -1403,6 +1503,27 @@ export default function CommunityPage({
                                   <p className="text-gray-800 leading-relaxed whitespace-pre-wrap text-sm mb-3">
                                     {thread.content}
                                   </p>
+                                  
+                                  {/* Display Media if present */}
+                                  {thread.media_url && (
+                                    <div className="mb-3">
+                                      {thread.media_type === 'image' ? (
+                                        <img
+                                          src={thread.media_url}
+                                          alt="Attachment"
+                                          className="max-w-full max-h-96 rounded-lg object-contain border border-gray-200 cursor-pointer hover:opacity-95 transition-opacity"
+                                          onClick={() => window.open(thread.media_url, '_blank')}
+                                        />
+                                      ) : thread.media_type === 'video' ? (
+                                        <video
+                                          src={thread.media_url}
+                                          controls
+                                          className="max-w-full max-h-96 rounded-lg border border-gray-200"
+                                        />
+                                      ) : null}
+                                    </div>
+                                  )}
+                                  
                                   <div className="flex items-center gap-4">
                                     <Button
                                       variant="ghost"
@@ -1462,21 +1583,9 @@ export default function CommunityPage({
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 ml-auto"
-                                        onClick={async () => {
-                                          if (confirm("Are you sure you want to delete this thread?")) {
-                                            const supabase = getSupabaseBrowser();
-                                            const { error } = await supabase
-                                              .from("messages")
-                                              .delete()
-                                              .eq("id", thread.id);
-                                            
-                                            if (error) {
-                                              toast.error("Failed to delete thread");
-                                            } else {
-                                              toast.success("Thread deleted");
-                                              loadTabData("announcements");
-                                            }
-                                          }
+                                        onClick={() => {
+                                          setDeleteTarget({id: thread.id, type: 'thread'});
+                                          setDeleteDialogOpen(true);
                                         }}
                                       >
                                         <Trash2 className="h-3.5 w-3.5 mr-1.5" />
@@ -1573,6 +1682,27 @@ export default function CommunityPage({
                                         <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
                                           {reply.content}
                                         </p>
+                                        
+                                        {/* Display Media if present */}
+                                        {reply.media_url && (
+                                          <div className="mt-2">
+                                            {reply.media_type === 'image' ? (
+                                              <img
+                                                src={reply.media_url}
+                                                alt="Attachment"
+                                                className="max-w-full max-h-64 rounded-lg object-contain border border-gray-200 cursor-pointer hover:opacity-95 transition-opacity"
+                                                onClick={() => window.open(reply.media_url, '_blank')}
+                                              />
+                                            ) : reply.media_type === 'video' ? (
+                                              <video
+                                                src={reply.media_url}
+                                                controls
+                                                className="max-w-full max-h-64 rounded-lg border border-gray-200"
+                                              />
+                                            ) : null}
+                                          </div>
+                                        )}
+                                        
                                         {isMember && currentUser && !isSuperAdmin && !isOwner && reply.sender_id !== currentUser.id && (
                                           <div className="mt-2">
                                             <Button
@@ -2308,6 +2438,27 @@ export default function CommunityPage({
         reportTargetId={reportTargetId}
         reportTargetName={reportTargetName}
       />
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteTarget?.type === 'thread' ? 'Thread' : 'Reply'}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this {deleteTarget?.type === 'thread' ? 'thread and all its replies' : 'reply'}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteMessage}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

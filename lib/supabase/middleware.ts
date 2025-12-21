@@ -38,13 +38,11 @@ export async function updateSession(request: NextRequest) {
     "/_next",
     "/api",
     "/auth",
-    "/",
     "/test",
-    "/events", // Public: browse events
-    "/communities", // Public: browse communities (but not create/admin)
   ]
 
-  // Check if current path is public (but exclude protected sub-routes)
+  // Check if current path is exactly root or a public route
+  const isRootPath = currentPath === "/"
   const isPublicRoute = publicRoutes.some(route => currentPath.startsWith(route))
   
   // Protect specific sub-routes even if parent is public
@@ -53,7 +51,7 @@ export async function updateSession(request: NextRequest) {
     currentPath.includes("/admin") // Must be logged in for admin routes
 
   // Skip auth check for public routes (unless it's a protected sub-route)
-  if (isPublicRoute && !isProtectedSubRoute) {
+  if ((isRootPath || isPublicRoute) && !isProtectedSubRoute) {
     return supabaseResponse
   }
 

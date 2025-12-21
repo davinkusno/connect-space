@@ -40,12 +40,12 @@ export class StorageService extends BaseService {
   /**
    * Upload an image file to storage
    * @param file - The file to upload
-   * @param type - The storage type (determines folder path)
+   * @param options - Upload options with folder and maxSizeKey
    * @returns ServiceResult containing the public URL
    */
   public async uploadImage(
     file: File,
-    type: StorageType
+    options: { folder: keyof typeof STORAGE_CONFIG.folders; maxSizeKey: keyof typeof STORAGE_CONFIG.limits }
   ): Promise<ServiceResult<UploadResult>> {
     // Validate file type
     if (!isValidImageType(file.type)) {
@@ -55,8 +55,8 @@ export class StorageService extends BaseService {
     }
 
     // Validate file size
-    if (!isValidFileSize(file.size, type)) {
-      const maxSizeMB = STORAGE_CONFIG.limits[type] / (1024 * 1024);
+    if (!isValidFileSize(file.size, options.maxSizeKey)) {
+      const maxSizeMB = STORAGE_CONFIG.limits[options.maxSizeKey] / (1024 * 1024);
       return ApiResponse.badRequest(
         `File size must be less than ${maxSizeMB}MB`
       );
@@ -64,15 +64,7 @@ export class StorageService extends BaseService {
 
     // Generate unique filename and path
     const filename = generateUniqueFilename(file.name);
-    const folderMap: Record<StorageType, keyof typeof STORAGE_CONFIG.folders> = {
-      "community": "communityProfile",
-      "event": "events",
-      "user": "avatars",
-      "banner": "banners",
-      "badge": "badges",
-      "avatar": "avatars",
-    };
-    const path = getStoragePath(folderMap[type] || "communityProfile", filename);
+    const path = getStoragePath(options.folder, filename);
 
     // Convert File to ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
@@ -89,6 +81,66 @@ export class StorageService extends BaseService {
 
     if (uploadError) {
       console.error("[StorageService] Upload error:", uploadError);
+      return ApiResponse.error(uploadError.message || "Upload failed", 500);
+    }
+
+    // Get public URL
+    const {
+      data: { publicUrl },
+    } = this.supabaseAdmin.storage
+      .from(STORAGE_CONFIG.bucket)
+      .getPublicUrl(data.path);
+
+    return ApiResponse.success<UploadResult>({
+      url: publicUrl,
+      path: data.path,
+    });
+  }
+
+  /**
+   * Upload a video file to storage
+   * @param file - The video file to upload
+   * @param folder - The folder to upload to
+   * @returns ServiceResult containing the public URL
+   */
+  public async uploadVideo(
+    file: File,
+    folder: keyof typeof STORAGE_CONFIG.folders
+  ): Promise<ServiceResult<UploadResult>> {
+    // Validate file type
+    if (!STORAGE_CONFIG.allowedTypes.videos.includes(file.type)) {
+      return ApiResponse.badRequest(
+        "File must be a video (MP4, WebM, or OGG)"
+      );
+    }
+
+    // Validate file size (50MB limit for videos)
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+      return ApiResponse.badRequest(
+        `Video file size must be less than 50MB`
+      );
+    }
+
+    // Generate unique filename and path
+    const filename = generateUniqueFilename(file.name);
+    const path = getStoragePath(folder, filename);
+
+    // Convert File to ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Upload to Supabase Storage
+    const { data, error: uploadError } = await this.supabaseAdmin.storage
+      .from(STORAGE_CONFIG.bucket)
+      .upload(path, buffer, {
+        contentType: file.type,
+        cacheControl: STORAGE_CONFIG.cacheControl,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("[StorageService] Video upload error:", uploadError);
       return ApiResponse.error(uploadError.message || "Upload failed", 500);
     }
 

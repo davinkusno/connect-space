@@ -229,6 +229,55 @@ export class StorageController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * POST /api/storage/upload
+   * Generic file upload for authenticated users (images or videos)
+   */
+  public async uploadFile(
+    request: NextRequest
+  ): Promise<NextResponse<UploadResponse | ApiErrorResponse>> {
+    try {
+      await this.requireAuth();
+
+      const formData: FormData = await request.formData();
+      const file: File | null = formData.get("file") as File | null;
+      const type: string = formData.get("type") as string || "community";
+
+      if (!file) {
+        return this.badRequest("No file provided");
+      }
+
+      // Determine if it's an image or video
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+
+      if (!isImage && !isVideo) {
+        return this.badRequest("File must be an image or video");
+      }
+
+      let result: ServiceResult<UploadResponse>;
+      
+      if (isVideo) {
+        // Upload video
+        result = await this.service.uploadVideo(file, "communityMedia");
+      } else {
+        // Upload image
+        result = await this.service.uploadImage(file, {
+          folder: "communityMedia",
+          maxSizeKey: "communityProfile",
+        });
+      }
+
+      if (result.success) {
+        return this.json<UploadResponse>(result.data as UploadResponse, result.status);
+      }
+
+      return this.error(result.error?.message || "Upload failed", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance
