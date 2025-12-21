@@ -109,12 +109,14 @@ export function AdDisplay({ communityId, className = "" }: AdDisplayProps) {
                 <h4 className="font-semibold text-gray-900 mb-1 line-clamp-1">
                   {ad.title}
                 </h4>
-                {ad.description && (
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {ad.description}
-                  </p>
-                )}
-                <div className="flex items-center gap-1 mt-2 text-xs text-violet-600">
+                <div className="h-10 mb-2">
+                  {ad.description && (
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {ad.description}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-xs text-violet-600">
                   <span>Learn more</span>
                   <ExternalLink className="h-3 w-3" />
                 </div>
@@ -135,11 +137,13 @@ export function AdDisplay({ communityId, className = "" }: AdDisplayProps) {
                 <h4 className="font-semibold text-gray-900 mb-1 line-clamp-1">
                   {ad.title}
                 </h4>
-                {ad.description && (
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {ad.description}
-                  </p>
-                )}
+                <div className="h-10">
+                  {ad.description && (
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {ad.description}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
