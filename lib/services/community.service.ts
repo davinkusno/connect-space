@@ -38,7 +38,7 @@ interface JoinRequestData {
   user_id: string;
   community_id: string;
   status: MemberStatus;
-  requested_at: string;
+  joined_at: string;  // Using joined_at as the request timestamp
   users?: UserInfo;
   user?: UserInfo;
 }
@@ -48,7 +48,7 @@ interface MemberWithPoints {
   user_id: string;
   community_id: string;
   status: MemberStatus;
-  requested_at: string;
+  joined_at: string;  // Using joined_at as the request timestamp
   user?: UserInfo;
   activity_count: number;  // Count of positive activities
   report_count: number;    // Count of reports (separate from activities)
@@ -213,12 +213,12 @@ export class CommunityService extends BaseService {
     const { data: requests, error } = await this.supabaseAdmin
       .from("community_members")
       .select(`
-        id, user_id, community_id, status, requested_at,
+        id, user_id, community_id, status, joined_at,
         users:user_id (id, full_name, avatar_url, email)
       `)
       .eq("community_id", communityId)
-      .eq("status", "pending")
-      .order("requested_at", { ascending: false });
+      .eq("status", "pending")  // String: 'pending'
+      .order("joined_at", { ascending: false });
 
     if (error) {
       return ApiResponse.error("Failed to fetch requests", 500);
@@ -240,7 +240,7 @@ export class CommunityService extends BaseService {
         user_id: request.user_id,
         community_id: request.community_id,
         status: request.status as MemberStatus,
-        requested_at: request.requested_at,
+        joined_at: request.joined_at,  // Using joined_at as request timestamp
         user: userInfo,
         activity_count: pointsData.activity_count,
         report_count: pointsData.report_count,
@@ -315,7 +315,7 @@ export class CommunityService extends BaseService {
     const { error: updateError } = await this.supabaseAdmin
       .from("community_members")
       .update({
-        status: "approved" as MemberStatus,
+        status: "approved",  // String: 'approved'
         role: "member" as MemberRole,
         joined_at: new Date().toISOString(),
       })
@@ -372,7 +372,7 @@ export class CommunityService extends BaseService {
       .from("community_members")
       .select("user_id")
       .eq("id", memberId)
-      .eq("status", "pending")
+      .eq("status", "pending")  // String: 'pending'
       .single();
 
     // Delete the pending request
@@ -463,7 +463,7 @@ export class CommunityService extends BaseService {
       .maybeSingle();
 
     if (existingMember) {
-      if (existingMember.status === "pending") {
+      if (existingMember.status === "pending") {  // String: 'pending'
         return ApiResponse.success<JoinResult>({ 
           message: "Join request is already pending", 
           member: existingMember as unknown as CommunityMember 
@@ -475,14 +475,14 @@ export class CommunityService extends BaseService {
       });
     }
 
-    // Insert with status = "pending" (awaiting approval)
+    // Insert with status = 'pending' (awaiting approval)
     const { data: insertData, error: insertError } = await this.supabaseAdmin
       .from("community_members")
       .insert({
         community_id: communityId,
         user_id: userId,
         role: "member" as MemberRole,
-        status: "pending" as MemberStatus,
+        status: "pending",  // String: 'pending'
       })
       .select()
       .single();
@@ -491,8 +491,16 @@ export class CommunityService extends BaseService {
       if (insertError.code === "23505") {
         return ApiResponse.badRequest("You already have a pending request or are a member");
       }
+      console.error("[CommunityService] Error inserting member:", insertError);
       return ApiResponse.error("Failed to join community", 500);
     }
+
+    if (!insertData) {
+      console.error("[CommunityService] Insert succeeded but no data returned");
+      return ApiResponse.error("Failed to create join request", 500);
+    }
+
+    console.log("[CommunityService] Join request created:", insertData);
 
     // Send notification to community admins
     try {
@@ -544,7 +552,7 @@ export class CommunityService extends BaseService {
     }
 
     // Only allow canceling pending requests
-    if (existingRequest.status !== "pending") {
+    if (existingRequest.status !== "pending") {  // String: 'pending'
       return ApiResponse.badRequest("Can only cancel pending requests");
     }
 
@@ -586,7 +594,7 @@ export class CommunityService extends BaseService {
 
     // Only the creator can change roles (not co-admins)
     const isCreator: boolean = await this.isCreator(
-      memberRecord.community_id,
+      memberRecord.community_id, 
       adminUserId
     );
     if (!isCreator) {
@@ -886,7 +894,7 @@ export class CommunityService extends BaseService {
         community_id: community.id,
         user_id: userId,
         role: "admin" as MemberRole,
-        status: "approved" as MemberStatus,
+        status: "approved",  // String: 'approved'
       });
 
     if (memberError) {

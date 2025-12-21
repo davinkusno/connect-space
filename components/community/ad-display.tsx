@@ -13,18 +13,17 @@ interface Ad {
   description?: string;
   image_url: string;
   link_url?: string;
-  placement: "sidebar" | "banner" | "inline";
   click_count?: number;
   view_count?: number;
 }
 
 interface AdDisplayProps {
   communityId: string;
-  placement: "sidebar" | "banner" | "inline";
+  // placement removed - ads are in fixed locations
   className?: string;
 }
 
-export function AdDisplay({ communityId, placement, className = "" }: AdDisplayProps) {
+export function AdDisplay({ communityId, className = "" }: AdDisplayProps) {
   const [ad, setAd] = useState<Ad | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -32,7 +31,7 @@ export function AdDisplay({ communityId, placement, className = "" }: AdDisplayP
     const fetchAd = async () => {
       try {
         const response = await fetch(
-          `/api/ads?community_id=${communityId}&placement=${placement}&active_only=true`
+          `/api/ads?community_id=${communityId}&active_only=true`
         );
         const data = await response.json();
 
@@ -51,14 +50,14 @@ export function AdDisplay({ communityId, placement, className = "" }: AdDisplayP
           }
         }
       } catch (error) {
-        console.error("Error fetching ad:", error);
+        console.error("[AdDisplay] Error fetching ad:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchAd();
-  }, [communityId, placement]);
+  }, [communityId]);
 
   const handleClick = async () => {
     if (ad?.id) {
@@ -149,14 +148,6 @@ export function AdDisplay({ communityId, placement, className = "" }: AdDisplayP
     </Card>
   );
 
-  // Render based on placement
-  if (placement === "banner") {
-    return (
-      <div className="mb-6">
-        {adContent}
-      </div>
-    );
-  }
 
   return adContent;
 }

@@ -17,7 +17,6 @@ interface CreateAdBody {
   start_date?: string;
   end_date?: string;
   is_active?: boolean;
-  placement?: string;
 }
 
 interface UpdateStatusBody {
@@ -68,14 +67,12 @@ export class AdsController extends BaseController {
     try {
       const status: string | null = this.getQueryParam(request, "status");
       const communityId: string | null = this.getQueryParam(request, "community_id");
-      const placement: string | null = this.getQueryParam(request, "placement");
       const activeOnly: boolean = this.getQueryParam(request, "active_only") === "true";
       const limit: number | undefined = this.getQueryParamAsNumber(request, "limit", 0) || undefined;
 
       const result: ServiceResult<Ad[]> = await this.service.getAll({ 
         status: status || undefined, 
         communityId: communityId || undefined,
-        placement: placement || undefined,
         activeOnly: activeOnly,
         limit 
       });

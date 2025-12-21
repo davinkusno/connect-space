@@ -39,8 +39,8 @@ interface Member {
   user_id: string
   role: "admin" | "member"
   joined_at: string
-  activity_count?: number  // Count of positive activities
-  report_count?: number    // Count of reports (separate from activities)
+  points_count?: number  // Count of positive points
+  report_count?: number    // Count of reports (separate from points)
   user: {
     id: string
     username: string | null
@@ -71,59 +71,11 @@ export default function CommunityMembersPage({
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [communityId, setCommunityId] = useState<string | null>(null)
+  const [isCreator, setIsCreator] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const { toast } = useToast()
 
   const pageSize = 10
-
-  // Mock data
-  const mockCommunity: Community = {
-    id: "1",
-    name: "Tech Innovators NYC",
-    profilePicture: "/placeholder.svg?height=200&width=300"
-  }
-
-  // Only 3 dummy members
-  const mockMembers: Member[] = [
-    {
-      id: "dummy-1",
-      user_id: "user1",
-      role: "admin",
-      joined_at: "2023-01-15T10:00:00Z",
-      user: {
-        id: "user1",
-        username: "admin_user",
-        full_name: "John Admin",
-        avatar_url: "/placeholder-user.jpg",
-        email: "john.admin@email.com"
-      }
-    },
-    {
-      id: "dummy-2",
-      user_id: "user2",
-      role: "member",
-      joined_at: "2023-02-20T14:30:00Z",
-      user: {
-        id: "user2",
-        username: "moderator_sarah",
-        full_name: "Sarah Johnson",
-        avatar_url: "/placeholder-user.jpg",
-        email: "sarah.johnson@email.com"
-      }
-    },
-    {
-      id: "dummy-3",
-      user_id: "user3",
-      role: "member",
-      joined_at: "2023-03-10T09:15:00Z",
-      user: {
-        id: "user3",
-        username: "mike_dev",
-        full_name: "Michael Chen",
-        avatar_url: "/placeholder-user.jpg",
-        email: "michael.chen@email.com"
-      }
-    }
-  ]
 
   // Load community and members data
   useEffect(() => {
@@ -161,7 +113,7 @@ export default function CommunityMembersPage({
 
       // Check if user is creator or admin
       const userIsCreator = communityData.creator_id === user.id
-      
+
       // Check if user is admin (co-admin)
       const { data: membership } = await supabase
         .from("community_members")
@@ -215,19 +167,17 @@ export default function CommunityMembersPage({
 
       if (membersError) {
         console.error("Error fetching members:", membersError)
-        // Use dummy data on error
-        setMembers(mockMembers)
-        setTotalCount(mockMembers.length)
-        setTotalPages(Math.ceil(mockMembers.length / pageSize))
+        setMembers([])
+        setTotalCount(0)
+        setTotalPages(0)
         return
       }
 
       if (!allMembersData || allMembersData.length === 0) {
-        // Combine with dummy data if no real members
-        const allMembers = [...mockMembers]
-        setMembers(allMembers)
-        setTotalCount(allMembers.length)
-        setTotalPages(Math.ceil(allMembers.length / pageSize))
+        // No members in community yet
+        setMembers([])
+        setTotalCount(0)
+        setTotalPages(0)
         return
       }
 
@@ -259,21 +209,19 @@ export default function CommunityMembersPage({
       })
 
       if (membersData.length === 0) {
-        // No approved members, but still show dummy data
-        const allMembers = [...mockMembers]
-        setMembers(allMembers)
-        setTotalCount(allMembers.length)
-        setTotalPages(Math.ceil(allMembers.length / pageSize))
+        // No approved members yet
+        setMembers([])
+        setTotalCount(0)
+        setTotalPages(0)
         return
       }
 
       // Fetch user data for each member
       const userIds = membersData.map((m: any) => m.user_id)
       if (userIds.length === 0) {
-        const allMembers = [...mockMembers]
-        setMembers(allMembers)
-        setTotalCount(allMembers.length)
-        setTotalPages(Math.ceil(allMembers.length / pageSize))
+        setMembers([])
+        setTotalCount(0)
+        setTotalPages(0)
         return
       }
 
@@ -305,24 +253,24 @@ export default function CommunityMembersPage({
             }
           })
           
-          return { userId, activity_count: activityCount, report_count: reportCount }
+          return { userId, points_count: activityCount, report_count: reportCount }
         } catch {
-          return { userId, activity_count: 0, report_count: 0 }
+          return { userId, points_count: 0, report_count: 0 }
         }
       })
       const statsResults = await Promise.all(statsPromises)
-      const statsMap = new Map(statsResults.map(s => [s.userId, { activity_count: s.activity_count, report_count: s.report_count }]))
+      const statsMap = new Map(statsResults.map(s => [s.userId, { points_count: s.points_count, report_count: s.report_count }]))
 
       // Map database members to Member interface
       const mappedMembers: Member[] = membersData.map((member: any) => {
         const user = usersData?.find((u: any) => u.id === member.user_id)
-        const stats = statsMap.get(member.user_id) || { activity_count: 0, report_count: 0 }
+        const stats = statsMap.get(member.user_id) || { points_count: 0, report_count: 0 }
         return {
           id: member.id,
           user_id: member.user_id,
           role: member.role as "admin" | "member",
           joined_at: member.joined_at,
-          activity_count: stats.activity_count,
+          points_count: stats.points_count,
           report_count: stats.report_count,
           user: {
             id: user?.id || member.user_id,
@@ -334,28 +282,20 @@ export default function CommunityMembersPage({
         }
       })
 
-      // Combine with dummy data (only 3 dummy members)
-      const allMembers = [...mappedMembers, ...mockMembers]
-      setMembers(allMembers)
-      setTotalCount(allMembers.length)
-      setTotalPages(Math.ceil(allMembers.length / pageSize))
+      // Set real members data
+      setMembers(mappedMembers)
+      setTotalCount(mappedMembers.length)
+      setTotalPages(Math.ceil(mappedMembers.length / pageSize))
     } catch (error) {
       console.error("Error loading members:", error)
-      // Use dummy data on error
-      setMembers(mockMembers)
-      setTotalCount(mockMembers.length)
-      setTotalPages(Math.ceil(mockMembers.length / pageSize))
+      setMembers([])
+      setTotalCount(0)
+      setTotalPages(0)
     }
   }
 
   const handleAppointAsAdmin = async (memberId: string, memberName: string, newRole: "admin" | "member" = "admin") => {
     try {
-      // Don't update dummy members
-      if (memberId.startsWith("dummy-")) {
-        sonnerToast.error("Cannot update dummy members")
-        return
-      }
-
       const response = await fetch(`/api/communities/members/${memberId}/role`, {
         method: "PATCH",
         headers: {
@@ -389,12 +329,6 @@ export default function CommunityMembersPage({
 
   const handleKickMember = async (memberId: string, memberName: string) => {
     try {
-      // Don't delete dummy members
-      if (memberId.startsWith("dummy-")) {
-        sonnerToast.error("Cannot remove dummy members")
-        return
-      }
-
       if (!community) {
         sonnerToast.error("Community not found")
         return
@@ -591,7 +525,7 @@ export default function CommunityMembersPage({
                         <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
                           <div className="flex items-center gap-1">
                             <Star className="w-3 h-3 text-green-500" />
-                            <span className="font-medium text-green-600">{member.activity_count || 0} {(member.activity_count || 0) === 1 ? 'activity' : 'activities'}</span>
+                            <span className="font-medium text-green-600">{member.points_count || 0} {(member.points_count || 0) === 1 ? 'point' : 'points'}</span>
                           </div>
                           {(member.report_count ?? 0) > 0 && (
                             <div className="flex items-center gap-1">

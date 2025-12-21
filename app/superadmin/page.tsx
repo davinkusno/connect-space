@@ -20,8 +20,9 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Activity, AlertTriangle, Award, Ban, Bell, CalendarDays, CheckCircle2, ChevronLeft,
-    ChevronRight, Clock, Crown, Eye, FileText, Flame, Gift, Heart, Medal, Megaphone, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trophy, Users, XCircle
+    ChevronRight, Clock, Crown, Eye, ExternalLink, FileText, Flame, Gift, Heart, Medal, Megaphone, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trophy, Users, XCircle
 } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -1531,8 +1532,20 @@ export default function SuperadminPage() {
                                   className="text-blue-600 hover:text-blue-700"
                                 >
                                   <Eye className="h-4 w-4 mr-1" />
-                                  View
+                                  View Report
                                 </AnimatedButton>
+                                {report.category === "community" && report.communityId && (
+                                  <Link href={`/communities/${report.communityId}`} target="_blank">
+                                    <AnimatedButton
+                                      variant="glass"
+                                      size="sm"
+                                      className="text-purple-600 hover:text-purple-700"
+                                    >
+                                      <ExternalLink className="h-4 w-4 mr-1" />
+                                      View Community
+                                    </AnimatedButton>
+                                  </Link>
+                                )}
                                 {report.communityStatus === "suspended" ? (
                                   <AnimatedButton
                                     variant="glass"

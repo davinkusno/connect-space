@@ -16,7 +16,6 @@ interface AdData {
   link_url?: string;
   community_id?: string;
   created_by: string;
-  placement: string;
   is_active: boolean;
   start_date?: string;
   end_date?: string;
@@ -36,7 +35,6 @@ interface CreateAdInput {
   start_date?: string;
   end_date?: string;
   is_active?: boolean;
-  placement?: string;
 }
 
 interface AdWithCommunity extends AdData {
@@ -50,7 +48,6 @@ interface AdWithCommunity extends AdData {
 interface AdsQueryOptions {
   status?: string;
   communityId?: string;
-  placement?: string;
   activeOnly?: boolean;
   limit?: number;
 }
@@ -133,11 +130,6 @@ export class AdsService extends BaseService {
       query = query.or(`community_id.eq.${options.communityId},community_id.is.null`);
     }
 
-    // Filter by placement
-    if (options?.placement) {
-      query = query.eq("placement", options.placement);
-    }
-
     if (options?.limit) {
       query = query.limit(options.limit);
     }
@@ -154,19 +146,26 @@ export class AdsService extends BaseService {
     const filteredAds = (data || []).filter((ad: any) => {
       // If active_only is true, check dates
       if (options?.activeOnly) {
-        // Check start_date
+        // Check start_date - ad should be active if start_date is null OR start_date <= now
         if (ad.start_date) {
           const startDate = new Date(ad.start_date);
-          if (startDate > now) {
+          // Compare dates (ignore time) - ad is active if today is >= start_date
+          const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+          const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          if (startDateOnly > nowDateOnly) {
             return false; // Ad hasn't started yet
           }
         }
         
-        // Check end_date
+        // Check end_date - ad should be active if end_date is null OR end_date >= now
+        // Ads should be active for the entire day of end_date
         if (ad.end_date) {
           const endDate = new Date(ad.end_date);
-          if (endDate < now) {
-            return false; // Ad has expired
+          // Compare dates (ignore time) - ad is active if today is <= end_date
+          const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+          const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          if (endDateOnly < nowDateOnly) {
+            return false; // Ad has expired (past end_date)
           }
         }
       }
@@ -204,7 +203,6 @@ export class AdsService extends BaseService {
     if (input.community_id) insertData.community_id = input.community_id;
     if (input.start_date) insertData.start_date = input.start_date;
     if (input.end_date) insertData.end_date = input.end_date;
-    if (input.placement) insertData.placement = input.placement;
 
     const { data, error } = await this.supabaseAdmin
       .from("ads")
@@ -252,7 +250,7 @@ export class AdsService extends BaseService {
    */
   public async update(
     adId: string,
-    input: Partial<CreateAdInput & { is_active?: boolean; placement?: string }>
+    input: Partial<CreateAdInput & { is_active?: boolean }>
   ): Promise<ServiceResult<AdData>> {
     // Map frontend fields to database fields
     const updateData: Record<string, unknown> = {};
@@ -266,7 +264,6 @@ export class AdsService extends BaseService {
     if (input.start_date !== undefined) updateData.start_date = input.start_date || null;
     if (input.end_date !== undefined) updateData.end_date = input.end_date || null;
     if (input.is_active !== undefined) updateData.is_active = input.is_active;
-    if (input.placement !== undefined) updateData.placement = input.placement;
 
     const { data, error } = await this.supabaseAdmin
       .from("ads")

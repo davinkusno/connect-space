@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
 import {
     AlertTriangle, Calendar, ChevronRight, Edit, FileText,
-    LayoutGrid, Loader2, Mail, Save, Star, UserPlus, Users, X
+    LayoutGrid, Loader2, Mail, Save, ShieldAlert, Star, UserPlus, Users, X
 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
@@ -94,10 +94,10 @@ interface JoinRequest {
   userEmail: string
   userAvatar: string
   requestedAt: string
-  status: "pending" | "approved" | "rejected"
+  status: "pending" | "approved" | "rejected"  // String status values
   message?: string
-  activity_count?: number  // Count of positive activities
-  report_count?: number    // Count of reports (separate from activities)
+  points_count?: number  // Count of positive points
+  report_count?: number    // Count of reports (separate from points)
   reports?: UserReport[]   // Actual report details
 }
 
@@ -112,6 +112,7 @@ export default function CommunityAdminPage({
   const [isEditingDescription, setIsEditingDescription] = useState(false)
   const [editedDescription, setEditedDescription] = useState("")
   const [isSavingDescription, setIsSavingDescription] = useState(false)
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false)
   const [communityId, setCommunityId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -350,7 +351,7 @@ export default function CommunityAdminPage({
         }
       })
 
-      // Filter for pending requests only
+      // Filter for pending requests only (status = 'pending')
       const pendingRequests = membersWithStatus.filter((req: any) => {
         return req.status === "pending"
       })
@@ -384,19 +385,19 @@ export default function CommunityAdminPage({
         .select("user_id, point_type")
         .in("user_id", userIds)
 
-      // Count activities and reports per user (keep separate - don't combine)
-      const userStatsMap: Record<string, { activity_count: number; report_count: number }> = {}
+      // Count points and reports per user (keep separate - don't combine)
+      const userStatsMap: Record<string, { points_count: number; report_count: number }> = {}
       if (userPointsData) {
         userPointsData.forEach((record: any) => {
           if (!userStatsMap[record.user_id]) {
-            userStatsMap[record.user_id] = { activity_count: 0, report_count: 0 }
+            userStatsMap[record.user_id] = { points_count: 0, report_count: 0 }
           }
           if (record.point_type === 'report_received') {
             // Count reports separately
             userStatsMap[record.user_id].report_count += 1
           } else {
-            // Count positive activities
-            userStatsMap[record.user_id].activity_count += 1
+            // Count positive points
+            userStatsMap[record.user_id].points_count += 1
           }
         })
       }
@@ -435,7 +436,7 @@ export default function CommunityAdminPage({
           return null
         }
 
-        const stats = userStatsMap[request.user_id] || { activity_count: 0, report_count: 0 }
+        const stats = userStatsMap[request.user_id] || { points_count: 0, report_count: 0 }
         return {
           id: request.id,
           userId: request.user_id,
@@ -443,9 +444,9 @@ export default function CommunityAdminPage({
           userEmail: userData.email || "",
           userAvatar: userData.avatar_url || "/placeholder-user.jpg",
           requestedAt: request.joined_at,
-          status: "pending" as const,
+          status: "pending",  // String: 'pending'
           message: undefined,
-          activity_count: stats.activity_count,
+          points_count: stats.points_count,
           report_count: stats.report_count,
           reports: reportsByUser[request.user_id] || []
         } as JoinRequest
@@ -625,22 +626,35 @@ export default function CommunityAdminPage({
       }
 
       const supabase = getSupabaseBrowser()
-      const pendingRequests = recentJoinRequests.filter(r => r.status === "pending")
+      const pendingRequests = recentJoinRequests.filter(r => r.status === "pending")  // String: 'pending'
       
       if (pendingRequests.length === 0) return
 
-      // Update all pending requests status to approved in community_members
-      // Only update for the current community's members for security
+      // Use API endpoint for bulk approve to ensure proper handling
       const requestIds = pendingRequests.map(r => r.id)
-      const { error: updateError } = await supabase
-        .from("community_members")
-        .update({ status: "approved" })
-        .in("id", requestIds)
-        .eq("community_id", community.id)
+      
+      try {
+        const response = await fetch("/api/communities/members/bulk-approve", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            community_id: community.id,
+            member_ids: requestIds,
+          }),
+        })
 
-      if (updateError) {
-        console.error("Error approving all requests:", updateError)
-        toast.error("Failed to approve all requests")
+        const result = await response.json()
+
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to approve all requests")
+        }
+
+        toast.success(result.message || "All requests approved")
+      } catch (error: any) {
+        console.error("Error approving all requests:", error)
+        toast.error(error.message || "Failed to approve all requests")
         return
       }
 
@@ -650,7 +664,7 @@ export default function CommunityAdminPage({
           .from("community_members")
           .select("status")
           .eq("community_id", community.id)
-          .eq("status", "approved")
+          .eq("status", "approved")  // String: 'approved'
         
         // Update member count in state (only counts approved members)
         setCommunity((prev) => prev ? { ...prev, memberCount: allMembers?.length || 0 } : null)
@@ -849,10 +863,10 @@ export default function CommunityAdminPage({
         <div className="max-w-7xl mx-auto p-8 relative z-10">
           {/* Back Button */}
           <div className="mb-4">
-            <Link href="/dashboard?tab=communities">
+            <Link href="/">
               <Button variant="outline" size="sm" className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300">
                 <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
-                Back to Dashboard
+                Back to Home
               </Button>
             </Link>
           </div>
@@ -944,7 +958,7 @@ export default function CommunityAdminPage({
                     </Button>
                   </div>
                   <div className="mt-1 flex items-center justify-between text-sm text-gray-500">
-                    <span>{recentJoinRequests.filter(r => r.status === 'pending').length} pending</span>
+                    <span>{recentJoinRequests.filter(r => r.status === "pending").length} pending</span>
                     <span></span>
                   </div>
                 </CardHeader>
@@ -972,19 +986,13 @@ export default function CommunityAdminPage({
                                 <h4 className="text-sm font-medium text-gray-900 truncate">
                                   {request.userName}
                                 </h4>
-                                <div className="flex items-center gap-2">
-                                  {request.status !== 'pending' && (
-                                    <Badge className={request.status === 'approved' ? 'bg-green-100 text-green-700 border-none' : 'bg-red-100 text-red-700 border-none'}>
-                                      {request.status === 'approved' ? 'Approved' : 'Rejected'}
-                                    </Badge>
-                                  )}
-                                </div>
+                                {/* All requests in this list are pending, no need for status badge */}
                               </div>
                               <p className="text-xs text-gray-500 truncate">{request.userEmail}</p>
                               <div className="flex items-center gap-3 mt-1">
                                 <div className="flex items-center gap-1">
                                   <Star className="w-3 h-3 text-green-500 fill-green-500" />
-                                  <span className="text-xs font-medium text-green-600">{request.activity_count || 0} {(request.activity_count || 0) === 1 ? 'activity' : 'activities'}</span>
+                                  <span className="text-xs font-medium text-green-600">{request.points_count || 0} {(request.points_count || 0) === 1 ? 'point' : 'points'}</span>
                                 </div>
                                   <div className="flex items-center gap-1">
                                   <AlertTriangle className={`w-3 h-3 ${(request.report_count ?? 0) > 0 ? 'text-red-500' : 'text-gray-300'}`} />
@@ -996,41 +1004,39 @@ export default function CommunityAdminPage({
                               )}
                               {/* Show reports if user has been reported */}
                               {request.reports && request.reports.length > 0 && (
-                                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <AlertTriangle className="w-4 h-4 text-red-600" />
-                                    <span className="text-xs font-semibold text-red-700">
-                                      {request.reports.length} Previous {request.reports.length === 1 ? 'Report' : 'Reports'}
-                                    </span>
-                                  </div>
-                                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                                    {request.reports.map((report) => (
-                                      <div key={report.id} className="text-xs bg-white p-2 rounded border border-red-100">
-                                        <div className="flex items-start justify-between gap-2">
-                                          <div className="flex-1">
-                                            <div className="font-medium text-red-800 mb-1">{report.reason}</div>
-                                            {report.details && (
-                                              <div className="text-gray-600 mb-1">{report.details}</div>
-                                            )}
-                                            <div className="flex items-center gap-2 text-gray-500">
-                                              <span className="capitalize">{report.status}</span>
-                                              <span>•</span>
-                                              <span>{new Date(report.created_at).toLocaleDateString()}</span>
-                                            </div>
+                                <div className="mt-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      const currentExpanded = (document.getElementById(`reports-${request.id}`) as HTMLElement)?.style.display
+                                      const element = document.getElementById(`reports-${request.id}`)
+                                      if (element) {
+                                        element.style.display = currentExpanded === 'none' ? 'block' : 'none'
+                                      }
+                                    }}
+                                    className="w-full justify-between text-xs border-red-200 text-red-700 hover:bg-red-50"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <AlertTriangle className="w-3 h-3" />
+                                      <span>View {request.reports.length} Previous {request.reports.length === 1 ? 'Report' : 'Reports'}</span>
+                                    </div>
+                                    <ChevronRight className="w-3 h-3" />
+                                  </Button>
+                                  <div id={`reports-${request.id}`} style={{ display: 'none' }} className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                                      {request.reports.map((report) => (
+                                        <div key={report.id} className="text-xs bg-white p-2 rounded border border-red-100">
+                                          <div className="font-medium text-red-800 mb-1">{report.reason}</div>
+                                          {report.details && (
+                                            <div className="text-gray-600 mb-1">{report.details}</div>
+                                          )}
+                                          <div className="text-gray-500">
+                                            {new Date(report.created_at).toLocaleDateString()}
                                           </div>
-                                          <Badge 
-                                            className={`text-xs ${
-                                              report.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                              report.status === 'resolved' ? 'bg-green-100 text-green-700' :
-                                              report.status === 'dismissed' ? 'bg-gray-100 text-gray-700' :
-                                              'bg-blue-100 text-blue-700'
-                                            }`}
-                                          >
-                                            {report.status}
-                                          </Badge>
                                         </div>
-                                      </div>
-                                    ))}
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -1040,7 +1046,7 @@ export default function CommunityAdminPage({
                                   variant="outline"
                                   className="border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
                                   onClick={() => handleApprove(request.id)}
-                                  disabled={request.status !== 'pending'}
+                                  disabled={request.status !== "pending"}  // String: 'pending'
                                 >
                                   Approve
                                 </Button>
@@ -1049,7 +1055,7 @@ export default function CommunityAdminPage({
                                   variant="outline"
                                   className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
                                   onClick={() => handleReject(request.id)}
-                                  disabled={request.status !== 'pending'}
+                                  disabled={request.status !== "pending"}  // String: 'pending'
                                 >
                                   Reject
                                 </Button>
@@ -1077,7 +1083,7 @@ export default function CommunityAdminPage({
             </div>
 
             {/* Main Content Area */}
-            <div className="lg:col-span-2 space-y-6 flex flex-col">
+            <div className="lg:col-span-2 space-y-6">
               {/* Community Tags */}
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                 <CardHeader>
@@ -1250,14 +1256,31 @@ export default function CommunityAdminPage({
                         </div>
                       </Link>
                     )}
+
+                    {communityId && (
+                      <Link href={`/communities/${communityId}/admin/reports`}>
+                        <div className="group rounded-xl border border-gray-200 bg-white p-5 hover:border-red-300 hover:shadow-md transition-all cursor-pointer">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                              <ShieldAlert className="w-5 h-5 text-red-600" />
+                            </div>
+                            <h4 className="font-semibold text-gray-900">Member Reports</h4>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">Review and manage reported members</p>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">View all reports</span>
+                            <ChevronRight className="w-4 h-4 text-purple-600 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                        </div>
+                      </Link>
+                    )}
                   </div>
                 </CardContent>
               </Card>
-
-                    </div>
-                    </div>
-                                  </div>
-                                </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </PageTransition>
   )
 }

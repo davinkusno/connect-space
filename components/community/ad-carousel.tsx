@@ -19,21 +19,20 @@ interface Ad {
   description?: string;
   image_url: string;
   link_url?: string;
-  placement: "sidebar" | "banner" | "inline";
+  // placement removed - ads are in fixed locations
   click_count?: number;
   view_count?: number;
 }
 
 interface AdCarouselProps {
   communityId: string;
-  placement: "sidebar" | "banner" | "inline";
+  // placement removed - ads are in fixed locations
   autoRotateInterval?: number; // in milliseconds, default 5000 (5 seconds)
   adSubmissionFormUrl?: string; // Google Form URL for ad submissions
 }
 
 export function AdCarousel({ 
   communityId, 
-  placement, 
   autoRotateInterval = 5000,
   adSubmissionFormUrl = process.env.NEXT_PUBLIC_AD_SUBMISSION_FORM_URL || "https://forms.gle/YOUR_FORM_ID" // Default from env or placeholder
 }: AdCarouselProps) {
@@ -44,7 +43,7 @@ export function AdCarousel({
   useEffect(() => {
     const fetchAds = async () => {
       try {
-        const url = `/api/ads?community_id=${communityId}&placement=${placement}&active_only=true`;
+        const url = `/api/ads?community_id=${communityId}&active_only=true`;
         const response = await fetch(url);
         const data = await response.json();
 
@@ -63,14 +62,14 @@ export function AdCarousel({
           });
         }
       } catch (error) {
-        console.error("Error fetching ads:", error);
+        console.error("[AdCarousel] Error fetching ads:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchAds();
-  }, [communityId, placement]);
+  }, [communityId]);
 
   // Auto-rotate carousel
   useEffect(() => {
@@ -148,10 +147,13 @@ export function AdCarousel({
     return null; // Don't show anything while loading
   }
 
-  // If only one ad, don't use carousel
+  // Single ad - use carousel to include "Advertise Here" placeholder
   if (ads.length === 1) {
     const ad = ads[0];
     return (
+      <Carousel setApi={setApi} className="w-full">
+        <CarouselContent>
+          <CarouselItem>
       <Card className="border-gray-200 bg-gradient-to-br from-violet-50/50 to-blue-50/50 hover:shadow-md transition-shadow">
         <CardContent className="p-0">
           <div className="relative">
@@ -241,10 +243,48 @@ export function AdCarousel({
           </div>
         </CardContent>
       </Card>
+          </CarouselItem>
+          {/* Always show "Advertise Here" as the last item */}
+          <CarouselItem key="advertise-here">
+            <Card className="border-gray-200 bg-gradient-to-br from-violet-50/50 to-blue-50/50 hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <div className="rounded-full bg-gradient-to-br from-violet-500 to-blue-500 p-4">
+                    <Megaphone className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">
+                      Advertise Here
+                    </h4>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Promote your business or event to this community
+                    </p>
+                  </div>
+                  <Link
+                    href={adSubmissionFormUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full"
+                  >
+                    <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-blue-500 text-white rounded-lg hover:from-violet-600 hover:to-blue-600 transition-all duration-200 shadow-sm hover:shadow-md">
+                      <Plus className="h-4 w-4" />
+                      <span className="text-sm font-medium">Submit Your Ad</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </div>
+                  </Link>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Click to submit your advertisement
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </CarouselItem>
+        </CarouselContent>
+      </Carousel>
     );
   }
 
-  // Multiple ads - use carousel
+  // Render carousel with ads and "Advertise Here" placeholder
   return (
     <Carousel setApi={setApi} className="w-full">
       <CarouselContent>
@@ -321,6 +361,41 @@ export function AdCarousel({
             </Card>
           </CarouselItem>
         ))}
+        {/* Always show "Advertise Here" as the last item in carousel */}
+        <CarouselItem key="advertise-here">
+          <Card className="border-gray-200 bg-gradient-to-br from-violet-50/50 to-blue-50/50 hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="rounded-full bg-gradient-to-br from-violet-500 to-blue-500 p-4">
+                  <Megaphone className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1">
+                    Advertise Here
+                  </h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Promote your business or event to this community
+                  </p>
+                </div>
+                <Link
+                  href={adSubmissionFormUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full"
+                >
+                  <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-blue-500 text-white rounded-lg hover:from-violet-600 hover:to-blue-600 transition-all duration-200 shadow-sm hover:shadow-md">
+                    <Plus className="h-4 w-4" />
+                    <span className="text-sm font-medium">Submit Your Ad</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </div>
+                </Link>
+                <p className="text-xs text-gray-500 mt-2">
+                  Click to submit your advertisement
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </CarouselItem>
       </CarouselContent>
     </Carousel>
   );

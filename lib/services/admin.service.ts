@@ -120,6 +120,9 @@ export class AdminService extends BaseService {
       `, { count: "exact" })
       .order("created_at", { ascending: false });
 
+    // Superadmin only sees community reports
+    query = query.eq("report_type", "community");
+
     if (options?.status && options.status !== "all") {
       query = query.eq("status", options.status);
     }
@@ -397,6 +400,72 @@ export class AdminService extends BaseService {
     }
 
     return ApiResponse.success<void>(undefined);
+  }
+
+  /**
+   * Get community details for superadmin view (read-only)
+   * @param communityId - The community ID
+   * @returns ServiceResult containing community details with stats
+   */
+  public async getCommunityDetails(communityId: string): Promise<ServiceResult<unknown>> {
+    const { data: community, error: communityError } = await this.supabaseAdmin
+      .from("communities")
+      .select(`
+        *,
+        creator:creator_id (id, full_name, email, avatar_url)
+      `)
+      .eq("id", communityId)
+      .single();
+
+    if (communityError || !community) {
+      return ApiResponse.notFound("Community not found");
+    }
+
+    // Get member count
+    const { count: memberCount } = await this.supabaseAdmin
+      .from("community_members")
+      .select("*", { count: "exact", head: true })
+      .eq("community_id", communityId)
+      .eq("status", "approved");
+
+    // Get event count
+    const { count: eventCount } = await this.supabaseAdmin
+      .from("events")
+      .select("*", { count: "exact", head: true })
+      .eq("community_id", communityId);
+
+    // Get report count for this community
+    const { count: reportCount } = await this.supabaseAdmin
+      .from("reports")
+      .select("*", { count: "exact", head: true })
+      .eq("report_type", "community")
+      .eq("target_id", communityId);
+
+    // Get pending join requests
+    const { count: pendingRequests } = await this.supabaseAdmin
+      .from("community_members")
+      .select("*", { count: "exact", head: true })
+      .eq("community_id", communityId)
+      .eq("status", "pending");
+
+    // Get recent activity (recent messages, events, etc.)
+    const { data: recentEvents } = await this.supabaseAdmin
+      .from("events")
+      .select("id, title, start_time, created_at")
+      .eq("community_id", communityId)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    return ApiResponse.success({
+      ...community,
+      stats: {
+        memberCount: memberCount || 0,
+        eventCount: eventCount || 0,
+        reportCount: reportCount || 0,
+        pendingRequests: pendingRequests || 0,
+      },
+      recentEvents: recentEvents || [],
+    });
   }
 
   // ==================== Private Helper Methods ====================

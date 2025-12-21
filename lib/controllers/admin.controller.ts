@@ -231,6 +231,31 @@ export class AdminController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * GET /api/admin/communities/[id]
+   * Get community details for superadmin (read-only)
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @returns NextResponse with community details
+   */
+  public async getCommunityDetails(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      await this.requireSuperAdmin();
+      const result = await this.service.getCommunityDetails(communityId);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to fetch community details", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

@@ -1,21 +1,16 @@
 "use client"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
-import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import {
-    AlertTriangle, ArrowLeft, Calendar as CalendarIcon, CheckCircle, ChevronDown, Clock, Loader2,
+    AlertTriangle, ArrowLeft, CheckCircle, ChevronRight, Clock, Loader2,
     Star, UserPlus, XCircle
 } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 interface UserReport {
@@ -38,8 +33,8 @@ interface JoinRequest {
   message?: string
   userBio?: string
   joinReason?: string
-  activity_count?: number  // Count of positive activities
-  report_count?: number    // Count of reports (separate from activities)
+  points_count?: number  // Count of positive points
+  report_count?: number    // Count of reports (separate from points)
   reports?: UserReport[]   // Actual report details
 }
 
@@ -48,17 +43,11 @@ export default function CommunityAdminRequestsPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
-    from: undefined,
-    to: undefined
-  })
-  const [showDatePicker, setShowDatePicker] = useState(false)
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
-  const [statusFilter, setStatusFilter] = useState<string>("pending")
   const [requests, setRequests] = useState<JoinRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [communityId, setCommunityId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
 
   useEffect(() => {
     const loadParams = async () => {
@@ -74,7 +63,7 @@ export default function CommunityAdminRequestsPage({
       setIsLoading(true)
       const supabase = getSupabaseBrowser()
       
-      // Fetch all join requests (pending, approved, rejected)
+      // Fetch only pending join requests
       const { data: requestsData, error: requestsError } = await supabase
         .from("community_members")
         .select(`
@@ -84,6 +73,7 @@ export default function CommunityAdminRequestsPage({
           status
         `)
         .eq("community_id", communityId)
+        .eq("status", "pending")
         .order("joined_at", { ascending: false })
 
       if (requestsError) {
@@ -100,16 +90,27 @@ export default function CommunityAdminRequestsPage({
 
       // Fetch user data for each request
       const userIds = requestsData.map((r: any) => r.user_id)
+      
+      if (userIds.length === 0) {
+        setRequests([])
+        return
+      }
+      
       const { data: usersData, error: usersError } = await supabase
         .from("users")
-        .select("id, username, full_name, avatar_url, email, bio")
+        .select("id, username, full_name, avatar_url, email")
         .in("id", userIds)
 
       if (usersError) {
-        console.error("Error fetching users:", usersError)
-        toast.error("Failed to load user data")
-        setRequests([])
-        return
+        console.error("Error fetching users:", {
+          error: usersError,
+          message: usersError.message,
+          details: usersError.details,
+          hint: usersError.hint,
+          code: usersError.code
+        })
+        toast.error(`Failed to load user data: ${usersError.message || 'Unknown error'}`)
+        // Continue with requests even if user data fails - use fallback
       }
 
       // Fetch user points for each user
@@ -118,19 +119,19 @@ export default function CommunityAdminRequestsPage({
         .select("user_id, point_type")
         .in("user_id", userIds)
 
-      // Count activities and reports per user (keep separate - don't combine)
-      const userStatsMap: Record<string, { activity_count: number; report_count: number }> = {}
+      // Count points and reports per user (keep separate - don't combine)
+      const userStatsMap: Record<string, { points_count: number; report_count: number }> = {}
       if (userPointsData) {
         userPointsData.forEach((record: any) => {
           if (!userStatsMap[record.user_id]) {
-            userStatsMap[record.user_id] = { activity_count: 0, report_count: 0 }
+            userStatsMap[record.user_id] = { points_count: 0, report_count: 0 }
           }
           if (record.point_type === 'report_received') {
             // Count reports separately
             userStatsMap[record.user_id].report_count += 1
           } else {
-            // Count positive activities
-            userStatsMap[record.user_id].activity_count += 1
+            // Count positive points
+            userStatsMap[record.user_id].points_count += 1
           }
         })
       }
@@ -164,7 +165,7 @@ export default function CommunityAdminRequestsPage({
       // Map requests to JoinRequest format
       const joinRequests: JoinRequest[] = requestsData.map((request: any) => {
         const user = usersData?.find((u: any) => u.id === request.user_id)
-        const stats = userStatsMap[request.user_id] || { activity_count: 0, report_count: 0 }
+        const stats = userStatsMap[request.user_id] || { points_count: 0, report_count: 0 }
         
         return {
           id: request.id,
@@ -174,8 +175,7 @@ export default function CommunityAdminRequestsPage({
           userAvatar: user?.avatar_url || "/placeholder-user.jpg",
           requestedAt: request.joined_at,
           status: request.status as "pending" | "approved" | "rejected",
-          userBio: user?.bio || undefined,
-          activity_count: stats.activity_count,
+          points_count: stats.points_count,
           report_count: stats.report_count,
           reports: reportsByUser[request.user_id] || []
         }
@@ -191,31 +191,11 @@ export default function CommunityAdminRequestsPage({
     }
   }
 
-  // Filter requests based on date and status
-  const filteredRequests = useMemo(() => {
-    let filtered = requests
-
-    // Status filter (always filter, no "all" option)
-    filtered = filtered.filter(request => request.status === statusFilter)
-
-    // Date filter
-    if (dateRange.from || dateRange.to) {
-      filtered = filtered.filter(request => {
-        const requestDate = new Date(request.requestedAt)
-        
-        if (dateRange.from && dateRange.to) {
-          return requestDate >= dateRange.from && requestDate <= dateRange.to
-        } else if (dateRange.from) {
-          return requestDate >= dateRange.from
-        } else if (dateRange.to) {
-          return requestDate <= dateRange.to
-        }
-        return true
-      })
-    }
-
-    return filtered.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
-  }, [requests, dateRange, statusFilter])
+  // Pagination
+  const totalPages = Math.ceil(requests.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedRequests = requests.slice(startIndex, endIndex)
 
   const handleApproveAll = async () => {
     if (!communityId) return
@@ -320,47 +300,7 @@ export default function CommunityAdminRequestsPage({
     }
   }
 
-  const getDateFilterText = () => {
-    if (dateRange.from && dateRange.to) {
-      // Same date = single pick
-      if (dateRange.from.toDateString() === dateRange.to.toDateString()) {
-        return format(dateRange.from, "MMM dd, yyyy")
-      }
-      // Different dates = range pick
-      return `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
-    }
-    if (dateRange.from) {
-      return `From ${format(dateRange.from, "MMM dd")}`
-    }
-    if (dateRange.to) {
-      return `Until ${format(dateRange.to, "MMM dd")}`
-    }
-    return "Filter Date"
-  }
-
-  const clearDateFilter = () => {
-    setDateRange({from: undefined, to: undefined})
-  }
-
-  // Month names
-  const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ]
-
-  // Generate years (2020-2030)
-  const years = Array.from({ length: 11 }, (_, i) => 2020 + i)
-
-  // Handle month/year change
-  const handleMonthChange = (month: string) => {
-    setCurrentMonth(parseInt(month))
-  }
-
-  const handleYearChange = (year: string) => {
-    setCurrentYear(parseInt(year))
-  }
-
-  const pendingCount = requests.filter(r => r.status === "pending").length
+  const pendingCount = requests.length
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
@@ -391,117 +331,9 @@ export default function CommunityAdminRequestsPage({
           </div>
         </div>
 
-        {/* Filters and Actions */}
-        <div className="mb-6 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-          {/* Left Side - Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Status Filter */}
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Date Filter */}
-            <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="border-purple-200 text-purple-600 hover:bg-purple-50">
-                  <CalendarIcon className="w-4 h-4 mr-2" />
-                  {getDateFilterText()}
-                  <ChevronDown className="w-4 h-4 ml-2" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <div className="p-4">
-                  <div className="space-y-4">
-                    {/* Custom Month/Year Picker */}
-                    <div className="flex justify-center items-center gap-2">
-                      <Select value={currentMonth.toString()} onValueChange={handleMonthChange}>
-                        <SelectTrigger className="w-32">
-                          <SelectValue>{monthNames[currentMonth]}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {monthNames.map((month, index) => (
-                            <SelectItem key={month} value={index.toString()}>
-                              {month}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={currentYear.toString()} onValueChange={handleYearChange}>
-                        <SelectTrigger className="w-24">
-                          <SelectValue>{currentYear}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {years.map((year) => (
-                            <SelectItem key={year} value={year.toString()}>
-                              {year}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {/* Calendar */}
-                    <div className="relative">
-                      <Calendar
-                        mode="range"
-                        selected={{from: dateRange.from, to: dateRange.to}}
-                        onSelect={(range) => {
-                          setDateRange(range || {from: undefined, to: undefined})
-                          setShowDatePicker(false)
-                        }}
-                        initialFocus
-                        className="rounded-md border-0"
-                        month={new Date(currentYear, currentMonth)}
-                        onMonthChange={(date) => {
-                          setCurrentMonth(date.getMonth())
-                          setCurrentYear(date.getFullYear())
-                        }}
-                        classNames={{
-                          caption: "hidden", // Hide default caption
-                          nav: "flex items-center",
-                          nav_button_previous: "absolute left-1 top-1/2 -translate-y-1/2",
-                          nav_button_next: "absolute right-1 top-1/2 -translate-y-1/2",
-                          head_cell: "text-gray-600 font-semibold text-center py-2",
-                          row: "flex w-full mt-2",
-                          cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                          day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
-                          day_range_end: "day-range-end",
-                          day_selected: "bg-purple-600 text-white hover:bg-purple-700 focus:bg-purple-700",
-                          day_today: "bg-purple-100 text-purple-900 font-semibold",
-                          day_outside: "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
-                          day_disabled: "text-muted-foreground opacity-50",
-                          day_range_middle: "aria-selected:bg-purple-200 aria-selected:text-purple-900",
-                          day_hidden: "invisible",
-                        }}
-                      />
-                    </div>
-                  </div>
-                  {/* Clear Button */}
-                  {(dateRange.from || dateRange.to) && (
-                    <div className="pt-3 border-t mt-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearDateFilter}
-                        className="w-full text-gray-600 hover:text-red-600"
-                      >
-                        Clear Filter
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Right Side - Action Buttons */}
+        {/* Actions */}
+        <div className="mb-6 flex justify-end">
+          {/* Bulk Actions */}
           <div className="flex gap-4">
             <Button
               onClick={handleApproveAll}
@@ -526,7 +358,7 @@ export default function CommunityAdminRequestsPage({
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Requests ({filteredRequests.length})</span>
+              <span>Pending Requests ({requests.length})</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -535,29 +367,23 @@ export default function CommunityAdminRequestsPage({
                 <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-4" />
                 <p className="text-gray-600">Loading join requests...</p>
               </div>
-            ) : filteredRequests.length === 0 ? (
+            ) : requests.length === 0 ? (
               <div className="text-center py-12">
                 <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No requests found</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No pending requests</h3>
                 <p className="text-gray-500">
                   {requests.length === 0 
-                    ? "You don't have any join requests yet" 
+                    ? "You don't have any pending join requests" 
                     : "Try adjusting your date filter criteria"
                   }
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredRequests.map((request) => (
+                {paginatedRequests.map((request) => (
                   <div
                     key={request.id}
-                    className={`p-4 rounded-lg border transition-all hover:shadow-sm ${
-                      request.status === "pending" 
-                        ? "bg-white border-purple-200 shadow-sm" 
-                        : request.status === "approved"
-                        ? "bg-green-50 border-green-200"
-                        : "bg-red-50 border-red-200"
-                    }`}
+                    className="p-4 rounded-lg border bg-white border-purple-200 shadow-sm transition-all hover:shadow-md"
                   >
                     <div className="flex items-center justify-between">
                       {/* Left Side - User Info */}
@@ -581,7 +407,7 @@ export default function CommunityAdminRequestsPage({
                             </div>
                             <div className="flex items-center gap-1">
                               <Star className="w-3 h-3 text-green-500 fill-green-500" />
-                              <span className="text-xs font-medium text-green-600">{request.activity_count || 0} {(request.activity_count || 0) === 1 ? 'activity' : 'activities'}</span>
+                              <span className="text-xs font-medium text-green-600">{request.points_count || 0} {(request.points_count || 0) === 1 ? 'point' : 'points'}</span>
                             </div>
                               <div className="flex items-center gap-1">
                               <AlertTriangle className={`w-3 h-3 ${(request.report_count ?? 0) > 0 ? 'text-red-500' : 'text-gray-300'}`} />
@@ -590,81 +416,63 @@ export default function CommunityAdminRequestsPage({
                           </div>
                           {/* Show reports if user has been reported */}
                           {request.reports && request.reports.length > 0 && (
-                            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-                              <div className="flex items-center gap-2 mb-2">
-                                <AlertTriangle className="w-4 h-4 text-red-600" />
-                                <span className="text-sm font-semibold text-red-700">
-                                  {request.reports.length} Previous {request.reports.length === 1 ? 'Report' : 'Reports'}
-                                </span>
-                              </div>
-                              <div className="space-y-2 max-h-40 overflow-y-auto">
-                                {request.reports.map((report) => (
-                                  <div key={report.id} className="text-sm bg-white p-3 rounded border border-red-100">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div className="flex-1">
-                                        <div className="font-medium text-red-800 mb-1">{report.reason}</div>
-                                        {report.details && (
-                                          <div className="text-gray-600 mb-2 text-xs">{report.details}</div>
-                                        )}
-                                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                                          <span className="capitalize">{report.status}</span>
-                                          <span>•</span>
-                                          <span>{format(new Date(report.created_at), "MMM dd, yyyy")}</span>
-                                        </div>
+                            <div className="mt-3">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const currentExpanded = (document.getElementById(`reports-${request.id}`) as HTMLElement)?.style.display
+                                  const element = document.getElementById(`reports-${request.id}`)
+                                  if (element) {
+                                    element.style.display = currentExpanded === 'none' ? 'block' : 'none'
+                                  }
+                                }}
+                                className="w-full justify-between border-red-200 text-red-700 hover:bg-red-50"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <AlertTriangle className="w-4 h-4" />
+                                  <span>View {request.reports.length} Previous {request.reports.length === 1 ? 'Report' : 'Reports'}</span>
+                                </div>
+                                <ChevronRight className="w-4 h-4" />
+                              </Button>
+                              <div id={`reports-${request.id}`} style={{ display: 'none' }} className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                                <div className="space-y-2 max-h-40 overflow-y-auto">
+                                  {request.reports.map((report) => (
+                                    <div key={report.id} className="text-sm bg-white p-3 rounded border border-red-100">
+                                      <div className="font-medium text-red-800 mb-1">{report.reason}</div>
+                                      {report.details && (
+                                        <div className="text-gray-600 mb-2 text-xs">{report.details}</div>
+                                      )}
+                                      <div className="text-xs text-gray-500">
+                                        {format(new Date(report.created_at), "MMM dd, yyyy")}
                                       </div>
-                                      <Badge 
-                                        className={`text-xs ${
-                                          report.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                          report.status === 'resolved' ? 'bg-green-100 text-green-700' :
-                                          report.status === 'dismissed' ? 'bg-gray-100 text-gray-700' :
-                                          'bg-blue-100 text-blue-700'
-                                        }`}
-                                      >
-                                        {report.status}
-                                      </Badge>
                                     </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Right Side - Status and Actions */}
-                      <div className="flex items-center gap-3">
-                        <Badge 
-                          variant="outline" 
-                          className={cn(
-                            request.status === "pending" && "bg-yellow-100 text-yellow-700 border-yellow-200",
-                            request.status === "approved" && "bg-green-100 text-green-700 border-green-200",
-                            request.status === "rejected" && "bg-red-100 text-red-700 border-red-200"
-                          )}
+                      {/* Right Side - Actions */}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprove(request.id)}
+                          className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200 hover:text-green-800"
                         >
-                          {request.status}
-                        </Badge>
-
-                        {/* Actions for pending requests */}
-                        {request.status === "pending" && (
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleApprove(request.id)}
-                              className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200 hover:text-green-800"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleReject(request.id)}
-                              className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200 hover:text-red-800"
-                            >
-                              <XCircle className="w-4 h-4 mr-1" />
-                              Reject
-                            </Button>
-                          </div>
-                        )}
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleReject(request.id)}
+                          className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200 hover:text-red-800"
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          Reject
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -673,6 +481,35 @@ export default function CommunityAdminRequestsPage({
             )}
           </CardContent>
         </Card>
+
+        {/* Pagination Controls */}
+        {!isLoading && requests.length > 0 && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="border-purple-200 text-purple-600 hover:bg-purple-50"
+            >
+              Previous
+            </Button>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>Page {currentPage} of {totalPages}</span>
+              <span>•</span>
+              <span>{requests.length} {requests.length === 1 ? 'request' : 'requests'}</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="border-purple-200 text-purple-600 hover:bg-purple-50"
+            >
+              Next
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

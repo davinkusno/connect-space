@@ -73,7 +73,7 @@ const INTEREST_KEYWORDS: Record<string, string[]> = {
 }
 
 export class ContentBasedFilteringAlgorithm {
-  private enableLogging = true
+  private enableLogging = false
   private _loggedCommunities = false
   
   private log(...args: any[]) {

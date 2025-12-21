@@ -93,6 +93,7 @@ export default function CommunityPage({
   const [isJoining, setIsJoining] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   const [membershipStatus, setMembershipStatus] = useState<"approved" | "pending" | null>(null); // Track membership status
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false); // Track if user is superadmin
   const [showPendingDialog, setShowPendingDialog] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [showJoinConfirmDialog, setShowJoinConfirmDialog] = useState(false);
@@ -114,7 +115,7 @@ export default function CommunityPage({
 
   // Report dialog state
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const [reportType, setReportType] = useState<"community" | "post" | "member" | "event">("community");
+  const [reportType, setReportType] = useState<"community" | "post" | "member" | "event" | "thread" | "reply">("community");
   const [reportTargetId, setReportTargetId] = useState<string>("");
   const [reportTargetName, setReportTargetName] = useState<string>("");
 
@@ -264,11 +265,26 @@ export default function CommunityPage({
       if (session?.user) {
         setCurrentUser(session.user);
 
+        // Check if user is superadmin
+        const { data: userData } = await supabase
+          .from("users")
+          .select("user_type")
+          .eq("id", session.user.id)
+          .single();
+        
+        const isSuperAdminUser = userData?.user_type === "super_admin";
+        setIsSuperAdmin(isSuperAdminUser);
+
         // Check if user is the creator
         if (communityData.creator_id === session.user.id) {
           setUserRole("creator");
           setIsMember(true);
           setMembershipStatus("approved");
+        } else if (isSuperAdminUser) {
+          // Superadmin has read-only access without being a member
+          setIsMember(false);
+          setMembershipStatus(null);
+          setUserRole(null);
         } else {
           // Check membership - check ALL memberships (including pending)
           const { data: membershipData } = await supabase
@@ -306,13 +322,13 @@ export default function CommunityPage({
         }
       }
 
-      // Get member count - only approved members (status = true or null)
+      // Get member count - only approved members (status = 'approved')
       // Creator is already included in community_members table, so no need to add +1
       const { count } = await supabase
         .from("community_members")
           .select("*", { count: "exact", head: true })
         .eq("community_id", id)
-        .or("status.is.null,status.eq.true");
+        .eq("status", "approved");
 
       setMemberCount(count || 0);
     } catch (error) {
@@ -500,7 +516,7 @@ export default function CommunityPage({
               )
             `)
             .eq("community_id", id)
-            .or("status.is.null,status.eq.true")
+            .eq("status", "approved")
             .order("joined_at", { ascending: false });
 
           if (membersError) {
@@ -509,7 +525,7 @@ export default function CommunityPage({
             break;
           }
 
-          // Filter for approved members only
+          // Filter for approved members only (status = 'approved')
           const approvedMembers = (membersData || []).filter((m: any) => {
             return m.status === "approved";
           });
@@ -625,7 +641,7 @@ export default function CommunityPage({
               .maybeSingle();
 
             const statusValue = memberStatus?.status
-            if (statusValue === false) {
+            if (statusValue === "pending") {
               toast.info("Your join request is pending approval");
               setIsJoining(false);
               return;
@@ -649,15 +665,39 @@ export default function CommunityPage({
             }),
           })
 
-          const result = await response.json()
+          console.log("Join community raw response:", {
+            ok: response.ok,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries())
+          })
+
+          let result
+          try {
+            result = await response.json()
+          } catch (parseError) {
+            console.error("Failed to parse response as JSON:", parseError)
+            throw new Error("Server returned invalid response")
+          }
+          
+          console.log("Join community response:", {
+            ok: response.ok,
+            status: response.status,
+            result: result
+          })
 
           if (!response.ok) {
-            if (result.error?.includes("already") || result.message?.includes("already")) {
-              toast.info(result.message || "You already have a pending request or are a member")
+            const errorMessage = result.error?.message || result.error || result.message || "Failed to join community"
+            const errorStr = typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage)
+            
+            console.error("Join community error:", errorStr)
+            
+            if (errorStr.includes("already") || errorStr.includes("pending")) {
+              toast.info(errorStr)
               setIsJoining(false)
               return
             }
-            throw new Error(result.error || "Failed to join community")
+            throw new Error(errorStr)
           }
 
           if (result.member) {
@@ -832,6 +872,7 @@ export default function CommunityPage({
 
   const canManage = userRole === "creator" || userRole === "admin";
   const isOwner = userRole === "creator" || (community && currentUser && community.creator_id === currentUser.id);
+  const canInteract = (isMember || userRole === "creator") && !isSuperAdmin; // Superadmins can view but not interact
 
   // Show loading state
   if (isLoading) {
@@ -982,7 +1023,7 @@ export default function CommunityPage({
                     Cancel
                   </Button>
               </div>
-              ) : (
+              ) : !isSuperAdmin && (
                 <Button
                     onClick={handleJoinClick}
                   disabled={isJoining}
@@ -1013,6 +1054,8 @@ export default function CommunityPage({
                   </Button>
               )}
               
+              {/* Superadmins and community creators cannot report */}
+              {!isSuperAdmin && !isOwner && (
                     <Button
                       variant="outline"
                 className="border-red-200 hover:bg-red-50 text-red-600"
@@ -1026,6 +1069,7 @@ export default function CommunityPage({
                 <AlertTriangle className="h-4 w-4 mr-2" />
                 Report
                     </Button>
+              )}
                 </div>
           </div>
         </div>
@@ -1034,7 +1078,7 @@ export default function CommunityPage({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Content visible to all users - Discussion Forum only for approved members */}
         {(() => {
-          const canAccessContent = membershipStatus === "approved" || userRole === "creator" || userRole === "admin";
+          const canAccessContent = membershipStatus === "approved" || userRole === "creator" || userRole === "admin" || isSuperAdmin;
           const isPending = membershipStatus === "pending";
           
             return (
@@ -1136,19 +1180,24 @@ export default function CommunityPage({
                                   ? community.location 
                                   : community.location?.address || 'Location not specified'}
                           </p>
-                          <HoverScale>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                // Handle map view
-                              }}
-                              className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
-                            >
-                              <Navigation className="h-4 w-4 mr-2" />
-                              View on Map
-                            </Button>
-                          </HoverScale>
+                          {/* Only show "View on Map" button if location is actually specified */}
+                          {(typeof community.location === 'string' 
+                            ? community.location && community.location !== 'Location not specified'
+                            : community.location?.address && community.location.address !== 'Location not specified') && (
+                            <HoverScale>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  // Handle map view
+                                }}
+                                className="border-gray-200 hover:border-violet-200 hover:bg-violet-50"
+                              >
+                                <Navigation className="h-4 w-4 mr-2" />
+                                View on Map
+                              </Button>
+                            </HoverScale>
+                          )}
                         </div>
                       </div>
                         </>
@@ -1392,6 +1441,22 @@ export default function CommunityPage({
                                         )}
                                       </Button>
                                     )}
+                                    {isMember && currentUser && !isSuperAdmin && !isOwner && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 px-2 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50"
+                                        onClick={() => {
+                                          setReportType("thread");
+                                          setReportTargetId(thread.id);
+                                          setReportTargetName(thread.content?.substring(0, 50) || "Thread");
+                                          setReportDialogOpen(true);
+                                        }}
+                                      >
+                                        <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+                                        Report
+                                      </Button>
+                                    )}
                                     {isMember && currentUser && thread.sender_id === currentUser.id && (
                                       <Button
                                         variant="ghost"
@@ -1508,6 +1573,24 @@ export default function CommunityPage({
                                         <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
                                           {reply.content}
                                         </p>
+                                        {isMember && currentUser && !isSuperAdmin && !isOwner && (
+                                          <div className="mt-2">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-7 px-2 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50"
+                                              onClick={() => {
+                                                setReportType("reply");
+                                                setReportTargetId(reply.id);
+                                                setReportTargetName(reply.content?.substring(0, 50) || "Reply");
+                                                setReportDialogOpen(true);
+                                              }}
+                                            >
+                                              <AlertTriangle className="h-3 w-3 mr-1" />
+                                              Report
+                                            </Button>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -1865,6 +1948,49 @@ export default function CommunityPage({
 
               {/* Members Tab */}
           <TabsContent value="members" className="space-y-6 mt-6">
+                {(() => {
+                  const canAccessMembers = membershipStatus === "approved" || userRole === "creator" || userRole === "admin" || isSuperAdmin;
+                  const isPending = membershipStatus === "pending";
+                  
+                  if (!canAccessMembers) {
+                    return (
+                      <Card className="border-gray-200">
+                        <CardContent className="p-12 text-center">
+                          <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                            {isPending ? "Membership Pending" : "Join to View Members"}
+                          </h3>
+                          <p className="text-gray-600 mb-6">
+                            {isPending 
+                              ? "Your membership request is pending approval. Once approved, you'll be able to view community members."
+                              : "Join this community to view its members and connect with other members."}
+                          </p>
+                          {!isPending && (
+                            <Button
+                              onClick={handleJoinCommunity}
+                              disabled={isJoining}
+                              className="bg-violet-600 hover:bg-violet-700 text-white"
+                            >
+                              {isJoining ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Joining...
+                                </>
+                              ) : (
+                                <>
+                                  <UserPlus className="h-4 w-4 mr-2" />
+                                  Join Community
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+                  
+                  return (
+                    <>
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900">Members</h3>
@@ -1956,6 +2082,9 @@ export default function CommunityPage({
                 )}
                 </>
                 )}
+                    </>
+                  );
+                })()}
               </TabsContent>
             </Tabs>
           </div>
@@ -2042,7 +2171,7 @@ export default function CommunityPage({
               </Card>
 
             {/* Ad Carousel - Fixed position below Created By */}
-            <AdCarousel communityId={id} placement="sidebar" autoRotateInterval={5000} />
+            <AdCarousel communityId={id} autoRotateInterval={5000} />
           </div>
         </div>
         </>
@@ -2153,7 +2282,12 @@ export default function CommunityPage({
       {/* Report Dialog */}
       <ReportDialog
         isOpen={reportDialogOpen}
-        onClose={() => setReportDialogOpen(false)}
+        onClose={() => {
+          setReportDialogOpen(false);
+          setReportType("community");
+          setReportTargetId("");
+          setReportTargetName("");
+        }}
         reportType={reportType}
         reportTargetId={reportTargetId}
         reportTargetName={reportTargetName}

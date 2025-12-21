@@ -99,17 +99,33 @@ export function Chatbot() {
     setIsLoading(true);
 
     try {
+      // Build messages array for the API
+      const conversationHistory = messages.slice(-10).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+      
+      // Add the current user message
+      const apiMessages = [
+        ...conversationHistory,
+        {
+          role: "user" as const,
+          content: content.trim(),
+        },
+      ];
+
       const response = await fetch("/api/ai/chatbot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: content,
-          conversationHistory: messages.slice(-10).map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: apiMessages,
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
 
       const data = await response.json();
 
@@ -117,7 +133,7 @@ export function Chatbot() {
         id: `assistant-${Date.now()}`,
         role: "assistant",
         content:
-          data.response || "I apologize, but I couldn't process your request.",
+          data.message || "I apologize, but I couldn't process your request.",
         suggestedActions: data.suggestedActions || [],
         timestamp: new Date(),
       };

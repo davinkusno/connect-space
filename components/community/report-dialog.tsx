@@ -19,7 +19,7 @@ import { toast } from "sonner";
 interface ReportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  reportType: "community" | "post" | "member" | "event";
+  reportType: "community" | "post" | "member" | "event" | "thread" | "reply";
   reportTargetId: string;
   reportTargetName?: string;
 }
@@ -50,6 +50,22 @@ const REPORT_REASONS = {
     { value: "other", label: "Other" },
   ],
   event: [
+    { value: "violence_hate_harassment", label: "Violence, Hate Speech, or Harassment" },
+    { value: "nudity_inappropriate", label: "Nudity or Inappropriate Sexual Content" },
+    { value: "spam_poor_quality", label: "Spam or Poor Quality Content" },
+    { value: "fraud_scam", label: "Fraud or Scam" },
+    { value: "copyright_violation", label: "Intellectual Property or Copyright Violation" },
+    { value: "other", label: "Other" },
+  ],
+  thread: [
+    { value: "violence_hate_harassment", label: "Violence, Hate Speech, or Harassment" },
+    { value: "nudity_inappropriate", label: "Nudity or Inappropriate Sexual Content" },
+    { value: "spam_poor_quality", label: "Spam or Poor Quality Content" },
+    { value: "fraud_scam", label: "Fraud or Scam" },
+    { value: "copyright_violation", label: "Intellectual Property or Copyright Violation" },
+    { value: "other", label: "Other" },
+  ],
+  reply: [
     { value: "violence_hate_harassment", label: "Violence, Hate Speech, or Harassment" },
     { value: "nudity_inappropriate", label: "Nudity or Inappropriate Sexual Content" },
     { value: "spam_poor_quality", label: "Spam or Poor Quality Content" },
@@ -123,6 +139,10 @@ export function ReportDialog({
         return "this member";
       case "event":
         return "this event";
+      case "thread":
+        return "this thread";
+      case "reply":
+        return "this reply";
       default:
         return "this content";
     }
@@ -138,7 +158,7 @@ export function ReportDialog({
             </div>
             <div className="flex-1 min-w-0">
               <DialogTitle className="text-xl font-semibold text-gray-900">
-                Report {reportType === "community" ? "Community" : reportType === "post" ? "Post" : reportType === "member" ? "Member" : "Event"}
+                Report {reportType === "community" ? "Community" : reportType === "post" ? "Post" : reportType === "member" ? "Member" : reportType === "event" ? "Event" : reportType === "thread" ? "Thread" : "Reply"}
               </DialogTitle>
               <DialogDescription className="text-gray-600 mt-1">
                 Help us keep ConnectSpace safe by reporting {getReportTypeLabel()}
