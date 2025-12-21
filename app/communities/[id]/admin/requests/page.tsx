@@ -1,17 +1,26 @@
 "use client"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
 import { format } from "date-fns"
 import {
-    AlertTriangle, ArrowLeft, CheckCircle, ChevronRight, Clock, Loader2,
+    AlertTriangle, ArrowLeft, CheckCircle, Clock, Loader2,
     Star, UserPlus, XCircle
 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { getReportReasonLabel } from "@/lib/utils/report-utils"
 
 interface UserReport {
   id: string
@@ -48,6 +57,12 @@ export default function CommunityAdminRequestsPage({
   const [communityId, setCommunityId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+  
+  // Reports dialog state
+  const [selectedUserReports, setSelectedUserReports] = useState<{
+    userName: string
+    reports: UserReport[]
+  } | null>(null)
 
   useEffect(() => {
     const loadParams = async () => {
@@ -113,45 +128,104 @@ export default function CommunityAdminRequestsPage({
         // Continue with requests even if user data fails - use fallback
       }
 
-      // Fetch user points for each user
+      // Fetch user points for each user (only for positive activity points)
       const { data: userPointsData } = await supabase
         .from("user_points")
         .select("user_id, point_type")
         .in("user_id", userIds)
+        .neq("point_type", "report_received") // Only count positive activities
 
-      // Count points and reports per user (keep separate - don't combine)
-      const userStatsMap: Record<string, { points_count: number; report_count: number }> = {}
+      // Count points per user
+      const userStatsMap: Record<string, { points_count: number }> = {}
       if (userPointsData) {
         userPointsData.forEach((record: any) => {
           if (!userStatsMap[record.user_id]) {
-            userStatsMap[record.user_id] = { points_count: 0, report_count: 0 }
+            userStatsMap[record.user_id] = { points_count: 0 }
           }
-          if (record.point_type === 'report_received') {
-            // Count reports separately
-            userStatsMap[record.user_id].report_count += 1
-          } else {
-            // Count positive points
-            userStatsMap[record.user_id].points_count += 1
-          }
+          userStatsMap[record.user_id].points_count += 1
         })
       }
 
-      // Fetch actual reports for each user (where they were reported as a member)
-      const { data: reportsData } = await supabase
+      // Fetch actual reports for each user
+      // Include: direct member reports + thread reports + reply reports
+      
+      // 1. Direct member reports
+      const { data: memberReportsData } = await supabase
         .from("reports")
-        .select("id, reason, details, status, created_at, reporter_id, target_id")
+        .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
         .eq("report_type", "member")
         .in("target_id", userIds)
         .order("created_at", { ascending: false })
 
-      // Group reports by user_id (target_id)
+      // 2. Get all threads created by these users
+      const { data: userThreadsData } = await supabase
+        .from("messages")
+        .select("id, sender_id")
+        .in("sender_id", userIds)
+        .is("parent_id", null) // Only threads
+      
+      let threadReportsData: any[] = []
+      if (userThreadsData && userThreadsData.length > 0) {
+        const threadIds = userThreadsData.map(t => t.id)
+        const { data } = await supabase
+          .from("reports")
+          .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
+          .eq("report_type", "thread")
+          .in("target_id", threadIds)
+          .order("created_at", { ascending: false })
+        threadReportsData = data || []
+      }
+      
+      // 3. Get all replies created by these users
+      const { data: userRepliesData } = await supabase
+        .from("messages")
+        .select("id, sender_id")
+        .in("sender_id", userIds)
+        .not("parent_id", "is", null) // Only replies
+      
+      let replyReportsData: any[] = []
+      if (userRepliesData && userRepliesData.length > 0) {
+        const replyIds = userRepliesData.map(r => r.id)
+        const { data } = await supabase
+          .from("reports")
+          .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
+          .eq("report_type", "reply")
+          .in("target_id", replyIds)
+          .order("created_at", { ascending: false })
+        replyReportsData = data || []
+      }
+      
+      // Create mapping of thread/reply IDs to sender IDs
+      const threadSenderMap = new Map(userThreadsData?.map(t => [t.id, t.sender_id]) || [])
+      const replySenderMap = new Map(userRepliesData?.map(r => [r.id, r.sender_id]) || [])
+
+      // Group all reports by user_id
       const reportsByUser: Record<string, UserReport[]> = {}
-      if (reportsData) {
-        reportsData.forEach((report: any) => {
-          if (!reportsByUser[report.target_id]) {
-            reportsByUser[report.target_id] = []
+      
+      // Add member reports
+      memberReportsData?.forEach((report: any) => {
+        const userId = report.target_id
+        if (!reportsByUser[userId]) {
+          reportsByUser[userId] = []
+        }
+        reportsByUser[userId].push({
+          id: report.id,
+          reason: report.reason,
+          details: report.details,
+          status: report.status,
+          created_at: report.created_at,
+          reporter_id: report.reporter_id
+        })
+      })
+      
+      // Add thread reports (map to sender)
+      threadReportsData.forEach((report: any) => {
+        const userId = threadSenderMap.get(report.target_id)
+        if (userId) {
+          if (!reportsByUser[userId]) {
+            reportsByUser[userId] = []
           }
-          reportsByUser[report.target_id].push({
+          reportsByUser[userId].push({
             id: report.id,
             reason: report.reason,
             details: report.details,
@@ -159,13 +233,32 @@ export default function CommunityAdminRequestsPage({
             created_at: report.created_at,
             reporter_id: report.reporter_id
           })
-        })
-      }
+        }
+      })
+      
+      // Add reply reports (map to sender)
+      replyReportsData.forEach((report: any) => {
+        const userId = replySenderMap.get(report.target_id)
+        if (userId) {
+          if (!reportsByUser[userId]) {
+            reportsByUser[userId] = []
+          }
+          reportsByUser[userId].push({
+            id: report.id,
+            reason: report.reason,
+            details: report.details,
+            status: report.status,
+            created_at: report.created_at,
+            reporter_id: report.reporter_id
+          })
+        }
+      })
 
       // Map requests to JoinRequest format
       const joinRequests: JoinRequest[] = requestsData.map((request: any) => {
         const user = usersData?.find((u: any) => u.id === request.user_id)
-        const stats = userStatsMap[request.user_id] || { points_count: 0, report_count: 0 }
+        const stats = userStatsMap[request.user_id] || { points_count: 0 }
+        const userReports = reportsByUser[request.user_id] || []
         
         return {
           id: request.id,
@@ -176,8 +269,8 @@ export default function CommunityAdminRequestsPage({
           requestedAt: request.joined_at,
           status: request.status as "pending" | "approved" | "rejected",
           points_count: stats.points_count,
-          report_count: stats.report_count,
-          reports: reportsByUser[request.user_id] || []
+          report_count: userReports.length, // Use actual reports count from reports table
+          reports: userReports
         }
       })
 
@@ -414,65 +507,46 @@ export default function CommunityAdminRequestsPage({
                               <span className={`text-xs font-medium ${(request.report_count ?? 0) > 0 ? 'text-red-600' : 'text-gray-400'}`}>{request.report_count || 0} {(request.report_count || 0) === 1 ? 'report' : 'reports'}</span>
                               </div>
                           </div>
-                          {/* Show reports if user has been reported */}
+                          {/* Show reports badge if user has been reported */}
                           {request.reports && request.reports.length > 0 && (
                             <div className="mt-3">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => {
-                                  const currentExpanded = (document.getElementById(`reports-${request.id}`) as HTMLElement)?.style.display
-                                  const element = document.getElementById(`reports-${request.id}`)
-                                  if (element) {
-                                    element.style.display = currentExpanded === 'none' ? 'block' : 'none'
-                                  }
+                                  setSelectedUserReports({
+                                    userName: request.userName,
+                                    reports: request.reports || []
+                                  })
                                 }}
-                                className="w-full justify-between border-red-200 text-red-700 hover:bg-red-50"
+                                className="border-red-200 text-red-700 hover:bg-red-50"
                               >
-                                <div className="flex items-center gap-2">
-                                  <AlertTriangle className="w-4 h-4" />
-                                  <span>View {request.reports.length} Previous {request.reports.length === 1 ? 'Report' : 'Reports'}</span>
-                                </div>
-                                <ChevronRight className="w-4 h-4" />
+                                <AlertTriangle className="w-4 h-4 mr-2" />
+                                <span>View {request.reports.length} {request.reports.length === 1 ? 'Report' : 'Reports'}</span>
                               </Button>
-                              <div id={`reports-${request.id}`} style={{ display: 'none' }} className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                                <div className="space-y-2 max-h-40 overflow-y-auto">
-                                  {request.reports.map((report) => (
-                                    <div key={report.id} className="text-sm bg-white p-3 rounded border border-red-100">
-                                      <div className="font-medium text-red-800 mb-1">{report.reason}</div>
-                                      {report.details && (
-                                        <div className="text-gray-600 mb-2 text-xs">{report.details}</div>
-                                      )}
-                                      <div className="text-xs text-gray-500">
-                                        {format(new Date(report.created_at), "MMM dd, yyyy")}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
                             </div>
                           )}
                         </div>
                       </div>
 
                       {/* Right Side - Actions */}
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleApprove(request.id)}
-                          className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200 hover:text-green-800"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleReject(request.id)}
-                          className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200 hover:text-red-800"
-                        >
-                          <XCircle className="w-4 h-4 mr-1" />
-                          Reject
-                        </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleApprove(request.id)}
+                              className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200 hover:text-green-800"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleReject(request.id)}
+                              className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200 hover:text-red-800"
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Reject
+                            </Button>
                       </div>
                     </div>
                   </div>
@@ -511,6 +585,64 @@ export default function CommunityAdminRequestsPage({
           </div>
         )}
       </div>
+
+      {/* Reports Dialog */}
+      <Dialog open={!!selectedUserReports} onOpenChange={() => setSelectedUserReports(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              Reports for {selectedUserReports?.userName}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedUserReports?.reports.length} {selectedUserReports?.reports.length === 1 ? 'report' : 'reports'} submitted by community members
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+            {selectedUserReports?.reports.map((report, index) => (
+              <Card key={report.id} className="border-red-100">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <Badge variant="outline" className="bg-red-50 border-red-200 text-red-700 mb-2">
+                        Report #{index + 1}
+                      </Badge>
+                      <h4 className="font-semibold text-red-900">
+                        {getReportReasonLabel(report.reason)}
+                      </h4>
+                    </div>
+                    <Badge 
+                      variant={
+                        report.status === 'resolved' ? 'default' :
+                        report.status === 'reviewing' ? 'secondary' :
+                        report.status === 'dismissed' ? 'outline' :
+                        'destructive'
+                      }
+                      className="text-xs"
+                    >
+                      {report.status}
+                    </Badge>
+                  </div>
+                  
+                  {report.details && (
+                    <div className="mb-3">
+                      <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md border border-gray-200">
+                        {report.details}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Clock className="w-3 h-3" />
+                    <span>Reported on {format(new Date(report.created_at), "MMM dd, yyyy 'at' h:mm a")}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

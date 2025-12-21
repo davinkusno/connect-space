@@ -28,7 +28,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
 import {
-    ArrowLeft, Calendar, Search, Shield, Star, UserMinus, Users
+    ArrowLeft, AlertTriangle, Calendar, Search, Shield, Star, UserMinus, Users
 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
@@ -234,26 +234,67 @@ export default function CommunityMembersPage({
         console.error("Error fetching user data:", usersError)
       }
 
-      // Fetch activity and report counts for each member (separate, not combined)
+      // Fetch activity and report counts for each member
       const statsPromises = userIds.map(async (userId: string) => {
         try {
+          // Get activity points count (all points except report_received)
           const { data: pointsData } = await supabase
             .from("user_points")
             .select("point_type")
             .eq("user_id", userId)
+            .neq("point_type", "report_received")
           
-          let activityCount = 0
-          let reportCount = 0
+          const activityCount = pointsData?.length || 0
           
-          pointsData?.forEach((p: { point_type: string }) => {
-            if (p.point_type === 'report_received') {
-              reportCount += 1
-            } else {
-              activityCount += 1
-            }
-          })
+          // Get actual report count from reports table
+          // Include: direct member reports + thread reports + reply reports created by this user
           
-          return { userId, points_count: activityCount, report_count: reportCount }
+          // 1. Direct member reports
+          const { count: memberReportCount } = await supabase
+            .from("reports")
+            .select("*", { count: "exact", head: true })
+            .eq("report_type", "member")
+            .eq("target_id", userId)
+          
+          // 2. Thread reports - get all thread IDs created by this user, then count reports on those threads
+          const { data: userThreads } = await supabase
+            .from("messages")
+            .select("id")
+            .eq("sender_id", userId)
+            .is("parent_id", null) // Only threads (not replies)
+          
+          let threadReportCount = 0
+          if (userThreads && userThreads.length > 0) {
+            const threadIds = userThreads.map(t => t.id)
+            const { count } = await supabase
+              .from("reports")
+              .select("*", { count: "exact", head: true })
+              .eq("report_type", "thread")
+              .in("target_id", threadIds)
+            threadReportCount = count || 0
+          }
+          
+          // 3. Reply reports - get all reply IDs created by this user, then count reports on those replies
+          const { data: userReplies } = await supabase
+            .from("messages")
+            .select("id")
+            .eq("sender_id", userId)
+            .not("parent_id", "is", null) // Only replies (have parent_id)
+          
+          let replyReportCount = 0
+          if (userReplies && userReplies.length > 0) {
+            const replyIds = userReplies.map(r => r.id)
+            const { count } = await supabase
+              .from("reports")
+              .select("*", { count: "exact", head: true })
+              .eq("report_type", "reply")
+              .in("target_id", replyIds)
+            replyReportCount = count || 0
+          }
+          
+          const totalReportCount = (memberReportCount || 0) + threadReportCount + replyReportCount
+          
+          return { userId, points_count: activityCount, report_count: totalReportCount }
         } catch {
           return { userId, points_count: 0, report_count: 0 }
         }
@@ -527,11 +568,12 @@ export default function CommunityMembersPage({
                             <Star className="w-3 h-3 text-green-500" />
                             <span className="font-medium text-green-600">{member.points_count || 0} {(member.points_count || 0) === 1 ? 'point' : 'points'}</span>
                           </div>
-                          {(member.report_count ?? 0) > 0 && (
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium text-red-600">{member.report_count} {member.report_count === 1 ? 'report' : 'reports'}</span>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1">
+                            <AlertTriangle className={`w-3 h-3 ${(member.report_count ?? 0) > 0 ? 'text-red-500' : 'text-gray-400'}`} />
+                            <span className={`font-medium ${(member.report_count ?? 0) > 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                              {member.report_count || 0} {(member.report_count || 0) === 1 ? 'report' : 'reports'}
+                            </span>
+                          </div>
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             <span>{formatDate(member.joined_at)}</span>

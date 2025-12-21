@@ -397,7 +397,7 @@ export default function DashboardPage() {
         }
 
         // Fetch communities where user is a member (but not creator)
-        // Only fetch approved members (status = true or null), exclude pending (status = false)
+        // Only fetch approved members (status = 'approved'), exclude pending
         const { data: memberData, error: memberError } = await supabase
           .from("community_members")
           .select(
@@ -417,7 +417,7 @@ export default function DashboardPage() {
           `
           )
           .eq("user_id", session.user.id)
-          .or("status.is.null,status.eq.true")
+          .eq("status", "approved")
           .order("joined_at", { ascending: false });
 
         if (!memberError && memberData) {
@@ -437,11 +437,20 @@ export default function DashboardPage() {
           const adminComms = nonCreatorCommunities.filter((c: any) => c.role === "admin");
           const memberComms = nonCreatorCommunities.filter((c: any) => c.role !== "admin");
           
-          // Add admin communities to createdCommunities (they manage these too)
-          setCreatedCommunities(prev => [
-            ...prev,
-            ...adminComms.map((c: any) => ({ ...c, isCreator: false, isAdmin: true }))
-          ]);
+          // If there are admin communities, add them to created communities
+          // Use functional update to get the current creator communities with their event counts
+          if (adminComms.length > 0) {
+            setCreatedCommunities(prev => {
+              // Create a Set of existing IDs to avoid duplicates
+              const existingIds = new Set(prev.map(c => c.id));
+              const newAdminComms = adminComms
+                .filter((c: any) => !existingIds.has(c.id))
+                .map((c: any) => ({ ...c, isCreator: false, isAdmin: true, upcomingEvents: 0 }));
+              
+              return [...prev, ...newAdminComms];
+            });
+          }
+          
           setJoinedCommunities(memberComms);
         }
       } catch (error) {

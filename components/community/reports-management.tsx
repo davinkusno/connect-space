@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { getReportReasonLabel } from "@/lib/utils/report-utils";
 
 interface Reporter {
   id: string;
@@ -489,7 +490,7 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
                   <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg">
                     {getReasonIcon(selectedReport.reason)}
                     <span className="font-medium text-red-900">
-                      {selectedReport.reason}
+                      {getReportReasonLabel(selectedReport.reason)}
                     </span>
                   </div>
                 </div>

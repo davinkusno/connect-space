@@ -497,7 +497,7 @@ export default function CommunityPage({
           break;
 
         case "members":
-          // Load ALL members from community_members table - only approved members (status = true or null)
+          // Load ALL members from community_members table - only approved members (status = 'approved')
           // This includes admin, member, and moderator roles
           // Creator is also in community_members table with role "admin"
           // Use specific foreign key relationship to avoid ambiguity
@@ -1441,7 +1441,7 @@ export default function CommunityPage({
                                         )}
                                       </Button>
                                     )}
-                                    {isMember && currentUser && !isSuperAdmin && !isOwner && (
+                                    {isMember && currentUser && !isSuperAdmin && !isOwner && thread.sender_id !== currentUser.id && (
                                       <Button
                                         variant="ghost"
                                         size="sm"
@@ -1573,7 +1573,7 @@ export default function CommunityPage({
                                         <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
                                           {reply.content}
                                         </p>
-                                        {isMember && currentUser && !isSuperAdmin && !isOwner && (
+                                        {isMember && currentUser && !isSuperAdmin && !isOwner && reply.sender_id !== currentUser.id && (
                                           <div className="mt-2">
                                             <Button
                                               variant="ghost"
@@ -2064,6 +2064,22 @@ export default function CommunityPage({
                                 </p>
                               </div>
                             </div>
+                            {currentUser && member.user_id !== currentUser.id && !isSuperAdmin && !member.isCreator && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-600 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => {
+                                  setReportType("member");
+                                  setReportTargetId(member.user_id);
+                                  setReportTargetName(member.users?.full_name || member.users?.username || "Member");
+                                  setReportDialogOpen(true);
+                                }}
+                              >
+                                <AlertTriangle className="h-4 w-4 mr-1.5" />
+                                Report
+                              </Button>
+                            )}
                           </div>
                         </CardContent>
                       </Card>

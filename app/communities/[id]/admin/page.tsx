@@ -4,17 +4,25 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { FloatingElements } from "@/components/ui/floating-elements"
 import { PageTransition } from "@/components/ui/page-transition"
 import { Textarea } from "@/components/ui/textarea"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
 import {
-    AlertTriangle, Calendar, ChevronRight, Edit, FileText,
+    AlertTriangle, Calendar, ChevronRight, Clock, Edit, FileText,
     LayoutGrid, Loader2, Mail, Save, ShieldAlert, Star, UserPlus, Users, X
 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { getReportReasonLabel } from "@/lib/utils/report-utils"
 
 // Component to fetch and display event count
 function EventCount({ communityId }: { communityId?: string }) {
@@ -114,6 +122,12 @@ export default function CommunityAdminPage({
   const [isSavingDescription, setIsSavingDescription] = useState(false)
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false)
   const [communityId, setCommunityId] = useState<string | null>(null)
+  
+  // Reports dialog state
+  const [selectedUserReports, setSelectedUserReports] = useState<{
+    userName: string
+    reports: UserReport[]
+  } | null>(null)
 
   useEffect(() => {
     const loadParams = async () => {
@@ -145,12 +159,23 @@ export default function CommunityAdminPage({
         .eq("id", id)
         .single()
 
-      // Verify user has permission (creator only)
+      // Verify user has permission (creator or admin)
       if (communityData) {
         const isCreator = communityData.creator_id === user.id
+        
+        // Check if user is admin in community_members
+        const { data: memberData } = await supabase
+          .from("community_members")
+          .select("role")
+          .eq("community_id", id)
+          .eq("user_id", user.id)
+          .eq("status", "approved")
+          .single()
+        
+        const isAdmin = memberData?.role === "admin"
 
-        if (!isCreator) {
-          toast.error("Only the community creator can access this page")
+        if (!isCreator && !isAdmin) {
+          toast.error("Only community creators and admins can access this page")
           setIsLoading(false)
           return
         }
@@ -379,45 +404,104 @@ export default function CommunityAdminPage({
         return
       }
 
-      // Fetch user points for each user
+      // Fetch user points for each user (only for positive activity points)
       const { data: userPointsData } = await supabase
         .from("user_points")
         .select("user_id, point_type")
         .in("user_id", userIds)
+        .neq("point_type", "report_received") // Only count positive activities
 
-      // Count points and reports per user (keep separate - don't combine)
-      const userStatsMap: Record<string, { points_count: number; report_count: number }> = {}
+      // Count points per user
+      const userStatsMap: Record<string, { points_count: number }> = {}
       if (userPointsData) {
         userPointsData.forEach((record: any) => {
           if (!userStatsMap[record.user_id]) {
-            userStatsMap[record.user_id] = { points_count: 0, report_count: 0 }
+            userStatsMap[record.user_id] = { points_count: 0 }
           }
-          if (record.point_type === 'report_received') {
-            // Count reports separately
-            userStatsMap[record.user_id].report_count += 1
-          } else {
-            // Count positive points
-            userStatsMap[record.user_id].points_count += 1
-          }
+          userStatsMap[record.user_id].points_count += 1
         })
       }
 
-      // Fetch actual reports for each user (where they were reported as a member)
-      const { data: reportsData } = await supabase
+      // Fetch actual reports for each user
+      // Include: direct member reports + thread reports + reply reports
+      
+      // 1. Direct member reports
+      const { data: memberReportsData } = await supabase
         .from("reports")
-        .select("id, reason, details, status, created_at, reporter_id, target_id")
+        .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
         .eq("report_type", "member")
         .in("target_id", userIds)
         .order("created_at", { ascending: false })
 
-      // Group reports by user_id (target_id)
+      // 2. Get all threads created by these users
+      const { data: userThreadsData } = await supabase
+        .from("messages")
+        .select("id, sender_id")
+        .in("sender_id", userIds)
+        .is("parent_id", null) // Only threads
+      
+      let threadReportsData: any[] = []
+      if (userThreadsData && userThreadsData.length > 0) {
+        const threadIds = userThreadsData.map(t => t.id)
+        const { data } = await supabase
+          .from("reports")
+          .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
+          .eq("report_type", "thread")
+          .in("target_id", threadIds)
+          .order("created_at", { ascending: false })
+        threadReportsData = data || []
+      }
+      
+      // 3. Get all replies created by these users
+      const { data: userRepliesData } = await supabase
+        .from("messages")
+        .select("id, sender_id")
+        .in("sender_id", userIds)
+        .not("parent_id", "is", null) // Only replies
+      
+      let replyReportsData: any[] = []
+      if (userRepliesData && userRepliesData.length > 0) {
+        const replyIds = userRepliesData.map(r => r.id)
+        const { data } = await supabase
+          .from("reports")
+          .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
+          .eq("report_type", "reply")
+          .in("target_id", replyIds)
+          .order("created_at", { ascending: false })
+        replyReportsData = data || []
+      }
+      
+      // Create mapping of thread/reply IDs to sender IDs
+      const threadSenderMap = new Map(userThreadsData?.map(t => [t.id, t.sender_id]) || [])
+      const replySenderMap = new Map(userRepliesData?.map(r => [r.id, r.sender_id]) || [])
+
+      // Group all reports by user_id
       const reportsByUser: Record<string, UserReport[]> = {}
-      if (reportsData) {
-        reportsData.forEach((report: any) => {
-          if (!reportsByUser[report.target_id]) {
-            reportsByUser[report.target_id] = []
+      
+      // Add member reports
+      memberReportsData?.forEach((report: any) => {
+        const userId = report.target_id
+        if (!reportsByUser[userId]) {
+          reportsByUser[userId] = []
+        }
+        reportsByUser[userId].push({
+          id: report.id,
+          reason: report.reason,
+          details: report.details,
+          status: report.status,
+          created_at: report.created_at,
+          reporter_id: report.reporter_id
+        })
+      })
+      
+      // Add thread reports (map to sender)
+      threadReportsData.forEach((report: any) => {
+        const userId = threadSenderMap.get(report.target_id)
+        if (userId) {
+          if (!reportsByUser[userId]) {
+            reportsByUser[userId] = []
           }
-          reportsByUser[report.target_id].push({
+          reportsByUser[userId].push({
             id: report.id,
             reason: report.reason,
             details: report.details,
@@ -425,8 +509,26 @@ export default function CommunityAdminPage({
             created_at: report.created_at,
             reporter_id: report.reporter_id
           })
-        })
-      }
+        }
+      })
+      
+      // Add reply reports (map to sender)
+      replyReportsData.forEach((report: any) => {
+        const userId = replySenderMap.get(report.target_id)
+        if (userId) {
+          if (!reportsByUser[userId]) {
+            reportsByUser[userId] = []
+          }
+          reportsByUser[userId].push({
+            id: report.id,
+            reason: report.reason,
+            details: report.details,
+            status: report.status,
+            created_at: report.created_at,
+            reporter_id: report.reporter_id
+          })
+        }
+      })
 
       // Map to JoinRequest format
       const joinRequestsWithUsers: (JoinRequest | null)[] = pendingRequests.map((request: any) => {
@@ -436,7 +538,9 @@ export default function CommunityAdminPage({
           return null
         }
 
-        const stats = userStatsMap[request.user_id] || { points_count: 0, report_count: 0 }
+        const stats = userStatsMap[request.user_id] || { points_count: 0 }
+        const userReports = reportsByUser[request.user_id] || []
+        
         return {
           id: request.id,
           userId: request.user_id,
@@ -447,8 +551,8 @@ export default function CommunityAdminPage({
           status: "pending",  // String: 'pending'
           message: undefined,
           points_count: stats.points_count,
-          report_count: stats.report_count,
-          reports: reportsByUser[request.user_id] || []
+          report_count: userReports.length, // Use actual reports count from reports table
+          reports: userReports
         } as JoinRequest
       })
 
@@ -553,7 +657,7 @@ export default function CommunityAdminPage({
       await loadJoinRequests(community.id)
 
       // Reload community data to get updated member count from database
-      // This ensures memberCount only counts approved members (status = true or null)
+      // This ensures memberCount only counts approved members (status = 'approved')
       const supabase = getSupabaseBrowser()
       const { data: allMembers } = await supabase
         .from("community_members")
@@ -599,8 +703,8 @@ export default function CommunityAdminPage({
       }
 
       // Note: We do NOT update memberCount here because:
-      // 1. Rejected requests (status = false) are NOT counted in memberCount
-      // 2. Only approved members (status = true or null) are counted
+      // 1. Rejected requests (status = 'pending') are NOT counted in memberCount
+      // 2. Only approved members (status = 'approved') are counted
       // 3. Deleting a pending request does not affect the member count
 
       // Remove from UI
@@ -1002,42 +1106,23 @@ export default function CommunityAdminPage({
                               {request.message && (
                                 <p className="text-xs text-gray-600 mt-1 line-clamp-2">{request.message}</p>
                               )}
-                              {/* Show reports if user has been reported */}
+                              {/* Show reports badge if user has been reported */}
                               {request.reports && request.reports.length > 0 && (
                                 <div className="mt-2">
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => {
-                                      const currentExpanded = (document.getElementById(`reports-${request.id}`) as HTMLElement)?.style.display
-                                      const element = document.getElementById(`reports-${request.id}`)
-                                      if (element) {
-                                        element.style.display = currentExpanded === 'none' ? 'block' : 'none'
-                                      }
+                                      setSelectedUserReports({
+                                        userName: request.userName,
+                                        reports: request.reports || []
+                                      })
                                     }}
-                                    className="w-full justify-between text-xs border-red-200 text-red-700 hover:bg-red-50"
+                                    className="text-xs border-red-200 text-red-700 hover:bg-red-50"
                                   >
-                                    <div className="flex items-center gap-2">
-                                      <AlertTriangle className="w-3 h-3" />
-                                      <span>View {request.reports.length} Previous {request.reports.length === 1 ? 'Report' : 'Reports'}</span>
-                                    </div>
-                                    <ChevronRight className="w-3 h-3" />
+                                    <AlertTriangle className="w-3 h-3 mr-1.5" />
+                                    <span>View {request.reports.length} {request.reports.length === 1 ? 'Report' : 'Reports'}</span>
                                   </Button>
-                                  <div id={`reports-${request.id}`} style={{ display: 'none' }} className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
-                                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                                      {request.reports.map((report) => (
-                                        <div key={report.id} className="text-xs bg-white p-2 rounded border border-red-100">
-                                          <div className="font-medium text-red-800 mb-1">{report.reason}</div>
-                                          {report.details && (
-                                            <div className="text-gray-600 mb-1">{report.details}</div>
-                                          )}
-                                          <div className="text-gray-500">
-                                            {new Date(report.created_at).toLocaleDateString()}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
                                 </div>
                               )}
                               <div className="mt-3 flex items-center gap-2">
@@ -1281,6 +1366,70 @@ export default function CommunityAdminPage({
           </div>
         </div>
       </div>
+      
+      {/* Reports Dialog */}
+      <Dialog open={!!selectedUserReports} onOpenChange={() => setSelectedUserReports(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              Reports for {selectedUserReports?.userName}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedUserReports?.reports.length} {selectedUserReports?.reports.length === 1 ? 'report' : 'reports'} submitted by community members
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+            {selectedUserReports?.reports.map((report, index) => (
+              <Card key={report.id} className="border-red-100">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <Badge variant="outline" className="bg-red-50 border-red-200 text-red-700 mb-2">
+                        Report #{index + 1}
+                      </Badge>
+                      <h4 className="font-semibold text-red-900">
+                        {getReportReasonLabel(report.reason)}
+                      </h4>
+                    </div>
+                    <Badge 
+                      variant={
+                        report.status === 'resolved' ? 'default' :
+                        report.status === 'reviewing' ? 'secondary' :
+                        report.status === 'dismissed' ? 'outline' :
+                        'destructive'
+                      }
+                      className="text-xs"
+                    >
+                      {report.status}
+                    </Badge>
+                  </div>
+                  
+                  {report.details && (
+                    <div className="mb-3">
+                      <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md border border-gray-200">
+                        {report.details}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Clock className="w-3 h-3" />
+                    <span>Reported on {new Date(report.created_at).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageTransition>
   )
 }

@@ -26,6 +26,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { getReportReasonLabel } from "@/lib/utils/report-utils";
 
 // Badge data types
 export interface StoreBadge {
@@ -1965,7 +1966,7 @@ export default function SuperadminPage() {
                                   variant="outline"
                                   className="text-xs bg-orange-50 border-orange-300 text-orange-700"
                                 >
-                                  {report.reason}
+                                  {getReportReasonLabel(report.reason)}
                                 </Badge>
                               </div>
                               <div className="text-xs text-gray-500">
