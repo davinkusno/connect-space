@@ -2214,9 +2214,9 @@ export default function CommunityPage({
                       <Star className="h-5 w-5 text-violet-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-violet-900">Earn 25 Points!</p>
+                      <p className="font-semibold text-violet-900">Earn 2 Points!</p>
                       <p className="text-sm text-violet-700">
-                        You'll receive 25 points when your join request is approved.
+                        You'll receive 2 points when your join request is approved.
                       </p>
                     </div>
                   </div>

@@ -288,7 +288,7 @@ export class EventService extends BaseService {
           longitude: locationData.longitude || locationData.lng || 0,
           address: locationData.address || event.location || "",
           venue: locationData.venue || locationData.name || "",
-          city: locationData.city || locationData.town || locationData.municipality || "Unknown",
+          city: event.is_online ? "Online" : (locationData.city || locationData.town || locationData.municipality || "Unknown"),
           isOnline: event.is_online || false,
         },
         organizer: event.community?.name || "Unknown Community",

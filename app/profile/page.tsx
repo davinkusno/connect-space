@@ -54,7 +54,7 @@ export default function ProfilePage() {
     username: "",
     interests: [] as string[],
   });
-  const [activityCount, setActivityCount] = useState(0);
+  const [pointsCount, setPointsCount] = useState(0);
   const [reportCount, setReportCount] = useState(0);
   const [selectedInterest, setSelectedInterest] = useState("");
   
@@ -106,20 +106,20 @@ export default function ProfilePage() {
           interests: metadata.interests || ["Technology", "Community", "Networking"],
         });
         
-        // Fetch activity and report counts from API
+        // Fetch points and report counts from API
         try {
           const pointsResponse = await fetch("/api/user/points");
           if (pointsResponse.ok) {
             const pointsData = await pointsResponse.json();
-            setActivityCount(pointsData.activity_count || 0);
+            setPointsCount(pointsData.activity_count || 0);
             setReportCount(pointsData.report_count || 0);
           } else {
-            setActivityCount(0);
+            setPointsCount(0);
             setReportCount(0);
           }
         } catch (error) {
-          console.error("Error fetching activity:", error);
-          setActivityCount(0);
+          console.error("Error fetching points:", error);
+          setPointsCount(0);
           setReportCount(0);
         }
         
@@ -277,7 +277,7 @@ export default function ProfilePage() {
           user.user_metadata?.username || user.email?.split("@")[0] || "",
         interests: user.user_metadata?.interests || ["Technology", "Community", "Networking"],
       });
-      // Activity counts are fetched from API, not user metadata
+      // Points counts are fetched from API, not user metadata
       
       // Reset location
       if (user.user_metadata?.location_city) {
@@ -695,9 +695,9 @@ export default function ProfilePage() {
                     </Badge>
                   </div>
 
-                  {/* Activity Stats - Stacked */}
+                  {/* Points Stats - Stacked */}
                   <div className="mb-6 space-y-3">
-                    {/* Activities */}
+                    {/* Points */}
                     <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -705,10 +705,10 @@ export default function ProfilePage() {
                       </div>
                         <div className="flex-1">
                           <div className="text-xs text-green-600 font-medium">
-                            Activities
+                            Points
                         </div>
                           <div className="text-xl font-bold text-green-900">
-                            {activityCount.toLocaleString()}
+                            {pointsCount.toLocaleString()}
                           </div>
                         </div>
                       </div>

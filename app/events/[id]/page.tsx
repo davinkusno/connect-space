@@ -1,7 +1,6 @@
 "use client";
 
 import { AttendeesDialog } from "@/components/events/attendees-dialog";
-import { EventDiscussion } from "@/components/events/event-discussion";
 import { UpdateRsvpDialog } from "@/components/events/update-rsvp-dialog";
 import {
     AlertDialog,
@@ -294,6 +293,23 @@ export default function EventDetailsPage({
           price: 0, // Default to free
         }));
 
+        // Fetch attendee counts for organizer events
+        const organizerEventIds = organizerEventsResult.data?.map((e: any) => e.id) || [];
+        let organizerEventAttendees: Record<string, number> = {};
+        
+        if (organizerEventIds.length > 0) {
+          const { data: attendeeData } = await supabase
+            .from("event_attendees")
+            .select("event_id")
+            .in("event_id", organizerEventIds)
+            .eq("status", "going");
+          
+          // Count attendees per event
+          attendeeData?.forEach((a: any) => {
+            organizerEventAttendees[a.event_id] = (organizerEventAttendees[a.event_id] || 0) + 1;
+          });
+        }
+
         const organizerEvents = (organizerEventsResult.data || []).map((e: any) => ({
           id: e.id,
           title: e.title,
@@ -301,7 +317,7 @@ export default function EventDetailsPage({
           image: e.image_url || "",
           category: e.category || "General",
           price: 0, // Default to free
-          attendees: 0, // Could fetch if needed
+          attendees: organizerEventAttendees[e.id] || 0,
         }));
 
         // Parse location - it's stored as a string that might be JSON
@@ -424,9 +440,16 @@ export default function EventDetailsPage({
             parsedLocation.address = locationString || "";
           }
         } else if (locationString && eventData.is_online) {
-          // For online events, location is the meeting link
-          parsedLocation.meetingLink = locationString;
-          parsedLocation.address = "Online Event";
+          // For online events, try to parse the location as JSON for meeting details
+          try {
+            const meetingData = JSON.parse(locationString);
+            parsedLocation.meetingLink = meetingData.meetingLink || locationString;
+            parsedLocation.address = meetingData.platform ? `${meetingData.platform}` : "Online Event";
+          } catch {
+            // If parsing fails, treat the whole string as the meeting link
+            parsedLocation.meetingLink = locationString;
+            parsedLocation.address = "Online Event";
+          }
         } else if (!locationString) {
           // If location is empty, ensure address is empty string (not undefined)
           parsedLocation.address = "";
@@ -451,8 +474,8 @@ export default function EventDetailsPage({
             : undefined,
           location: parsedLocation,
           organizer: {
-            name: creatorData?.full_name || creatorData?.username || "Organizer",
-            image: creatorData?.avatar_url || "",
+            name: (eventData.communities as any)?.name || "Unknown Community",
+            image: (eventData.communities as any)?.logo_url || "",
             verified: true,
           },
           category: eventData.category || "General",
@@ -591,6 +614,14 @@ export default function EventDetailsPage({
       // Update state immediately
       setIsRegistered(true);
       
+      // Update event registered count
+      if (event) {
+        setEvent({
+          ...event,
+          registered: event.registered + 1
+        });
+      }
+      
       // Dispatch custom event to refresh home page interested events
       window.dispatchEvent(new CustomEvent("eventInterested"));
       
@@ -647,6 +678,14 @@ export default function EventDetailsPage({
       setIsRegistered(false);
       setIsRemoveInterestDialogOpen(false);
       console.log("RSVP removed successfully");
+      
+      // Update event registered count
+      if (event) {
+        setEvent({
+          ...event,
+          registered: Math.max(0, event.registered - 1) // Ensure it doesn't go below 0
+        });
+      }
       
       // Dispatch custom event to refresh home page interested events
       window.dispatchEvent(new CustomEvent("eventInterested"));
@@ -873,7 +912,10 @@ export default function EventDetailsPage({
               </div>
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                <span>{event.registered} interested</span>
+                <span>
+                  {event.registered} interested
+                  {event.capacity && event.capacity > 0 ? ` / ${event.capacity}` : ''}
+                </span>
               </div>
             </div>
           </div>
@@ -1006,10 +1048,9 @@ export default function EventDetailsPage({
 
           {/* Content Tabs */}
           <Tabs defaultValue="about" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="about">About</TabsTrigger>
               <TabsTrigger value="location">Location</TabsTrigger>
-              <TabsTrigger value="announcement">Announcement</TabsTrigger>
             </TabsList>
 
             <TabsContent value="about" className="space-y-6 mt-6">
@@ -1055,26 +1096,6 @@ export default function EventDetailsPage({
                 </Card>
               )}
 
-              {/* Tags */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Topics & Tags</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {event.tags.map((tag, index) => (
-                      <Badge
-                        key={index}
-                        variant="outline"
-                        className="hover:bg-violet-50 cursor-pointer"
-                      >
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
               {/* Organizer */}
               <Card>
                 <CardHeader>
@@ -1092,28 +1113,9 @@ export default function EventDetailsPage({
                       <AvatarFallback>{event.organizer.name[0]}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-lg">
-                          {event.organizer.name}
-                        </h3>
-                        {event.organizer.verified && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Award className="h-3 w-3 mr-1" />
-                            Verified
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-gray-600 mb-4">
-                        Event organizer and community member
-                      </p>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          View Profile
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          Contact Organizer
-                        </Button>
-                      </div>
+                      <h3 className="font-semibold text-lg">
+                        {event.organizer.name}
+                      </h3>
                     </div>
                   </div>
                 </CardContent>
@@ -1350,20 +1352,25 @@ export default function EventDetailsPage({
                             <span>{formatDate(event.date)}</span>
                           </div>
 
-                          <div className="flex items-center gap-3 text-gray-700">
-                            <Video className="h-5 w-5 text-gray-500" />
-                            <div>
-                              <span className="text-gray-600">
-                                Online event
-                              </span>
-                              <a
-                                href={event.location.meetingLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block text-blue-600 hover:text-blue-700 hover:underline mt-0.5"
-                              >
-                                {event.location.meetingLink}
-                              </a>
+                          <div className="flex items-start gap-3 text-gray-700">
+                            <Video className="h-5 w-5 text-gray-500 mt-0.5" />
+                            <div className="flex-1">
+                              <div className="text-gray-600 mb-2">
+                                {event.location.address && event.location.address !== "Online Event" 
+                                  ? event.location.address 
+                                  : "Online event"}
+                              </div>
+                              {event.location.meetingLink && (
+                                <a
+                                  href={event.location.meetingLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:underline break-all"
+                                >
+                                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                                  {event.location.meetingLink}
+                                </a>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1481,16 +1488,6 @@ export default function EventDetailsPage({
                   </CardContent>
                 </Card>
               )}
-            </TabsContent>
-
-            <TabsContent value="announcement" className="mt-6">
-              <EventDiscussion
-                eventId={event.id}
-                organizerName={event.organizer.name}
-                hasAnnouncement={true}
-                isAdmin={isAdmin}
-                communityId={event.communities?.id || ""}
-              />
             </TabsContent>
           </Tabs>
         </div>

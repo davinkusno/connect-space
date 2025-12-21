@@ -33,18 +33,31 @@ export async function updateSession(request: NextRequest) {
 
   const currentPath = request.nextUrl.pathname
 
-  // Skip RBAC for static files, API routes, and auth pages
-  if (
-    currentPath.startsWith("/_next") ||
-    currentPath.startsWith("/api") ||
-    currentPath.startsWith("/auth") ||
-    currentPath === "/" ||
-    currentPath.startsWith("/test")
-  ) {
+  // Define public routes (accessible without authentication)
+  const publicRoutes = [
+    "/_next",
+    "/api",
+    "/auth",
+    "/",
+    "/test",
+    "/events", // Public: browse events
+    "/communities", // Public: browse communities (but not create/admin)
+  ]
+
+  // Check if current path is public (but exclude protected sub-routes)
+  const isPublicRoute = publicRoutes.some(route => currentPath.startsWith(route))
+  
+  // Protect specific sub-routes even if parent is public
+  const isProtectedSubRoute = 
+    currentPath.startsWith("/communities/create") || // Must be logged in to create
+    currentPath.includes("/admin") // Must be logged in for admin routes
+
+  // Skip auth check for public routes (unless it's a protected sub-route)
+  if (isPublicRoute && !isProtectedSubRoute) {
     return supabaseResponse
   }
 
-  // If no user, redirect to login for protected routes
+  // If no user and trying to access protected route, redirect to login
   if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"

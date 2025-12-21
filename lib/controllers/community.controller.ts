@@ -770,6 +770,30 @@ export class CommunityController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * GET /api/communities/check-create-permission
+   * Check if user has sufficient points to create a new community
+   * @param request - The incoming request
+   * @returns NextResponse with permission status
+   */
+  public async checkCreatePermission(
+    request: NextRequest
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      
+      const result = await this.service.canUserCreateCommunity(user.id);
+      
+      if (result.success) {
+        return this.json(result.data);
+      }
+      
+      return this.error(result.error?.message || "Failed to check permission", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

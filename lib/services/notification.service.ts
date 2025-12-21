@@ -209,6 +209,58 @@ export class NotificationService extends BaseService {
     return ApiResponse.success(undefined);
   }
 
+  /**
+   * Get all notifications for a user (formatted for UI)
+   */
+  public async getUserNotifications(userId: string, limit = 50): Promise<ServiceResult<any[]>> {
+    const { data, error } = await this.supabaseAdmin
+      .from("notifications")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      return ApiResponse.error(`Failed to fetch notifications: ${error.message}`, 500);
+    }
+
+    return ApiResponse.success(data || []);
+  }
+
+  /**
+   * Mark a notification as unread
+   */
+  public async markAsUnread(notificationId: string, userId: string): Promise<ServiceResult<void>> {
+    const { error } = await this.supabaseAdmin
+      .from("notifications")
+      .update({ is_read: false })
+      .eq("id", notificationId)
+      .eq("user_id", userId);
+
+    if (error) {
+      return ApiResponse.error(`Failed to mark as unread: ${error.message}`, 500);
+    }
+
+    return ApiResponse.success(undefined);
+  }
+
+  /**
+   * Delete all read notifications for a user
+   */
+  public async deleteAllRead(userId: string): Promise<ServiceResult<void>> {
+    const { error } = await this.supabaseAdmin
+      .from("notifications")
+      .delete()
+      .eq("user_id", userId)
+      .eq("is_read", true);
+
+    if (error) {
+      return ApiResponse.error(`Failed to delete read notifications: ${error.message}`, 500);
+    }
+
+    return ApiResponse.success(undefined);
+  }
+
   // ==================== Helper Methods for Common Notifications ====================
 
   /**

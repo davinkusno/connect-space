@@ -9,6 +9,7 @@ import {
 } from "./base.service";
 import { notificationService } from "./notification.service";
 import { pointsService } from "./points.service";
+import { calculateRequiredPoints } from "@/lib/config/points.config";
 
 // ==================== Community Service Types ====================
 
@@ -1333,6 +1334,69 @@ export class CommunityService extends BaseService {
     } catch (error) {
       console.error("[CommunityService] Error getting user stats:", error);
       return ApiResponse.error("Failed to get user statistics", 500);
+    }
+  }
+
+  /**
+   * Check if user has sufficient points to create a new community
+   * @param userId - User ID to check
+   * @returns ServiceResult with permission status and details
+   */
+  public async canUserCreateCommunity(
+    userId: string
+  ): Promise<ServiceResult<{
+    canCreate: boolean;
+    currentPoints: number;
+    requiredPoints: number;
+    communitiesOwned: number;
+    message?: string;
+  }>> {
+    try {
+      // Get user's total activity points (excluding reports)
+      const { data: pointsData } = await this.supabaseAdmin
+        .from("user_points")
+        .select("points")
+        .eq("user_id", userId)
+        .neq("point_type", "report_received");
+      
+      const currentPoints = pointsData?.reduce((sum, p) => sum + (p.points || 1), 0) || 0;
+      
+      // Get number of communities owned by this user (all statuses - active, suspended, archived)
+      // We count all communities the user created, regardless of status
+      const { count: communitiesOwned, error: countError } = await this.supabaseAdmin
+        .from("communities")
+        .select("*", { count: "exact", head: true })
+        .eq("creator_id", userId);
+      
+      if (countError) {
+        console.error("[CommunityService] Error counting communities:", countError);
+      }
+      
+      const ownedCount = communitiesOwned || 0;
+      
+      console.log(`[CommunityService] User ${userId} owns ${ownedCount} communities, has ${currentPoints} points`);
+      
+      // Calculate required points based on progression
+      const requiredPoints = calculateRequiredPoints(ownedCount);
+      
+      const canCreate = currentPoints >= requiredPoints;
+      
+      let message = "";
+      if (!canCreate) {
+        const needed = requiredPoints - currentPoints;
+        message = `You need ${needed} more ${needed === 1 ? 'point' : 'points'} to create another community. Keep participating to earn points!`;
+      }
+      
+      return ApiResponse.success({
+        canCreate,
+        currentPoints,
+        requiredPoints,
+        communitiesOwned: ownedCount,
+        message: canCreate ? undefined : message
+      });
+    } catch (error) {
+      console.error("[CommunityService] Error checking create permission:", error);
+      return ApiResponse.error("Failed to check community creation permission", 500);
     }
   }
 }

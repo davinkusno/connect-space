@@ -8,6 +8,15 @@ import {
     CardContent, CardDescription, CardHeader,
     CardTitle
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import { EnhancedCalendar } from "@/components/ui/enhanced-calendar";
 import { PageTransition } from "@/components/ui/page-transition";
 import { PaginationControls } from "@/components/ui/pagination-controls";
@@ -71,6 +80,11 @@ export default function DashboardPage() {
   const [dayEventsPage, setDayEventsPage] = useState(1);
   const communitiesPerPage = 3;
   const dayEventsPerPage = 4;
+  
+  // Community creation permission state
+  const [canCreateCommunity, setCanCreateCommunity] = useState(true);
+  const [createPermissionData, setCreatePermissionData] = useState<any>(null);
+  const [showPointsDialog, setShowPointsDialog] = useState(false);
 
   // Saved events from database
   const [savedEventsData, setSavedEventsData] = useState<any[]>([]);
@@ -338,6 +352,26 @@ export default function DashboardPage() {
       setActiveTab(tab);
     }
   }, [searchParams]);
+
+  // Check community creation permission
+  useEffect(() => {
+    const checkCreatePermission = async () => {
+      try {
+        const response = await fetch('/api/communities/check-create-permission');
+        if (response.ok) {
+          const data = await response.json();
+          setCanCreateCommunity(data.canCreate);
+          setCreatePermissionData(data);
+        }
+      } catch (error) {
+        console.error("Error checking create permission:", error);
+        // Default to allowing if check fails
+        setCanCreateCommunity(true);
+      }
+    };
+    
+    checkCreatePermission();
+  }, []);
 
   useEffect(() => {
     const fetchCommunities = async () => {
@@ -1679,12 +1713,23 @@ export default function DashboardPage() {
                         Communities you created or manage as admin
                       </CardDescription>
                     </div>
-                    <Link href="/communities/create">
-                      <Button variant="outline" size="sm">
+                    {canCreateCommunity ? (
+                      <Link href="/communities/create">
+                        <Button variant="outline" size="sm">
+                          <Plus className="h-3 w-3 mr-1" />
+                          Create Community
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setShowPointsDialog(true)}
+                      >
                         <Plus className="h-3 w-3 mr-1" />
                         Create Community
                       </Button>
-                    </Link>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
@@ -1708,9 +1753,9 @@ export default function DashboardPage() {
                         .map((community) => (
                           <Card
                             key={community.id}
-                            className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-purple-200 bg-purple-50/30"
+                            className="group cursor-pointer overflow-hidden hover:shadow-lg transition-shadow border border-purple-200 bg-purple-50/30 flex flex-col"
                           >
-                            <CardContent className="p-5">
+                            <CardContent className="p-5 flex flex-col flex-1">
                               {/* Community Avatar and Info */}
                               <div className="flex items-start gap-3 mb-4">
                                 <Avatar className="h-14 w-14 ring-2 ring-purple-200">
@@ -1746,12 +1791,14 @@ export default function DashboardPage() {
                                 </div>
                               </div>
 
-                              {/* Description */}
-                              {community.description && (
-                                <p className="text-sm text-gray-600 line-clamp-2 mb-4">
-                                  {community.description}
-                                </p>
-                              )}
+                              {/* Description - Fixed height to maintain consistency */}
+                              <div className="mb-4 min-h-[40px]">
+                                {community.description && (
+                                  <p className="text-sm text-gray-600 line-clamp-2">
+                                    {community.description}
+                                  </p>
+                                )}
+                              </div>
 
                               {/* Stats */}
                               <div className="space-y-2 mb-4">
@@ -1769,8 +1816,8 @@ export default function DashboardPage() {
                                 </div>
                               </div>
 
-                              {/* Action Buttons */}
-                              <div className="flex gap-2">
+                              {/* Action Buttons - Push to bottom with mt-auto */}
+                              <div className="flex gap-2 mt-auto">
                                 <Link
                                   href={`/communities/${community.id}`}
                                   className="flex-1"
@@ -2148,6 +2195,80 @@ export default function DashboardPage() {
         </Tabs>
         </div>
       </div>
+      
+      {/* Points Required Dialog */}
+      <Dialog open={showPointsDialog} onOpenChange={setShowPointsDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-amber-600" />
+              More Points Needed
+            </DialogTitle>
+            <DialogDescription>
+              You need more points to create another community
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-600">Your Points</span>
+                <span className="text-2xl font-bold text-amber-600">
+                  {createPermissionData?.currentPoints || 0}
+                </span>
+              </div>
+              <Progress 
+                value={(createPermissionData?.currentPoints / createPermissionData?.requiredPoints) * 100} 
+                className="h-2 mb-2"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">
+                  {createPermissionData?.requiredPoints - createPermissionData?.currentPoints} more needed
+                </span>
+                <span className="text-xs font-medium text-gray-700">
+                  Goal: {createPermissionData?.requiredPoints}
+                </span>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-2 text-sm">How to Earn Points?</h4>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-green-500" />
+                  Create posts: 5 points
+                </li>
+                <li className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-green-500" />
+                  Create events: 15 points
+                </li>
+                <li className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-green-500" />
+                  Join events: 10 points
+                </li>
+                <li className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-green-500" />
+                  Comment: 3 points
+                </li>
+                <li className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-green-500" />
+                  Join communities: 2 points
+                </li>
+              </ul>
+            </div>
+            
+            <p className="text-sm text-gray-600">
+              {createPermissionData?.message}
+            </p>
+          </div>
+          
+          <DialogFooter>
+            <Button onClick={() => setShowPointsDialog(false)} className="w-full">
+              Got it!
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageTransition>
       <Chatbot />
     </>

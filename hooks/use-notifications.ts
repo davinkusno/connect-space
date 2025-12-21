@@ -259,15 +259,27 @@ export function useNotifications(userId: string | null): UseNotificationsReturn 
   }, [userId, supabase]);
 
   const deleteNotification = useCallback(async (id: string) => {
-    const { error } = await supabase
+    if (!userId) return;
+    
+    const { data, error } = await supabase
       .from("notifications")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select(); // Add select to confirm deletion
+
+    if (error) {
+      console.error("Error deleting notification:", error);
+      console.error("Error details:", JSON.stringify(error));
+      return;
+    }
+
+    console.log("Successfully deleted notification:", id, "Data:", data);
 
     if (!error) {
       setNotifications((prev) => prev.filter((n) => n.id !== id));
     }
-  }, [supabase]);
+  }, [supabase, userId]);
 
   const deleteAllRead = useCallback(async () => {
     if (!userId) return;

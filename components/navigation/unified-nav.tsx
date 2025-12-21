@@ -90,20 +90,14 @@ export function UnifiedNav() {
 
       try {
         setIsLoadingNotifications(true);
-        const supabase = getSupabaseBrowser();
         
-        // Fetch notifications from database
-        const { data: notificationsData, error } = await supabase
-          .from("notifications")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(50);
-
-        if (error) {
-          console.error("Error fetching notifications:", error);
-          return;
+        // Fetch notifications from API
+        const response = await fetch("/api/notifications");
+        if (!response.ok) {
+          throw new Error("Failed to fetch notifications");
         }
+
+        const notificationsData = await response.json();
 
         // Transform database notifications to UI format
         const transformedNotifications: Notification[] = (notificationsData || []).map((notif: any) => {
@@ -226,15 +220,16 @@ export function UnifiedNav() {
 
   const handleMarkAsRead = async (id: string) => {
     try {
-      const supabase = getSupabaseBrowser();
-      const { error } = await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("id", id);
+      const response = await fetch(`/api/notifications/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "read" }),
+      });
 
-      if (error) {
-        console.error("Error marking notification as read:", error);
-        return;
+      if (!response.ok) {
+        throw new Error("Failed to mark as read");
       }
 
     setNotifications((prev) =>
@@ -251,15 +246,16 @@ export function UnifiedNav() {
 
   const handleMarkAsUnread = async (id: string) => {
     try {
-      const supabase = getSupabaseBrowser();
-      const { error } = await supabase
-        .from("notifications")
-        .update({ is_read: false })
-        .eq("id", id);
+      const response = await fetch(`/api/notifications/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "unread" }),
+      });
 
-      if (error) {
-        console.error("Error marking notification as unread:", error);
-        return;
+      if (!response.ok) {
+        throw new Error("Failed to mark as unread");
       }
 
     setNotifications((prev) =>
@@ -275,17 +271,20 @@ export function UnifiedNav() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!user) return;
+    
     try {
-      const supabase = getSupabaseBrowser();
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("id", id);
+      const response = await fetch(`/api/notifications/${id}`, {
+        method: "DELETE",
+      });
 
-      if (error) {
-        console.error("Error deleting notification:", error);
-        return;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete notification");
       }
+
+      const data = await response.json();
+      console.log("Successfully deleted notification:", id, data);
 
     setNotifications((prev) =>
       prev.filter((notification) => notification.id !== id)
@@ -299,16 +298,12 @@ export function UnifiedNav() {
     if (!user) return;
     
     try {
-      const supabase = getSupabaseBrowser();
-      const { error } = await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("user_id", user.id)
-        .eq("is_read", false);
+      const response = await fetch("/api/notifications/mark-all-read", {
+        method: "PATCH",
+      });
 
-      if (error) {
-        console.error("Error marking all as read:", error);
-        return;
+      if (!response.ok) {
+        throw new Error("Failed to mark all as read");
       }
 
     setNotifications((prev) =>
@@ -323,16 +318,12 @@ export function UnifiedNav() {
     if (!user) return;
     
     try {
-      const supabase = getSupabaseBrowser();
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("is_read", true);
+      const response = await fetch("/api/notifications/delete-all-read", {
+        method: "DELETE",
+      });
 
-      if (error) {
-        console.error("Error deleting all read notifications:", error);
-        return;
+      if (!response.ok) {
+        throw new Error("Failed to delete read notifications");
       }
 
     setNotifications((prev) =>
