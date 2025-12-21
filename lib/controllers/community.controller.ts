@@ -659,6 +659,117 @@ export class CommunityController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * GET /api/communities/[id]/join-requests
+   * Get join requests for a community with comprehensive user stats
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @returns NextResponse with join requests including user stats
+   */
+  public async getJoinRequestsWithStats(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+
+      // Get pending join requests
+      const requestsResult = await this.service.getPendingRequests(communityId, user.id);
+      if (!requestsResult.success) {
+        return this.error(requestsResult.error?.message || "Failed to fetch requests", requestsResult.status);
+      }
+
+      const requests = requestsResult.data || [];
+      
+      if (requests.length === 0) {
+        return this.json({ requests: [] });
+      }
+
+      // Get user IDs
+      const userIds = requests.map((r: any) => r.user_id);
+
+      // Get comprehensive user stats
+      const statsResult = await this.service.getUsersComprehensiveStats(userIds);
+      if (!statsResult.success) {
+        return this.error(statsResult.error?.message || "Failed to fetch user stats", statsResult.status);
+      }
+
+      const userStats = statsResult.data || {};
+
+      // Combine requests with stats
+      const requestsWithStats = requests.map((request: any) => {
+        const stats = userStats[request.user_id] || { points_count: 0, report_count: 0, reports: [] };
+        return {
+          ...request,
+          points_count: stats.points_count,
+          report_count: stats.report_count,
+          reports: stats.reports
+        };
+      });
+
+      return this.json({ requests: requestsWithStats });
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/communities/[id]/members-stats
+   * Get community members with comprehensive user stats
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @returns NextResponse with members including user stats
+   */
+  public async getMembersWithStats(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+
+      // Get approved members
+      const membersResult = await this.service.getMembers(communityId, user.id, {
+        page: 1,
+        pageSize: 1000 // Get all members
+      });
+      
+      if (!membersResult.success) {
+        return this.error(membersResult.error?.message || "Failed to fetch members", membersResult.status);
+      }
+
+      const members = membersResult.data?.members || [];
+      
+      if (members.length === 0) {
+        return this.json({ members: [] });
+      }
+
+      // Get user IDs
+      const userIds = members.map((m: any) => m.user_id);
+
+      // Get comprehensive user stats
+      const statsResult = await this.service.getUsersComprehensiveStats(userIds);
+      if (!statsResult.success) {
+        return this.error(statsResult.error?.message || "Failed to fetch user stats", statsResult.status);
+      }
+
+      const userStats = statsResult.data || {};
+
+      // Combine members with stats
+      const membersWithStats = members.map((member: any) => {
+        const stats = userStats[member.user_id] || { points_count: 0, report_count: 0, reports: [] };
+        return {
+          ...member,
+          points_count: stats.points_count,
+          report_count: stats.report_count
+        };
+      });
+
+      return this.json({ members: membersWithStats });
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

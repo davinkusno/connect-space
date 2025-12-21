@@ -1193,6 +1193,148 @@ export class CommunityService extends BaseService {
       location: data.location || null,
     });
   }
+
+  /**
+   * Get comprehensive user statistics including all report types
+   * Includes: activity points, direct member reports, thread reports, and reply reports
+   * @param userIds - Array of user IDs to get stats for
+   * @returns ServiceResult containing user statistics
+   */
+  public async getUsersComprehensiveStats(
+    userIds: string[]
+  ): Promise<ServiceResult<Record<string, { points_count: number; report_count: number; reports: any[] }>>> {
+    try {
+      if (!userIds || userIds.length === 0) {
+        return ApiResponse.success({});
+      }
+
+      // 1. Get activity points count (all points except report_received)
+      const { data: userPointsData } = await this.supabaseAdmin
+        .from("user_points")
+        .select("user_id, point_type")
+        .in("user_id", userIds)
+        .neq("point_type", "report_received");
+
+      // Count points per user
+      const userStatsMap: Record<string, { points_count: number; report_count: number; reports: any[] }> = {};
+      userIds.forEach(userId => {
+        userStatsMap[userId] = { points_count: 0, report_count: 0, reports: [] };
+      });
+
+      if (userPointsData) {
+        userPointsData.forEach((record: any) => {
+          if (userStatsMap[record.user_id]) {
+            userStatsMap[record.user_id].points_count += 1;
+          }
+        });
+      }
+
+      // 2. Get direct member reports
+      const { data: memberReportsData } = await this.supabaseAdmin
+        .from("reports")
+        .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
+        .eq("report_type", "member")
+        .in("target_id", userIds)
+        .order("created_at", { ascending: false });
+
+      // 3. Get all threads created by these users
+      const { data: userThreadsData } = await this.supabaseAdmin
+        .from("messages")
+        .select("id, sender_id")
+        .in("sender_id", userIds)
+        .is("parent_id", null); // Only threads
+
+      let threadReportsData: any[] = [];
+      if (userThreadsData && userThreadsData.length > 0) {
+        const threadIds = userThreadsData.map(t => t.id);
+        const { data } = await this.supabaseAdmin
+          .from("reports")
+          .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
+          .eq("report_type", "thread")
+          .in("target_id", threadIds)
+          .order("created_at", { ascending: false });
+        threadReportsData = data || [];
+      }
+
+      // 4. Get all replies created by these users
+      const { data: userRepliesData } = await this.supabaseAdmin
+        .from("messages")
+        .select("id, sender_id")
+        .in("sender_id", userIds)
+        .not("parent_id", "is", null); // Only replies
+
+      let replyReportsData: any[] = [];
+      if (userRepliesData && userRepliesData.length > 0) {
+        const replyIds = userRepliesData.map(r => r.id);
+        const { data } = await this.supabaseAdmin
+          .from("reports")
+          .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
+          .eq("report_type", "reply")
+          .in("target_id", replyIds)
+          .order("created_at", { ascending: false });
+        replyReportsData = data || [];
+      }
+
+      // Create mapping of thread/reply IDs to sender IDs
+      const threadSenderMap = new Map(userThreadsData?.map(t => [t.id, t.sender_id]) || []);
+      const replySenderMap = new Map(userRepliesData?.map(r => [r.id, r.sender_id]) || []);
+
+      // Add member reports
+      memberReportsData?.forEach((report: any) => {
+        const userId = report.target_id;
+        if (userStatsMap[userId]) {
+          userStatsMap[userId].reports.push({
+            id: report.id,
+            reason: report.reason,
+            details: report.details,
+            status: report.status,
+            created_at: report.created_at,
+            reporter_id: report.reporter_id
+          });
+        }
+      });
+
+      // Add thread reports (map to sender)
+      threadReportsData.forEach((report: any) => {
+        const userId = threadSenderMap.get(report.target_id);
+        if (userId && userStatsMap[userId]) {
+          userStatsMap[userId].reports.push({
+            id: report.id,
+            reason: report.reason,
+            details: report.details,
+            status: report.status,
+            created_at: report.created_at,
+            reporter_id: report.reporter_id
+          });
+        }
+      });
+
+      // Add reply reports (map to sender)
+      replyReportsData.forEach((report: any) => {
+        const userId = replySenderMap.get(report.target_id);
+        if (userId && userStatsMap[userId]) {
+          userStatsMap[userId].reports.push({
+            id: report.id,
+            reason: report.reason,
+            details: report.details,
+            status: report.status,
+            created_at: report.created_at,
+            reporter_id: report.reporter_id
+          });
+        }
+      });
+
+      // Set report counts
+      userIds.forEach(userId => {
+        userStatsMap[userId].report_count = userStatsMap[userId].reports.length;
+      });
+
+      return ApiResponse.success(userStatsMap);
+    } catch (error) {
+      console.error("[CommunityService] Error getting user stats:", error);
+      return ApiResponse.error("Failed to get user statistics", 500);
+    }
+  }
 }
 
 // Export singleton instance
