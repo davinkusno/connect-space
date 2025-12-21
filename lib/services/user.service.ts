@@ -184,6 +184,64 @@ export class UserService extends BaseService {
     userId: string,
     updates: UpdateProfileRequest
   ): Promise<ServiceResult<UserProfile>> {
+    // First check if user exists
+    const { data: existingUser, error: checkError } = await this.supabaseAdmin
+      .from("users")
+      .select("id, email")
+      .eq("id", userId)
+      .maybeSingle();
+    
+    if (checkError) {
+      console.error("[UserService] Error checking user existence:", checkError);
+      return ApiResponse.error(`Failed to check user: ${checkError.message}`, 500);
+    }
+    
+    // If user doesn't exist, create them first (fallback for missing trigger)
+    if (!existingUser) {
+      console.warn("[UserService] User not found in public.users, creating profile for:", userId);
+      
+      // Get user info from auth.users
+      const { data: authUser, error: authError } = await this.supabaseAdmin.auth.admin.getUserById(userId);
+      
+      if (authError || !authUser.user) {
+        console.error("[UserService] Cannot find user in auth.users:", authError);
+        return ApiResponse.error(
+          "User not found. Please contact support or try logging out and back in.",
+          404
+        );
+      }
+      
+      // Create user profile
+      const { data: newUser, error: createError } = await this.supabaseAdmin
+        .from("users")
+        .insert({
+          id: userId,
+          email: authUser.user.email,
+          username: authUser.user.user_metadata?.username || authUser.user.email?.split('@')[0] || 'user',
+          full_name: authUser.user.user_metadata?.full_name || null,
+          avatar_url: authUser.user.user_metadata?.avatar_url || null,
+          interests: updates.interests || [],
+          onboarding_completed: false,
+          role_selected: false,
+          user_type: 'user',
+        })
+        .select()
+        .single();
+      
+      if (createError) {
+        console.error("[UserService] Failed to create user profile:", createError);
+        return ApiResponse.error(`Failed to create user profile: ${createError.message}`, 500);
+      }
+      
+      console.log("[UserService] Created user profile successfully");
+      
+      // If we just created with interests, return the new user
+      if (updates.interests && updates.interests.length > 0) {
+        return ApiResponse.success<UserProfile>(newUser as UserProfile);
+      }
+    }
+    
+    // Update the user profile
     const { data, error } = await this.supabaseAdmin
       .from("users")
       .update(updates)
@@ -192,7 +250,8 @@ export class UserService extends BaseService {
       .single();
 
     if (error) {
-      return ApiResponse.error("Failed to update profile", 500);
+      console.error("[UserService] Failed to update profile:", error);
+      return ApiResponse.error(`Failed to update profile: ${error.message}`, 500);
     }
 
     return ApiResponse.success<UserProfile>(data as UserProfile);

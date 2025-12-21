@@ -73,6 +73,7 @@ export function AdsManagement() {
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
+  const [isLoadingCommunities, setIsLoadingCommunities] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
 
@@ -137,12 +138,17 @@ export function AdsManagement() {
   const loadCommunities = async (searchQuery: string) => {
     if (!searchQuery || searchQuery.trim().length < 2) {
       setCommunities([]);
+      setIsLoadingCommunities(false);
       return;
     }
 
     try {
-      // Only fetch communities when user types (search-based)
-      const response = await fetch(`/api/communities?page=1&pageSize=50&search=${encodeURIComponent(searchQuery)}`);
+      setIsLoadingCommunities(true);
+      
+      // API uses limit/offset, not page/pageSize
+      const limit = 50;
+      const offset = 0;
+      const response = await fetch(`/api/communities?limit=${limit}&offset=${offset}&search=${encodeURIComponent(searchQuery)}`);
         
       if (!response.ok) {
         console.error("Failed to load communities:", response.status, await response.text());
@@ -152,9 +158,9 @@ export function AdsManagement() {
       const result = await response.json();
       console.log("Communities API response:", result);
         
-      // API returns { success: true, data: [...], meta: {...} }
-      if (result.success && result.data && Array.isArray(result.data)) {
-        const pageCommunities = result.data.map((c: any) => ({
+      // API returns { communities: [...], total: number }
+      if (result.communities && Array.isArray(result.communities)) {
+        const pageCommunities = result.communities.map((c: any) => ({
           id: c.id,
           name: c.name,
         }));
@@ -168,6 +174,8 @@ export function AdsManagement() {
       console.error("Error loading communities:", error);
       toast.error("Failed to load communities list");
       setCommunities([]);
+    } finally {
+      setIsLoadingCommunities(false);
     }
   };
 
@@ -731,26 +739,33 @@ export function AdsManagement() {
                         )}
                       </div>
                     </div>
-                    <div className="max-h-[300px] overflow-y-auto">
+                    <div className="min-h-[300px] max-h-[300px] overflow-y-auto">
                       <SelectItem value="all" className="font-semibold">
                         🌐 All communities
                       </SelectItem>
-                      {communities.length > 0 ? (
+                      
+                      {isLoadingCommunities ? (
+                        <div className="px-2 py-8 text-center">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-violet-600" />
+                          <p className="text-sm text-gray-600 font-medium">Searching communities...</p>
+                          <p className="text-xs text-gray-400 mt-1">This may take a moment</p>
+                        </div>
+                      ) : communities.length > 0 ? (
                         communities.map((community) => (
                           <SelectItem key={community.id} value={community.id}>
                             {community.name}
                           </SelectItem>
                         ))
+                      ) : communitySearchQuery.trim().length >= 2 ? (
+                        <div className="px-2 py-8 text-center">
+                          <p className="text-sm text-gray-600 font-medium">No communities found</p>
+                          <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
+                        </div>
                       ) : (
-                        communitySearchQuery.trim().length >= 2 && (
-                          <div className="px-2 py-6 text-center text-sm text-gray-500">
-                            No communities found
-                          </div>
-                        )
-                      )}
-                      {communitySearchQuery.trim().length < 2 && (
-                        <div className="px-2 py-6 text-center text-sm text-gray-500">
-                          Type at least 2 characters to search communities
+                        <div className="px-2 py-8 text-center">
+                          <Search className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                          <p className="text-sm text-gray-600 font-medium">Search for a community</p>
+                          <p className="text-xs text-gray-400 mt-1">Type at least 2 characters</p>
                         </div>
                       )}
                     </div>

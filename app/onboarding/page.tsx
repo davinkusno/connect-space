@@ -101,14 +101,24 @@ export default function OnboardingPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to save onboarding data");
+        // Get detailed error message from API
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        console.error("Onboarding API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        throw new Error(errorData.error || errorData.message || "Failed to save onboarding data");
       }
 
+      const result = await response.json();
+      console.log("Onboarding success:", result);
+      
       toast.success("Welcome to ConnectSpace! 🎉");
-      router.push("/dashboard");
-    } catch (error) {
+      router.push("/communities");
+    } catch (error: any) {
       console.error("Onboarding error:", error);
-      toast.error("Failed to complete onboarding. Please try again.");
+      toast.error(error.message || "Failed to complete onboarding. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -229,7 +239,7 @@ export default function OnboardingPage() {
           {/* Footer Note */}
           <SmoothReveal delay={300}>
             <p className="text-center text-sm text-gray-500 mt-6">
-              You can always update your preferences later in settings
+              You can always update your preferences later in profile
             </p>
           </SmoothReveal>
         </div>

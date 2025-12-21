@@ -166,7 +166,7 @@ export class UserController extends BaseController {
 
   /**
    * POST /api/user/onboarding
-   * Complete user onboarding
+   * Complete user onboarding with interests and preferences
    * @param request - The incoming request
    * @returns NextResponse indicating success
    */
@@ -175,15 +175,48 @@ export class UserController extends BaseController {
   ): Promise<NextResponse<MessageResponse | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
+      const body = await request.json();
+      
+      console.log("[UserController] Onboarding request:", {
+        userId: user.id,
+        interests: body.interests,
+        location: body.location
+      });
+      
+      // Extract interests and location from request body
+      const { interests, location } = body;
+      
+      // Update user profile with interests and location if provided
+      if (interests && Array.isArray(interests) && interests.length > 0) {
+        console.log("[UserController] Updating profile with interests:", interests);
+        
+        const updateResult = await this.service.updateProfile(user.id, {
+          interests,
+          location: location || undefined,
+        });
+        
+        if (!updateResult.success) {
+          console.error("[UserController] Profile update failed:", updateResult.error);
+          return this.error(updateResult.error?.message || "Failed to update profile", updateResult.status);
+        }
+        
+        console.log("[UserController] Profile updated successfully");
+      }
+      
+      // Mark onboarding as complete
+      console.log("[UserController] Marking onboarding as complete");
       const result: ServiceResult<MessageResponse> = 
         await this.service.completeOnboarding(user.id);
 
       if (result.success) {
+        console.log("[UserController] Onboarding completed successfully");
         return this.json<MessageResponse>(result.data as MessageResponse, result.status);
       }
       
+      console.error("[UserController] Failed to complete onboarding:", result.error);
       return this.error(result.error?.message || "Failed to complete onboarding", result.status);
     } catch (error: unknown) {
+      console.error("[UserController] Onboarding error:", error);
       return this.handleError(error);
     }
   }
