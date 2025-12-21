@@ -25,8 +25,9 @@ import {
 import { InteractiveLeafletMap } from "@/components/ui/interactive-leaflet-map";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import {
-    ArrowLeft, Award, BookOpen, Calendar, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, Globe, MapPin, Sparkles, User2, Users, Video
+    ArrowLeft, Award, Bookmark, BookOpen, Calendar, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, Globe, Heart, Loader2, MapPin, Sparkles, User2, Users, Video
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -177,13 +178,9 @@ export default function EventDetailsPage({
         }
 
         // Fetch additional data in parallel
-        const [attendeesResult, relatedEventsResult, organizerEventsResult] = await Promise.all([
-          // Get registered attendee count
-          supabase
-            .from("event_attendees")
-            .select("id", { count: "exact", head: true })
-            .eq("event_id", id)
-            .eq("status", "going"),
+        const [attendeesCountResponse, relatedEventsResult, organizerEventsResult] = await Promise.all([
+          // Get registered attendee count from API (bypasses RLS)
+          fetch(`/api/events/${id}/attendees-count`).then(res => res.json()),
           
           // Get related events from the same community
           eventData.community_id
@@ -208,7 +205,8 @@ export default function EventDetailsPage({
             .limit(3)
         ]);
 
-        const registeredCount = attendeesResult.count || 0;
+        const registeredCount = attendeesCountResponse.count || 0;
+        console.log("[Event Detail] Attendees count from API:", registeredCount);
 
         // Check if current user is interested in this event using API (bypasses RLS)
         if (user) {
@@ -231,7 +229,7 @@ export default function EventDetailsPage({
             // Fallback to direct query
             const { data: userRsvp, error: rsvpCheckError } = await supabase
             .from("event_attendees")
-            .select("id, status")
+            .select("id")
             .eq("event_id", id)
             .eq("user_id", user.id)
             .maybeSingle();
@@ -301,8 +299,7 @@ export default function EventDetailsPage({
           const { data: attendeeData } = await supabase
             .from("event_attendees")
             .select("event_id")
-            .in("event_id", organizerEventIds)
-            .eq("status", "going");
+            .in("event_id", organizerEventIds);
           
           // Count attendees per event
           attendeeData?.forEach((a: any) => {
@@ -633,7 +630,7 @@ export default function EventDetailsPage({
         setTimeout(async () => {
           const { data: userRsvp, error: rsvpCheckError } = await supabase
             .from("event_attendees")
-            .select("id, status")
+            .select("id")
             .eq("event_id", event.id)
             .eq("user_id", user.id)
             .maybeSingle(); // Check for any status, not just "going" or "maybe"
@@ -928,7 +925,7 @@ export default function EventDetailsPage({
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center p-3 md:p-5 md:pl-8">
             {/* Left: Date & Title */}
-            <div className="hidden min-w-0 flex-1 flex-col gap-1 md:flex">
+            <div className="min-w-0 flex-1 flex-col gap-1 flex">
               <time className="text-xs uppercase leading-5 tracking-tight text-gray-500">
                 {formatDate(event.date) && `${formatDate(event.date)} · `}{formatTime(event.time)}
               </time>
@@ -937,83 +934,13 @@ export default function EventDetailsPage({
               </h2>
             </div>
 
-            {/* Right: Badges & Actions */}
-            <div className="ml-auto flex w-full items-center justify-between gap-2 md:w-auto md:justify-start">
-              {isAdmin ? (
-                <>
-                  {/* Admin Badge */}
-                  <div className="flex items-center gap-2 pl-3 sm:flex">
-                    <Badge className="bg-purple-100 text-purple-700 border-purple-200 px-3 py-1.5 text-sm font-medium rounded-full">
-                      <Award className="h-3 w-3 mr-1" />
-                      <span className="truncate px-0.5">Event Admin</span>
-                    </Badge>
-                  </div>
-                </>
-              ) : isRegistered ? (
-                <>
-                  {/* "Interested to join" Badge - Left side */}
-                  <div className="flex items-center gap-2 pl-3 sm:flex">
-                    <Badge className="bg-green-100 text-green-700 border-green-200 px-3 py-1.5 text-sm font-medium rounded-full">
-                      <Check className="h-3 w-3 mr-1" />
-                      <span className="truncate px-0.5">Interested to join</span>
-                    </Badge>
-                  </div>
-
-                  {/* Save Button - Right side (always visible) */}
-                  <div className="flex flex-1 items-center gap-2 sm:flex-initial">
-                    <div className="flex w-full min-w-0 items-center gap-2">
-                      <Button
-                        className={isSaved 
-                          ? "border-violet-600 text-violet-600 bg-violet-50 hover:bg-violet-100 px-6 py-5 rounded-none flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          : "bg-violet-600 hover:bg-violet-700 text-white px-6 py-5 rounded-none flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        }
-                        onClick={handleSaveEvent}
-                        disabled={isCheckingAuth || isSaving}
-                        variant={isSaved ? "outline" : "default"}
-                      >
-                        <span className="truncate">
-                          {isSaving 
-                            ? (isSaved ? "Unsaving..." : "Saving...")
-                            : isSaved 
-                            ? "Saved" 
-                            : "Save"}
-                        </span>
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Badges */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col gap-2 md:flex-row">
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-1 items-center gap-2 sm:flex-initial">
-                    <div className="flex w-full min-w-0 items-center gap-2">
-                      {/* Save Button - Replaces Interested to join */}
-                      <Button
-                        className={isSaved 
-                          ? "border-violet-600 text-violet-600 bg-violet-50 hover:bg-violet-100 px-6 py-5 rounded-none flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          : "bg-violet-600 hover:bg-violet-700 text-white px-6 py-5 rounded-none flex-1 min-w-0 sm:w-auto sm:flex-initial sm:min-w-max shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        }
-                        onClick={handleSaveEvent}
-                        disabled={isCheckingAuth || isSaving}
-                        variant={isSaved ? "outline" : "default"}
-                      >
-                        <span className="truncate">
-                          {isSaving 
-                            ? (isSaved ? "Unsaving..." : "Saving...")
-                            : isSaved 
-                            ? "Saved" 
-                            : "Save"}
-                        </span>
-                      </Button>
-                    </div>
-                  </div>
-                </>
+            {/* Right: Simple Badge (No duplicate buttons) */}
+            <div className="ml-auto flex items-center gap-2">
+              {isAdmin && (
+                <Badge className="bg-purple-100 text-purple-700 border-purple-200 px-3 py-1.5 text-sm font-medium rounded-full">
+                  <Award className="h-3 w-3 mr-1" />
+                  <span className="truncate px-0.5">Event Admin</span>
+                </Badge>
               )}
             </div>
           </div>
@@ -1023,25 +950,58 @@ export default function EventDetailsPage({
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="space-y-6">
-          {/* Interested to Join Button - Above Tabs */}
+          {/* Action Buttons - Above Tabs */}
           {!isAdmin && (
-            <div className="flex items-center">
+            <div className="flex items-center gap-3">
+              {/* Interested Button */}
               <Button
                 className={isRegistered 
-                  ? "border-violet-600 text-violet-600 bg-violet-50 hover:bg-violet-100 px-6 py-5 rounded-none shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  : "bg-violet-600 hover:bg-violet-700 text-white px-6 py-5 rounded-none shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  ? "border-violet-600 text-violet-600 bg-violet-50 hover:bg-violet-100"
+                  : "bg-violet-600 hover:bg-violet-700 text-white"
                 }
-                onClick={handleInterestedClick}
+                onClick={isRegistered ? () => setIsRemoveInterestDialogOpen(true) : handleInterestedClick}
                 disabled={isCheckingAuth}
                 variant={isRegistered ? "outline" : "default"}
               >
-                <span className="truncate">
-                  {isCheckingAuth 
-                    ? "Loading..." 
-                    : isRegistered 
-                    ? "You're interested" 
-                    : "Interested to join"}
-                </span>
+                {isCheckingAuth ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : isRegistered ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    You're interested
+                  </>
+                ) : (
+                  <>
+                    <Heart className="h-4 w-4 mr-2" />
+                    Interested to join
+                  </>
+                )}
+              </Button>
+              
+              {/* Save Button */}
+              <Button
+                className={isSaved 
+                  ? "border-violet-600 text-violet-600 bg-violet-50 hover:bg-violet-100"
+                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                }
+                onClick={handleSaveEvent}
+                disabled={isCheckingAuth || isSaving}
+                variant="outline"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {isSaved ? "Unsaving..." : "Saving..."}
+                  </>
+                ) : (
+                  <>
+                    <Bookmark className={cn("h-4 w-4 mr-2", isSaved && "fill-current")} />
+                    {isSaved ? "Saved" : "Save Event"}
+                  </>
+                )}
               </Button>
             </div>
           )}

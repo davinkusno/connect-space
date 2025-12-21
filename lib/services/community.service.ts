@@ -1399,6 +1399,159 @@ export class CommunityService extends BaseService {
       return ApiResponse.error("Failed to check community creation permission", 500);
     }
   }
+
+  /**
+   * Get detailed community information by ID
+   * Includes member count, event count, and membership status
+   */
+  public async getCommunityDetails(
+    communityId: string,
+    userId?: string
+  ): Promise<ServiceResult<any>> {
+    // Fetch basic community data
+    const { data: community, error: communityError } = await this.supabaseAdmin
+      .from("communities")
+      .select(`
+        *,
+        creator:creator_id(id, username, avatar_url)
+      `)
+      .eq("id", communityId)
+      .single();
+
+    if (communityError) {
+      return ApiResponse.notFound("Community");
+    }
+
+    // Get counts in parallel
+    const [memberCountResult, eventCountResult, membershipResult] = await Promise.all([
+      // Member count
+      this.supabaseAdmin
+        .from("community_members")
+        .select("id", { count: "exact", head: true })
+        .eq("community_id", communityId)
+        .eq("status", "approved"),
+      
+      // Event count
+      this.supabaseAdmin
+        .from("events")
+        .select("id", { count: "exact", head: true })
+        .eq("community_id", communityId),
+      
+      // Check if user is a member (if userId provided)
+      userId
+        ? this.supabaseAdmin
+            .from("community_members")
+            .select("id")
+            .eq("community_id", communityId)
+            .eq("user_id", userId)
+            .eq("status", "approved")
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null })
+    ]);
+
+    return ApiResponse.success({
+      ...community,
+      member_count: memberCountResult.count || 0,
+      event_count: eventCountResult.count || 0,
+      is_member: !!membershipResult.data
+    });
+  }
+
+  /**
+   * Update community details
+   */
+  public async updateCommunity(
+    communityId: string,
+    userId: string,
+    data: {
+      name?: string;
+      description?: string;
+      category?: string;
+      location?: string;
+      logo_url?: string;
+      banner_url?: string;
+    }
+  ): Promise<ServiceResult<any>> {
+    // Check if user is creator or admin
+    const { data: community } = await this.supabaseAdmin
+      .from("communities")
+      .select("creator_id")
+      .eq("id", communityId)
+      .single();
+
+    if (!community) {
+      return ApiResponse.notFound("Community");
+    }
+
+    const isCreator = community.creator_id === userId;
+
+    // Check if user is admin
+    const { data: membership } = await this.supabaseAdmin
+      .from("community_members")
+      .select("role")
+      .eq("community_id", communityId)
+      .eq("user_id", userId)
+      .eq("status", "approved")
+      .maybeSingle();
+
+    const isAdmin = membership?.role === "admin";
+
+    if (!isCreator && !isAdmin) {
+      return ApiResponse.error("You don't have permission to update this community", 403);
+    }
+
+    // Update community
+    const { data: updatedCommunity, error: updateError } = await this.supabaseAdmin
+      .from("communities")
+      .update({
+        ...data,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", communityId)
+      .select()
+      .single();
+
+    if (updateError) {
+      return ApiResponse.error(`Failed to update community: ${updateError.message}`, 500);
+    }
+
+    return ApiResponse.success(updatedCommunity);
+  }
+
+  /**
+   * Delete a community (creator only)
+   */
+  public async deleteCommunity(
+    communityId: string,
+    userId: string
+  ): Promise<ServiceResult<{ deleted: boolean }>> {
+    // Check if user is the creator
+    const { data: community, error: fetchError } = await this.supabaseAdmin
+      .from("communities")
+      .select("creator_id")
+      .eq("id", communityId)
+      .single();
+
+    if (fetchError) {
+      return ApiResponse.notFound("Community");
+    }
+
+    if (community.creator_id !== userId) {
+      return ApiResponse.error("Only the community creator can delete the community", 403);
+    }
+
+    // Delete community (cascade should handle related records)
+    const { error: deleteError } = await this.supabaseAdmin
+      .from("communities")
+      .delete()
+      .eq("id", communityId);
+
+    if (deleteError) {
+      return ApiResponse.error(`Failed to delete community: ${deleteError.message}`, 500);
+    }
+
+    return ApiResponse.success({ deleted: true });
+  }
 }
 
 // Export singleton instance

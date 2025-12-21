@@ -413,6 +413,58 @@ export class EventController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * GET /api/events/[id]/attendees-count
+   * Get count of interested attendees for an event (public endpoint)
+   * @param request - The incoming request
+   * @param eventId - The event ID
+   * @returns NextResponse with attendees count
+   */
+  public async getAttendeesCount(
+    request: NextRequest,
+    eventId: string
+  ): Promise<NextResponse<{ count: number } | ApiErrorResponse>> {
+    try {
+      const result: ServiceResult<number> = await this.service.getAttendeesCount(eventId);
+      
+      if (result.success) {
+        return this.json<{ count: number }>({ count: result.data || 0 }, result.status);
+      }
+      
+      return this.error(result.error?.message || "Failed to get attendees count", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * DELETE /api/events/[id]
+   * Delete an event (community admin or creator only)
+   * @param request - The incoming request
+   * @param eventId - The event ID
+   * @returns NextResponse with deletion confirmation
+   */
+  public async deleteEvent(
+    request: NextRequest,
+    eventId: string
+  ): Promise<NextResponse<{ success: boolean; message: string } | ApiErrorResponse>> {
+    try {
+      const user = await this.requireAuth();
+      const result: ServiceResult<{ deleted: boolean; message: string }> = await this.service.deleteEvent(eventId, user.id);
+      
+      if (result.success) {
+        return this.json<{ success: boolean; message: string }>(
+          { success: true, message: result.data?.message || "Event deleted successfully" },
+          result.status
+        );
+      }
+      
+      return this.error(result.error?.message || "Failed to delete event", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

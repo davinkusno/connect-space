@@ -560,12 +560,11 @@ export default function EventDetailsPage({
         return;
       }
 
-      // Fetch attendees with status "going" (which means "Interested to join")
+      // Fetch attendees (interested users)
       const { data: attendeesData, error: attendeesError } = await supabase
         .from("event_attendees")
         .select("id, user_id, registered_at")
         .eq("event_id", eventId)
-        .eq("status", "going")
         .order("registered_at", { ascending: false });
 
       if (attendeesError) {

@@ -167,12 +167,9 @@ export interface EventAttendee {
   id: string;
   event_id: string;
   user_id: string;
-  status: AttendeeStatus;
   registered_at: string;
   user?: User;
 }
-
-export type AttendeeStatus = "going" | "interested" | "not_going";
 
 export interface SavedEvent {
   id: string;

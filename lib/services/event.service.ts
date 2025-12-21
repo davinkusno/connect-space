@@ -1,5 +1,5 @@
 import {
-    AttendeeStatus, EventAttendee, EventLocation
+    EventAttendee, EventLocation
 } from "@/lib/types";
 import {
     ApiResponse, BaseService, ServiceResult
@@ -50,7 +50,6 @@ interface SavedEventResult extends EventData {
 
 interface AttendeeRecord {
   event_id: string;
-  status: AttendeeStatus;
   registered_at: string;
 }
 
@@ -212,8 +211,7 @@ export class EventService extends BaseService {
       const { data: attendeesData } = await this.supabaseAdmin
         .from("event_attendees")
         .select("event_id")
-        .in("event_id", eventIds)
-        .eq("status", "going");
+        .in("event_id", eventIds);
 
       if (attendeesData) {
         attendeesData.forEach((att: { event_id: string }) => {
@@ -362,17 +360,16 @@ export class EventService extends BaseService {
     // Check for existing RSVP
     const { data: existingRsvp } = await this.supabaseAdmin
       .from("event_attendees")
-      .select("id, status")
+      .select("id")
       .eq("event_id", eventId)
       .eq("user_id", userId)
       .maybeSingle();
 
     if (existingRsvp) {
-      // Update existing RSVP
+      // Update existing RSVP timestamp
       const { error: updateError } = await this.supabaseAdmin
         .from("event_attendees")
         .update({
-          status: "going" as AttendeeStatus,
           registered_at: new Date().toISOString(),
         })
         .eq("id", existingRsvp.id);
@@ -393,7 +390,6 @@ export class EventService extends BaseService {
       .insert({
         event_id: eventId,
         user_id: userId,
-        status: "going" as AttendeeStatus,
         registered_at: new Date().toISOString(),
       });
 
@@ -403,7 +399,6 @@ export class EventService extends BaseService {
         const { error: updateError } = await this.supabaseAdmin
           .from("event_attendees")
           .update({
-            status: "going" as AttendeeStatus,
             registered_at: new Date().toISOString(),
           })
           .eq("event_id", eventId)
@@ -466,7 +461,7 @@ export class EventService extends BaseService {
   ): Promise<ServiceResult<InterestStatusResult>> {
     const { data, error } = await this.supabaseAdmin
       .from("event_attendees")
-      .select("id, status, registered_at")
+      .select("id, registered_at")
       .eq("event_id", eventId)
       .eq("user_id", userId)
       .maybeSingle();
@@ -476,7 +471,7 @@ export class EventService extends BaseService {
     }
 
     const result: InterestStatusResult = {
-      isInterested: !!data && data.status === "going",
+      isInterested: !!data,
       registeredAt: data?.registered_at || null,
     };
 
@@ -494,9 +489,8 @@ export class EventService extends BaseService {
     // Fetch attendee records
     const { data: attendeeRecords, error: attendeeError } = await this.supabaseAdmin
       .from("event_attendees")
-      .select("event_id, status, registered_at")
+      .select("event_id, registered_at")
       .eq("user_id", userId)
-      .eq("status", "going")
       .order("registered_at", { ascending: false });
 
     if (attendeeError) {
@@ -1054,6 +1048,90 @@ export class EventService extends BaseService {
     }
 
     return ApiResponse.success(updatedEvent as EventData);
+  }
+
+  /**
+   * Get the count of interested attendees for an event
+   * @param eventId - The event ID
+   * @returns ServiceResult with attendees count
+   */
+  public async getAttendeesCount(eventId: string): Promise<ServiceResult<number>> {
+    const { count, error } = await this.supabaseAdmin
+      .from("event_attendees")
+      .select("id", { count: "exact", head: true })
+      .eq("event_id", eventId);
+
+    if (error) {
+      return ApiResponse.error(`Failed to get attendees count: ${error.message}`, 500);
+    }
+
+    return ApiResponse.success(count || 0);
+  }
+
+  /**
+   * Delete an event (admin or creator only)
+   * @param eventId - The event ID
+   * @param userId - The user ID requesting deletion
+   * @returns ServiceResult with deletion confirmation
+   */
+  public async deleteEvent(eventId: string, userId: string): Promise<ServiceResult<{ deleted: boolean; message: string }>> {
+    // Fetch existing event to verify ownership
+    const { data: existingEvent, error: fetchError } = await this.supabaseAdmin
+      .from("events")
+      .select("id, community_id, creator_id")
+      .eq("id", eventId)
+      .single();
+
+    if (fetchError || !existingEvent) {
+      return ApiResponse.notFound("Event");
+    }
+
+    // Verify user is admin/creator of the community
+    const { data: community } = await this.supabaseAdmin
+      .from("communities")
+      .select("id, creator_id")
+      .eq("id", existingEvent.community_id)
+      .single();
+
+    if (!community) {
+      return ApiResponse.notFound("Community");
+    }
+
+    // Check if user is creator or admin
+    const isCreator = community.creator_id === userId;
+    const { data: membership } = await this.supabaseAdmin
+      .from("community_members")
+      .select("role")
+      .eq("community_id", existingEvent.community_id)
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .eq("status", "approved")
+      .maybeSingle();
+
+    if (!isCreator && !membership) {
+      return ApiResponse.error("You don't have permission to delete this event", 403);
+    }
+
+    // Delete related posts first (as safety measure, even if cascade is set)
+    await this.supabaseAdmin
+      .from("posts")
+      .delete()
+      .eq("event_id", eventId);
+
+    // Delete event (cascade will handle related records like event_attendees)
+    const { error: deleteError } = await this.supabaseAdmin
+      .from("events")
+      .delete()
+      .eq("id", eventId);
+
+    if (deleteError) {
+      return ApiResponse.error(`Failed to delete event: ${deleteError.message}`, 500);
+    }
+
+    return ApiResponse.success({
+      deleted: true,
+      message: "Event deleted successfully"
+    });
   }
 }
 

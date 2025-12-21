@@ -62,53 +62,43 @@ export const POINTS_EARNING = {
 export const POINT_TYPE_INFO = {
   community_joined: {
     points: POINTS_EARNING.COMMUNITY_JOINED,
-    label: 'Joined Community',
-    icon: '🏘️'
+    label: 'Joined Community'
   },
   community_created: {
     points: POINTS_EARNING.COMMUNITY_CREATED,
-    label: 'Created Community',
-    icon: '🎉'
+    label: 'Created Community'
   },
   post_created: {
     points: POINTS_EARNING.POST_CREATED,
-    label: 'Created Post',
-    icon: '📝'
+    label: 'Created Post'
   },
   post_liked: {
     points: POINTS_EARNING.POST_LIKED,
-    label: 'Post Liked',
-    icon: '❤️'
+    label: 'Post Liked'
   },
   event_created: {
     points: POINTS_EARNING.EVENT_CREATED,
-    label: 'Created Event',
-    icon: '📅'
+    label: 'Created Event'
   },
   event_joined: {
     points: POINTS_EARNING.EVENT_JOINED,
-    label: 'Joined Event',
-    icon: '✅'
+    label: 'Joined Event'
   },
   daily_active: {
     points: POINTS_EARNING.DAILY_ACTIVE,
-    label: 'Daily Activity',
-    icon: '⭐'
+    label: 'Daily Activity'
   },
   comment_created: {
     points: POINTS_EARNING.COMMENT_CREATED,
-    label: 'Created Comment',
-    icon: '💬'
+    label: 'Created Comment'
   },
   report_received: {
     points: 0,
-    label: 'Report Received',
-    icon: '⚠️'
+    label: 'Report Received'
   },
   report_resolved: {
     points: 0,
-    label: 'Report Resolved',
-    icon: '✓'
+    label: 'Report Resolved'
   }
 } as const;
 
@@ -117,13 +107,12 @@ export const POINT_TYPE_INFO = {
 /**
  * Get point information for a specific point type
  * @param pointType - The point type from database
- * @returns Point information including value, label, and icon
+ * @returns Point information including value and label
  */
 export function getPointInfo(pointType: string) {
   return POINT_TYPE_INFO[pointType as keyof typeof POINT_TYPE_INFO] || {
     points: 1,
-    label: pointType,
-    icon: '⭐'
+    label: pointType
   };
 }
 
@@ -134,9 +123,8 @@ export function getPointInfo(pointType: string) {
  */
 export function getPointEarningMessage(pointType: keyof typeof POINTS_EARNING): string {
   const points = POINTS_EARNING[pointType];
-  const info = getPointInfo(pointType.toLowerCase());
   
-  return `You'll receive ${points} ${points === 1 ? 'point' : 'points'} ${info.icon}`;
+  return `You'll receive ${points} ${points === 1 ? 'point' : 'points'}`;
 }
 
 

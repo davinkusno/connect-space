@@ -794,6 +794,106 @@ export class CommunityController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * GET /api/communities/[id]
+   * Get detailed community information
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @returns NextResponse with community details
+   */
+  public async getCommunityById(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      // Get user if authenticated (optional for this endpoint)
+      let userId: string | undefined;
+      try {
+        const user = await this.requireAuth();
+        userId = user.id;
+      } catch {
+        // User not authenticated - that's okay for viewing communities
+        userId = undefined;
+      }
+
+      const result = await this.service.getCommunityDetails(communityId, userId);
+
+      if (result.success) {
+        return this.json({ success: true, data: result.data }, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to fetch community", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * PATCH /api/communities/[id]
+   * Update community details (creator or admin only)
+   * @param request - The incoming request with update data
+   * @param communityId - The community ID
+   * @returns NextResponse with updated community
+   */
+  public async updateCommunityById(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const user = await this.requireAuth();
+      const body = await request.json();
+
+      // Validate update data
+      const allowedFields = ['name', 'description', 'category', 'location', 'logo_url', 'banner_url'];
+      const updateData: any = {};
+      
+      for (const field of allowedFields) {
+        if (body[field] !== undefined) {
+          updateData[field] = body[field];
+        }
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        return this.badRequest("No valid fields to update");
+      }
+
+      const result = await this.service.updateCommunity(communityId, user.id, updateData);
+
+      if (result.success) {
+        return this.json({ success: true, data: result.data }, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to update community", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * DELETE /api/communities/[id]
+   * Delete a community (creator only)
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @returns NextResponse with deletion confirmation
+   */
+  public async deleteCommunityById(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const user = await this.requireAuth();
+      const result = await this.service.deleteCommunity(communityId, user.id);
+
+      if (result.success) {
+        return this.json({ success: true, data: result.data }, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to delete community", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance
