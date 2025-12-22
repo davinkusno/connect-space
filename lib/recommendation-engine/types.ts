@@ -3,9 +3,10 @@ export interface User {
   interests: string[]
   location?: {
     lat: number
-    lng: number
+    lng: number 
     city: string
-    country: string
+    country?: string
+    placeId?: string // NEW: OpenStreetMap place_id for precise matching
   }
   demographics?: {
     age?: number
@@ -47,9 +48,10 @@ export interface Community {
   activityLevel: "low" | "medium" | "high"
   location?: {
     lat: number
-    lng: number
+    lng: number // Keep for backwards compatibility
     city: string
-    country: string
+    country?: string // Make optional for migration
+    placeId?: string // NEW: OpenStreetMap place_id for precise matching
   }
   createdAt: Date
   lastActivity: Date
@@ -117,14 +119,15 @@ export interface Event {
   creatorId: string
   location?: {
     lat: number
-    lng: number
+    lng: number // Keep for backwards compatibility
     city: string
-    address: string
+    address?: string // Make optional
     venue?: string
+    placeId?: string // NEW: OpenStreetMap place_id for precise matching
   }
   isOnline: boolean
   startTime: Date
-  endTime: Date
+  endTime: Date | null // Allow null
   maxAttendees: number | null
   currentAttendees: number
   createdAt: Date

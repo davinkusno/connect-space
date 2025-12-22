@@ -5,6 +5,7 @@ import { AnimatedCard } from "@/components/ui/animated-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,18 +14,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { LocationSearchResult, toStandardizedLocation } from "@/types/location";
 import {
-    AlertTriangle, Award, Calendar, Camera, Edit3, Mail,
+    AlertTriangle, Award, Calendar, Camera, Edit3, Eye, EyeOff, KeyRound, Mail,
     MapPin, Plus, Save, User, X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type React from "react";
 import { useEffect, useState } from "react";
 
-interface City {
-  id: string;
-  id_provinsi: string;
-  name: string;
+// Standardized location data stored in user_metadata
+interface UserLocationData {
+  city: string;           // City name in English
+  placeId: string;        // OpenStreetMap place_id
+  lat: number;            // Latitude
+  lon: number;            // Longitude
+  displayName: string;    // Full address in English
 }
 
 interface UserProfile {
@@ -35,8 +40,12 @@ interface UserProfile {
     avatar_url?: string;
     name?: string;
     username?: string;
+    location?: UserLocationData;  // NEW: Standardized location object
+    // Legacy fields (kept for backwards compatibility during migration)
     location_city?: string;
     location_city_name?: string;
+    location_lat?: string;
+    location_lon?: string;
     location_province?: string;
     interests?: string[];
   };
@@ -73,11 +82,23 @@ export default function ProfilePage() {
   ];
   
   // Location data
-  const [allCities, setAllCities] = useState<City[]>([]);
+  const [allCities, setAllCities] = useState<LocationSearchResult[]>([]);
   const [locationQuery, setLocationQuery] = useState("");
-  const [selectedLocation, setSelectedLocation] = useState<City | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<LocationSearchResult | null>(null);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
+  const [searchTimeoutId, setSearchTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  
+  // Password change state
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [authProvider, setAuthProvider] = useState<string>("email"); // "email" or "google"
 
   const router = useRouter();
   const supabase = getSupabaseBrowser();
@@ -96,6 +117,13 @@ export default function ProfilePage() {
         }
 
         setUser(session.user);
+
+        // Determine authentication provider
+        // OAuth users have app_metadata.provider or identities array
+        const provider = session.user.app_metadata?.provider || 
+                        session.user.identities?.[0]?.provider || 
+                        "email";
+        setAuthProvider(provider);
 
         // Load user profile data from metadata
         const metadata = session.user.user_metadata || {};
@@ -123,13 +151,27 @@ export default function ProfilePage() {
           setReportCount(0);
         }
         
-        // Load location from metadata
-        if (metadata.location_city) {
+        // Load location from metadata (support both new and legacy formats)
+        if (metadata.location) {
+          // NEW standardized format
+          const loc = metadata.location as UserLocationData;
+          setLocationQuery(loc.city);
+          setSelectedLocation({
+            id: loc.placeId,
+            name: loc.city,
+            display_name: loc.displayName,
+            lat: loc.lat.toString(),
+            lon: loc.lon.toString(),
+          });
+        } else if (metadata.location_city) {
+          // LEGACY format - still support during migration
           setLocationQuery(metadata.location_city_name || "");
           setSelectedLocation({
             id: metadata.location_city,
-            id_provinsi: metadata.location_province || "",
             name: metadata.location_city_name || "",
+            display_name: metadata.location_city_name || "",
+            lat: metadata.location_lat || "0",
+            lon: metadata.location_lon || "0",
           });
         }
       } catch (error) {
@@ -145,36 +187,36 @@ export default function ProfilePage() {
     };
 
     getUser();
-    fetchAllCities();
   }, [supabase.auth, router, toast]);
 
-  const fetchAllCities = async () => {
+  const searchCities = async (query: string) => {
+    if (!query || query.trim().length < 3) {
+      setAllCities([]);
+      setLoadingCities(false);
+      return;
+    }
+
     setLoadingCities(true);
+
     try {
-      // First, fetch all provinces
-      const provincesResponse = await fetch(
-        "https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json"
-      );
-      const provinces: Province[] = await provincesResponse.json();
-
-      // Then, fetch cities for all provinces
-      const allCitiesPromises = provinces.map((province) =>
-        fetch(
-          `https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${province.id}.json`
-        ).then((res) => res.json())
+      // Call our backend API for location search
+      const response = await fetch(
+        `/api/locations/search?q=${encodeURIComponent(query.trim())}`
       );
 
-      const citiesArrays = await Promise.all(allCitiesPromises);
-      const flattenedCities = citiesArrays.flat();
-      
-      setAllCities(flattenedCities);
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Location search error:", data.error || data.message);
+        setAllCities([]);
+        return;
+      }
+
+      // Controller returns { cities: [...], count: N }
+      setAllCities(data.cities || []);
     } catch (error) {
-      console.error("Error fetching cities:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load cities",
-        variant: "destructive",
-      });
+      console.error("Error searching cities:", error);
+      setAllCities([]);
     } finally {
       setLoadingCities(false);
     }
@@ -187,6 +229,24 @@ export default function ProfilePage() {
       .split(" ")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
+  };
+
+  // Debounced search for cities
+  const handleLocationQueryChange = (query: string) => {
+    setLocationQuery(query);
+    setShowLocationDropdown(true);
+
+    // Clear previous timeout
+    if (searchTimeoutId) {
+      clearTimeout(searchTimeoutId);
+    }
+
+    // Set new timeout for debounced search
+    const timeoutId = setTimeout(() => {
+      searchCities(query);
+    }, 500); // 500ms debounce
+
+    setSearchTimeoutId(timeoutId);
   };
 
   const handleSave = async () => {
@@ -214,14 +274,22 @@ export default function ProfilePage() {
         return;
       }
 
+      // Prepare user metadata with standardized location format
+      const locationData = selectedLocation
+        ? toStandardizedLocation(selectedLocation)
+        : undefined;
+
       // Update user metadata in Supabase
       const { error } = await supabase.auth.updateUser({
         data: {
           full_name: formData.fullName,
           username: formData.username,
+          location: locationData, // NEW standardized format
+          // Keep legacy fields for backwards compatibility during migration
           location_city: selectedLocation?.id || null,
           location_city_name: selectedLocation?.name || null,
-          location_province: selectedLocation?.id_provinsi || null,
+          location_lat: selectedLocation?.lat || null,
+          location_lon: selectedLocation?.lon || null,
           interests: formData.interests,
         },
       });
@@ -239,9 +307,11 @@ export default function ProfilePage() {
                 ...prev.user_metadata,
                 full_name: formData.fullName,
                 username: formData.username,
-                location_city: selectedLocation?.id || null,
-                location_city_name: selectedLocation?.name || null,
-                location_province: selectedLocation?.id_provinsi || null,
+                location: locationData,
+                location_city: selectedLocation?.id || undefined,
+                location_city_name: selectedLocation?.name || undefined,
+                location_lat: selectedLocation?.lat || undefined,
+                location_lon: selectedLocation?.lon || undefined,
                 interests: formData.interests,
               },
             }
@@ -279,13 +349,27 @@ export default function ProfilePage() {
       });
       // Points counts are fetched from API, not user metadata
       
-      // Reset location
-      if (user.user_metadata?.location_city) {
+      // Reset location (support both new and legacy formats)
+      if (user.user_metadata?.location) {
+        // NEW standardized format
+        const loc = user.user_metadata.location as UserLocationData;
+        setLocationQuery(loc.city);
+        setSelectedLocation({
+          id: loc.placeId,
+          name: loc.city,
+          display_name: loc.displayName,
+          lat: loc.lat.toString(),
+          lon: loc.lon.toString(),
+        });
+      } else if (user.user_metadata?.location_city) {
+        // LEGACY format
         setLocationQuery(user.user_metadata.location_city_name || "");
         setSelectedLocation({
           id: user.user_metadata.location_city,
-          id_provinsi: user.user_metadata.location_province || "",
           name: user.user_metadata.location_city_name || "",
+          display_name: user.user_metadata.location_city_name || "",
+          lat: user.user_metadata.location_lat || "0",
+          lon: user.user_metadata.location_lon || "0",
         });
       } else {
         setLocationQuery("");
@@ -548,6 +632,74 @@ export default function ProfilePage() {
       });
     } finally {
       setIsDeletingImage(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    // Validate passwords
+    if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all password fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      toast({
+        title: "Validation Error",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast({
+        title: "Validation Error",
+        description: "Passwords do not match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Password updated",
+        description: "Your password has been successfully changed.",
+      });
+
+      // Reset form and close dialog
+      setPasswordForm({
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+      setIsPasswordDialogOpen(false);
+    } catch (error) {
+      console.error("Error changing password:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to change password. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -883,6 +1035,159 @@ export default function ProfilePage() {
                           </Badge>
                         </div>
                       </div>
+
+                      {/* Password - Only show for email/password users */}
+                      {authProvider === "email" && (
+                        <div className="md:col-span-2 space-y-2">
+                          <Label className="text-sm font-semibold text-gray-700">
+                            Password
+                          </Label>
+                          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <KeyRound className="h-5 w-5 text-purple-600" />
+                              </div>
+                              <span className="text-gray-900 font-medium">
+                                ••••••••
+                              </span>
+                            </div>
+                            <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                                >
+                                  Change Password
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-md">
+                                <DialogHeader>
+                                  <DialogTitle className="flex items-center gap-2">
+                                    <KeyRound className="h-5 w-5 text-purple-600" />
+                                    Change Password
+                                  </DialogTitle>
+                                  <DialogDescription>
+                                    Enter your new password below. Make sure it's at least 6 characters long.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="newPassword">New Password</Label>
+                                    <div className="relative">
+                                      <Input
+                                        id="newPassword"
+                                        type={showNewPassword ? "text" : "password"}
+                                        value={passwordForm.newPassword}
+                                        onChange={(e) =>
+                                          setPasswordForm({
+                                            ...passwordForm,
+                                            newPassword: e.target.value,
+                                          })
+                                        }
+                                        placeholder="Enter new password"
+                                        className="pr-10"
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                        onClick={() => setShowNewPassword(!showNewPassword)}
+                                      >
+                                        {showNewPassword ? (
+                                          <EyeOff className="h-4 w-4 text-gray-500" />
+                                        ) : (
+                                          <Eye className="h-4 w-4 text-gray-500" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                                    <div className="relative">
+                                      <Input
+                                        id="confirmPassword"
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        value={passwordForm.confirmPassword}
+                                        onChange={(e) =>
+                                          setPasswordForm({
+                                            ...passwordForm,
+                                            confirmPassword: e.target.value,
+                                          })
+                                        }
+                                        placeholder="Confirm new password"
+                                        className="pr-10"
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                      >
+                                        {showConfirmPassword ? (
+                                          <EyeOff className="h-4 w-4 text-gray-500" />
+                                        ) : (
+                                          <Eye className="h-4 w-4 text-gray-500" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                                <DialogFooter>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setPasswordForm({
+                                        newPassword: "",
+                                        confirmPassword: "",
+                                      });
+                                      setShowNewPassword(false);
+                                      setShowConfirmPassword(false);
+                                      setIsPasswordDialogOpen(false);
+                                    }}
+                                    disabled={isChangingPassword}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    onClick={handleChangePassword}
+                                    disabled={isChangingPassword}
+                                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                                  >
+                                    {isChangingPassword ? "Changing..." : "Change Password"}
+                                  </Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* OAuth Provider Info - Show for Google users */}
+                      {authProvider !== "email" && (
+                        <div className="md:col-span-2 space-y-2">
+                          <Label className="text-sm font-semibold text-gray-700">
+                            Authentication Method
+                          </Label>
+                          <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200">
+                            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                              <KeyRound className="h-5 w-5 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <span className="text-gray-900 font-medium">
+                                Signed in with Google
+                              </span>
+                              <p className="text-xs text-gray-600 mt-1">
+                                Your password is managed by Google. To change it, please visit your Google Account settings.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -909,13 +1214,15 @@ export default function ProfilePage() {
                             <Input
                               id="location"
                               value={locationQuery}
-                              onChange={(e) => {
-                                setLocationQuery(e.target.value);
+                              onChange={(e) => handleLocationQueryChange(e.target.value)}
+                              onFocus={() => {
                                 setShowLocationDropdown(true);
+                                if (locationQuery.length >= 3) {
+                                  searchCities(locationQuery);
+                                }
                               }}
-                              onFocus={() => setShowLocationDropdown(true)}
-                              onBlur={() => setTimeout(() => setShowLocationDropdown(false), 200)}
-                              placeholder="Search for your city..."
+                              onBlur={() => setTimeout(() => setShowLocationDropdown(false), 300)}
+                              placeholder="Type at least 3 characters to search..."
                               className="pl-12 h-12 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
                             />
                             {locationQuery && (
@@ -926,6 +1233,10 @@ export default function ProfilePage() {
                                 onClick={() => {
                                   setLocationQuery("");
                                   setSelectedLocation(null);
+                                  setAllCities([]);
+                                  if (searchTimeoutId) {
+                                    clearTimeout(searchTimeoutId);
+                                  }
                                 }}
                               >
                                 <X className="h-4 w-4" />
@@ -933,52 +1244,49 @@ export default function ProfilePage() {
                             )}
                             
                             {/* Search Results Dropdown */}
-                            {showLocationDropdown && locationQuery && (
+                            {showLocationDropdown && locationQuery.length >= 3 && (
                               <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
                                 {loadingCities ? (
                                   <div className="p-4 text-center text-gray-500">
-                                    Loading cities...
+                                    <div className="inline-block h-5 w-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mr-2" />
+                                    Searching...
                                   </div>
-                                ) : (
+                                ) : allCities.length > 0 ? (
                                   <>
-                                    {allCities
-                                      .filter((city) =>
-                                        city.name
-                                          .toLowerCase()
-                                          .includes(locationQuery.toLowerCase())
-                                      )
-                                      .slice(0, 10)
-                                      .map((city) => (
-                                        <button
-                                          key={city.id}
-                                          type="button"
-                                          onClick={() => {
-                                            setSelectedLocation(city);
-                                            setLocationQuery(toTitleCase(city.name));
-                                            setShowLocationDropdown(false);
-                                          }}
-                                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors duration-200 border-b border-gray-100 last:border-0"
-                                        >
-                                          <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                                          <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-gray-900">
-                                              {toTitleCase(city.name)}
-                                            </div>
+                                    {allCities.map((city) => (
+                                      <button
+                                        key={city.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedLocation(city);
+                                          setLocationQuery(city.name);
+                                          setShowLocationDropdown(false);
+                                        }}
+                                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors duration-200 border-b border-gray-100 last:border-0"
+                                      >
+                                        <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-medium text-gray-900 truncate">
+                                            {city.name}
                                           </div>
-                                        </button>
-                                      ))}
-                                    {allCities.filter((city) =>
-                                      city.name
-                                        .toLowerCase()
-                                        .includes(locationQuery.toLowerCase())
-                                    ).length === 0 && (
-                                      <div className="p-4 text-center text-gray-500">
-                                        No cities found
-                                      </div>
-                                    )}
+                                          <div className="text-xs text-gray-500 truncate">
+                                            {city.display_name}
+                                          </div>
+                                        </div>
+                                      </button>
+                                    ))}
                                   </>
-                                )}
+                                ) : locationQuery.length >= 3 && !loadingCities ? (
+                                  <div className="p-4 text-center text-gray-500">
+                                    No cities found. Try a different search.
+                                  </div>
+                                ) : null}
                               </div>
+                            )}
+                            {locationQuery.length > 0 && locationQuery.length < 3 && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Type at least 3 characters to search
+                              </p>
                             )}
                           </div>
                         ) : (
@@ -987,9 +1295,7 @@ export default function ProfilePage() {
                               <MapPin className="h-5 w-5 text-orange-600" />
                             </div>
                             <span className="text-gray-900 font-medium">
-                              {selectedLocation
-                                ? toTitleCase(selectedLocation.name)
-                                : "Not provided"}
+                              {selectedLocation?.name || "Not provided"}
                             </span>
                           </div>
                         )}

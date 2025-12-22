@@ -7,11 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LocationPicker } from "@/components/ui/location-picker";
+import { LocationPickerStandardized } from "@/components/ui/location-picker-standardized";
 import { PageTransition } from "@/components/ui/page-transition";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { Textarea } from "@/components/ui/textarea";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { StandardizedLocation } from "@/types/location";
 import { ArrowLeft, Calendar, Clock, FileText, Globe, Loader2, Map, MapPin, RefreshCw, Sparkles, Upload, Users, Wand2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,17 +29,7 @@ export default function CreateEventPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [useMapPicker, setUseMapPicker] = useState(true);
-  const [locationData, setLocationData] = useState<{
-    address: string;
-    city?: string;
-    lat: number | null;
-    lng: number | null;
-  }>({
-    address: "",
-    city: "",
-    lat: null,
-    lng: null,
-  });
+  const [locationData, setLocationData] = useState<StandardizedLocation | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -60,14 +51,9 @@ export default function CreateEventPage() {
   }, [communityId]);
 
   // Memoize location change handler to prevent map re-initialization
-  const handleLocationChange = useCallback((location: {
-    address: string;
-    city?: string;
-    lat: number | null;
-    lng: number | null;
-  }) => {
+  const handleLocationChange = useCallback((location: StandardizedLocation) => {
     setLocationData(location);
-    setFormData((prev) => ({ ...prev, location: location.address }));
+    setFormData((prev) => ({ ...prev, location: location.displayName }));
   }, []);
 
 
@@ -177,14 +163,21 @@ export default function CreateEventPage() {
     setIsSubmitting(true);
 
     try {
-      // Prepare location data with city for searchability
+      // Prepare location data with standardized format
       let locationPayload = formData.location;
-      if (!formData.is_online && locationData.address) {
+      if (!formData.is_online && locationData) {
         locationPayload = JSON.stringify({
-          address: locationData.address,
-          city: locationData.city || "",
-          lat: locationData.lat || 0,
-          lng: locationData.lng || 0,
+          // NEW standardized format
+          city: locationData.city,
+          placeId: locationData.placeId,
+          lat: locationData.lat,
+          lon: locationData.lon, // NOT lng!
+          displayName: locationData.displayName,
+          fullAddress: locationData.fullAddress || locationData.displayName,
+          country: locationData.country,
+          // Legacy format (for backwards compatibility)
+          address: locationData.displayName,
+          lng: locationData.lon, // Keep for legacy
         });
       }
 
@@ -601,27 +594,12 @@ export default function CreateEventPage() {
 
                   {useMapPicker ? (
                     <div className="space-y-3">
-                      <LocationPicker
-                        value={locationData.address ? locationData : undefined}
+                      <LocationPickerStandardized
+                        value={locationData || undefined}
                         onChange={handleLocationChange}
                         locationType="physical"
                         required={true}
                       />
-                        {locationData.city && (
-                          <div className="flex items-center gap-2 p-3 bg-violet-50 rounded-lg border border-violet-200">
-                            <MapPin className="h-4 w-4 text-violet-600 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900">
-                                {locationData.city}
-                            </p>
-                              {locationData.lat && locationData.lng && (
-                            <p className="text-xs text-gray-600">
-                                  Coordinates: {locationData.lat.toFixed(4)}, {locationData.lng.toFixed(4)}
-                            </p>
-                              )}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -631,7 +609,15 @@ export default function CreateEventPage() {
                         value={formData.location}
                         onChange={(e) => {
                             handleInputChange("location", e.target.value);
-                            setLocationData({ address: e.target.value, city: e.target.value, lat: null, lng: null });
+                            // For manual input, create a simple standardized location
+                            setLocationData({
+                              city: e.target.value,
+                              placeId: "",
+                              lat: 0,
+                              lon: 0,
+                              displayName: e.target.value,
+                              fullAddress: e.target.value,
+                            });
                         }}
                           className="border-gray-200 focus:border-violet-300 focus:ring-violet-200 transition-colors duration-200"
                         required

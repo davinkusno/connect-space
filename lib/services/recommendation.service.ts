@@ -161,19 +161,21 @@ export class RecommendationService extends BaseService {
     const user: User = {
       id: userId,
       interests: profile.interests || [],
-      location: profile.location ? this.parseLocation(profile.location) : null,
+      location: profile.location ? this.parseLocationData(profile.location) : undefined,
       joinedCommunities: memberships?.map((m) => m.community_id) || [],
       attendedEvents: attendances?.map((a) => a.event_id) || [],
       interactions: interactions?.map((i) => ({
-        type: i.point_type,
+        type: i.point_type as any,
         targetId: i.related_id,
+        targetType: "community" as const, // Default type
         timestamp: new Date(i.created_at),
       })) || [],
       preferences: {
         preferredCategories: profile.interests || [],
-        preferredSize: "any",
+        communitySize: "any",
         maxDistance: 50,
       },
+      activityLevel: "medium",
     };
 
     return ApiResponse.success(user);
@@ -211,13 +213,14 @@ export class RecommendationService extends BaseService {
     const users: User[] = (profiles || []).map((profile) => ({
       id: profile.id,
       interests: profile.interests || [],
-      location: profile.location ? this.parseLocation(profile.location) : null,
+      location: profile.location ? this.parseLocationData(profile.location) : undefined,
       joinedCommunities: memberships?.filter((m) => m.user_id === profile.id).map((m) => m.community_id) || [],
       attendedEvents: attendances?.filter((a) => a.user_id === profile.id).map((a) => a.event_id) || [],
       interactions: [],
+      activityLevel: "medium",
       preferences: {
         preferredCategories: profile.interests || [],
-        preferredSize: "any",
+        communitySize: "any",
         maxDistance: 50,
       },
     }));
@@ -280,8 +283,15 @@ export class RecommendationService extends BaseService {
       .filter((c) => !userCommunityIds.includes(c.id))
       .map((c) => {
         const memberCount = memberCountMap.get(c.id) || 0;
-        const categoryData = c.category as { id: string; name: string } | null;
-        const categoryName = categoryData?.name?.toLowerCase() || "general";
+        const categoryData: any = c.category;
+        // Handle category as either object with name property or string
+        let categoryName = "general";
+        if (typeof categoryData === "object" && categoryData !== null && "name" in categoryData) {
+          categoryName = categoryData.name?.toLowerCase() || "general";
+        } else if (typeof categoryData === "string") {
+          categoryName = categoryData.toLowerCase();
+        }
+        
         return {
           id: c.id,
           name: c.name,
@@ -290,7 +300,7 @@ export class RecommendationService extends BaseService {
           tags: [],
           memberCount: memberCount,
           activityLevel: this.calculateActivityLevel(memberCount),
-          location: c.location ? this.parseLocation(c.location) : null,
+          location: c.location ? this.parseLocationData(c.location) : undefined,
           createdAt: new Date(c.created_at),
           lastActivity: new Date(c.created_at),
           growthRate: 0,
@@ -326,6 +336,7 @@ export class RecommendationService extends BaseService {
         max_attendees,
         is_online,
         community_id,
+        created_by,
         created_at,
         communities!inner(name)
       `)
@@ -348,7 +359,7 @@ export class RecommendationService extends BaseService {
     });
 
     const events: Event[] = (data || []).map((e) => {
-      const location = e.location ? this.parseLocation(e.location) : null;
+      const location = e.location ? this.parseLocationData(e.location) : undefined;
       return {
         id: e.id,
         title: e.title,
@@ -358,6 +369,7 @@ export class RecommendationService extends BaseService {
         contentTopics: [],
         communityId: e.community_id,
         communityName: (e.communities as any)?.name || "",
+        creatorId: e.created_by || "", // Add creatorId
         startTime: new Date(e.start_time),
         endTime: e.end_time ? new Date(e.end_time) : null,
         location: location,
@@ -394,32 +406,81 @@ export class RecommendationService extends BaseService {
 
   /**
    * Parse location from string or object
+   * Supports both new standardized format and legacy format
    */
-  private parseLocation(location: any): { lat: number; lng: number; city?: string } | null {
-    if (!location) return null;
+  private parseLocationData(location: any): { lat: number; lng: number; city: string; placeId?: string } | undefined {
+    if (!location) return undefined;
 
     if (typeof location === "string") {
       try {
         const parsed = JSON.parse(location);
+        
+        // NEW standardized format
+        if (parsed.placeId) {
+          return {
+            lat: parsed.lat || 0,
+            lng: parsed.lon || parsed.lng || 0, // Support both lon and lng
+            city: parsed.city || "Unknown",
+            placeId: parsed.placeId,
+          };
+        }
+        
+        // Legacy format
         return {
           lat: parsed.lat || 0,
-          lng: parsed.lng || 0,
-          city: parsed.city,
+          lng: parsed.lng || parsed.lon || 0, // Support both lng and lon
+          city: parsed.city || "Unknown",
         };
       } catch {
-        return null;
+        return undefined;
       }
     }
 
     if (typeof location === "object") {
+      // NEW standardized format
+      if (location.placeId) {
+        return {
+          lat: location.lat || 0,
+          lng: location.lon || location.lng || 0, // Support both lon and lng
+          city: location.city || "Unknown",
+          placeId: location.placeId,
+        };
+      }
+      
+      // Legacy format
       return {
         lat: location.lat || 0,
-        lng: location.lng || 0,
-        city: location.city,
+        lng: location.lng || location.lon || 0, // Support both lng and lon
+        city: location.city || "Unknown",
       };
     }
 
-    return null;
+    return undefined;
+  }
+
+  /**
+   * Check if two locations are in the same city
+   * Supports both placeId matching (most reliable) and city name matching
+   */
+  private isSameCity(
+    location1: { city?: string; placeId?: string } | null,
+    location2: { city?: string; placeId?: string } | null
+  ): boolean {
+    if (!location1 || !location2) return false;
+
+    // Primary: Compare place IDs (most reliable)
+    if (location1.placeId && location2.placeId) {
+      return location1.placeId === location2.placeId;
+    }
+
+    // Fallback: Compare normalized city names
+    if (location1.city && location2.city) {
+      const city1 = location1.city.toLowerCase().trim();
+      const city2 = location2.city.toLowerCase().trim();
+      return city1 === city2;
+    }
+
+    return false;
   }
 
   /**

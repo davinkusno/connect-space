@@ -1,6 +1,7 @@
 import { userService, UserService } from "@/lib/services";
 import { ServiceResult } from "@/lib/services/base.service";
 import { UserPointsSummary, UserType } from "@/lib/types";
+import { LocationSearchResult } from "@/types/location";
 import { User } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { ApiErrorResponse, BaseController, ForbiddenError } from "./base.controller";
@@ -32,6 +33,11 @@ interface RoleResponse {
 
 interface MessageResponse {
   message: string;
+}
+
+interface LocationSearchResponse {
+  cities: LocationSearchResult[];
+  count: number;
 }
 
 // ==================== User Controller Class ====================
@@ -243,6 +249,216 @@ export class UserController extends BaseController {
       });
     } catch (error: unknown) {
       return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/user/locations/search?q=query
+   * Search for cities worldwide for user profile
+   * @param request - The incoming request
+   * @returns NextResponse with cities list
+   */
+  public async searchLocations(
+    request: NextRequest
+  ): Promise<NextResponse<LocationSearchResponse | ApiErrorResponse>> {
+    try {
+      const searchParams = request.nextUrl.searchParams;
+      const query = searchParams.get("q");
+
+      // Validate query
+      if (!query || query.trim().length < 3) {
+        return this.error("Search query must be at least 3 characters", 400);
+      }
+
+      // Call external location API
+      const result = await this.searchFromNominatim(query.trim());
+
+      if (!result.success) {
+        return this.error(result.error || "Failed to search locations", 500);
+      }
+
+      return this.json<LocationSearchResponse>({
+        cities: result.data || [],
+        count: result.data?.length || 0,
+      });
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/user/locations/reverse?lat=X&lon=Y
+   * Reverse geocode coordinates to location for map clicks
+   * @param request - The incoming request
+   * @returns NextResponse with location data
+   */
+  public async reverseGeocodeLocation(
+    request: NextRequest
+  ): Promise<NextResponse<{ location: LocationSearchResult } | ApiErrorResponse>> {
+    try {
+      const searchParams = request.nextUrl.searchParams;
+      const lat = searchParams.get("lat");
+      const lon = searchParams.get("lon");
+
+      // Validate coordinates
+      if (!lat || !lon) {
+        return this.error("Latitude and longitude are required", 400);
+      }
+
+      const latNum = parseFloat(lat);
+      const lonNum = parseFloat(lon);
+
+      if (isNaN(latNum) || isNaN(lonNum)) {
+        return this.error("Invalid coordinates", 400);
+      }
+
+      // Call reverse geocoding
+      const result = await this.reverseGeocodeFromNominatim(latNum, lonNum);
+
+      if (!result.success) {
+        return this.error(result.error || "Failed to reverse geocode", 500);
+      }
+
+      return this.json<{ location: LocationSearchResult }>({
+        location: result.data!,
+      });
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Search cities from OpenStreetMap Nominatim API
+   * Private helper method for location search
+   * IMPORTANT: Always uses English (accept-language: en) for consistency
+   * @param query - Search query
+   * @returns Service result with cities
+   */
+  private async searchFromNominatim(
+    query: string
+  ): Promise<{ success: boolean; data?: LocationSearchResult[]; error?: string }> {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?` +
+          `q=${encodeURIComponent(query)}` +
+          `&format=json` +
+          `&limit=10` +
+          `&featuretype=city` +
+          `&addressdetails=1` +
+          `&accept-language=en`, // Force English for consistency
+        {
+          headers: {
+            "User-Agent": "ConnectSpace/1.0",
+            "Accept-Language": "en", // Double ensure English
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.error(`[UserController] Nominatim API error: ${response.status}`);
+        return {
+          success: false,
+          error: "External API error",
+        };
+      }
+
+      const data = await response.json();
+
+      // Transform Nominatim results to our standardized format
+      const cities: LocationSearchResult[] = data.map((item: any) => ({
+        id: item.place_id.toString(),
+        name:
+          item.address?.city ||
+          item.address?.town ||
+          item.address?.municipality ||
+          item.name,
+        display_name: item.display_name, // Will be in English
+        lat: item.lat,
+        lon: item.lon,
+      }));
+
+      return {
+        success: true,
+        data: cities,
+      };
+    } catch (error) {
+      console.error("[UserController] Error calling Nominatim:", error);
+      return {
+        success: false,
+        error: "Failed to fetch locations",
+      };
+    }
+  }
+
+  /**
+   * Reverse geocode coordinates to location
+   * Private helper method for map clicks
+   * IMPORTANT: Always uses English (accept-language: en) for consistency
+   * @param lat - Latitude
+   * @param lon - Longitude
+   * @returns Service result with location
+   */
+  private async reverseGeocodeFromNominatim(
+    lat: number,
+    lon: number
+  ): Promise<{ success: boolean; data?: LocationSearchResult; error?: string }> {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?` +
+          `format=json` +
+          `&lat=${lat}` +
+          `&lon=${lon}` +
+          `&addressdetails=1` +
+          `&accept-language=en`, // Force English for consistency
+        {
+          headers: {
+            "User-Agent": "ConnectSpace/1.0",
+            "Accept-Language": "en", // Double ensure English
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.error(`[UserController] Reverse geocoding error: ${response.status}`);
+        return {
+          success: false,
+          error: "Failed to reverse geocode",
+        };
+      }
+
+      const data = await response.json();
+
+      if (!data || !data.address) {
+        return {
+          success: false,
+          error: "No address found for coordinates",
+        };
+      }
+
+      // Transform to our standardized format
+      const location: LocationSearchResult = {
+        id: data.place_id.toString(),
+        name:
+          data.address.city ||
+          data.address.town ||
+          data.address.municipality ||
+          data.address.village ||
+          "Unknown",
+        display_name: data.display_name, // Will be in English
+        lat: data.lat,
+        lon: data.lon,
+      };
+
+      return {
+        success: true,
+        data: location,
+      };
+    } catch (error) {
+      console.error("[UserController] Error reverse geocoding:", error);
+      return {
+        success: false,
+        error: "Failed to reverse geocode",
+      };
     }
   }
 
