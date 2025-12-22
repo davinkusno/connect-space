@@ -31,7 +31,8 @@ interface CreateAdInput {
   image_url?: string;
   video_url?: string;
   link_url?: string;
-  community_id?: string;
+  community_id?: string; // Legacy: single community (deprecated)
+  community_ids?: string[]; // New: multiple communities
   start_date?: string;
   end_date?: string;
   is_active?: boolean;
@@ -43,6 +44,11 @@ interface AdWithCommunity extends AdData {
     name: string;
     logo_url?: string;
   };
+  communities?: Array<{
+    id: string;
+    name: string;
+    logo_url?: string;
+  }>;
 }
 
 interface AdsQueryOptions {
@@ -80,10 +86,16 @@ export class AdsService extends BaseService {
    * @param adId - The ad ID to fetch
    * @returns ServiceResult containing ad data or error
    */
-  public async getById(adId: string): Promise<ServiceResult<AdData>> {
+  public async getById(adId: string): Promise<ServiceResult<AdWithCommunity>> {
     const { data, error } = await this.supabaseAdmin
       .from("ads")
-      .select("*")
+      .select(`
+        *,
+        community:community_id (id, name, logo_url),
+        ad_communities (
+          community:communities (id, name, logo_url)
+        )
+      `)
       .eq("id", adId)
       .single();
 
@@ -91,7 +103,14 @@ export class AdsService extends BaseService {
       return ApiResponse.notFound("Ad");
     }
 
-    return ApiResponse.success<AdData>(data as AdData);
+    // Transform the data to flatten ad_communities
+    const communities = (data as any).ad_communities?.map((ac: any) => ac.community).filter(Boolean) || [];
+    delete (data as any).ad_communities;
+
+    return ApiResponse.success<AdWithCommunity>({
+      ...data,
+      communities,
+    } as AdWithCommunity);
   }
 
   /**
@@ -106,7 +125,10 @@ export class AdsService extends BaseService {
       .from("ads")
       .select(`
         *,
-        community:community_id (id, name, logo_url)
+        community:community_id (id, name, logo_url),
+        ad_communities!inner (
+          community:communities (id, name, logo_url)
+        )
       `)
       .order("created_at", { ascending: false });
 
@@ -141,9 +163,19 @@ export class AdsService extends BaseService {
       return ApiResponse.error(error.message || "Failed to fetch ads", 500);
     }
 
+    // Transform the data to flatten ad_communities
+    const transformedAds = (data || []).map((ad: any) => {
+      const communities = ad.ad_communities?.map((ac: any) => ac.community).filter(Boolean) || [];
+      delete ad.ad_communities;
+      return {
+        ...ad,
+        communities,
+      };
+    });
+
     // Filter by date ranges (start_date and end_date) in memory
     const now = new Date();
-    const filteredAds = (data || []).filter((ad: any) => {
+    const filteredAds = transformedAds.filter((ad: any) => {
       // If active_only is true, check dates
       if (options?.activeOnly) {
         // Check start_date - ad should be active if start_date is null OR start_date <= now
@@ -187,35 +219,65 @@ export class AdsService extends BaseService {
   public async create(
     userId: string, 
     input: CreateAdInput
-  ): Promise<ServiceResult<AdData>> {
+  ): Promise<ServiceResult<AdWithCommunity>> {
+    const { community_ids, ...adData } = input;
+    
     const insertData: Record<string, unknown> = {
-      title: input.title,
+      title: adData.title,
       created_by: userId,
-      is_active: input.is_active !== undefined ? input.is_active : true,
+      is_active: adData.is_active !== undefined ? adData.is_active : true,
       view_count: 0,
       click_count: 0,
     };
 
-    if (input.description) insertData.description = input.description;
-    if (input.image_url) insertData.image_url = input.image_url;
-    if (input.video_url) insertData.video_url = input.video_url;
-    if (input.link_url) insertData.link_url = input.link_url;
-    if (input.community_id) insertData.community_id = input.community_id;
-    if (input.start_date) insertData.start_date = input.start_date;
-    if (input.end_date) insertData.end_date = input.end_date;
+    if (adData.description) insertData.description = adData.description;
+    if (adData.image_url) insertData.image_url = adData.image_url;
+    if (adData.video_url) insertData.video_url = adData.video_url;
+    if (adData.link_url) insertData.link_url = adData.link_url;
+    if (adData.start_date) insertData.start_date = adData.start_date;
+    if (adData.end_date) insertData.end_date = adData.end_date;
+    
+    // Legacy support: if community_id provided, use it
+    if (adData.community_id) insertData.community_id = adData.community_id;
 
-    const { data, error } = await this.supabaseAdmin
+    const { data: ad, error: adError } = await this.supabaseAdmin
       .from("ads")
       .insert(insertData)
-      .select()
+      .select(`
+        *,
+        community:community_id (id, name, logo_url)
+      `)
       .single();
 
-    if (error) {
-      console.error("Error creating ad:", error);
-      return ApiResponse.error(error.message || "Failed to create ad", 500);
+    if (adError || !ad) {
+      console.error("Error creating ad:", adError);
+      return ApiResponse.error(adError?.message || "Failed to create ad", 500);
     }
 
-    return ApiResponse.created<AdData>(data as AdData);
+    // If community_ids provided, insert into junction table
+    if (community_ids && community_ids.length > 0) {
+      const adCommunities = community_ids.map(communityId => ({
+        ad_id: ad.id,
+        community_id: communityId
+      }));
+      
+      const { error: junctionError } = await this.supabaseAdmin
+        .from("ad_communities")
+        .insert(adCommunities);
+      
+      if (junctionError) {
+        console.error("Error creating ad-community relationships:", junctionError);
+        // Don't fail the whole operation, just log it
+      }
+    }
+
+    // Fetch the complete ad with communities
+    const result = await this.getById(ad.id);
+    if (result.success && result.data) {
+      return ApiResponse.created<AdWithCommunity>(result.data as AdWithCommunity);
+    }
+
+    return ApiResponse.created<AdWithCommunity>(ad as AdWithCommunity);
   }
 
   /**
@@ -251,25 +313,32 @@ export class AdsService extends BaseService {
   public async update(
     adId: string,
     input: Partial<CreateAdInput & { is_active?: boolean }>
-  ): Promise<ServiceResult<AdData>> {
+  ): Promise<ServiceResult<AdWithCommunity>> {
+    const { community_ids, ...restInput } = input;
+    
     // Map frontend fields to database fields
     const updateData: Record<string, unknown> = {};
     
-    if (input.title !== undefined) updateData.title = input.title;
-    if (input.description !== undefined) updateData.description = input.description || null;
-    if (input.image_url !== undefined) updateData.image_url = input.image_url;
-    if (input.video_url !== undefined) updateData.video_url = input.video_url || null;
-    if (input.link_url !== undefined) updateData.link_url = input.link_url || null;
-    if (input.community_id !== undefined) updateData.community_id = input.community_id || null;
-    if (input.start_date !== undefined) updateData.start_date = input.start_date || null;
-    if (input.end_date !== undefined) updateData.end_date = input.end_date || null;
-    if (input.is_active !== undefined) updateData.is_active = input.is_active;
+    if (restInput.title !== undefined) updateData.title = restInput.title;
+    if (restInput.description !== undefined) updateData.description = restInput.description || null;
+    if (restInput.image_url !== undefined) updateData.image_url = restInput.image_url;
+    if (restInput.video_url !== undefined) updateData.video_url = restInput.video_url || null;
+    if (restInput.link_url !== undefined) updateData.link_url = restInput.link_url || null;
+    if (restInput.start_date !== undefined) updateData.start_date = restInput.start_date || null;
+    if (restInput.end_date !== undefined) updateData.end_date = restInput.end_date || null;
+    if (restInput.is_active !== undefined) updateData.is_active = restInput.is_active;
+    
+    // Legacy support: if community_id provided, use it
+    if (restInput.community_id !== undefined) updateData.community_id = restInput.community_id || null;
 
     const { data, error } = await this.supabaseAdmin
       .from("ads")
       .update(updateData)
       .eq("id", adId)
-      .select()
+      .select(`
+        *,
+        community:community_id (id, name, logo_url)
+      `)
       .single();
 
     if (error) {
@@ -277,7 +346,39 @@ export class AdsService extends BaseService {
       return ApiResponse.error(error.message || "Failed to update ad", 500);
     }
 
-    return ApiResponse.success<AdData>(data as AdData);
+    // Update community relationships if provided
+    if (community_ids !== undefined) {
+      // Delete existing relationships
+      await this.supabaseAdmin
+        .from("ad_communities")
+        .delete()
+        .eq("ad_id", adId);
+      
+      // Insert new relationships
+      if (community_ids.length > 0) {
+        const adCommunities = community_ids.map(communityId => ({
+          ad_id: adId,
+          community_id: communityId
+        }));
+        
+        const { error: junctionError } = await this.supabaseAdmin
+          .from("ad_communities")
+          .insert(adCommunities);
+        
+        if (junctionError) {
+          console.error("Error updating ad-community relationships:", junctionError);
+          // Don't fail the whole operation, just log it
+        }
+      }
+    }
+
+    // Fetch the complete ad with communities
+    const result = await this.getById(adId);
+    if (result.success && result.data) {
+      return ApiResponse.success<AdWithCommunity>(result.data as AdWithCommunity);
+    }
+
+    return ApiResponse.success<AdWithCommunity>(data as AdWithCommunity);
   }
 
   /**

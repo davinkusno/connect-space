@@ -49,6 +49,11 @@ interface Ad {
   image_url: string;
   link_url?: string;
   community_id?: string;
+  community?: {
+    id: string;
+    name: string;
+    logo_url?: string;
+  } | null;
   placement: "sidebar" | "banner" | "inline";
   is_active: boolean;
   start_date?: string;
@@ -84,6 +89,7 @@ export function AdsManagement() {
     image_url: "",
     link_url: "",
     community_id: "",
+    community_ids: [] as string[], // NEW: Support multiple communities
     placement: "sidebar" as "sidebar" | "banner" | "inline",
     is_active: true,
     start_date: "",
@@ -100,12 +106,18 @@ export function AdsManagement() {
       if (communitySearchQuery.trim().length >= 2) {
         loadCommunities(communitySearchQuery);
       } else {
-        setCommunities([]);
+        // Clear search results but keep selected communities in state for badge display
+        setCommunities(prev => {
+          // Keep only communities that are currently selected
+          const selectedCommunityIds = formData.community_ids;
+          return prev.filter(c => selectedCommunityIds.includes(c.id));
+        });
+        setIsLoadingCommunities(false);
       }
     }, 300); // 300ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [communitySearchQuery]);
+  }, [communitySearchQuery, formData.community_ids]);
 
   const loadAds = async () => {
     try {
@@ -182,17 +194,38 @@ export function AdsManagement() {
   const handleOpenDialog = (ad?: Ad) => {
     if (ad) {
       setSelectedAd(ad);
+      
+      // Get community IDs from both sources
+      const communityIds: string[] = [];
+      if ((ad as any).communities && Array.isArray((ad as any).communities)) {
+        // New way: from ad_communities table
+        communityIds.push(...(ad as any).communities.map((c: any) => c.id));
+      } else if (ad.community_id) {
+        // Legacy way: from ads.community_id
+        communityIds.push(ad.community_id);
+      }
+      
       setFormData({
         title: ad.title,
         description: ad.description || "",
         image_url: ad.image_url,
         link_url: ad.link_url || "",
         community_id: ad.community_id || "",
+        community_ids: communityIds,
         placement: ad.placement,
         is_active: ad.is_active,
         start_date: ad.start_date ? ad.start_date.split("T")[0] : "",
         end_date: ad.end_date ? ad.end_date.split("T")[0] : "",
       });
+      
+      // Pre-populate communities state for badge display
+      const communityList: Array<{ id: string; name: string }> = [];
+      if ((ad as any).communities && Array.isArray((ad as any).communities)) {
+        communityList.push(...(ad as any).communities.map((c: any) => ({ id: c.id, name: c.name })));
+      } else if (ad.community_id && ad.community) {
+        communityList.push({ id: ad.community.id, name: ad.community.name });
+      }
+      setCommunities(communityList);
     } else {
       setSelectedAd(null);
       setFormData({
@@ -201,11 +234,13 @@ export function AdsManagement() {
         image_url: "",
         link_url: "",
         community_id: "",
+        community_ids: [],
         placement: "sidebar" as "sidebar" | "banner" | "inline",
         is_active: true,
         start_date: "",
         end_date: "",
       });
+      setCommunities([]);
     }
     setIsDialogOpen(true);
   };
@@ -220,6 +255,17 @@ export function AdsManagement() {
     if (!formData.title || !formData.image_url) {
       toast.error("Title and image URL are required");
       return;
+    }
+
+    // Validate date range
+    if (formData.start_date && formData.end_date) {
+      const startDate = new Date(formData.start_date);
+      const endDate = new Date(formData.end_date);
+      
+      if (endDate < startDate) {
+        toast.error("End date must be after start date");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -239,7 +285,10 @@ export function AdsManagement() {
         ...formData,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
-        community_id: formData.community_id || null,
+        // Send community_ids array to backend
+        community_ids: formData.community_ids.length > 0 ? formData.community_ids : null,
+        // Also send first community as community_id for legacy support
+        community_id: formData.community_ids.length > 0 ? formData.community_ids[0] : null,
       };
 
       const response = await fetch(url, {
@@ -262,11 +311,24 @@ export function AdsManagement() {
         throw new Error(errorMessage);
       }
 
+      // Get the updated/created ad from the response
+      const updatedAd = await response.json();
+
       toast.success(selectedAd ? "Ad updated successfully" : "Ad created successfully");
       handleCloseDialog();
-      loadAds();
+      
+      // Optimistically update the UI with the returned ad data (includes community)
+      if (selectedAd) {
+        // Update existing ad in the list
+        setAds((prevAds) => 
+          prevAds.map((ad) => ad.id === selectedAd.id ? updatedAd : ad)
+        );
+      } else {
+        // Add new ad to the beginning of the list
+        setAds((prevAds) => [updatedAd, ...prevAds]);
+      }
     } catch (error: any) {
-      console.error("Error saving ad:", error);
+      console.error("❌ Error saving ad:", error);
       toast.error(error.message || "Failed to save ad");
     } finally {
       setIsSubmitting(false);
@@ -532,47 +594,70 @@ export function AdsManagement() {
               {/* Content Section - Fixed structure */}
               <div className="flex flex-col flex-1 p-4">
                 {/* Title and Description - Fixed height area */}
-                <div className="mb-4 min-h-[60px]">
-                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-1 mb-2">
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-1 mb-2 min-h-[28px]">
                     {ad.title}
                   </h3>
-                  {ad.description ? (
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {ad.description}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-400 italic">
-                      No description
-                    </p>
-                  )}
+                  <div className="min-h-[40px]">
+                    {ad.description ? (
+                      <p className="text-sm text-gray-600 line-clamp-2">
+                        {ad.description}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">
+                        No description
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                {/* Metadata Section - Always present with fixed height */}
-                <div className="space-y-2 mb-4 min-h-[60px]">
-                  {ad.community_id ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-600 bg-blue-50 p-2 rounded-lg">
-                      <span className="font-medium">Target:</span>
-                      <span className="truncate">{communities.find((c) => c.id === ad.community_id)?.name || "Unknown community"}</span>
-                    </div>
-                  ) : (
-                    <div className="h-8"></div>
-                  )}
+                {/* Metadata Section - Fixed space for target and date */}
+                <div className="mb-4">
+                  {/* Target Communities - Fixed height with scroll */}
+                  <div className="min-h-[56px] max-h-[56px] mb-2">
+                    {(ad as any).communities && (ad as any).communities.length > 0 ? (
+                      <div className="flex flex-col gap-1 text-xs text-gray-600 bg-blue-50 p-2 rounded-lg h-full">
+                        <span className="font-medium flex-shrink-0">Target ({(ad as any).communities.length}):</span>
+                        <div className="flex flex-wrap gap-1 overflow-y-auto overflow-x-hidden" style={{ maxHeight: '32px' }}>
+                          {(ad as any).communities.map((community: any) => (
+                            <span key={community.id} className="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 text-blue-700 flex-shrink-0 text-[11px] whitespace-nowrap">
+                              {community.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : ad.community_id ? (
+                      <div className="flex items-center gap-2 text-xs text-gray-600 bg-blue-50 p-2 rounded-lg">
+                        <span className="font-medium">Target:</span>
+                        <span className="truncate">
+                          {ad.community?.name || "Specific Community"}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-gray-600 bg-green-50 p-2 rounded-lg">
+                        <span className="font-medium">🌐 All Communities</span>
+                      </div>
+                    )}
+                  </div>
                   
-                  {(ad.start_date || ad.end_date) ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <Calendar className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate">
-                        {ad.start_date && new Date(ad.start_date).toLocaleDateString()}
-                        {ad.start_date && ad.end_date && " - "}
-                        {ad.end_date && new Date(ad.end_date).toLocaleDateString()}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <Calendar className="h-3 w-3 flex-shrink-0" />
-                      <span>No date range</span>
-                    </div>
-                  )}
+                  {/* Date Range - Always visible */}
+                  <div>
+                    {(ad.start_date || ad.end_date) ? (
+                      <div className="flex items-center gap-2 text-xs text-gray-600">
+                        <Calendar className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">
+                          {ad.start_date && new Date(ad.start_date).toLocaleDateString()}
+                          {ad.start_date && ad.end_date && " - "}
+                          {ad.end_date && new Date(ad.end_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <Calendar className="h-3 w-3 flex-shrink-0" />
+                        <span>No date range</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Stats Section - Always present */}
@@ -698,64 +783,154 @@ export function AdsManagement() {
 
             <div>
                 <Label htmlFor="community_id">
-                  Target Community
+                  Target Communities
                   <span className="text-gray-500 text-xs ml-2 font-normal">
-                    (Leave as "All communities" to show on all community pages)
+                    (Select multiple communities or leave unchecked for all)
                   </span>
                 </Label>
-                <Select
-                  value={formData.community_id || "all"}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, community_id: value === "all" ? "" : value })
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a community or leave as 'All communities'" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <div className="sticky top-0 z-10 bg-white border-b p-2">
-                      <div className="relative">
-                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-                        <Input
-                          placeholder="Search communities..."
-                          value={communitySearchQuery}
-                          onChange={(e) => setCommunitySearchQuery(e.target.value)}
-                          className="pl-8 h-8 text-sm"
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        />
-                        {communitySearchQuery && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-1 top-0.5 h-7 w-7 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCommunitySearchQuery("");
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
+                
+                {/* Target Selection Mode */}
+                <div className="flex gap-4 mb-3 mt-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="targetMode"
+                      checked={formData.community_ids.length === 0}
+                      onChange={() => setFormData({ ...formData, community_ids: [] })}
+                      className="w-4 h-4 text-violet-600"
+                    />
+                    <span className="text-sm">🌐 All Communities</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="targetMode"
+                      checked={formData.community_ids.length > 0}
+                      onChange={() => {
+                        // Switch to specific mode but don't auto-select anything
+                        if (formData.community_ids.length === 0) {
+                          setFormData({ ...formData, community_ids: [] });
+                        }
+                      }}
+                      className="w-4 h-4 text-violet-600"
+                    />
+                    <span className="text-sm">🎯 Specific Communities</span>
+                  </label>
+                </div>
+
+                {/* Community Selection (only show if specific mode) */}
+                {formData.community_ids.length > 0 || formData.community_ids.length === 0 ? (
+                  <div className="border rounded-lg p-3 bg-gray-50">
+                    {/* Search */}
+                    <div className="relative mb-3">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search communities..."
+                        value={communitySearchQuery}
+                        onChange={(e) => setCommunitySearchQuery(e.target.value)}
+                        className="pl-8 h-9 text-sm bg-white"
+                      />
+                      {communitySearchQuery && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-1 top-0.5 h-7 w-7 p-0"
+                          onClick={() => setCommunitySearchQuery("")}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
-                    <div className="min-h-[300px] max-h-[300px] overflow-y-auto">
-                      <SelectItem value="all" className="font-semibold">
-                        🌐 All communities
-                      </SelectItem>
-                      
+
+                    {/* Selected Communities Display - Badges with X to remove */}
+                    {formData.community_ids.length > 0 && (
+                      <div className="mb-3 p-2 bg-violet-50 rounded-md border border-violet-200">
+                        <p className="text-xs font-medium text-violet-700 mb-2">
+                          Selected ({formData.community_ids.length}):
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {formData.community_ids.map((id) => {
+                            // Try to find community in search results first
+                            let community = communities.find((c) => c.id === id);
+                            
+                            // If not found in search results, check if editing an ad with community data
+                            if (!community && selectedAd) {
+                              // Check new format (communities array)
+                              if ((selectedAd as any).communities && Array.isArray((selectedAd as any).communities)) {
+                                const foundInArray = (selectedAd as any).communities.find((c: any) => c.id === id);
+                                if (foundInArray) {
+                                  community = {
+                                    id: foundInArray.id,
+                                    name: foundInArray.name,
+                                  };
+                                }
+                              }
+                              // Check legacy format (single community)
+                              if (!community && selectedAd.community_id === id && selectedAd.community) {
+                                community = {
+                                  id: selectedAd.community.id,
+                                  name: selectedAd.community.name,
+                                };
+                              }
+                            }
+                            
+                            return (
+                              <Badge
+                                key={id}
+                                variant="secondary"
+                                className="bg-violet-100 text-violet-700 hover:bg-violet-200 cursor-pointer"
+                                onClick={() => {
+                                  // Remove from selection
+                                  setFormData({
+                                    ...formData,
+                                    community_ids: formData.community_ids.filter((cid) => cid !== id),
+                                  });
+                                  // Also remove from communities state so it doesn't reappear in the list
+                                  setCommunities(prev => prev.filter(c => c.id !== id));
+                                }}
+                              >
+                                {community?.name || "Loading..."}
+                                <X className="ml-1 h-3 w-3" />
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Communities List - Click to Add */}
+                    <div className="max-h-[300px] overflow-y-auto border rounded-md bg-white">
                       {isLoadingCommunities ? (
                         <div className="px-2 py-8 text-center">
                           <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-violet-600" />
-                          <p className="text-sm text-gray-600 font-medium">Searching communities...</p>
-                          <p className="text-xs text-gray-400 mt-1">This may take a moment</p>
+                          <p className="text-sm text-gray-600 font-medium">Loading communities...</p>
                         </div>
                       ) : communities.length > 0 ? (
-                        communities.map((community) => (
-                          <SelectItem key={community.id} value={community.id}>
-                            {community.name}
-                          </SelectItem>
-                        ))
+                        <div>
+                          {communities
+                            .filter((community) => !formData.community_ids.includes(community.id))
+                            .map((community) => (
+                              <div
+                                key={community.id}
+                                onClick={() => {
+                                  // Add to array
+                                  setFormData({
+                                    ...formData,
+                                    community_ids: [...formData.community_ids, community.id],
+                                  });
+                                  // Add to communities state for badge display
+                                  setCommunities(prev => {
+                                    const exists = prev.find(c => c.id === community.id);
+                                    if (exists) return prev;
+                                    return [...prev, community];
+                                  });
+                                }}
+                                className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                              >
+                                <span className="text-sm flex-1">{community.name}</span>
+                              </div>
+                            ))}
+                        </div>
                       ) : communitySearchQuery.trim().length >= 2 ? (
                         <div className="px-2 py-8 text-center">
                           <p className="text-sm text-gray-600 font-medium">No communities found</p>
@@ -764,16 +939,23 @@ export function AdsManagement() {
                       ) : (
                         <div className="px-2 py-8 text-center">
                           <Search className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                          <p className="text-sm text-gray-600 font-medium">Search for a community</p>
+                          <p className="text-sm text-gray-600 font-medium">Search for communities</p>
                           <p className="text-xs text-gray-400 mt-1">Type at least 2 characters</p>
                         </div>
                       )}
                     </div>
-                  </SelectContent>
-                </Select>
-                {formData.community_id && (
-                  <p className="text-xs text-violet-600 mt-1 font-medium">
-                    ✓ This ad will only be shown on the selected community's page
+                  </div>
+                ) : null}
+
+                {formData.community_ids.length > 0 && (
+                  <p className="text-xs text-violet-600 mt-2 font-medium">
+                    ✓ This ad will be shown on {formData.community_ids.length} selected{" "}
+                    {formData.community_ids.length === 1 ? "community" : "communities"}
+                  </p>
+                )}
+                {formData.community_ids.length === 0 && (
+                  <p className="text-xs text-blue-600 mt-2 font-medium">
+                    🌐 This ad will be shown on all community pages
                   </p>
                 )}
             </div>
@@ -797,10 +979,16 @@ export function AdsManagement() {
                   id="end_date"
                   type="date"
                   value={formData.end_date}
+                  min={formData.start_date || undefined}
                   onChange={(e) =>
                     setFormData({ ...formData, end_date: e.target.value })
                   }
                 />
+                {formData.start_date && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Must be on or after start date
+                  </p>
+                )}
               </div>
             </div>
 
