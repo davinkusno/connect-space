@@ -54,6 +54,7 @@ interface ReportedMember {
 interface Report {
   id: string;
   target_id: string;
+  report_type: "member" | "event" | "thread" | "reply" | "community" | "post";
   reason: string;
   details: string | null;
   status: "pending" | "reviewing" | "resolved" | "dismissed";
@@ -62,7 +63,9 @@ interface Report {
   resolved_at: string | null;
   review_notes: string | null;
   reporter: Reporter;
-  reported_member: ReportedMember;
+  reported_member?: ReportedMember;
+  target_name?: string; // Generic name for the reported item
+  target_type_label?: string; // Human-readable type label
 }
 
 interface ReportsData {
@@ -215,6 +218,53 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
     return <AlertCircle className="w-4 h-4 text-orange-500" />;
   };
 
+  const getReportTypeBadge = (reportType: Report["report_type"]) => {
+    switch (reportType) {
+      case "member":
+        return (
+          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+            Member
+          </Badge>
+        );
+      case "event":
+        return (
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+            Event
+          </Badge>
+        );
+      case "thread":
+        return (
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            Thread
+          </Badge>
+        );
+      case "reply":
+        return (
+          <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+            Reply
+          </Badge>
+        );
+      case "community":
+        return (
+          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+            Community
+          </Badge>
+        );
+      case "post":
+        return (
+          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+            Post
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline">
+            {reportType}
+          </Badge>
+        );
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -237,9 +287,9 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Member Reports</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Reports</h2>
         <p className="text-gray-600 mt-1">
-          Review and manage reports about community members
+          Review and manage all reports in this community
         </p>
       </div>
 
@@ -336,21 +386,29 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
             >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between gap-4">
-                  {/* Left: Reported Member Info */}
+                  {/* Left: Reported Item Info */}
                   <div className="flex items-start gap-4 flex-1">
-                    <Avatar className="w-12 h-12">
-                      <AvatarImage src={report.reported_member.avatar_url || undefined} />
-                      <AvatarFallback>
-                        {report.reported_member.full_name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    {report.reported_member && (
+                      <Avatar className="w-12 h-12">
+                        <AvatarImage src={report.reported_member.avatar_url || undefined} />
+                        <AvatarFallback>
+                          {report.reported_member.full_name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {/* Report Type Badge */}
+                        {getReportTypeBadge(report.report_type)}
+                        
+                        {/* Reported Item Name */}
                         <h3 className="font-semibold text-gray-900">
-                          {report.reported_member.full_name}
+                          {report.reported_member?.full_name || report.target_name || "Unknown"}
                         </h3>
-                        {report.reported_member.report_count > 0 && (
+                        
+                        {/* Member-specific info */}
+                        {report.reported_member && report.reported_member.report_count > 0 && (
                           <Badge variant="destructive" className="text-xs">
                             <AlertTriangle className="w-3 h-3 mr-1" />
                             {report.reported_member.report_count}{" "}
@@ -361,25 +419,28 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                        <span className="truncate">{report.reported_member.email}</span>
-                        <span className="flex items-center gap-1">
-                          <TrendingUp className="w-4 h-4 text-green-600" />
-                          {report.reported_member.points_count} points
-                        </span>
-                        {report.reported_member.report_count > 0 && (
+                      {/* Member-specific details */}
+                      {report.reported_member && (
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                          <span className="truncate">{report.reported_member.email}</span>
                           <span className="flex items-center gap-1">
-                            <TrendingDown className="w-4 h-4 text-red-600" />
-                            {report.reported_member.report_count} reports
+                            <TrendingUp className="w-4 h-4 text-green-600" />
+                            {report.reported_member.points_count} points
                           </span>
-                        )}
-                      </div>
+                          {report.reported_member.report_count > 0 && (
+                            <span className="flex items-center gap-1">
+                              <TrendingDown className="w-4 h-4 text-red-600" />
+                              {report.reported_member.report_count} reports
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       <div className="flex items-start gap-2 mb-2">
                         {getReasonIcon(report.reason)}
                         <div className="flex-1">
                           <div className="font-medium text-gray-900">
-                            {report.reason}
+                            {getReportReasonLabel(report.reason)}
                           </div>
                           {report.details && (
                             <p className="text-sm text-gray-600 mt-1 line-clamp-2">
@@ -443,44 +504,66 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
 
           {selectedReport && (
             <div className="space-y-6">
-              {/* Reported Member Section */}
+              {/* Report Type & Status */}
+              <div className="flex items-center gap-3 border-b pb-4">
+                {getReportTypeBadge(selectedReport.report_type)}
+                {getStatusBadge(selectedReport.status)}
+              </div>
+
+              {/* Reported Item Section */}
               <div className="border-b pb-4">
-                <h3 className="font-semibold text-gray-900 mb-3">Reported Member</h3>
-                <div className="flex items-center gap-4">
-                  <Avatar className="w-16 h-16">
-                    <AvatarImage
-                      src={selectedReport.reported_member.avatar_url || undefined}
-                    />
-                    <AvatarFallback>
-                      {selectedReport.reported_member.full_name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-lg">
-                      {selectedReport.reported_member.full_name}
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      {selectedReport.reported_member.email}
-                    </p>
-                    <div className="flex items-center gap-4 mt-2">
-                      <Badge variant="outline" className="text-xs">
-                        <TrendingUp className="w-3 h-3 mr-1" />
-                        {selectedReport.reported_member.points_count} points
-                      </Badge>
-                      <Badge
-                        variant={
-                          selectedReport.reported_member.report_count > 0
-                            ? "destructive"
-                            : "outline"
-                        }
-                        className="text-xs"
-                      >
-                        <AlertTriangle className="w-3 h-3 mr-1" />
-                        {selectedReport.reported_member.report_count} reports
-                      </Badge>
+                <h3 className="font-semibold text-gray-900 mb-3">
+                  Reported {selectedReport.report_type === "member" ? "Member" : 
+                           selectedReport.report_type === "event" ? "Event" :
+                           selectedReport.report_type === "thread" ? "Thread" :
+                           selectedReport.report_type === "reply" ? "Reply" : "Item"}
+                </h3>
+                {selectedReport.reported_member ? (
+                  <div className="flex items-center gap-4">
+                    <Avatar className="w-16 h-16">
+                      <AvatarImage
+                        src={selectedReport.reported_member.avatar_url || undefined}
+                      />
+                      <AvatarFallback>
+                        {selectedReport.reported_member.full_name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-lg">
+                        {selectedReport.reported_member.full_name}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {selectedReport.reported_member.email}
+                      </p>
+                      <div className="flex items-center gap-4 mt-2">
+                        <Badge variant="outline" className="text-xs">
+                          <TrendingUp className="w-3 h-3 mr-1" />
+                          {selectedReport.reported_member.points_count} points
+                        </Badge>
+                        <Badge
+                          variant={
+                            selectedReport.reported_member.report_count > 0
+                              ? "destructive"
+                              : "outline"
+                          }
+                          className="text-xs"
+                        >
+                          <AlertTriangle className="w-3 h-3 mr-1" />
+                          {selectedReport.reported_member.report_count} reports
+                        </Badge>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-gray-700 font-medium">
+                      {selectedReport.target_name || "Unknown"}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      ID: {selectedReport.target_id}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Report Information */}

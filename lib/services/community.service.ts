@@ -621,6 +621,17 @@ export class CommunityService extends BaseService {
       return ApiResponse.error("Failed to update member role", 500);
     }
 
+    // Send notification to the user about role update
+    const { data: community } = await this.supabaseAdmin
+      .from("communities")
+      .select("name")
+      .eq("id", memberRecord.community_id)
+      .single();
+    
+    if (community) {
+      await notificationService.onRoleUpdated(memberRecord.user_id, memberRecord.community_id, community.name, role);
+    }
+
     return ApiResponse.success<ApproveResult>({ message: "Member role updated" });
   }
 
@@ -681,6 +692,17 @@ export class CommunityService extends BaseService {
 
     if (deleteError) {
       return ApiResponse.error("Failed to remove member", 500);
+    }
+
+    // Send notification to the user about being kicked
+    const { data: community } = await this.supabaseAdmin
+      .from("communities")
+      .select("name")
+      .eq("id", memberRecord.community_id)
+      .single();
+    
+    if (community) {
+      await notificationService.onMemberKicked(memberRecord.user_id, memberRecord.community_id, community.name);
     }
 
     return ApiResponse.success<ApproveResult>({ message: "Member removed successfully" });

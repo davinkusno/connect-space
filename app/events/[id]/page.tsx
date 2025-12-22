@@ -2,6 +2,7 @@
 
 import { AttendeesDialog } from "@/components/events/attendees-dialog";
 import { UpdateRsvpDialog } from "@/components/events/update-rsvp-dialog";
+import { ReportDialog } from "@/components/community/report-dialog";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -27,7 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
-    ArrowLeft, Award, Bookmark, BookOpen, Calendar, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, Globe, Heart, Loader2, MapPin, Sparkles, User2, Users, Video
+    AlertTriangle, ArrowLeft, Award, Bookmark, BookOpen, Calendar, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, Globe, Heart, Loader2, MapPin, Sparkles, User2, Users, Video
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -121,6 +122,7 @@ export default function EventDetailsPage({
   const [unsaveEventId, setUnsaveEventId] = useState<string | null>(null);
   const [isUnsaveDialogOpen, setIsUnsaveDialogOpen] = useState(false);
   const [isRemoveInterestDialogOpen, setIsRemoveInterestDialogOpen] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
 
   // Fetch event data from Supabase
   useEffect(() => {
@@ -1003,6 +1005,17 @@ export default function EventDetailsPage({
                   </>
                 )}
               </Button>
+              
+              {/* Report Button */}
+              <Button
+                className="border-red-200 hover:bg-red-50 text-red-600"
+                onClick={() => setIsReportDialogOpen(true)}
+                disabled={isCheckingAuth}
+                variant="outline"
+              >
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Report
+              </Button>
             </div>
           )}
 
@@ -1512,6 +1525,15 @@ export default function EventDetailsPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Report Event Dialog */}
+      <ReportDialog
+        isOpen={isReportDialogOpen}
+        onClose={() => setIsReportDialogOpen(false)}
+        reportType="event"
+        reportTargetId={event.id}
+        reportTargetName={event.title}
+      />
     </div>
   );
 }

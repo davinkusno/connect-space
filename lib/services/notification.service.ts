@@ -9,6 +9,8 @@ export type NotificationType =
   | "join_request"
   | "join_approved"
   | "join_rejected"
+  | "member_kicked"
+  | "role_updated"
   | "new_event"
   | "event_cancelled"
   | "event_interested"
@@ -381,6 +383,35 @@ export class NotificationService extends BaseService {
         "post"
       );
     }
+  }
+
+  /**
+   * Notify user when they are kicked from a community
+   */
+  public async onMemberKicked(userId: string, communityId: string, communityName: string): Promise<void> {
+    await this.create({
+      user_id: userId,
+      type: "member_kicked",
+      title: "Removed from Community",
+      content: `You have been removed from ${communityName}`,
+      reference_id: communityId,
+      reference_type: "community"
+    });
+  }
+
+  /**
+   * Notify user when their role is updated in a community
+   */
+  public async onRoleUpdated(userId: string, communityId: string, communityName: string, newRole: string): Promise<void> {
+    const roleLabel = newRole === "admin" ? "an admin" : newRole === "moderator" ? "a moderator" : "a member";
+    await this.create({
+      user_id: userId,
+      type: "role_updated",
+      title: "Role Updated",
+      content: `You have been appointed as ${roleLabel} in ${communityName}`,
+      reference_id: communityId,
+      reference_type: "community"
+    });
   }
 }
 

@@ -36,7 +36,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { getClientSession } from "@/lib/supabase/client";
 import {
-    Calendar, Edit, ExternalLink, Eye, Filter, Image as ImageIcon, Loader2, Megaphone, Plus, Search, Trash2, TrendingUp, X
+    Calendar, ChevronLeft, ChevronRight, Edit, ExternalLink, Eye, Filter, Image as ImageIcon, Loader2, Megaphone, Plus, Search, Trash2, TrendingUp, X
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
@@ -81,6 +81,10 @@ export function AdsManagement() {
   const [isLoadingCommunities, setIsLoadingCommunities] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(6); // 2x3 grid
 
   // Form state
   const [formData, setFormData] = useState({
@@ -384,6 +388,17 @@ export function AdsManagement() {
     });
   }, [ads, searchQuery, filterStatus]);
 
+  // Pagination calculation
+  const totalPages = Math.ceil(filteredAds.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedAds = filteredAds.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterStatus]);
+
   // Calculate stats
   const stats = useMemo(() => {
     const activeAds = ads.filter((ad) => ad.is_active).length;
@@ -532,8 +547,9 @@ export function AdsManagement() {
           </div>
         </AnimatedCard>
       ) : (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredAds.map((ad) => {
+          {paginatedAds.map((ad) => {
             // Determine border color based on ad status
             const getBorderColor = () => {
               if (ad.is_active) {
@@ -695,6 +711,77 @@ export function AdsManagement() {
             );
           })}
         </div>
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <AnimatedCard variant="glass" className="p-4 mt-6">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Showing {startIndex + 1}-{Math.min(endIndex, filteredAds.length)} of {filteredAds.length} ads
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="h-8"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    // Show first page, last page, current page, and pages around current
+                    const showPage = 
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1);
+                    
+                    const showEllipsis = 
+                      (page === 2 && currentPage > 3) ||
+                      (page === totalPages - 1 && currentPage < totalPages - 2);
+
+                    if (showEllipsis) {
+                      return (
+                        <span key={page} className="px-2 text-gray-400">
+                          ...
+                        </span>
+                      );
+                    }
+
+                    if (!showPage) return null;
+
+                    return (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                        className={`h-8 w-8 p-0 ${
+                          currentPage === page
+                            ? "bg-purple-600 text-white hover:bg-purple-700"
+                            : ""
+                        }`}
+                      >
+                        {page}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="h-8"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </AnimatedCard>
+        )}
+        </>
       )}
 
       {/* Create/Edit Dialog */}

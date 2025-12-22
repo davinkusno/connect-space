@@ -1349,9 +1349,9 @@ export default function CommunityAdminPage({
                             <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
                               <ShieldAlert className="w-5 h-5 text-red-600" />
                             </div>
-                            <h4 className="font-semibold text-gray-900">Member Reports</h4>
+                            <h4 className="font-semibold text-gray-900">Reports</h4>
                           </div>
-                          <p className="text-sm text-gray-600 mb-3">Review and manage reported members</p>
+                          <p className="text-sm text-gray-600 mb-3">Review and manage all reports</p>
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-gray-500">View all reports</span>
                             <ChevronRight className="w-4 h-4 text-purple-600 group-hover:translate-x-1 transition-transform" />

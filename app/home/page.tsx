@@ -1544,10 +1544,10 @@ export default function DashboardPage() {
                             <SelectValue placeholder="Sort by date" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="saved-date-desc">Saved Date (Newest)</SelectItem>
-                            <SelectItem value="saved-date-asc">Saved Date (Oldest)</SelectItem>
-                            <SelectItem value="event-date-asc">Event Date (Soonest)</SelectItem>
-                            <SelectItem value="event-date-desc">Event Date (Farthest)</SelectItem>
+                            <SelectItem value="saved-date-desc">Recently Saved</SelectItem>
+                            <SelectItem value="saved-date-asc">Oldest Saved</SelectItem>
+                            <SelectItem value="event-date-asc">Upcoming Event</SelectItem>
+                            <SelectItem value="event-date-desc">Past Event</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1627,13 +1627,14 @@ export default function DashboardPage() {
                                 <div className="flex items-center gap-1">
                                   <CalendarIcon className="h-3 w-3" />
                                   <span>
-                                    {new Date(event.start_time || event.date).toLocaleDateString(
-                                      "en-US",
-                                      {
+                                    {(() => {
+                                      const date = new Date(event.start_time || event.date);
+                                      return date.toLocaleDateString("en-US", {
                                         month: "short",
                                         day: "numeric",
-                                      }
-                                    )}
+                                        timeZone: "UTC"
+                                      });
+                                    })()}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-1">

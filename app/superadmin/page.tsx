@@ -15,12 +15,19 @@ import {
 } from "@/components/ui/dialog";
 import { FloatingElements } from "@/components/ui/floating-elements";
 import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/loading-indicators";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Activity, AlertTriangle, Award, Ban, Bell, CalendarDays, CheckCircle2, ChevronLeft,
-    ChevronRight, Clock, Crown, Eye, ExternalLink, FileText, Flame, Gift, Heart, Medal, Megaphone, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trophy, Users, XCircle
+    ChevronRight, Clock, Crown, Eye, ExternalLink, FileText, Filter, Flame, Gift, Heart, Medal, Megaphone, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trophy, Users, XCircle
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -976,34 +983,47 @@ export default function SuperadminPage() {
         const data = await response.json();
         
         // Transform API response to match expected UI structure
-        const transformedReports = (data.reports || []).map((report: any) => ({
-          id: report.id,
-          communityId: report.target_id,
-          communityName: report.reported_community?.name || report.reported_user?.full_name || report.reported_event?.title || "Unknown",
-          category: report.report_type,
-          reportCount: 1,
-          lastReportDate: report.created_at,
-          status: report.status,
-          communityStatus: report.status === "resolved" ? "active" : "active",
-          reports: [{
-            reportedBy: report.reporter?.id,
-            reporterName: report.reporter?.full_name || "Unknown",
-            reason: report.reason,
-            description: report.details || report.reason,
-            reportDate: report.created_at,
-          }],
-          communityDetails: {
-            memberCount: 0,
-            createdAt: report.created_at,
-            lastActivity: report.updated_at || report.created_at,
-            admin: {
-              name: report.reporter?.full_name || "Unknown",
-              email: report.reporter?.email || "unknown@example.com",
-            },
-          },
-          // Keep original data for reference
-          _originalReport: report,
-        }));
+        const transformedReports = (data.reports || []).map((report: any) => {
+          // Determine the display name based on report type
+          let displayName = "Unknown";
+          let reporterInfo = {
+            name: report.reporter?.full_name || "Anonymous",
+            email: report.reporter?.email || "N/A",
+          };
+
+          if (report.reported_community?.name) {
+            displayName = report.reported_community.name;
+          } else if (report.reported_user?.full_name) {
+            displayName = report.reported_user.full_name;
+          } else if (report.reported_event?.title) {
+            displayName = report.reported_event.title;
+          } else if (report.reported_thread?.content) {
+            displayName = report.reported_thread.content.substring(0, 50) + (report.reported_thread.content.length > 50 ? "..." : "");
+          } else if (report.reported_reply?.content) {
+            displayName = report.reported_reply.content.substring(0, 50) + (report.reported_reply.content.length > 50 ? "..." : "");
+          }
+
+          return {
+            id: report.id,
+            communityId: report.target_id,
+            communityName: displayName,
+            category: report.report_type,
+            reportCount: 1,
+            lastReportDate: report.created_at,
+            status: report.status,
+            communityStatus: report.status === "resolved" ? "active" : "active",
+            reports: [{
+              reportedBy: report.reporter?.id,
+              reporterName: report.reporter?.full_name || "Anonymous",
+              reason: report.reason,
+              description: report.details || report.reason,
+              reportDate: report.created_at,
+            }],
+            reporterInfo,
+            // Keep original data for reference
+            _originalReport: report,
+          };
+        });
         
         setReportedCommunities(transformedReports);
       } catch (error) {
@@ -1021,6 +1041,7 @@ export default function SuperadminPage() {
 
   // Reports management state
   const [reportSearchQuery, setReportSearchQuery] = useState("");
+  const [reportTypeFilter, setReportTypeFilter] = useState<"all" | "community" | "event" | "thread" | "reply">("all");
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [isReportDetailOpen, setIsReportDetailOpen] = useState(false);
   const [currentReportPage, setCurrentReportPage] = useState(1);
@@ -1095,7 +1116,7 @@ export default function SuperadminPage() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedCommunities = filteredCommunities.slice(startIndex, endIndex);
 
-  // Filter reported communities based on search query
+  // Filter reported communities based on search query and type
   const filteredReportedCommunities = reportedCommunities.filter(
     (report) => {
       const matchesSearch =
@@ -1105,7 +1126,11 @@ export default function SuperadminPage() {
           .includes(reportSearchQuery.toLowerCase()) ||
         report.category.toLowerCase().includes(reportSearchQuery.toLowerCase());
 
-      return matchesSearch;
+      const matchesType = 
+        reportTypeFilter === "all" || 
+        report.category === reportTypeFilter;
+
+      return matchesSearch && matchesType;
     }
   );
 
@@ -1394,7 +1419,7 @@ export default function SuperadminPage() {
                 className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-lg rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-10 px-6"
               >
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium">Reports & Moderation</span>
+                <span className="font-medium">Reports</span>
               </TabsTrigger>
               <TabsTrigger
                 value="ads"
@@ -1410,7 +1435,7 @@ export default function SuperadminPage() {
               <div className="flex justify-between items-center">
                 <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                   <AlertTriangle className="h-6 w-6 text-orange-600" />
-                  Community Reports & Moderation
+                  Community Reports
                 </h3>
                 <div className="text-sm text-gray-600">
                   Total Reports: {reportedCommunities.length}
@@ -1427,14 +1452,29 @@ export default function SuperadminPage() {
                       {reportedCommunities.length} Reports
                     </Badge>
                   </h4>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      placeholder="Search reported communities..."
-                      value={reportSearchQuery}
-                      onChange={(e) => setReportSearchQuery(e.target.value)}
-                      className="pl-10 w-64"
-                    />
+                  <div className="flex items-center gap-3">
+                    <Select value={reportTypeFilter} onValueChange={(value: "all" | "community" | "event" | "thread" | "reply") => setReportTypeFilter(value)}>
+                      <SelectTrigger className="w-[160px]">
+                        <Filter className="h-4 w-4 mr-2" />
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="community">Community</SelectItem>
+                        <SelectItem value="event">Event</SelectItem>
+                        <SelectItem value="thread">Thread</SelectItem>
+                        <SelectItem value="reply">Reply</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        placeholder="Search reports..."
+                        value={reportSearchQuery}
+                        onChange={(e) => setReportSearchQuery(e.target.value)}
+                        className="pl-10 w-64"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1448,10 +1488,10 @@ export default function SuperadminPage() {
                       <thead>
                         <tr className="border-b border-gray-200">
                           <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                            Community
+                            Reported Item
                           </th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                            Members
+                            Type
                           </th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
                             Reports
@@ -1487,7 +1527,7 @@ export default function SuperadminPage() {
                                     {report.communityName}
                                   </div>
                                   <div className="text-xs text-gray-500">
-                                    {report.communityDetails.admin.name}
+                                    Reported by: {report.reporterInfo?.name || "Anonymous"}
                                   </div>
                                 </div>
                                 {report.communityStatus === "suspended" && (
@@ -1499,9 +1539,35 @@ export default function SuperadminPage() {
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="text-sm text-gray-700">
-                                {report.communityDetails.memberCount}
-                              </div>
+                              {/* Report Type Badge */}
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${
+                                  report.category === "member"
+                                    ? "bg-purple-50 border-purple-200 text-purple-700"
+                                    : report.category === "event"
+                                    ? "bg-blue-50 border-blue-200 text-blue-700"
+                                    : report.category === "thread"
+                                    ? "bg-green-50 border-green-200 text-green-700"
+                                    : report.category === "reply"
+                                    ? "bg-orange-50 border-orange-200 text-orange-700"
+                                    : report.category === "community"
+                                    ? "bg-red-50 border-red-200 text-red-700"
+                                    : "bg-gray-50 border-gray-200 text-gray-700"
+                                }`}
+                              >
+                                {report.category === "member"
+                                  ? "Member"
+                                  : report.category === "event"
+                                  ? "Event"
+                                  : report.category === "thread"
+                                  ? "Thread"
+                                  : report.category === "reply"
+                                  ? "Reply"
+                                  : report.category === "community"
+                                  ? "Community"
+                                  : report.category || "Unknown"}
+                              </Badge>
                             </td>
                             <td className="py-4 px-4">
                               <Badge className="bg-red-500 text-white">
@@ -1530,7 +1596,7 @@ export default function SuperadminPage() {
                                     // Reset pagination when opening dialog
                                     setReportDetailPage(1);
                                   }}
-                                  className="text-blue-600 hover:text-blue-700"
+                                  className="text-blue-600 hover:text-blue-700 w-[120px]"
                                 >
                                   <Eye className="h-4 w-4 mr-1" />
                                   View Report
@@ -1540,10 +1606,46 @@ export default function SuperadminPage() {
                                     <AnimatedButton
                                       variant="glass"
                                       size="sm"
-                                      className="text-purple-600 hover:text-purple-700"
+                                      className="text-purple-600 hover:text-purple-700 w-[140px]"
                                     >
                                       <ExternalLink className="h-4 w-4 mr-1" />
                                       View Community
+                                    </AnimatedButton>
+                                  </Link>
+                                )}
+                                {report.category === "event" && report._originalReport?.reported_event?.id && (
+                                  <Link href={`/events/${report._originalReport.reported_event.id}`} target="_blank">
+                                    <AnimatedButton
+                                      variant="glass"
+                                      size="sm"
+                                      className="text-blue-600 hover:text-blue-700 w-[140px]"
+                                    >
+                                      <ExternalLink className="h-4 w-4 mr-1" />
+                                      View Event
+                                    </AnimatedButton>
+                                  </Link>
+                                )}
+                                {report.category === "thread" && report._originalReport?.reported_thread?.community_id && (
+                                  <Link href={`/communities/${report._originalReport.reported_thread.community_id}?tab=discussions`} target="_blank">
+                                    <AnimatedButton
+                                      variant="glass"
+                                      size="sm"
+                                      className="text-green-600 hover:text-green-700 w-[140px]"
+                                    >
+                                      <ExternalLink className="h-4 w-4 mr-1" />
+                                      View Thread
+                                    </AnimatedButton>
+                                  </Link>
+                                )}
+                                {report.category === "reply" && report._originalReport?.reported_reply?.thread?.community_id && (
+                                  <Link href={`/communities/${report._originalReport.reported_reply.thread.community_id}?tab=discussions`} target="_blank">
+                                    <AnimatedButton
+                                      variant="glass"
+                                      size="sm"
+                                      className="text-orange-600 hover:text-orange-700 w-[140px]"
+                                    >
+                                      <ExternalLink className="h-4 w-4 mr-1" />
+                                      View Reply
                                     </AnimatedButton>
                                   </Link>
                                 )}
@@ -1858,13 +1960,33 @@ export default function SuperadminPage() {
                       <Badge className="bg-red-500 text-white">
                         {selectedReport.reportCount} Reports
                       </Badge>
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${
+                          selectedReport.category === "community"
+                            ? "bg-red-50 border-red-200 text-red-700"
+                            : selectedReport.category === "event"
+                            ? "bg-blue-50 border-blue-200 text-blue-700"
+                            : selectedReport.category === "thread"
+                            ? "bg-green-50 border-green-200 text-green-700"
+                            : selectedReport.category === "reply"
+                            ? "bg-orange-50 border-orange-200 text-orange-700"
+                            : "bg-gray-50 border-gray-200 text-gray-700"
+                        }`}
+                      >
+                        {selectedReport.category === "community"
+                          ? "Community"
+                          : selectedReport.category === "event"
+                          ? "Event"
+                          : selectedReport.category === "thread"
+                          ? "Thread"
+                          : selectedReport.category === "reply"
+                          ? "Reply"
+                          : selectedReport.category || "Unknown"}
+                      </Badge>
                     </div>
                     <div className="text-sm text-gray-600">
-                      Admin: {selectedReport.communityDetails.admin.name} (
-                      {selectedReport.communityDetails.admin.email})
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      Members: {selectedReport.communityDetails.memberCount}
+                      Reported by: {selectedReport.reporterInfo?.name || "Anonymous"}
                     </div>
                   </div>
                 </div>
@@ -1958,16 +2080,50 @@ export default function SuperadminPage() {
                             className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
                           >
                             <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <div className="font-medium text-gray-900 mb-2">
+                              <div className="flex flex-col gap-2">
+                                <div className="font-medium text-gray-900">
                                   {report.reporterName}
                                 </div>
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs bg-orange-50 border-orange-300 text-orange-700"
-                                >
-                                  {getReportReasonLabel(report.reason)}
-                                </Badge>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {/* Report Type Badge */}
+                                  {report.report_type && (
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs ${
+                                        report.report_type === "member"
+                                          ? "bg-purple-50 border-purple-200 text-purple-700"
+                                          : report.report_type === "event"
+                                          ? "bg-blue-50 border-blue-200 text-blue-700"
+                                          : report.report_type === "thread"
+                                          ? "bg-green-50 border-green-200 text-green-700"
+                                          : report.report_type === "reply"
+                                          ? "bg-orange-50 border-orange-200 text-orange-700"
+                                          : report.report_type === "community"
+                                          ? "bg-red-50 border-red-200 text-red-700"
+                                          : "bg-gray-50 border-gray-200 text-gray-700"
+                                      }`}
+                                    >
+                                      {report.report_type === "member"
+                                        ? "Member"
+                                        : report.report_type === "event"
+                                        ? "Event"
+                                        : report.report_type === "thread"
+                                        ? "Thread"
+                                        : report.report_type === "reply"
+                                        ? "Reply"
+                                        : report.report_type === "community"
+                                        ? "Community"
+                                        : report.report_type}
+                                    </Badge>
+                                  )}
+                                  {/* Reason Badge */}
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs bg-orange-50 border-orange-300 text-orange-700"
+                                  >
+                                    {getReportReasonLabel(report.reason)}
+                                  </Badge>
+                                </div>
                               </div>
                               <div className="text-xs text-gray-500">
                                 {new Date(report.reportDate).toLocaleDateString(

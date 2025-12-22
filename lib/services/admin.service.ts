@@ -120,8 +120,9 @@ export class AdminService extends BaseService {
       `, { count: "exact" })
       .order("created_at", { ascending: false });
 
-    // Superadmin only sees community reports
-    query = query.eq("report_type", "community");
+    // Superadmin sees community, event, thread, and reply reports
+    // Member reports are handled by community admins
+    query = query.in("report_type", ["community", "event", "thread", "reply"]);
 
     if (options?.status && options.status !== "all") {
       query = query.eq("status", options.status);
@@ -155,10 +156,33 @@ export class AdminService extends BaseService {
         } else if (report.report_type === "event" && report.target_id) {
           const { data: event } = await this.supabaseAdmin
             .from("events")
-            .select("id, title")
+            .select("id, title, community_id")
             .eq("id", report.target_id)
             .single();
           targetData = { reported_event: event };
+        } else if (report.report_type === "thread" && report.target_id) {
+          const { data: thread } = await this.supabaseAdmin
+            .from("discussion_threads")
+            .select("id, content, community_id, sender_id")
+            .eq("id", report.target_id)
+            .single();
+          targetData = { reported_thread: thread };
+        } else if (report.report_type === "reply" && report.target_id) {
+          const { data: reply } = await this.supabaseAdmin
+            .from("thread_replies")
+            .select(`
+              id, 
+              content, 
+              thread_id, 
+              sender_id,
+              thread:thread_id (
+                id,
+                community_id
+              )
+            `)
+            .eq("id", report.target_id)
+            .single();
+          targetData = { reported_reply: reply };
         } else if (report.report_type === "post" && report.target_id) {
           const { data: post } = await this.supabaseAdmin
             .from("discussion_threads")
@@ -217,10 +241,33 @@ export class AdminService extends BaseService {
     } else if (report.report_type === "event" && report.target_id) {
       const { data: event } = await this.supabaseAdmin
         .from("events")
-        .select("id, title")
+        .select("id, title, community_id")
         .eq("id", report.target_id)
         .single();
       targetData = { reported_event: event };
+    } else if (report.report_type === "thread" && report.target_id) {
+      const { data: thread } = await this.supabaseAdmin
+        .from("discussion_threads")
+        .select("id, content, community_id, sender_id")
+        .eq("id", report.target_id)
+        .single();
+      targetData = { reported_thread: thread };
+    } else if (report.report_type === "reply" && report.target_id) {
+      const { data: reply } = await this.supabaseAdmin
+        .from("thread_replies")
+        .select(`
+          id, 
+          content, 
+          thread_id, 
+          sender_id,
+          thread:thread_id (
+            id,
+            community_id
+          )
+        `)
+        .eq("id", report.target_id)
+        .single();
+      targetData = { reported_reply: reply };
     } else if (report.report_type === "post" && report.target_id) {
       const { data: post } = await this.supabaseAdmin
         .from("discussion_threads")
