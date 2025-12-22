@@ -14,7 +14,6 @@ interface AdData {
   image_url?: string;
   video_url?: string;
   link_url?: string;
-  community_id?: string;
   created_by: string;
   is_active: boolean;
   start_date?: string;
@@ -31,8 +30,7 @@ interface CreateAdInput {
   image_url?: string;
   video_url?: string;
   link_url?: string;
-  community_id?: string; // Legacy: single community (deprecated)
-  community_ids?: string[]; // New: multiple communities
+  community_ids?: string[]; // Multiple communities (empty array = all communities)
   start_date?: string;
   end_date?: string;
   is_active?: boolean;
@@ -91,7 +89,6 @@ export class AdsService extends BaseService {
       .from("ads")
       .select(`
         *,
-        community:community_id (id, name, logo_url),
         ad_communities (
           community:communities (id, name, logo_url)
         )
@@ -125,8 +122,7 @@ export class AdsService extends BaseService {
       .from("ads")
       .select(`
         *,
-        community:community_id (id, name, logo_url),
-        ad_communities!inner (
+        ad_communities (
           community:communities (id, name, logo_url)
         )
       `)
@@ -144,18 +140,6 @@ export class AdsService extends BaseService {
       }
     }
 
-    // Filter by community_id
-    // If communityId is provided, show ads for that community OR ads for all communities (null)
-    // If communityId is not provided, show all ads
-    if (options?.communityId) {
-      // Show ads for specific community OR ads for all communities (null)
-      query = query.or(`community_id.eq.${options.communityId},community_id.is.null`);
-    }
-
-    if (options?.limit) {
-      query = query.limit(options.limit);
-    }
-
     const { data, error } = await query;
 
     if (error) {
@@ -164,7 +148,7 @@ export class AdsService extends BaseService {
     }
 
     // Transform the data to flatten ad_communities
-    const transformedAds = (data || []).map((ad: any) => {
+    let transformedAds = (data || []).map((ad: any) => {
       const communities = ad.ad_communities?.map((ac: any) => ac.community).filter(Boolean) || [];
       delete ad.ad_communities;
       return {
@@ -172,6 +156,26 @@ export class AdsService extends BaseService {
         communities,
       };
     });
+
+    // Filter by community_id (do this in memory after fetching)
+    if (options?.communityId) {
+      transformedAds = transformedAds.filter((ad: any) => {
+        // Show ad if:
+        // 1. It targets all communities (no ad_communities entries)
+        if (ad.communities.length === 0) {
+          return true;
+        }
+        // 2. It has the community in ad_communities
+        if (ad.communities.some((c: any) => c.id === options.communityId)) {
+          return true;
+        }
+        return false;
+      });
+    }
+
+    if (options?.limit) {
+      transformedAds = transformedAds.slice(0, options.limit);
+    }
 
     // Filter by date ranges (start_date and end_date) in memory
     const now = new Date();
@@ -236,17 +240,11 @@ export class AdsService extends BaseService {
     if (adData.link_url) insertData.link_url = adData.link_url;
     if (adData.start_date) insertData.start_date = adData.start_date;
     if (adData.end_date) insertData.end_date = adData.end_date;
-    
-    // Legacy support: if community_id provided, use it
-    if (adData.community_id) insertData.community_id = adData.community_id;
 
     const { data: ad, error: adError } = await this.supabaseAdmin
       .from("ads")
       .insert(insertData)
-      .select(`
-        *,
-        community:community_id (id, name, logo_url)
-      `)
+      .select(`*`)
       .single();
 
     if (adError || !ad) {
@@ -327,18 +325,12 @@ export class AdsService extends BaseService {
     if (restInput.start_date !== undefined) updateData.start_date = restInput.start_date || null;
     if (restInput.end_date !== undefined) updateData.end_date = restInput.end_date || null;
     if (restInput.is_active !== undefined) updateData.is_active = restInput.is_active;
-    
-    // Legacy support: if community_id provided, use it
-    if (restInput.community_id !== undefined) updateData.community_id = restInput.community_id || null;
 
     const { data, error } = await this.supabaseAdmin
       .from("ads")
       .update(updateData)
       .eq("id", adId)
-      .select(`
-        *,
-        community:community_id (id, name, logo_url)
-      `)
+      .select(`*`)
       .single();
 
     if (error) {

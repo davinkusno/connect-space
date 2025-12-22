@@ -46,14 +46,8 @@ interface Ad {
   id: string;
   title: string;
   description?: string;
-  image_url: string;
+  image_url?: string;
   link_url?: string;
-  community_id?: string;
-  community?: {
-    id: string;
-    name: string;
-    logo_url?: string;
-  } | null;
   placement: "sidebar" | "banner" | "inline";
   is_active: boolean;
   start_date?: string;
@@ -62,6 +56,12 @@ interface Ad {
   view_count: number;
   created_at: string;
   updated_at: string;
+  // New multi-community support
+  communities?: Array<{
+    id: string;
+    name: string;
+    logo_url?: string;
+  }>;
 }
 
 interface Community {
@@ -88,8 +88,7 @@ export function AdsManagement() {
     description: "",
     image_url: "",
     link_url: "",
-    community_id: "",
-    community_ids: [] as string[], // NEW: Support multiple communities
+    community_ids: [] as string[], // Support multiple communities
     placement: "sidebar" as "sidebar" | "banner" | "inline",
     is_active: true,
     start_date: "",
@@ -195,22 +194,17 @@ export function AdsManagement() {
     if (ad) {
       setSelectedAd(ad);
       
-      // Get community IDs from both sources
+      // Get community IDs from ad_communities
       const communityIds: string[] = [];
       if ((ad as any).communities && Array.isArray((ad as any).communities)) {
-        // New way: from ad_communities table
         communityIds.push(...(ad as any).communities.map((c: any) => c.id));
-      } else if (ad.community_id) {
-        // Legacy way: from ads.community_id
-        communityIds.push(ad.community_id);
       }
       
       setFormData({
         title: ad.title,
         description: ad.description || "",
-        image_url: ad.image_url,
+        image_url: ad.image_url || "",
         link_url: ad.link_url || "",
-        community_id: ad.community_id || "",
         community_ids: communityIds,
         placement: ad.placement,
         is_active: ad.is_active,
@@ -222,8 +216,6 @@ export function AdsManagement() {
       const communityList: Array<{ id: string; name: string }> = [];
       if ((ad as any).communities && Array.isArray((ad as any).communities)) {
         communityList.push(...(ad as any).communities.map((c: any) => ({ id: c.id, name: c.name })));
-      } else if (ad.community_id && ad.community) {
-        communityList.push({ id: ad.community.id, name: ad.community.name });
       }
       setCommunities(communityList);
     } else {
@@ -233,7 +225,6 @@ export function AdsManagement() {
         description: "",
         image_url: "",
         link_url: "",
-        community_id: "",
         community_ids: [],
         placement: "sidebar" as "sidebar" | "banner" | "inline",
         is_active: true,
@@ -556,7 +547,7 @@ export function AdsManagement() {
               {/* Image Section */}
               <div className="relative">
                 <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
-                  {ad.image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
+                  {ad.image_url && ad.image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
                     <video
                       src={ad.image_url}
                       className="w-full h-full object-cover"
@@ -564,7 +555,7 @@ export function AdsManagement() {
                       muted
                       playsInline
                     />
-                  ) : (
+                  ) : ad.image_url ? (
                     <Image
                       src={ad.image_url}
                       alt={ad.title}
@@ -572,6 +563,10 @@ export function AdsManagement() {
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                      <p className="text-gray-400">No image</p>
+                    </div>
                   )}
                 </div>
                 <div className="absolute top-3 right-3 flex gap-2 flex-wrap justify-end">
@@ -580,10 +575,10 @@ export function AdsManagement() {
                   >
                     {ad.is_active ? "Active" : "Inactive"}
                   </Badge>
-                  {ad.community_id && (
+                  {ad.communities && ad.communities.length > 0 && (
                     <Badge
                       className="bg-blue-500 text-white border-0 shadow-md"
-                      title={`Targeted to specific community`}
+                      title={`Targeted to ${ad.communities.length} ${ad.communities.length === 1 ? 'community' : 'communities'}`}
                     >
                       Targeted
                     </Badge>
@@ -625,13 +620,6 @@ export function AdsManagement() {
                             </span>
                           ))}
                         </div>
-                      </div>
-                    ) : ad.community_id ? (
-                      <div className="flex items-center gap-2 text-xs text-gray-600 bg-blue-50 p-2 rounded-lg">
-                        <span className="font-medium">Target:</span>
-                        <span className="truncate">
-                          {ad.community?.name || "Specific Community"}
-                        </span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-xs text-gray-600 bg-green-50 p-2 rounded-lg">
@@ -864,13 +852,6 @@ export function AdsManagement() {
                                     name: foundInArray.name,
                                   };
                                 }
-                              }
-                              // Check legacy format (single community)
-                              if (!community && selectedAd.community_id === id && selectedAd.community) {
-                                community = {
-                                  id: selectedAd.community.id,
-                                  name: selectedAd.community.name,
-                                };
                               }
                             }
                             
