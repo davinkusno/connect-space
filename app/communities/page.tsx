@@ -23,7 +23,7 @@ import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Community } from "@/types/community";
 import {
-    Award, Calendar, CheckCircle2, ChevronLeft, ChevronRight, Clock, Search, Users, X
+    Award, Calendar, CheckCircle2, ChevronLeft, ChevronRight, Clock, MapPin, Search, Users, X
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -510,42 +510,60 @@ export default function DiscoverPage() {
               </div>
             </div>
           </div>
-          <CardContent className="p-5 flex flex-col flex-grow">
-            <div className="flex-grow">
-              <div className="flex items-center gap-2 mb-2">
-                <h3 className="font-bold text-lg text-gray-800 leading-tight truncate">
-                  {community.name}
-                </h3>
-                {community.isVerified && (
-                  <Award className="h-5 w-5 text-blue-500 flex-shrink-0" />
-                )}
-                {community.isNew && (
-                  <Badge variant="secondary" className="text-xs font-semibold">
-                    New
-                  </Badge>
-                )}
-              </div>
-              <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                {community.description}
-              </p>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-gray-600 mb-4">
-                <div className="flex items-center gap-2" title="Members">
-                  <Users className="h-4 w-4 text-gray-500" />
-                  <span>{community.memberCount.toLocaleString()} members</span>
-                </div>
-                <div
-                  className="flex items-center gap-2"
-                  title="Upcoming Events"
-                >
-                  <Calendar className="h-4 w-4 text-gray-500" />
-                  <span>{community.upcomingEvents} upcoming events</span>
-                </div>
-              </div>
+          <CardContent className="p-4 flex flex-col flex-grow">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              {/* Category Badge */}
+              <Badge variant="secondary">
+                {community.category}
+              </Badge>
+              {/* Membership Status Badge - also show in content area */}
+              {currentUser && membershipStatus[community.id] === "joined" && (
+                <Badge className="bg-green-50 text-green-700 border border-green-500 text-xs font-semibold px-2 py-0.5 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Joined
+                </Badge>
+              )}
+              {currentUser && membershipStatus[community.id] === "pending" && (
+                <Badge className="bg-amber-50 text-amber-700 border border-amber-500 text-xs font-semibold px-2 py-0.5 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Pending
+                </Badge>
+              )}
             </div>
-            <div className="pt-4 mt-auto border-t border-gray-200/80">
-              <Link href={`/communities/${community.id}`} className="w-full">
+
+            {/* Title */}
+            <Link href={`/communities/${community.id}`}>
+              <h3 className="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2 mb-2 min-h-[3.5rem]">
+                {community.name}
+              </h3>
+            </Link>
+
+            {/* Description */}
+            <p className="text-sm text-gray-600 line-clamp-2 mb-4 min-h-[2.5rem]">
+              {community.description}
+            </p>
+
+            {/* Stats/Info - similar to event cards */}
+            <div className="space-y-2 mb-4 flex-grow">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Users className="h-4 w-4" />
+                <span>{community.memberCount.toLocaleString()} members</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Calendar className="h-4 w-4" />
+                <span>{community.upcomingEvents} upcoming events</span>
+              </div>
+              {community.location && community.location.city && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <MapPin className="h-4 w-4" />
+                  <span className="truncate">{community.location.city}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Action Button */}
+            <div className="mt-auto">
+              <Link href={`/communities/${community.id}`} className="block">
                 <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300 transform hover:-translate-y-0.5">
                   View Community
                   <ChevronRight className="h-4 w-4 ml-2" />
@@ -832,7 +850,12 @@ export default function DiscoverPage() {
 
                 {viewMode === "map" && (
                   <div className="h-[70vh] rounded-lg overflow-hidden shadow-lg">
-                    <LeafletCommunitiesMap communities={filteredCommunities} />
+                    <LeafletCommunitiesMap 
+                      communities={filteredCommunities.filter(
+                        (c) => c.location && c.location.lat && c.location.lng && 
+                               c.location.lat !== 0 && c.location.lng !== 0
+                      )} 
+                    />
                   </div>
                 )}
 

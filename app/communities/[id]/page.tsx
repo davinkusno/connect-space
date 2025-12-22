@@ -1095,10 +1095,8 @@ export default function CommunityPage({
                   )}
                 </>
               ) : membershipStatus === "approved" && isMember ? (
-                <div className="px-4 py-2 bg-green-50 text-green-700 rounded-md border border-green-200 flex items-center">
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Community Joined
-            </div>
+                // Just show nothing for joined members - they'll see the Leave button separately
+                null
               ) : membershipStatus === "pending" ? (
                 <div className="flex items-center gap-2">
                 <div className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-200 flex items-center">
@@ -2438,6 +2436,38 @@ export default function CommunityPage({
         reportTargetId={reportTargetId}
         reportTargetName={reportTargetName}
       />
+      
+      {/* Leave Community Confirmation Dialog */}
+      <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave Community?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to leave {community?.name}? 
+              You'll need to request to join again if you change your mind.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isJoining}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLeaveCommunity}
+              disabled={isJoining}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isJoining ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Leaving...
+                </>
+              ) : (
+                "Leave Community"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

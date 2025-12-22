@@ -1,10 +1,10 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import type { Community } from "@/types/community"
-import { Layers, Locate, MapPin, Navigation, RotateCcw, Search, ZoomIn, ZoomOut } from "lucide-react"
+import { Layers, Locate, MapPin, RotateCcw, ZoomIn, ZoomOut } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -42,6 +42,7 @@ export function LeafletCommunitiesMap({
   showControls = true,
   showUserLocation = true,
 }: LeafletCommunitiesMapProps) {
+  const router = useRouter()
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
@@ -161,7 +162,23 @@ export function LeafletCommunitiesMap({
   // Create community marker
   const createCommunityMarker = useCallback(
     (community: Community) => {
-      if (!leafletLoaded) return null
+      if (!leafletLoaded || typeof window === "undefined") return null
+
+      // Validate coordinates - must have valid lat/lng and not be 0,0
+      if (
+        !community.location?.lat ||
+        !community.location?.lng ||
+        isNaN(community.location.lat) ||
+        isNaN(community.location.lng) ||
+        community.location.lat === 0 ||
+        community.location.lng === 0
+      ) {
+        console.warn(
+          `Invalid coordinates for community ${community.id}:`,
+          community.location
+        );
+        return null;
+      }
 
       const L = (window as any).L
       const color = categoryColors[community.category] || categoryColors.default
@@ -172,7 +189,7 @@ export function LeafletCommunitiesMap({
           <div class="w-10 h-10 rounded-full border-3 border-white shadow-lg flex items-center justify-center transition-all duration-200 group-hover:scale-110" 
                style="background-color: ${color}">
             <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
             </svg>
           </div>
           ${
@@ -197,22 +214,52 @@ export function LeafletCommunitiesMap({
         community: community, // Store community data
       })
 
-      // Create popup content
-      const popupContent = `
-      <div class="p-4 min-w-[280px] max-w-[320px]">
-        <div class="flex items-start gap-3 mb-3">
-          <img src="${community.image}" alt="${community.name}" class="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
-          <div class="flex-1 min-w-0">
-            <h3 class="font-bold text-lg mb-1 line-clamp-1">${community.name}</h3>
-            <span class="inline-block px-2 py-1 text-xs font-medium rounded-full text-white" style="background-color: ${color}">
-              ${community.category}
-            </span>
-          </div>
-        </div>
+      // Create popup using DOM instead of template literals to avoid escaping issues
+      const popup = L.popup({
+        maxWidth: 320,
+        className: "community-popup",
+      });
+
+      // Set content using a function that creates DOM elements
+      popup.setContent(() => {
+        const container = document.createElement('div');
+        container.className = 'p-4 min-w-[280px] max-w-[320px]';
         
-        <p class="text-gray-600 text-sm mb-3 line-clamp-2">${community.description}</p>
+        // Header section
+        const header = document.createElement('div');
+        header.className = 'flex items-start gap-3 mb-3';
         
-        <div class="flex items-center gap-4 text-sm text-gray-500 mb-3">
+        const img = document.createElement('img');
+        img.src = community.image;
+        img.alt = community.name;
+        img.className = 'w-12 h-12 rounded-lg object-cover flex-shrink-0';
+        
+        const headerContent = document.createElement('div');
+        headerContent.className = 'flex-1 min-w-0';
+        
+        const title = document.createElement('h3');
+        title.className = 'font-bold text-lg mb-1 line-clamp-1';
+        title.textContent = community.name;
+        
+        const categoryBadge = document.createElement('span');
+        categoryBadge.className = 'inline-block px-2 py-1 text-xs font-medium rounded-full text-white';
+        categoryBadge.style.backgroundColor = color;
+        categoryBadge.textContent = community.category;
+        
+        headerContent.appendChild(title);
+        headerContent.appendChild(categoryBadge);
+        header.appendChild(img);
+        header.appendChild(headerContent);
+        
+        // Description
+        const description = document.createElement('p');
+        description.className = 'text-gray-600 text-sm mb-3 line-clamp-2';
+        description.textContent = community.description;
+        
+        // Stats section
+        const statsSection = document.createElement('div');
+        statsSection.className = 'flex items-center gap-4 text-sm text-gray-500 mb-3';
+        statsSection.innerHTML = `
           <div class="flex items-center gap-1">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
@@ -221,40 +268,54 @@ export function LeafletCommunitiesMap({
           </div>
           <div class="flex items-center gap-1">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+              <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
             </svg>
             ${community.upcomingEvents} events
           </div>
-        </div>
+        `;
         
-        <div class="flex flex-wrap gap-1 mb-3">
-          ${community.tags
-            .slice(0, 3)
-            .map(
-              (tag) => `
-            <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">${tag}</span>
-          `,
-            )
-            .join("")}
-        </div>
+        // Tags
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'flex flex-wrap gap-1 mb-3';
+        community.tags.slice(0, 3).forEach(tag => {
+          const tagSpan = document.createElement('span');
+          tagSpan.className = 'px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full';
+          tagSpan.textContent = tag;
+          tagsContainer.appendChild(tagSpan);
+        });
         
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
-            ${community.memberGrowth} growth
-          </span>
-          <button class="px-3 py-1 text-sm font-medium text-white rounded-lg transition-colors duration-200" 
-                  style="background-color: ${color}" 
-                  onclick="window.selectCommunity(${community.id})">
-            View Details
-          </button>
-        </div>
-      </div>
-    `
+        // Footer with growth and button
+        const footer = document.createElement('div');
+        footer.className = 'flex items-center justify-between';
+        
+        const growthBadge = document.createElement('span');
+        growthBadge.className = 'text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full';
+        growthBadge.textContent = community.memberGrowth + ' growth';
+        
+        const button = document.createElement('button');
+        button.className = 'px-3 py-1 text-sm font-medium text-white rounded-lg transition-colors duration-200';
+        button.style.backgroundColor = color;
+        button.textContent = 'View Details';
+        button.onclick = () => {
+          if (window.selectCommunity) {
+            window.selectCommunity(community.id);
+          }
+        };
+        
+        footer.appendChild(growthBadge);
+        footer.appendChild(button);
+        
+        // Assemble everything
+        container.appendChild(header);
+        container.appendChild(description);
+        container.appendChild(statsSection);
+        container.appendChild(tagsContainer);
+        container.appendChild(footer);
+        
+        return container;
+      });
 
-      marker.bindPopup(popupContent, {
-        maxWidth: 320,
-        className: "community-popup",
-      })
+      marker.bindPopup(popup);
 
       // Handle marker click
       marker.on("click", () => {
@@ -382,10 +443,8 @@ export function LeafletCommunitiesMap({
   useEffect(() => {
     if (typeof window !== "undefined") {
       ;(window as any).selectCommunity = (communityId: string) => {
-        const community = communities.find((c) => c.id === communityId)
-        if (community) {
-          onCommunitySelect?.(community)
-        }
+        // Navigate directly to community page
+        router.push(`/communities/${communityId}`)
       }
     }
 
@@ -394,7 +453,7 @@ export function LeafletCommunitiesMap({
         delete (window as any).selectCommunity
       }
     }
-  }, [communities, onCommunitySelect])
+  }, [router])
 
   // Control handlers
   const handleZoomIn = () => {
@@ -552,52 +611,6 @@ export function LeafletCommunitiesMap({
           >
             <RotateCcw className="h-4 w-4" />
           </Button>
-        </div>
-      )}
-
-      {/* Map Stats */}
-      {!isLoading && (
-        <div className="absolute top-4 left-4 z-[1000]">
-          <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-lg">
-            <CardContent className="p-3">
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-1 text-violet-600 font-medium">
-                  <Search className="h-4 w-4" />
-                  {communities.length} communities
-                </div>
-                {userLocation && (
-                  <div className="flex items-center gap-1 text-blue-600 font-medium">
-                    <Navigation className="h-4 w-4" />
-                    {searchRadius}km radius
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Legend */}
-      {!isLoading && (
-        <div className="absolute bottom-4 left-4 z-[1000]">
-          <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-lg">
-            <CardContent className="p-3">
-              <h4 className="font-medium text-sm mb-2">Categories</h4>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {Object.entries(categoryColors)
-                  .filter(([key]) => key !== "default")
-                  .map(([category, color]) => (
-                    <div key={category} className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full border border-white shadow-sm"
-                        style={{ backgroundColor: color }}
-                      />
-                      <span className="text-gray-600">{category}</span>
-                    </div>
-                  ))}
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
 

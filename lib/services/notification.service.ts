@@ -11,6 +11,7 @@ export type NotificationType =
   | "join_rejected"
   | "new_event"
   | "event_cancelled"
+  | "event_interested"
   | "new_post"
   | "post_reply"
   | "mention";

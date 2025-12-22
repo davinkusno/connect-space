@@ -105,6 +105,8 @@ export default function EventsPage() {
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const [mapSidebarPage, setMapSidebarPage] = useState(1);
+  const [mapSidebarItemsPerPage] = useState(10);
 
   // Fetch events from API
   useEffect(() => {
@@ -476,6 +478,7 @@ export default function EventsPage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
+    setMapSidebarPage(1); // Also reset map sidebar pagination
   }, [searchQuery, locationQuery, selectedCategory, selectedLocation, dateRange]);
 
   // Pagination Component
@@ -700,10 +703,6 @@ export default function EventsPage() {
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Users className="h-4 w-4" />
               <span>{event.attendees} interested</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Users className="h-4 w-4" />
-              <span className="truncate">{event.organizer}</span>
             </div>
           </div>
 
@@ -1069,7 +1068,7 @@ export default function EventsPage() {
                   <div className="p-2 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg">
                     <Map className="h-6 w-6 text-white" />
                   </div>
-                  Events on Map ({filteredEvents.length})
+                  Events on Map ({filteredEvents.filter(e => !e.location.isOnline).length})
                 </h2>
               </div>
 
@@ -1078,62 +1077,110 @@ export default function EventsPage() {
                   <LeafletEventsMap
                     events={filteredEvents}
                     selectedEvent={selectedEvent}
-                    onEventSelect={(event) => setSelectedEvent(event)}
+                    onEventSelect={(event) => {
+                      setSelectedEvent(event);
+                      // Don't navigate here - only highlight on map
+                      // Navigation happens when clicking "View Details" button in popup
+                    }}
                     height="700px"
                     className="rounded-2xl shadow-lg border"
                   />
                 </div>
-                <div className="space-y-4 max-h-[700px] overflow-y-auto">
-                  <h3 className="text-xl font-bold text-gray-900 sticky top-0 bg-white py-2">
-                    Events on Map ({filteredEvents.length})
-                  </h3>
-                  {filteredEvents.map((event) => (
-                    <Card
-                      key={event.id}
-                      className={cn(
-                        "cursor-pointer transition-all duration-200 border-2 hover:shadow-md",
-                        selectedEvent?.id === event.id
-                          ? "border-purple-400 bg-purple-50 shadow-md"
-                          : "border-gray-200 hover:border-purple-200"
-                      )}
-                      onClick={() => setSelectedEvent(event)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <Image
-                            src={event.image || "/placeholder.svg"}
-                            alt={event.title}
-                            width={60}
-                            height={60}
-                            className="rounded-lg object-cover flex-shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-sm text-gray-900 truncate">
-                              {event.title}
-                            </h4>
-                            <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                              {event.description}
-                            </p>
-                            <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {new Date(event.date).toLocaleDateString()}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {event.location.city}
-                              </span>
+                <div className="flex flex-col h-[700px]">
+                  <div className="flex items-center justify-between sticky top-0 bg-white py-2 border-b mb-2">
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Events on Map ({filteredEvents.filter(e => !e.location.isOnline).length})
+                    </h3>
+                  </div>
+                  <div className="flex-1 space-y-4 overflow-y-auto">
+                    {(() => {
+                      const physicalEvents = filteredEvents.filter(event => !event.location.isOnline);
+                      const startIdx = (mapSidebarPage - 1) * mapSidebarItemsPerPage;
+                      const endIdx = startIdx + mapSidebarItemsPerPage;
+                      const paginatedMapEvents = physicalEvents.slice(startIdx, endIdx);
+                      
+                      return paginatedMapEvents.map((event) => (
+                        <Card
+                          key={event.id}
+                          className={cn(
+                            "cursor-pointer transition-all duration-200 border-2 hover:shadow-md",
+                            selectedEvent?.id === event.id
+                              ? "border-purple-400 bg-purple-50 shadow-md"
+                              : "border-gray-200 hover:border-purple-200"
+                          )}
+                          onClick={() => setSelectedEvent(event)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-3">
+                              <Image
+                                src={event.image || "/placeholder.svg"}
+                                alt={event.title}
+                                width={60}
+                                height={60}
+                                className="rounded-lg object-cover flex-shrink-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-sm text-gray-900 truncate">
+                                  {event.title}
+                                </h4>
+                                <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                                  {event.description}
+                                </p>
+                                <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    {new Date(event.date).toLocaleDateString()}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    {event.location.city}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {event.category}
+                                  </Badge>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex items-center justify-between">
-                              <Badge variant="secondary" className="text-xs">
-                                {event.category}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          </CardContent>
+                        </Card>
+                      ));
+                    })()}
+                  </div>
+                  {/* Pagination controls */}
+                  {(() => {
+                    const physicalEvents = filteredEvents.filter(e => !e.location.isOnline);
+                    const totalMapPages = Math.ceil(physicalEvents.length / mapSidebarItemsPerPage);
+                    
+                    if (totalMapPages <= 1) return null;
+                    
+                    return (
+                      <div className="flex items-center justify-between gap-2 pt-4 border-t mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMapSidebarPage(p => Math.max(1, p - 1))}
+                          disabled={mapSidebarPage === 1}
+                          className="h-8"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm text-gray-600">
+                          Page {mapSidebarPage} of {totalMapPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMapSidebarPage(p => Math.min(totalMapPages, p + 1))}
+                          disabled={mapSidebarPage === totalMapPages}
+                          className="h-8"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </TabsContent>

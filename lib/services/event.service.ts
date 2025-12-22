@@ -351,11 +351,13 @@ export class EventService extends BaseService {
     eventId: string, 
     userId: string
   ): Promise<ServiceResult<InterestResult>> {
-    // Validate event exists
+    // Validate event exists and get event details
     const eventResult: ServiceResult<EventData> = await this.getById(eventId);
     if (!eventResult.success) {
       return ApiResponse.notFound("Event");
     }
+
+    const event = eventResult.data as EventData;
 
     // Check for existing RSVP
     const { data: existingRsvp } = await this.supabaseAdmin
@@ -419,6 +421,66 @@ export class EventService extends BaseService {
 
     // Award points for joining event using pointsService
     await pointsService.onEventJoined(userId, eventId);
+
+    // Send notifications to community creator and admins
+    try {
+      // Get user info who is interested
+      const { data: interestedUser } = await this.supabaseAdmin
+        .from("users")
+        .select("full_name, username")
+        .eq("id", userId)
+        .single();
+
+      const interestedUserName = interestedUser?.full_name || interestedUser?.username || "Someone";
+
+      // Get community details including creator_id
+      const { data: community } = await this.supabaseAdmin
+        .from("communities")
+        .select("id, name, creator_id")
+        .eq("id", event.community_id)
+        .single();
+
+      if (community) {
+        const recipientIds: string[] = [];
+
+        // Add community creator
+        if (community.creator_id && community.creator_id !== userId) {
+          recipientIds.push(community.creator_id);
+        }
+
+        // Get community admins
+        const { data: admins } = await this.supabaseAdmin
+          .from("community_members")
+          .select("user_id")
+          .eq("community_id", community.id)
+          .eq("role", "admin")
+          .eq("status", "approved");
+
+        if (admins && admins.length > 0) {
+          admins.forEach(admin => {
+            if (admin.user_id !== userId && !recipientIds.includes(admin.user_id)) {
+              recipientIds.push(admin.user_id);
+            }
+          });
+        }
+
+        // Send notifications to all recipients
+        if (recipientIds.length > 0) {
+          const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+          await notificationService.createBulk(
+            recipientIds,
+            "event_interested",
+            "New Event Interest",
+            `${interestedUserName} is interested in "${event.title}"`,
+            eventId,
+            "event"
+          );
+        }
+      }
+    } catch (notifError) {
+      // Log error but don't fail the request
+      console.error("Failed to send event interest notifications:", notifError);
+    }
 
     return ApiResponse.created<InterestResult>({ 
       message: "Marked as interested", 

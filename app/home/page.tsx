@@ -37,7 +37,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 // Import new enhanced components
 
@@ -91,6 +91,7 @@ export default function DashboardPage() {
   const [isLoadingSavedEvents, setIsLoadingSavedEvents] = useState(true);
   const [savedEventsPage, setSavedEventsPage] = useState(1);
   const [savedEventsFilter, setSavedEventsFilter] = useState("saved-date-desc"); // saved-date-asc, saved-date-desc, event-date-asc, event-date-desc
+  const [savedEventsTimeFilter, setSavedEventsTimeFilter] = useState("all"); // all, today, this-week, this-month, upcoming
   const savedEventsPerPage = 5;
 
   // Fetch saved events from database
@@ -324,19 +325,37 @@ export default function DashboardPage() {
         } = await supabase.auth.getUser();
 
         if (user) {
+          console.log("[Home] Fetching user data for:", user.id);
           const { data: userData, error } = await supabase
             .from("users")
-            .select("username, full_name, points")
+            .select("username, full_name")
             .eq("id", user.id)
             .single();
 
+          console.log("[Home] User data response:", { userData, error });
+
           if (!error && userData) {
-            setUsername(userData.username || userData.full_name || "there");
-            setUserPoints(userData.points || 0);
+            const displayName = userData.full_name || userData.username || "there";
+            console.log("[Home] Setting username to:", displayName);
+            setUsername(displayName);
+            
+            // Fetch points separately from user_points table
+            const { data: pointsData } = await supabase
+              .from("user_points")
+              .select("points_count")
+              .eq("user_id", user.id)
+              .single();
+            
+            console.log("[Home] Points data:", pointsData);
+            setUserPoints(pointsData?.points_count || 0);
+          } else {
+            console.error("[Home] Error or no userData:", error);
           }
+        } else {
+          console.log("[Home] No user found");
         }
       } catch (error) {
-        console.error("Error fetching user data:", error);
+        console.error("[Home] Error fetching user data:", error);
       } finally {
         setIsLoadingUser(false);
       }
@@ -928,29 +947,103 @@ export default function DashboardPage() {
   ];
 
   // Get saved events list with filtering and sorting
-  const filteredSavedEvents = savedEventsData
-    .filter((event) => {
-      // Show all saved events (including past events)
-      // If you want to filter only upcoming events, uncomment the line below
-      // const eventDate = new Date(event.date);
-      // return eventDate >= new Date();
-      return true;
-    })
-    .sort((a, b) => {
-      if (savedEventsFilter === "saved-date-asc") {
-        // Sort by saved date ascending (oldest saved first)
-        return new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime();
-      } else if (savedEventsFilter === "saved-date-desc") {
-        // Sort by saved date descending (newest saved first)
-        return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
-      } else if (savedEventsFilter === "event-date-asc") {
-        // Sort by event date ascending (soonest first)
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
-      } else {
-        // Sort by event date descending (farthest first)
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
-      }
-    });
+  const filteredSavedEvents = useMemo(() => {
+    return savedEventsData
+      .filter((event) => {
+        // Skip invalid events
+        if (!event || !event.date) {
+          console.warn("[Filter Debug] Skipping event with no date:", event);
+          return false;
+        }
+        
+        const eventDate = new Date(event.date || event.start_time);
+        
+        // Skip events with invalid dates
+        if (isNaN(eventDate.getTime())) {
+          console.warn("[Filter Debug] Skipping event with invalid date:", event);
+          return false;
+        }
+        
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        // Debug: Log first event to see the structure
+        if (savedEventsData.indexOf(event) === 0 && savedEventsTimeFilter !== "all") {
+          console.log("[Filter Debug] First event:", {
+            title: event.title,
+            date: event.date,
+            start_time: event.start_time,
+            eventDate: eventDate.toISOString(),
+            filter: savedEventsTimeFilter,
+          });
+        }
+        
+        // Time period filtering
+        if (savedEventsTimeFilter === "today") {
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const passes = eventDate >= today && eventDate < tomorrow;
+          if (savedEventsData.indexOf(event) === 0) {
+            console.log("[Filter Debug] Today filter:", { today: today.toISOString(), tomorrow: tomorrow.toISOString(), passes });
+          }
+          return passes;
+        } else if (savedEventsTimeFilter === "this-week") {
+          const startOfWeek = new Date(today);
+          startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(startOfWeek.getDate() + 7);
+          const passes = eventDate >= startOfWeek && eventDate < endOfWeek;
+          if (savedEventsData.indexOf(event) === 0) {
+            console.log("[Filter Debug] This week filter:", { 
+              startOfWeek: startOfWeek.toISOString(), 
+              endOfWeek: endOfWeek.toISOString(), 
+              eventDate: eventDate.toISOString(),
+              passes 
+            });
+          }
+          return passes;
+        } else if (savedEventsTimeFilter === "this-month") {
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          return eventDate >= startOfMonth && eventDate < endOfMonth;
+        } else if (savedEventsTimeFilter === "upcoming") {
+          const passes = eventDate >= now;
+          if (savedEventsData.indexOf(event) === 0) {
+            console.log("[Filter Debug] Upcoming filter:", { 
+              now: now.toISOString(), 
+              eventDate: eventDate.toISOString(), 
+              passes 
+            });
+          }
+          return passes;
+        }
+        
+        // "all" - show all events
+        return true;
+      })
+      .sort((a, b) => {
+        if (savedEventsFilter === "saved-date-asc") {
+          // Sort by saved date ascending (oldest saved first)
+          return new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime();
+        } else if (savedEventsFilter === "saved-date-desc") {
+          // Sort by saved date descending (newest saved first)
+          return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
+        } else if (savedEventsFilter === "event-date-asc") {
+          // Sort by event date ascending (soonest first)
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        } else {
+          // Sort by event date descending (farthest first)
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        }
+      });
+  }, [savedEventsData, savedEventsTimeFilter, savedEventsFilter]);
+  
+  // Debug log after filtering
+  useEffect(() => {
+    if (savedEventsTimeFilter !== "all" && activeTab === "events") {
+      console.log(`[Filter Debug] Filtered ${savedEventsData.length} events to ${filteredSavedEvents.length} events with filter: ${savedEventsTimeFilter}`);
+    }
+  }, [filteredSavedEvents.length, savedEventsData.length, savedEventsTimeFilter, activeTab]);
 
   // Apply pagination
   const totalSavedPages = Math.ceil(
@@ -960,6 +1053,21 @@ export default function DashboardPage() {
     (savedEventsPage - 1) * savedEventsPerPage,
     savedEventsPage * savedEventsPerPage
   );
+  
+  // Debug pagination calculation
+  useEffect(() => {
+    if (activeTab === "events") {
+      console.log("[Pagination Debug]", {
+        savedEventsData: savedEventsData.length,
+        filteredSavedEvents: filteredSavedEvents.length,
+        paginatedSavedEvents: paginatedSavedEvents.length,
+        savedEventsPerPage,
+        totalSavedPages,
+        currentPage: savedEventsPage,
+        filter: savedEventsTimeFilter
+      });
+    }
+  }, [activeTab, savedEventsData.length, filteredSavedEvents.length, paginatedSavedEvents.length, totalSavedPages, savedEventsPage, savedEventsTimeFilter]);
 
   // Debug logging for saved events
   useEffect(() => {
@@ -1103,7 +1211,7 @@ export default function DashboardPage() {
               {isLoadingUser ? (
                 <span className="inline-block animate-pulse bg-gray-200 rounded h-8 w-64"></span>
               ) : (
-                <>{username}</>
+                <>Welcome back, {username}!</>
               )}
             </h1>
             <p className="text-sm text-gray-600">
@@ -1391,7 +1499,7 @@ export default function DashboardPage() {
                 {/* Saved Events List - Full width */}
                 <Card className="border-0 shadow-sm">
                   <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
                       <div>
                         <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                           <div className="p-1.5 bg-amber-100 rounded-lg">
@@ -1403,23 +1511,46 @@ export default function DashboardPage() {
                           Events you've bookmarked for later
                         </CardDescription>
                       </div>
-                      <Select
-                        value={savedEventsFilter}
-                        onValueChange={(value) => {
-                          setSavedEventsFilter(value);
-                          setSavedEventsPage(1); // Reset to first page
-                        }}
-                      >
-                        <SelectTrigger className="w-[160px]">
-                          <SelectValue placeholder="Sort by date" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="saved-date-desc">Saved Date (Newest)</SelectItem>
-                          <SelectItem value="saved-date-asc">Saved Date (Oldest)</SelectItem>
-                          <SelectItem value="event-date-asc">Event Date (Soonest)</SelectItem>
-                          <SelectItem value="event-date-desc">Event Date (Farthest)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-2">
+                        {/* Time Period Filter */}
+                        <Select
+                          value={savedEventsTimeFilter}
+                          onValueChange={(value) => {
+                            setSavedEventsTimeFilter(value);
+                            setSavedEventsPage(1); // Reset to first page
+                          }}
+                        >
+                          <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="Time period" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Events</SelectItem>
+                            <SelectItem value="today">Today</SelectItem>
+                            <SelectItem value="this-week">This Week</SelectItem>
+                            <SelectItem value="this-month">This Month</SelectItem>
+                            <SelectItem value="upcoming">Upcoming</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        {/* Sort Filter */}
+                        <Select
+                          value={savedEventsFilter}
+                          onValueChange={(value) => {
+                            setSavedEventsFilter(value);
+                            setSavedEventsPage(1); // Reset to first page
+                          }}
+                        >
+                          <SelectTrigger className="w-[160px]">
+                            <SelectValue placeholder="Sort by date" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="saved-date-desc">Saved Date (Newest)</SelectItem>
+                            <SelectItem value="saved-date-asc">Saved Date (Oldest)</SelectItem>
+                            <SelectItem value="event-date-asc">Event Date (Soonest)</SelectItem>
+                            <SelectItem value="event-date-desc">Event Date (Farthest)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
@@ -1429,6 +1560,38 @@ export default function DashboardPage() {
                           <Bookmark className="h-10 w-10 text-gray-400 animate-pulse" />
                         </div>
                         <p className="text-sm text-gray-600">Loading saved events...</p>
+                      </div>
+                    ) : filteredSavedEvents.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Bookmark className="h-10 w-10 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                          No events found
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          {savedEventsTimeFilter === "all" 
+                            ? "You haven't saved any events yet"
+                            : `No saved events match the selected time filter (${savedEventsTimeFilter.replace('-', ' ')})`
+                          }
+                        </p>
+                        {savedEventsTimeFilter !== "all" && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setSavedEventsTimeFilter("all")}
+                          >
+                            Show All Events
+                          </Button>
+                        )}
+                        {savedEventsTimeFilter === "all" && (
+                          <Link href="/events">
+                            <Button variant="outline" size="sm">
+                              <Search className="h-4 w-4 mr-2" />
+                              Browse Events
+                            </Button>
+                          </Link>
+                        )}
                       </div>
                     ) : paginatedSavedEvents.length > 0 ? (
                       <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
@@ -1572,7 +1735,7 @@ export default function DashboardPage() {
                           </div>
                         )}
                       </div>
-                    ) : filteredSavedEvents.length > 0 ? (
+                    ) : (
                       <div className="text-center py-12">
                         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                           <Bookmark className="h-10 w-10 text-gray-400" />
@@ -1581,26 +1744,8 @@ export default function DashboardPage() {
                           No events on this page
                         </h3>
                         <p className="text-sm text-gray-600 mb-4">
-                          Try a different page or filter
+                          Try a different page or adjust your filters
                         </p>
-                      </div>
-                    ) : (
-                      <div className="text-center py-12">
-                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Bookmark className="h-10 w-10 text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          No saved events yet
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Save events you're interested in to view them here
-                        </p>
-                        <Link href="/events">
-                          <Button variant="outline" size="sm">
-                            <Search className="h-4 w-4 mr-2" />
-                            Browse Events
-                          </Button>
-                        </Link>
                       </div>
                     )}
                   </CardContent>
@@ -1697,50 +1842,77 @@ export default function DashboardPage() {
 
           {/* Communities Tab - Enhanced community cards with Created and Joined sections */}
           <TabsContent value="communities" className="space-y-6">
-            {/* Communities Created Section */}
-            {createdCommunities.length > 0 && (
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                        <div className="p-1.5 bg-purple-100 rounded-lg">
-                          <Crown className="h-4 w-4 text-purple-600" />
-                        </div>
-                        My Communities ({createdCommunities.length})
-                      </CardTitle>
-                      <CardDescription className="text-sm text-gray-500 mt-1">
-                        Communities you created or manage as admin
-                      </CardDescription>
+            {/* Communities Created Section - Always show */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <div className="p-1.5 bg-purple-100 rounded-lg">
+                        <Crown className="h-4 w-4 text-purple-600" />
+                      </div>
+                      My Communities ({createdCommunities.length})
+                    </CardTitle>
+                    <CardDescription className="text-sm text-gray-500 mt-1">
+                      Communities you created or manage as admin
+                    </CardDescription>
+                  </div>
+                  {canCreateCommunity ? (
+                    <Link href="/communities/create">
+                      <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Community
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button 
+                      size="sm"
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                      onClick={() => setShowPointsDialog(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Community
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                {isLoadingCommunities ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-sm text-gray-500">
+                        Loading communities...
+                      </p>
                     </div>
+                  </div>
+                ) : createdCommunities.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Crown className="h-10 w-10 text-purple-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      No communities created yet
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-6">
+                      Start your own community and bring people together around shared interests
+                    </p>
                     {canCreateCommunity ? (
                       <Link href="/communities/create">
-                        <Button variant="outline" size="sm">
-                          <Plus className="h-3 w-3 mr-1" />
-                          Create Community
+                        <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create Your First Community
                         </Button>
                       </Link>
                     ) : (
                       <Button 
-                        variant="outline" 
-                        size="sm"
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
                         onClick={() => setShowPointsDialog(true)}
                       >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Create Community
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Your First Community
                       </Button>
                     )}
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  {isLoadingCommunities ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="text-center">
-                        <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="text-sm text-gray-500">
-                          Loading communities...
-                        </p>
-                      </div>
                   </div>
                 ) : (
                   <>
@@ -1859,7 +2031,6 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
-            )}
 
             {/* Member Communities Section */}
             <Card className="border-0 shadow-sm">

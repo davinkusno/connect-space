@@ -211,7 +211,7 @@ export function LeafletEventsMap({
           <div class="w-10 h-10 rounded-full border-3 border-white shadow-lg flex items-center justify-center transition-all duration-200 group-hover:scale-110" 
                style="background-color: ${color}">
             <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+              <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
             </svg>
           </div>
           ${
@@ -241,45 +241,75 @@ export function LeafletEventsMap({
       // Store event data on marker
       marker.eventData = event;
 
-      // Create popup content
-      const popupContent = `
-      <div class="p-4 min-w-[300px] max-w-[350px]">
-        <div class="flex items-start gap-3 mb-3">
-          <img src="${event.image}" alt="${
-        event.title
-      }" class="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-          <div class="flex-1 min-w-0">
-            <h3 class="font-bold text-lg mb-1 line-clamp-2">${event.title}</h3>
-            <div class="flex items-center gap-2 mb-2">
-              <span class="inline-block px-2 py-1 text-xs font-medium rounded-full text-white" style="background-color: ${color}">
-                ${event.category}
-              </span>
-              ${
-                event.featured
-                  ? '<span class="inline-block px-2 py-1 text-xs font-medium rounded-full bg-orange-500 text-white">Featured</span>'
-                  : ""
-              }
-            </div>
-          </div>
-        </div>
+      // Create popup using DOM instead of template literals to avoid escaping issues
+      const popup = L.popup({
+        maxWidth: 350,
+        className: "event-popup",
+      });
+
+      // Set content using a function that creates DOM elements
+      popup.setContent(() => {
+        const container = document.createElement('div');
+        container.className = 'p-4 min-w-[300px] max-w-[350px]';
         
-        <p class="text-gray-600 text-sm mb-3 line-clamp-2">${
-          event.description
-        }</p>
+        // Header section
+        const header = document.createElement('div');
+        header.className = 'flex items-start gap-3 mb-3';
         
-        <div class="space-y-2 mb-3">
+        const img = document.createElement('img');
+        img.src = event.image;
+        img.alt = event.title;
+        img.className = 'w-16 h-16 rounded-lg object-cover flex-shrink-0';
+        
+        const headerContent = document.createElement('div');
+        headerContent.className = 'flex-1 min-w-0';
+        
+        const title = document.createElement('h3');
+        title.className = 'font-bold text-lg mb-1 line-clamp-2';
+        title.textContent = event.title;
+        
+        const badges = document.createElement('div');
+        badges.className = 'flex items-center gap-2 mb-2';
+        
+        const categoryBadge = document.createElement('span');
+        categoryBadge.className = 'inline-block px-2 py-1 text-xs font-medium rounded-full text-white';
+        categoryBadge.style.backgroundColor = color;
+        categoryBadge.textContent = event.category;
+        badges.appendChild(categoryBadge);
+        
+        if (event.featured) {
+          const featuredBadge = document.createElement('span');
+          featuredBadge.className = 'inline-block px-2 py-1 text-xs font-medium rounded-full bg-orange-500 text-white';
+          featuredBadge.textContent = 'Featured';
+          badges.appendChild(featuredBadge);
+        }
+        
+        headerContent.appendChild(title);
+        headerContent.appendChild(badges);
+        header.appendChild(img);
+        header.appendChild(headerContent);
+        
+        // Description
+        const description = document.createElement('p');
+        description.className = 'text-gray-600 text-sm mb-3 line-clamp-2';
+        description.textContent = event.description;
+        
+        // Info section
+        const infoSection = document.createElement('div');
+        infoSection.className = 'space-y-2 mb-3';
+        infoSection.innerHTML = `
           <div class="flex items-center gap-2 text-sm text-gray-600">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+              <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
             </svg>
             <span class="font-medium">${formatDate(event.date)}</span>
             <span>${event.time} - ${event.endTime}</span>
           </div>
           <div class="flex items-center gap-2 text-sm text-gray-600">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
             </svg>
-            <span>${event.location.venue}, ${event.location.city}</span>
+            <span>${event.location.city}</span>
           </div>
           <div class="flex items-center gap-2 text-sm text-gray-600">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -287,38 +317,50 @@ export function LeafletEventsMap({
             </svg>
             <span>${event.attendees}/${event.maxAttendees} attendees</span>
           </div>
-        </div>
+        `;
         
-        <div class="flex flex-wrap gap-1 mb-3">
-          ${event.tags
-            .slice(0, 3)
-            .map(
-              (tag) => `
-            <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">${tag}</span>
-          `
-            )
-            .join("")}
-        </div>
+        // Tags
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'flex flex-wrap gap-1 mb-3';
+        event.tags.slice(0, 3).forEach(tag => {
+          const tagSpan = document.createElement('span');
+          tagSpan.className = 'px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full';
+          tagSpan.textContent = tag;
+          tagsContainer.appendChild(tagSpan);
+        });
         
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-gray-500">by ${event.organizer}</span>
-          </div>
-          <button class="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors duration-200" 
-                  style="background-color: ${color}" 
-                  onclick="window.selectEvent && window.selectEvent(${
-                    event.id
-                  })">
-            View Details
-          </button>
-        </div>
-      </div>
-    `;
-
-      marker.bindPopup(popupContent, {
-        maxWidth: 350,
-        className: "event-popup",
+        // Footer with button
+        const footer = document.createElement('div');
+        footer.className = 'flex items-center justify-between';
+        
+        const organizerSpan = document.createElement('span');
+        organizerSpan.className = 'text-xs text-gray-500';
+        organizerSpan.textContent = `by ${event.organizer}`;
+        
+        const button = document.createElement('button');
+        button.className = 'px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors duration-200';
+        button.style.backgroundColor = color;
+        button.textContent = 'View Details';
+        button.onclick = () => {
+          if (window.selectEvent) {
+            window.selectEvent(event.id);
+          }
+        };
+        
+        footer.appendChild(organizerSpan);
+        footer.appendChild(button);
+        
+        // Assemble everything
+        container.appendChild(header);
+        container.appendChild(description);
+        container.appendChild(infoSection);
+        container.appendChild(tagsContainer);
+        container.appendChild(footer);
+        
+        return container;
       });
+
+      marker.bindPopup(popup);
 
       // Handle marker click
       marker.on("click", () => {
@@ -534,6 +576,8 @@ export function LeafletEventsMap({
         const event = events.find((e) => e.id === eventId);
         if (event && onEventSelect) {
           onEventSelect(event);
+          // Navigate to event details page
+          window.location.href = `/events/${eventId}`;
         }
       };
     }
