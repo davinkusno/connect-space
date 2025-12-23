@@ -2,14 +2,14 @@
 
 import { AdImageUpload } from "@/components/superadmin/ad-image-upload";
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { AnimatedCard } from "@/components/ui/animated-card";
@@ -17,26 +17,40 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { getClientSession } from "@/lib/supabase/client";
 import {
-    Calendar, ChevronLeft, ChevronRight, Edit, ExternalLink, Eye, Filter, Image as ImageIcon, Loader2, Megaphone, Plus, Search, Trash2, TrendingUp, X
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Edit,
+  ExternalLink,
+  Eye,
+  Filter,
+  Image as ImageIcon,
+  Loader2,
+  Megaphone,
+  Plus,
+  Search,
+  Trash2,
+  TrendingUp,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
@@ -80,8 +94,10 @@ export function AdsManagement() {
   const [communitySearchQuery, setCommunitySearchQuery] = useState("");
   const [isLoadingCommunities, setIsLoadingCommunities] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
-  
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "active" | "inactive"
+  >("all");
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6); // 2x3 grid
@@ -110,10 +126,10 @@ export function AdsManagement() {
         loadCommunities(communitySearchQuery);
       } else {
         // Clear search results but keep selected communities in state for badge display
-        setCommunities(prev => {
+        setCommunities((prev) => {
           // Keep only communities that are currently selected
           const selectedCommunityIds = formData.community_ids;
-          return prev.filter(c => selectedCommunityIds.includes(c.id));
+          return prev.filter((c) => selectedCommunityIds.includes(c.id));
         });
         setIsLoadingCommunities(false);
       }
@@ -159,20 +175,28 @@ export function AdsManagement() {
 
     try {
       setIsLoadingCommunities(true);
-      
+
       // API uses limit/offset, not page/pageSize
       const limit = 50;
       const offset = 0;
-      const response = await fetch(`/api/communities?limit=${limit}&offset=${offset}&search=${encodeURIComponent(searchQuery)}`);
-        
+      const response = await fetch(
+        `/api/communities?limit=${limit}&offset=${offset}&search=${encodeURIComponent(
+          searchQuery
+        )}`
+      );
+
       if (!response.ok) {
-        console.error("Failed to load communities:", response.status, await response.text());
+        console.error(
+          "Failed to load communities:",
+          response.status,
+          await response.text()
+        );
         return;
       }
 
       const result = await response.json();
       console.log("Communities API response:", result);
-        
+
       // API returns { communities: [...], total: number }
       if (result.communities && Array.isArray(result.communities)) {
         const pageCommunities = result.communities.map((c: any) => ({
@@ -180,7 +204,9 @@ export function AdsManagement() {
           name: c.name,
         }));
         setCommunities(pageCommunities);
-        console.log(`Successfully loaded ${pageCommunities.length} communities`);
+        console.log(
+          `Successfully loaded ${pageCommunities.length} communities`
+        );
       } else {
         console.warn("Unexpected API response format:", result);
         setCommunities([]);
@@ -197,31 +223,31 @@ export function AdsManagement() {
   const handleOpenDialog = (ad?: Ad) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = today.toISOString().split("T")[0];
 
     if (ad) {
       setSelectedAd(ad);
-      
+
       // Get community IDs from ad_communities
       const communityIds: string[] = [];
       if ((ad as any).communities && Array.isArray((ad as any).communities)) {
         communityIds.push(...(ad as any).communities.map((c: any) => c.id));
       }
-      
+
       // Check if dates are in the past, if so reset to today
       let startDate = ad.start_date ? ad.start_date.split("T")[0] : "";
       let endDate = ad.end_date ? ad.end_date.split("T")[0] : "";
-      
+
       // If start_date is in the past, reset to today
       if (startDate && new Date(startDate) < today) {
         startDate = todayStr;
       }
-      
+
       // If end_date is in the past, reset to today
       if (endDate && new Date(endDate) < today) {
         endDate = todayStr;
       }
-      
+
       setFormData({
         title: ad.title,
         description: ad.description || "",
@@ -233,11 +259,16 @@ export function AdsManagement() {
         start_date: startDate,
         end_date: endDate,
       });
-      
+
       // Pre-populate communities state for badge display
       const communityList: Array<{ id: string; name: string }> = [];
       if ((ad as any).communities && Array.isArray((ad as any).communities)) {
-        communityList.push(...(ad as any).communities.map((c: any) => ({ id: c.id, name: c.name })));
+        communityList.push(
+          ...(ad as any).communities.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+          }))
+        );
       }
       setCommunities(communityList);
     } else {
@@ -276,7 +307,7 @@ export function AdsManagement() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       startDate.setHours(0, 0, 0, 0);
-      
+
       if (startDate < today) {
         toast.error("Start date cannot be in the past");
         return;
@@ -287,7 +318,7 @@ export function AdsManagement() {
     if (formData.start_date && formData.end_date) {
       const startDate = new Date(formData.start_date);
       const endDate = new Date(formData.end_date);
-      
+
       if (endDate < startDate) {
         toast.error("End date must be after start date");
         return;
@@ -302,9 +333,7 @@ export function AdsManagement() {
         return;
       }
 
-      const url = selectedAd
-        ? `/api/ads/${selectedAd.id}`
-        : "/api/ads";
+      const url = selectedAd ? `/api/ads/${selectedAd.id}` : "/api/ads";
       const method = selectedAd ? "PATCH" : "POST";
 
       const payload = {
@@ -312,9 +341,11 @@ export function AdsManagement() {
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
         // Send community_ids array to backend
-        community_ids: formData.community_ids.length > 0 ? formData.community_ids : null,
+        community_ids:
+          formData.community_ids.length > 0 ? formData.community_ids : null,
         // Also send first community as community_id for legacy support
-        community_id: formData.community_ids.length > 0 ? formData.community_ids[0] : null,
+        community_id:
+          formData.community_ids.length > 0 ? formData.community_ids[0] : null,
       };
 
       const response = await fetch(url, {
@@ -329,9 +360,9 @@ export function AdsManagement() {
       if (!response.ok) {
         const errorData = await response.json();
         // Extract error message from API response structure
-        const errorMessage = 
-          (typeof errorData.error === 'object' && errorData.error?.message) ||
-          (typeof errorData.error === 'string' && errorData.error) ||
+        const errorMessage =
+          (typeof errorData.error === "object" && errorData.error?.message) ||
+          (typeof errorData.error === "string" && errorData.error) ||
           errorData.message ||
           "Failed to save ad";
         throw new Error(errorMessage);
@@ -340,14 +371,16 @@ export function AdsManagement() {
       // Get the updated/created ad from the response
       const updatedAd = await response.json();
 
-      toast.success(selectedAd ? "Ad updated successfully" : "Ad created successfully");
+      toast.success(
+        selectedAd ? "Ad updated successfully" : "Ad created successfully"
+      );
       handleCloseDialog();
-      
+
       // Optimistically update the UI with the returned ad data (includes community)
       if (selectedAd) {
         // Update existing ad in the list
-        setAds((prevAds) => 
-          prevAds.map((ad) => ad.id === selectedAd.id ? updatedAd : ad)
+        setAds((prevAds) =>
+          prevAds.map((ad) => (ad.id === selectedAd.id ? updatedAd : ad))
         );
       } else {
         // Add new ad to the beginning of the list
@@ -382,9 +415,9 @@ export function AdsManagement() {
       if (!response.ok) {
         const errorData = await response.json();
         // Extract error message from API response structure
-        const errorMessage = 
-          (typeof errorData.error === 'object' && errorData.error?.message) ||
-          (typeof errorData.error === 'string' && errorData.error) ||
+        const errorMessage =
+          (typeof errorData.error === "object" && errorData.error?.message) ||
+          (typeof errorData.error === "string" && errorData.error) ||
           errorData.message ||
           "Failed to delete ad";
         throw new Error(errorMessage);
@@ -405,16 +438,16 @@ export function AdsManagement() {
   // Filter and search ads
   const filteredAds = useMemo(() => {
     return ads.filter((ad) => {
-      const matchesSearch = 
+      const matchesSearch =
         !searchQuery ||
         ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ad.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesStatus = 
+
+      const matchesStatus =
         filterStatus === "all" ||
         (filterStatus === "active" && ad.is_active) ||
         (filterStatus === "inactive" && !ad.is_active);
-      
+
       return matchesSearch && matchesStatus;
     });
   }, [ads, searchQuery, filterStatus]);
@@ -435,7 +468,8 @@ export function AdsManagement() {
     const activeAds = ads.filter((ad) => ad.is_active).length;
     const totalViews = ads.reduce((sum, ad) => sum + (ad.view_count || 0), 0);
     const totalClicks = ads.reduce((sum, ad) => sum + (ad.click_count || 0), 0);
-    const ctr = totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(2) : "0.00";
+    const ctr =
+      totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(2) : "0.00";
 
     return {
       total: ads.length,
@@ -446,7 +480,6 @@ export function AdsManagement() {
       ctr,
     };
   }, [ads]);
-
 
   return (
     <div className="space-y-6">
@@ -488,7 +521,9 @@ export function AdsManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Active Ads</p>
-              <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+              <p className="text-2xl font-bold text-green-600">
+                {stats.active}
+              </p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <TrendingUp className="h-5 w-5 text-green-600" />
@@ -500,7 +535,9 @@ export function AdsManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Views</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.totalViews.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {stats.totalViews.toLocaleString()}
+              </p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
               <Eye className="h-5 w-5 text-blue-600" />
@@ -534,7 +571,12 @@ export function AdsManagement() {
             />
           </div>
           <div className="flex gap-2">
-            <Select value={filterStatus} onValueChange={(value: "all" | "active" | "inactive") => setFilterStatus(value)}>
+            <Select
+              value={filterStatus}
+              onValueChange={(value: "all" | "active" | "inactive") =>
+                setFilterStatus(value)
+              }
+            >
               <SelectTrigger className="w-[140px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue />
@@ -570,7 +612,10 @@ export function AdsManagement() {
                 : "Try adjusting your search or filter criteria."}
             </p>
             {ads.length === 0 && (
-              <AnimatedButton onClick={() => handleOpenDialog()} className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white">
+              <AnimatedButton
+                onClick={() => handleOpenDialog()}
+                className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Ad
               </AnimatedButton>
@@ -579,239 +624,286 @@ export function AdsManagement() {
         </AnimatedCard>
       ) : (
         <>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {paginatedAds.map((ad) => {
-            // Determine border color based on ad status
-            const getBorderColor = () => {
-              if (ad.is_active) {
-                return "border-green-300 hover:border-green-400";
-              }
-              return "border-gray-300 hover:border-gray-400";
-            };
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedAds.map((ad) => {
+              // Determine border color based on ad status
+              const getBorderColor = () => {
+                if (ad.is_active) {
+                  return "border-green-300 hover:border-green-400";
+                }
+                return "border-gray-300 hover:border-gray-400";
+              };
 
-            return (
-            <AnimatedCard key={ad.id} variant="glass" className={`overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full border-2 ${getBorderColor()} bg-white`}>
-              {/* Image Section */}
-              <div className="relative">
-                <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
-                  {ad.image_url && ad.image_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) ? (
-                    <video
-                      src={ad.image_url}
-                      className="w-full h-full object-cover"
-                      controls
-                      muted
-                      playsInline
-                    />
-                  ) : ad.image_url ? (
-                    <Image
-                      src={ad.image_url}
-                      alt={ad.title}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <p className="text-gray-400">No image</p>
-                    </div>
-                  )}
-                </div>
-                <div className="absolute top-3 right-3 flex gap-2 flex-wrap justify-end">
-                  <Badge
-                    className={ad.is_active ? "bg-green-500 text-white border-0 shadow-md" : "bg-gray-500 text-white border-0"}
-                  >
-                    {ad.is_active ? "Active" : "Inactive"}
-                  </Badge>
-                  {ad.communities && ad.communities.length > 0 && (
-                    <Badge
-                      className="bg-blue-500 text-white border-0 shadow-md"
-                      title={`Targeted to ${ad.communities.length} ${ad.communities.length === 1 ? 'community' : 'communities'}`}
-                    >
-                      Targeted
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              {/* Content Section - Fixed structure */}
-              <div className="flex flex-col flex-1 p-4">
-                {/* Title and Description - Fixed height area */}
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-1 mb-2 min-h-[28px]">
-                    {ad.title}
-                  </h3>
-                  <div className="min-h-[40px]">
-                    {ad.description ? (
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {ad.description}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-gray-400 italic">
-                        No description
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Metadata Section - Fixed space for target and date */}
-                <div className="mb-4">
-                  {/* Target Communities - Fixed height with scroll */}
-                  <div className="min-h-[56px] max-h-[56px] mb-2">
-                    {(ad as any).communities && (ad as any).communities.length > 0 ? (
-                      <div className="flex flex-col gap-1 text-xs text-gray-600 bg-blue-50 p-2 rounded-lg h-full">
-                        <span className="font-medium flex-shrink-0">Target ({(ad as any).communities.length}):</span>
-                        <div className="flex flex-wrap gap-1 overflow-y-auto overflow-x-hidden" style={{ maxHeight: '32px' }}>
-                          {(ad as any).communities.map((community: any) => (
-                            <span key={community.id} className="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 text-blue-700 flex-shrink-0 text-[11px] whitespace-nowrap">
-                              {community.name}
-                            </span>
-                          ))}
+              return (
+                <AnimatedCard
+                  key={ad.id}
+                  variant="glass"
+                  className={`overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full border-2 ${getBorderColor()} bg-white`}
+                >
+                  {/* Image Section */}
+                  <div className="relative">
+                    <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
+                      {ad.image_url &&
+                      ad.image_url
+                        .toLowerCase()
+                        .match(/\.(mp4|webm|ogg|mov)$/) ? (
+                        <video
+                          src={ad.image_url}
+                          className="w-full h-full object-cover"
+                          controls
+                          muted
+                          playsInline
+                        />
+                      ) : ad.image_url ? (
+                        <Image
+                          src={ad.image_url}
+                          alt={ad.title}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                          <p className="text-gray-400">No image</p>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-xs text-gray-600 bg-green-50 p-2 rounded-lg">
-                        <span className="font-medium">🌐 All Communities</span>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                    <div className="absolute top-3 right-3 flex gap-2 flex-wrap justify-end">
+                      <Badge
+                        className={
+                          ad.is_active
+                            ? "bg-green-500 text-white border-0 shadow-md"
+                            : "bg-gray-500 text-white border-0"
+                        }
+                      >
+                        {ad.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                      {ad.communities && ad.communities.length > 0 && (
+                        <Badge
+                          className="bg-blue-500 text-white border-0 shadow-md"
+                          title={`Targeted to ${ad.communities.length} ${
+                            ad.communities.length === 1
+                              ? "community"
+                              : "communities"
+                          }`}
+                        >
+                          Targeted
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                  
-                  {/* Date Range - Always visible */}
-                  <div>
-                    {(ad.start_date || ad.end_date) ? (
-                      <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <Calendar className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">
-                          {ad.start_date && new Date(ad.start_date).toLocaleDateString()}
-                          {ad.start_date && ad.end_date && " - "}
-                          {ad.end_date && new Date(ad.end_date).toLocaleDateString()}
+
+                  {/* Content Section - Fixed structure */}
+                  <div className="flex flex-col flex-1 p-4">
+                    {/* Title and Description - Fixed height area */}
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 line-clamp-1 mb-2 min-h-[28px]">
+                        {ad.title}
+                      </h3>
+                      <div className="min-h-[40px]">
+                        {ad.description ? (
+                          <p className="text-sm text-gray-600 line-clamp-2">
+                            {ad.description}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">
+                            No description
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Metadata Section - Fixed space for target and date */}
+                    <div className="mb-4">
+                      {/* Target Communities - Fixed height with scroll */}
+                      <div className="min-h-[56px] max-h-[56px] mb-2">
+                        {(ad as any).communities &&
+                        (ad as any).communities.length > 0 ? (
+                          <div className="flex flex-col gap-1 text-xs text-gray-600 bg-blue-50 p-2 rounded-lg h-full">
+                            <span className="font-medium flex-shrink-0">
+                              Target ({(ad as any).communities.length}):
+                            </span>
+                            <div
+                              className="flex flex-wrap gap-1 overflow-y-auto overflow-x-hidden"
+                              style={{ maxHeight: "32px" }}
+                            >
+                              {(ad as any).communities.map((community: any) => (
+                                <span
+                                  key={community.id}
+                                  className="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 text-blue-700 flex-shrink-0 text-[11px] whitespace-nowrap"
+                                >
+                                  {community.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-xs text-gray-600 bg-green-50 p-2 rounded-lg">
+                            <span className="font-medium">
+                              🌐 All Communities
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Date Range - Always visible */}
+                      <div>
+                        {ad.start_date || ad.end_date ? (
+                          <div className="flex items-center gap-2 text-xs text-gray-600">
+                            <Calendar className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">
+                              {ad.start_date &&
+                                new Date(ad.start_date).toLocaleDateString()}
+                              {ad.start_date && ad.end_date && " - "}
+                              {ad.end_date &&
+                                new Date(ad.end_date).toLocaleDateString()}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <Calendar className="h-3 w-3 flex-shrink-0" />
+                            <span>No date range</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Stats Section - Always present */}
+                    <div className="flex items-center justify-between py-3 border-t border-gray-100 mb-4">
+                      <div className="flex items-center gap-3 text-xs text-gray-600 flex-wrap">
+                        <span className="flex items-center gap-1.5">
+                          <Eye className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                          <span className="font-medium">
+                            {ad.view_count || 0}
+                          </span>
                         </span>
+                        <span className="flex items-center gap-1.5">
+                          <ExternalLink className="h-4 w-4 text-green-500 flex-shrink-0" />
+                          <span className="font-medium">
+                            {ad.click_count || 0}
+                          </span>
+                        </span>
+                        {ad.view_count > 0 && (
+                          <span className="text-orange-600 font-medium">
+                            {(
+                              ((ad.click_count || 0) / ad.view_count) *
+                              100
+                            ).toFixed(1)}
+                            % CTR
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-xs text-gray-400">
-                        <Calendar className="h-3 w-3 flex-shrink-0" />
-                        <span>No date range</span>
-                      </div>
+                    </div>
+
+                    {/* Action Buttons - Always at bottom */}
+                    <div className="flex gap-2 mt-auto">
+                      <AnimatedButton
+                        variant="glass"
+                        size="sm"
+                        onClick={() => handleOpenDialog(ad)}
+                        className="flex-1"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </AnimatedButton>
+                      <AnimatedButton
+                        variant="glass"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedAd(ad);
+                          setIsDeleteDialogOpen(true);
+                        }}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </AnimatedButton>
+                    </div>
+                  </div>
+                </AnimatedCard>
+              );
+            })}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <AnimatedCard variant="glass" className="p-4 mt-6">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Showing {startIndex + 1}-
+                  {Math.min(endIndex, filteredAds.length)} of{" "}
+                  {filteredAds.length} ads
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(1, prev - 1))
+                    }
+                    disabled={currentPage === 1}
+                    className="h-8"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                      (page) => {
+                        // Show first page, last page, current page, and pages around current
+                        const showPage =
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1);
+
+                        const showEllipsis =
+                          (page === 2 && currentPage > 3) ||
+                          (page === totalPages - 1 &&
+                            currentPage < totalPages - 2);
+
+                        if (showEllipsis) {
+                          return (
+                            <span key={page} className="px-2 text-gray-400">
+                              ...
+                            </span>
+                          );
+                        }
+
+                        if (!showPage) return null;
+
+                        return (
+                          <Button
+                            key={page}
+                            variant={
+                              currentPage === page ? "default" : "outline"
+                            }
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className={`h-8 w-8 p-0 ${
+                              currentPage === page
+                                ? "bg-purple-600 text-white hover:bg-purple-700"
+                                : ""
+                            }`}
+                          >
+                            {page}
+                          </Button>
+                        );
+                      }
                     )}
                   </div>
-                </div>
-
-                {/* Stats Section - Always present */}
-                <div className="flex items-center justify-between py-3 border-t border-gray-100 mb-4">
-                  <div className="flex items-center gap-3 text-xs text-gray-600 flex-wrap">
-                    <span className="flex items-center gap-1.5">
-                      <Eye className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                      <span className="font-medium">{ad.view_count || 0}</span>
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <ExternalLink className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      <span className="font-medium">{ad.click_count || 0}</span>
-                    </span>
-                    {ad.view_count > 0 && (
-                      <span className="text-orange-600 font-medium">
-                        {((ad.click_count || 0) / ad.view_count * 100).toFixed(1)}% CTR
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Action Buttons - Always at bottom */}
-                <div className="flex gap-2 mt-auto">
-                  <AnimatedButton
-                    variant="glass"
+                  <Button
+                    variant="outline"
                     size="sm"
-                    onClick={() => handleOpenDialog(ad)}
-                    className="flex-1"
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="h-8"
                   >
-                    <Edit className="h-3 w-3 mr-1" />
-                    Edit
-                  </AnimatedButton>
-                  <AnimatedButton
-                    variant="glass"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedAd(ad);
-                      setIsDeleteDialogOpen(true);
-                    }}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </AnimatedButton>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </AnimatedCard>
-            );
-          })}
-        </div>
-        
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <AnimatedCard variant="glass" className="p-4 mt-6">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Showing {startIndex + 1}-{Math.min(endIndex, filteredAds.length)} of {filteredAds.length} ads
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="h-8"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                    // Show first page, last page, current page, and pages around current
-                    const showPage = 
-                      page === 1 ||
-                      page === totalPages ||
-                      (page >= currentPage - 1 && page <= currentPage + 1);
-                    
-                    const showEllipsis = 
-                      (page === 2 && currentPage > 3) ||
-                      (page === totalPages - 1 && currentPage < totalPages - 2);
-
-                    if (showEllipsis) {
-                      return (
-                        <span key={page} className="px-2 text-gray-400">
-                          ...
-                        </span>
-                      );
-                    }
-
-                    if (!showPage) return null;
-
-                    return (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCurrentPage(page)}
-                        className={`h-8 w-8 p-0 ${
-                          currentPage === page
-                            ? "bg-purple-600 text-white hover:bg-purple-700"
-                            : ""
-                        }`}
-                      >
-                        {page}
-                      </Button>
-                    );
-                  })}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="h-8"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </AnimatedCard>
-        )}
+          )}
         </>
       )}
 
@@ -888,175 +980,210 @@ export function AdsManagement() {
             </div>
 
             <div>
-                <Label htmlFor="community_id">
-                  Target Communities
-                  <span className="text-gray-500 text-xs ml-2 font-normal">
-                    (Select multiple communities or leave unchecked for all)
-                  </span>
-                </Label>
-                
-                {/* Target Selection Mode */}
-                <div className="flex gap-4 mb-3 mt-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="targetMode"
-                      checked={formData.community_ids.length === 0}
-                      onChange={() => setFormData({ ...formData, community_ids: [] })}
-                      className="w-4 h-4 text-violet-600"
-                    />
-                    <span className="text-sm">🌐 All Communities</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="targetMode"
-                      checked={formData.community_ids.length > 0}
-                      onChange={() => {
-                        // Switch to specific mode but don't auto-select anything
-                        if (formData.community_ids.length === 0) {
-                          setFormData({ ...formData, community_ids: [] });
-                        }
-                      }}
-                      className="w-4 h-4 text-violet-600"
-                    />
-                    <span className="text-sm">🎯 Specific Communities</span>
-                  </label>
-                </div>
+              <Label htmlFor="community_id">
+                Target Communities
+                <span className="text-gray-500 text-xs ml-2 font-normal">
+                  (Select multiple communities or leave unchecked for all)
+                </span>
+              </Label>
 
-                {/* Community Selection (only show if specific mode) */}
-                {formData.community_ids.length > 0 || formData.community_ids.length === 0 ? (
-                  <div className="border rounded-lg p-3 bg-gray-50">
-                    {/* Search */}
-                    <div className="relative mb-3">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-                      <Input
-                        placeholder="Search communities..."
-                        value={communitySearchQuery}
-                        onChange={(e) => setCommunitySearchQuery(e.target.value)}
-                        className="pl-8 h-9 text-sm bg-white"
-                      />
-                      {communitySearchQuery && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-1 top-0.5 h-7 w-7 p-0"
-                          onClick={() => setCommunitySearchQuery("")}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
+              {/* Target Selection Mode */}
+              <div className="flex gap-4 mb-3 mt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="targetMode"
+                    checked={formData.community_ids.length === 0}
+                    onChange={() =>
+                      setFormData({ ...formData, community_ids: [] })
+                    }
+                    className="w-4 h-4 text-violet-600"
+                  />
+                  <span className="text-sm">🌐 All Communities</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="targetMode"
+                    checked={formData.community_ids.length > 0}
+                    onChange={() => {
+                      // Switch to specific mode but don't auto-select anything
+                      if (formData.community_ids.length === 0) {
+                        setFormData({ ...formData, community_ids: [] });
+                      }
+                    }}
+                    className="w-4 h-4 text-violet-600"
+                  />
+                  <span className="text-sm">🎯 Specific Communities</span>
+                </label>
+              </div>
 
-                    {/* Selected Communities Display - Badges with X to remove */}
-                    {formData.community_ids.length > 0 && (
-                      <div className="mb-3 p-2 bg-violet-50 rounded-md border border-violet-200">
-                        <p className="text-xs font-medium text-violet-700 mb-2">
-                          Selected ({formData.community_ids.length}):
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {formData.community_ids.map((id) => {
-                            // Try to find community in search results first
-                            let community = communities.find((c) => c.id === id);
-                            
-                            // If not found in search results, check if editing an ad with community data
-                            if (!community && selectedAd) {
-                              // Check new format (communities array)
-                              if ((selectedAd as any).communities && Array.isArray((selectedAd as any).communities)) {
-                                const foundInArray = (selectedAd as any).communities.find((c: any) => c.id === id);
-                                if (foundInArray) {
-                                  community = {
-                                    id: foundInArray.id,
-                                    name: foundInArray.name,
-                                  };
-                                }
+              {/* Community Selection (only show if specific mode) */}
+              {formData.community_ids.length > 0 ||
+              formData.community_ids.length === 0 ? (
+                <div className="border rounded-lg p-3 bg-gray-50">
+                  {/* Search */}
+                  <div className="relative mb-3">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search communities..."
+                      value={communitySearchQuery}
+                      onChange={(e) => setCommunitySearchQuery(e.target.value)}
+                      className="pl-8 h-9 text-sm bg-white"
+                    />
+                    {communitySearchQuery && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-0.5 h-7 w-7 p-0"
+                        onClick={() => setCommunitySearchQuery("")}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Selected Communities Display - Badges with X to remove */}
+                  {formData.community_ids.length > 0 && (
+                    <div className="mb-3 p-2 bg-violet-50 rounded-md border border-violet-200">
+                      <p className="text-xs font-medium text-violet-700 mb-2">
+                        Selected ({formData.community_ids.length}):
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {formData.community_ids.map((id) => {
+                          // Try to find community in search results first
+                          let community = communities.find((c) => c.id === id);
+
+                          // If not found in search results, check if editing an ad with community data
+                          if (!community && selectedAd) {
+                            // Check new format (communities array)
+                            if (
+                              (selectedAd as any).communities &&
+                              Array.isArray((selectedAd as any).communities)
+                            ) {
+                              const foundInArray = (
+                                selectedAd as any
+                              ).communities.find((c: any) => c.id === id);
+                              if (foundInArray) {
+                                community = {
+                                  id: foundInArray.id,
+                                  name: foundInArray.name,
+                                };
                               }
                             }
-                            
-                            return (
-                              <Badge
-                                key={id}
-                                variant="secondary"
-                                className="bg-violet-100 text-violet-700 hover:bg-violet-200 cursor-pointer"
-                                onClick={() => {
-                                  // Remove from selection
-                                  setFormData({
-                                    ...formData,
-                                    community_ids: formData.community_ids.filter((cid) => cid !== id),
-                                  });
-                                  // Also remove from communities state so it doesn't reappear in the list
-                                  setCommunities(prev => prev.filter(c => c.id !== id));
-                                }}
-                              >
-                                {community?.name || "Loading..."}
-                                <X className="ml-1 h-3 w-3" />
-                              </Badge>
-                            );
-                          })}
-                        </div>
+                          }
+
+                          return (
+                            <Badge
+                              key={id}
+                              variant="secondary"
+                              className="bg-violet-100 text-violet-700 hover:bg-violet-200 cursor-pointer"
+                              onClick={() => {
+                                // Remove from selection
+                                setFormData({
+                                  ...formData,
+                                  community_ids: formData.community_ids.filter(
+                                    (cid) => cid !== id
+                                  ),
+                                });
+                                // Also remove from communities state so it doesn't reappear in the list
+                                setCommunities((prev) =>
+                                  prev.filter((c) => c.id !== id)
+                                );
+                              }}
+                            >
+                              {community?.name || "Loading..."}
+                              <X className="ml-1 h-3 w-3" />
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Communities List - Click to Add */}
+                  <div className="max-h-[300px] overflow-y-auto border rounded-md bg-white">
+                    {isLoadingCommunities ? (
+                      <div className="px-2 py-8 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-violet-600" />
+                        <p className="text-sm text-gray-600 font-medium">
+                          Loading communities...
+                        </p>
+                      </div>
+                    ) : communities.length > 0 ? (
+                      <div>
+                        {communities
+                          .filter(
+                            (community) =>
+                              !formData.community_ids.includes(community.id)
+                          )
+                          .map((community) => (
+                            <div
+                              key={community.id}
+                              onClick={() => {
+                                // Add to array
+                                setFormData({
+                                  ...formData,
+                                  community_ids: [
+                                    ...formData.community_ids,
+                                    community.id,
+                                  ],
+                                });
+                                // Add to communities state for badge display
+                                setCommunities((prev) => {
+                                  const exists = prev.find(
+                                    (c) => c.id === community.id
+                                  );
+                                  if (exists) return prev;
+                                  return [...prev, community];
+                                });
+                              }}
+                              className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                            >
+                              <span className="text-sm flex-1">
+                                {community.name}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    ) : communitySearchQuery.trim().length >= 2 ? (
+                      <div className="px-2 py-8 text-center">
+                        <p className="text-sm text-gray-600 font-medium">
+                          No communities found
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Try a different search term
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="px-2 py-8 text-center">
+                        <Search className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                        <p className="text-sm text-gray-600 font-medium">
+                          Search for communities
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Type at least 2 characters
+                        </p>
                       </div>
                     )}
-
-                    {/* Communities List - Click to Add */}
-                    <div className="max-h-[300px] overflow-y-auto border rounded-md bg-white">
-                      {isLoadingCommunities ? (
-                        <div className="px-2 py-8 text-center">
-                          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-violet-600" />
-                          <p className="text-sm text-gray-600 font-medium">Loading communities...</p>
-                        </div>
-                      ) : communities.length > 0 ? (
-                        <div>
-                          {communities
-                            .filter((community) => !formData.community_ids.includes(community.id))
-                            .map((community) => (
-                              <div
-                                key={community.id}
-                                onClick={() => {
-                                  // Add to array
-                                  setFormData({
-                                    ...formData,
-                                    community_ids: [...formData.community_ids, community.id],
-                                  });
-                                  // Add to communities state for badge display
-                                  setCommunities(prev => {
-                                    const exists = prev.find(c => c.id === community.id);
-                                    if (exists) return prev;
-                                    return [...prev, community];
-                                  });
-                                }}
-                                className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                              >
-                                <span className="text-sm flex-1">{community.name}</span>
-                              </div>
-                            ))}
-                        </div>
-                      ) : communitySearchQuery.trim().length >= 2 ? (
-                        <div className="px-2 py-8 text-center">
-                          <p className="text-sm text-gray-600 font-medium">No communities found</p>
-                          <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
-                        </div>
-                      ) : (
-                        <div className="px-2 py-8 text-center">
-                          <Search className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                          <p className="text-sm text-gray-600 font-medium">Search for communities</p>
-                          <p className="text-xs text-gray-400 mt-1">Type at least 2 characters</p>
-                        </div>
-                      )}
-                    </div>
                   </div>
-                ) : null}
+                </div>
+              ) : null}
 
-                {formData.community_ids.length > 0 && (
-                  <p className="text-xs text-violet-600 mt-2 font-medium">
-                    ✓ This ad will be shown on {formData.community_ids.length} selected{" "}
-                    {formData.community_ids.length === 1 ? "community" : "communities"}
-                  </p>
-                )}
-                {formData.community_ids.length === 0 && (
-                  <p className="text-xs text-blue-600 mt-2 font-medium">
-                    🌐 This ad will be shown on all community pages
-                  </p>
-                )}
+              {formData.community_ids.length > 0 && (
+                <p className="text-xs text-violet-600 mt-2 font-medium">
+                  ✓ This ad will be shown on {formData.community_ids.length}{" "}
+                  selected{" "}
+                  {formData.community_ids.length === 1
+                    ? "community"
+                    : "communities"}
+                </p>
+              )}
+              {formData.community_ids.length === 0 && (
+                <p className="text-xs text-blue-600 mt-2 font-medium">
+                  🌐 This ad will be shown on all community pages
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1066,7 +1193,7 @@ export function AdsManagement() {
                   id="start_date"
                   type="date"
                   value={formData.start_date}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={new Date().toISOString().split("T")[0]}
                   onChange={(e) =>
                     setFormData({ ...formData, start_date: e.target.value })
                   }
@@ -1105,7 +1232,10 @@ export function AdsManagement() {
                 }
                 className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
               />
-              <Label htmlFor="is_active" className="text-sm font-medium cursor-pointer">
+              <Label
+                htmlFor="is_active"
+                className="text-sm font-medium cursor-pointer"
+              >
                 Active (ad will be displayed)
               </Label>
             </div>
@@ -1130,9 +1260,7 @@ export function AdsManagement() {
                   {selectedAd ? "Updating..." : "Creating..."}
                 </>
               ) : (
-                <>
-                  {selectedAd ? "Update Ad" : "Create Ad"}
-                </>
+                <>{selectedAd ? "Update Ad" : "Create Ad"}</>
               )}
             </AnimatedButton>
           </DialogFooter>
@@ -1140,16 +1268,22 @@ export function AdsManagement() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Ad</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{selectedAd?.title}"? This action cannot be undone.
+              Are you sure you want to delete "{selectedAd?.title}"? This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSubmitting}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={isSubmitting}
@@ -1170,4 +1304,3 @@ export function AdsManagement() {
     </div>
   );
 }
-
