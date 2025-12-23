@@ -195,6 +195,10 @@ export function AdsManagement() {
   };
 
   const handleOpenDialog = (ad?: Ad) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+
     if (ad) {
       setSelectedAd(ad);
       
@@ -202,6 +206,20 @@ export function AdsManagement() {
       const communityIds: string[] = [];
       if ((ad as any).communities && Array.isArray((ad as any).communities)) {
         communityIds.push(...(ad as any).communities.map((c: any) => c.id));
+      }
+      
+      // Check if dates are in the past, if so reset to today
+      let startDate = ad.start_date ? ad.start_date.split("T")[0] : "";
+      let endDate = ad.end_date ? ad.end_date.split("T")[0] : "";
+      
+      // If start_date is in the past, reset to today
+      if (startDate && new Date(startDate) < today) {
+        startDate = todayStr;
+      }
+      
+      // If end_date is in the past, reset to today
+      if (endDate && new Date(endDate) < today) {
+        endDate = todayStr;
       }
       
       setFormData({
@@ -212,8 +230,8 @@ export function AdsManagement() {
         community_ids: communityIds,
         placement: ad.placement,
         is_active: ad.is_active,
-        start_date: ad.start_date ? ad.start_date.split("T")[0] : "",
-        end_date: ad.end_date ? ad.end_date.split("T")[0] : "",
+        start_date: startDate,
+        end_date: endDate,
       });
       
       // Pre-populate communities state for badge display
@@ -250,6 +268,19 @@ export function AdsManagement() {
     if (!formData.title || !formData.image_url) {
       toast.error("Title and image URL are required");
       return;
+    }
+
+    // Validate start_date is not in the past (for both new and edit)
+    if (formData.start_date) {
+      const startDate = new Date(formData.start_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      startDate.setHours(0, 0, 0, 0);
+      
+      if (startDate < today) {
+        toast.error("Start date cannot be in the past");
+        return;
+      }
     }
 
     // Validate date range
@@ -1035,10 +1066,14 @@ export function AdsManagement() {
                   id="start_date"
                   type="date"
                   value={formData.start_date}
+                  min={new Date().toISOString().split('T')[0]}
                   onChange={(e) =>
                     setFormData({ ...formData, start_date: e.target.value })
                   }
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Must be today or a future date
+                </p>
               </div>
 
               <div>
