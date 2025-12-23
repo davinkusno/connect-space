@@ -1840,7 +1840,8 @@ export default function DashboardPage() {
                                       <Clock className="h-3 w-3" />
                                       <span>
                                         {(() => {
-                                          const startTime = event.time ||
+                                          const startTime =
+                                            event.time ||
                                             new Date(
                                               event.start_time || event.date
                                             ).toLocaleTimeString("en-US", {
@@ -1848,12 +1849,16 @@ export default function DashboardPage() {
                                               minute: "2-digit",
                                             });
                                           const endTime = event.end_time
-                                            ? new Date(event.end_time).toLocaleTimeString("en-US", {
+                                            ? new Date(
+                                                event.end_time
+                                              ).toLocaleTimeString("en-US", {
                                                 hour: "numeric",
                                                 minute: "2-digit",
                                               })
                                             : null;
-                                          return endTime ? `${startTime} - ${endTime}` : startTime;
+                                          return endTime
+                                            ? `${startTime} - ${endTime}`
+                                            : startTime;
                                         })()}
                                       </span>
                                     </div>
@@ -2037,20 +2042,26 @@ export default function DashboardPage() {
                                 <Clock className="h-4 w-4 text-gray-400" />
                                 <span>
                                   {(() => {
-                                    const startTime = selectedSavedEvent.time ||
+                                    const startTime =
+                                      selectedSavedEvent.time ||
                                       new Date(
-                                        selectedSavedEvent.start_time || selectedSavedEvent.date
+                                        selectedSavedEvent.start_time ||
+                                          selectedSavedEvent.date
                                       ).toLocaleTimeString("en-US", {
                                         hour: "numeric",
                                         minute: "2-digit",
                                       });
                                     const endTime = selectedSavedEvent.end_time
-                                      ? new Date(selectedSavedEvent.end_time).toLocaleTimeString("en-US", {
+                                      ? new Date(
+                                          selectedSavedEvent.end_time
+                                        ).toLocaleTimeString("en-US", {
                                           hour: "numeric",
                                           minute: "2-digit",
                                         })
                                       : null;
-                                    return endTime ? `${startTime} - ${endTime}` : startTime;
+                                    return endTime
+                                      ? `${startTime} - ${endTime}`
+                                      : startTime;
                                   })()}
                                 </span>
                               </div>

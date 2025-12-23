@@ -393,7 +393,14 @@ export default function EventsPage() {
   // Reset page to 1 when tab or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, selectedCategory, selectedLocation, dateRange, searchQuery, locationQuery]);
+  }, [
+    activeTab,
+    selectedCategory,
+    selectedLocation,
+    dateRange,
+    searchQuery,
+    locationQuery,
+  ]);
 
   // Pagination logic
   // Since we're doing client-side filtering, we need to paginate the filtered results
@@ -505,7 +512,11 @@ export default function EventsPage() {
   ]);
 
   // Pagination Component - accepts custom totalPages for different filter tabs
-  const EventPaginationControls = ({ totalPages = calculatedTotalPages }: { totalPages?: number }) => {
+  const EventPaginationControls = ({
+    totalPages = calculatedTotalPages,
+  }: {
+    totalPages?: number;
+  }) => {
     if (totalPages <= 1) return null;
 
     const getPageNumbers = () => {
@@ -524,8 +535,7 @@ export default function EventsPage() {
         } else if (currentPage >= totalPages - 2) {
           pages.push(1);
           pages.push("...");
-          for (let i = totalPages - 3; i <= totalPages; i++)
-            pages.push(i);
+          for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
         } else {
           pages.push(1);
           pages.push("...");
@@ -1081,7 +1091,9 @@ export default function EventsPage() {
 
                       {/* Pagination Controls */}
                       {interestedTotalPages > 1 && (
-                        <EventPaginationControls totalPages={interestedTotalPages} />
+                        <EventPaginationControls
+                          totalPages={interestedTotalPages}
+                        />
                       )}
                     </>
                   ) : (
@@ -1147,7 +1159,9 @@ export default function EventsPage() {
 
                       {/* Pagination Controls */}
                       {onlineTotalPages > 1 && (
-                        <EventPaginationControls totalPages={onlineTotalPages} />
+                        <EventPaginationControls
+                          totalPages={onlineTotalPages}
+                        />
                       )}
                     </>
                   ) : (
