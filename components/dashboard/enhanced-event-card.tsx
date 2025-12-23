@@ -7,7 +7,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
-    Bell, Calendar, Clock, ExternalLink, Heart, MapPin, MoreHorizontal, Share, Star
+  Bell,
+  Calendar,
+  Clock,
+  ExternalLink,
+  Heart,
+  MapPin,
+  MoreHorizontal,
+  Share,
+  Star,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -104,6 +112,7 @@ export function EnhancedEventCard({
                 {new Date(event.date).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
+                  year: "numeric",
                 })}{" "}
                 • {event.time}
               </div>
@@ -194,6 +203,7 @@ export function EnhancedEventCard({
               {new Date(event.date).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
+                year: "numeric",
               })}
             </span>
             <span>•</span>

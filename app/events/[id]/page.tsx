@@ -1319,7 +1319,7 @@ export default function EventDetailsPage({
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {isRegistered ? (
+                    {isRegistered || isAdmin ? (
                       <>
                         {/* Event Details - Simple and Clean */}
                         <div className="space-y-3">

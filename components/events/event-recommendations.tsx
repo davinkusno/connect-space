@@ -1,66 +1,85 @@
-"use client"
+"use client";
 
-import { AnimatedCard } from "@/components/ui/animated-card"
-import { AnimatedCounter } from "@/components/ui/animated-counter"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
-import { SmoothReveal } from "@/components/ui/smooth-reveal"
-import { StaggerContainer } from "@/components/ui/stagger-container"
-import { Switch } from "@/components/ui/switch"
-import { cn } from "@/lib/utils"
+import { AnimatedCard } from "@/components/ui/animated-card";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import {
-    Brain, Calendar, ChevronRight, Filter, Heart, Info, MapPin, RefreshCw, Share2, Sparkles, Star, TrendingUp, UserCheck, Users
-} from "lucide-react"
-import Image from "next/image"
-import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { SmoothReveal } from "@/components/ui/smooth-reveal";
+import { StaggerContainer } from "@/components/ui/stagger-container";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
+import {
+  Brain,
+  Calendar,
+  ChevronRight,
+  Filter,
+  Heart,
+  Info,
+  MapPin,
+  RefreshCw,
+  Share2,
+  Sparkles,
+  Star,
+  TrendingUp,
+  UserCheck,
+  Users,
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 interface Event {
-  id: string
-  title: string
-  description: string
-  category: string
-  tags: string[]
-  date: string
-  time: string
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  tags: string[];
+  date: string;
+  time: string;
   location: {
-    name: string
-    address: string
-    city: string
-    lat: number
-    lng: number
-  }
+    name: string;
+    address: string;
+    city: string;
+    lat: number;
+    lng: number;
+  };
   organizer: {
-    name: string
-    avatar: string
-    verified: boolean
-  }
-  attendees: number
-  maxAttendees: number
-  price: number
-  rating: number
-  image: string
-  isRecommended?: boolean
-  recommendationScore?: number
-  recommendationReason?: string
-  recommendationMethod?: string
-  trending?: boolean
-  featured?: boolean
+    name: string;
+    avatar: string;
+    verified: boolean;
+  };
+  attendees: number;
+  maxAttendees: number;
+  price: number;
+  rating: number;
+  image: string;
+  isRecommended?: boolean;
+  recommendationScore?: number;
+  recommendationReason?: string;
+  recommendationMethod?: string;
+  trending?: boolean;
+  featured?: boolean;
 }
 
 interface RecommendationFilters {
-  algorithm: string
-  confidenceThreshold: number
-  showExplanations: boolean
-  categories: string[]
-  maxDistance: number
-  priceRange: [number, number]
-  dateRange: string
+  algorithm: string;
+  confidenceThreshold: number;
+  showExplanations: boolean;
+  categories: string[];
+  maxDistance: number;
+  priceRange: [number, number];
+  dateRange: string;
 }
 
 const defaultFilters: RecommendationFilters = {
@@ -71,25 +90,26 @@ const defaultFilters: RecommendationFilters = {
   maxDistance: 25,
   priceRange: [0, 200],
   dateRange: "all",
-}
+};
 
 export default function EventRecommendations() {
-  const [events, setEvents] = useState<Event[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [filters, setFilters] = useState<RecommendationFilters>(defaultFilters)
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filters, setFilters] = useState<RecommendationFilters>(defaultFilters);
   const [userPreferences, setUserPreferences] = useState({
     interests: ["Technology", "Business", "Networking"],
     location: "New York",
     attendedEvents: ["1", "3", "5"],
     savedEvents: ["2", "4"],
-  })
+  });
 
   // Mock recommended events data
   const mockRecommendedEvents: Event[] = [
     {
       id: "rec-1",
       title: "AI & Machine Learning Summit 2024",
-      description: "Join industry leaders for cutting-edge discussions on AI, ML, and the future of technology.",
+      description:
+        "Join industry leaders for cutting-edge discussions on AI, ML, and the future of technology.",
       category: "Technology",
       tags: ["AI", "Machine Learning", "Tech", "Innovation", "Networking"],
       date: "2024-02-15",
@@ -121,9 +141,16 @@ export default function EventRecommendations() {
     {
       id: "rec-2",
       title: "Startup Founders Networking Mixer",
-      description: "Connect with fellow entrepreneurs, investors, and startup enthusiasts in an intimate setting.",
+      description:
+        "Connect with fellow entrepreneurs, investors, and startup enthusiasts in an intimate setting.",
       category: "Business",
-      tags: ["Startups", "Networking", "Entrepreneurship", "Investors", "Business"],
+      tags: [
+        "Startups",
+        "Networking",
+        "Entrepreneurship",
+        "Investors",
+        "Business",
+      ],
       date: "2024-02-20",
       time: "18:00",
       location: {
@@ -145,7 +172,8 @@ export default function EventRecommendations() {
       image: "/placeholder.svg?height=200&width=300",
       isRecommended: true,
       recommendationScore: 0.87,
-      recommendationReason: "Users with similar interests also attended this event",
+      recommendationReason:
+        "Users with similar interests also attended this event",
       recommendationMethod: "collaborative_filtering",
       trending: false,
       featured: false,
@@ -153,9 +181,16 @@ export default function EventRecommendations() {
     {
       id: "rec-3",
       title: "Digital Marketing Masterclass",
-      description: "Learn advanced digital marketing strategies from industry experts and grow your business.",
+      description:
+        "Learn advanced digital marketing strategies from industry experts and grow your business.",
       category: "Marketing",
-      tags: ["Digital Marketing", "SEO", "Social Media", "Business Growth", "Strategy"],
+      tags: [
+        "Digital Marketing",
+        "SEO",
+        "Social Media",
+        "Business Growth",
+        "Strategy",
+      ],
       date: "2024-02-25",
       time: "14:00",
       location: {
@@ -185,7 +220,8 @@ export default function EventRecommendations() {
     {
       id: "rec-4",
       title: "Web3 & Blockchain Conference",
-      description: "Explore the future of decentralized technology, NFTs, and cryptocurrency innovations.",
+      description:
+        "Explore the future of decentralized technology, NFTs, and cryptocurrency innovations.",
       category: "Technology",
       tags: ["Blockchain", "Web3", "Cryptocurrency", "NFT", "DeFi"],
       date: "2024-03-05",
@@ -217,7 +253,8 @@ export default function EventRecommendations() {
     {
       id: "rec-5",
       title: "UX/UI Design Workshop",
-      description: "Hands-on workshop covering modern design principles, user research, and prototyping tools.",
+      description:
+        "Hands-on workshop covering modern design principles, user research, and prototyping tools.",
       category: "Design",
       tags: ["UX", "UI", "Design", "Prototyping", "User Research"],
       date: "2024-03-10",
@@ -246,108 +283,122 @@ export default function EventRecommendations() {
       trending: false,
       featured: false,
     },
-  ]
+  ];
 
   useEffect(() => {
-    loadRecommendations()
-  }, [filters])
+    loadRecommendations();
+  }, [filters]);
 
   const loadRecommendations = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      setEvents(mockRecommendedEvents)
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      setEvents(mockRecommendedEvents);
     } catch (error) {
-      console.error("Failed to load recommendations:", error)
+      console.error("Failed to load recommendations:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const filteredEvents = useMemo(() => {
-    let filtered = events
+    let filtered = events;
 
     // Filter by algorithm type
     if (filters.algorithm !== "all") {
-      filtered = filtered.filter((event) => event.recommendationMethod === filters.algorithm)
+      filtered = filtered.filter(
+        (event) => event.recommendationMethod === filters.algorithm
+      );
     }
 
     // Filter by confidence threshold
-    filtered = filtered.filter((event) => (event.recommendationScore || 0) >= filters.confidenceThreshold)
+    filtered = filtered.filter(
+      (event) => (event.recommendationScore || 0) >= filters.confidenceThreshold
+    );
 
     // Filter by categories
     if (filters.categories.length > 0) {
-      filtered = filtered.filter((event) => filters.categories.includes(event.category))
+      filtered = filtered.filter((event) =>
+        filters.categories.includes(event.category)
+      );
     }
 
     // Filter by price range
-    filtered = filtered.filter((event) => event.price >= filters.priceRange[0] && event.price <= filters.priceRange[1])
+    filtered = filtered.filter(
+      (event) =>
+        event.price >= filters.priceRange[0] &&
+        event.price <= filters.priceRange[1]
+    );
 
     // Filter by date range
     if (filters.dateRange !== "all") {
-      const now = new Date()
-      const eventDate = new Date(filtered[0]?.date || now)
+      const now = new Date();
+      const eventDate = new Date(filtered[0]?.date || now);
 
       switch (filters.dateRange) {
         case "week":
           filtered = filtered.filter((event) => {
-            const eventDate = new Date(event.date)
-            const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-            return eventDate >= now && eventDate <= weekFromNow
-          })
-          break
+            const eventDate = new Date(event.date);
+            const weekFromNow = new Date(
+              now.getTime() + 7 * 24 * 60 * 60 * 1000
+            );
+            return eventDate >= now && eventDate <= weekFromNow;
+          });
+          break;
         case "month":
           filtered = filtered.filter((event) => {
-            const eventDate = new Date(event.date)
-            const monthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-            return eventDate >= now && eventDate <= monthFromNow
-          })
-          break
+            const eventDate = new Date(event.date);
+            const monthFromNow = new Date(
+              now.getTime() + 30 * 24 * 60 * 60 * 1000
+            );
+            return eventDate >= now && eventDate <= monthFromNow;
+          });
+          break;
       }
     }
 
-    return filtered
-  }, [events, filters])
+    return filtered;
+  }, [events, filters]);
 
   const getAlgorithmIcon = (method: string) => {
     switch (method) {
       case "collaborative_filtering":
-        return <UserCheck className="h-4 w-4" />
+        return <UserCheck className="h-4 w-4" />;
       case "content_based":
-        return <Brain className="h-4 w-4" />
+        return <Brain className="h-4 w-4" />;
       case "popularity_based":
-        return <TrendingUp className="h-4 w-4" />
+        return <TrendingUp className="h-4 w-4" />;
       default:
-        return <Sparkles className="h-4 w-4" />
+        return <Sparkles className="h-4 w-4" />;
     }
-  }
+  };
 
   const getAlgorithmLabel = (method: string) => {
     switch (method) {
       case "collaborative_filtering":
-        return "Similar Users"
+        return "Similar Users";
       case "content_based":
-        return "Your Interests"
+        return "Your Interests";
       case "popularity_based":
-        return "Trending"
+        return "Trending";
       default:
-        return "Hybrid"
+        return "Hybrid";
     }
-  }
+  };
 
   const getAlgorithmColor = (method: string) => {
     switch (method) {
       case "collaborative_filtering":
-        return "bg-blue-500"
+        return "bg-blue-500";
       case "content_based":
-        return "bg-purple-500"
+        return "bg-purple-500";
       case "popularity_based":
-        return "bg-orange-500"
+        return "bg-orange-500";
       default:
-        return "bg-green-500"
+        return "bg-green-500";
     }
-  }
+  };
 
   return (
     <div className="space-y-8">
@@ -358,7 +409,8 @@ export default function EventRecommendations() {
             Recommended Events
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Discover events tailored to your interests using our intelligent recommendation system
+            Discover events tailored to your interests using our intelligent
+            recommendation system
           </p>
         </div>
       </SmoothReveal>
@@ -369,14 +421,23 @@ export default function EventRecommendations() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Algorithm Selection */}
             <div>
-              <Label className="text-sm font-medium mb-3 block">Recommendation Type</Label>
-              <Select value={filters.algorithm} onValueChange={(value) => setFilters({ ...filters, algorithm: value })}>
+              <Label className="text-sm font-medium mb-3 block">
+                Recommendation Type
+              </Label>
+              <Select
+                value={filters.algorithm}
+                onValueChange={(value) =>
+                  setFilters({ ...filters, algorithm: value })
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select algorithm" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Recommendations</SelectItem>
-                  <SelectItem value="collaborative_filtering">Similar Users</SelectItem>
+                  <SelectItem value="collaborative_filtering">
+                    Similar Users
+                  </SelectItem>
                   <SelectItem value="content_based">Your Interests</SelectItem>
                   <SelectItem value="popularity_based">Trending</SelectItem>
                 </SelectContent>
@@ -390,7 +451,9 @@ export default function EventRecommendations() {
               </Label>
               <Slider
                 value={[filters.confidenceThreshold]}
-                onValueChange={(value) => setFilters({ ...filters, confidenceThreshold: value[0] })}
+                onValueChange={(value) =>
+                  setFilters({ ...filters, confidenceThreshold: value[0] })
+                }
                 max={1}
                 min={0.5}
                 step={0.05}
@@ -400,8 +463,15 @@ export default function EventRecommendations() {
 
             {/* Date Range */}
             <div>
-              <Label className="text-sm font-medium mb-3 block">Time Frame</Label>
-              <Select value={filters.dateRange} onValueChange={(value) => setFilters({ ...filters, dateRange: value })}>
+              <Label className="text-sm font-medium mb-3 block">
+                Time Frame
+              </Label>
+              <Select
+                value={filters.dateRange}
+                onValueChange={(value) =>
+                  setFilters({ ...filters, dateRange: value })
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select time frame" />
                 </SelectTrigger>
@@ -421,17 +491,26 @@ export default function EventRecommendations() {
               <Switch
                 id="explanations"
                 checked={filters.showExplanations}
-                onCheckedChange={(checked) => setFilters({ ...filters, showExplanations: checked })}
+                onCheckedChange={(checked) =>
+                  setFilters({ ...filters, showExplanations: checked })
+                }
               />
             </div>
           </div>
 
           <div className="flex justify-between items-center mt-6 pt-4 border-t">
             <div className="text-sm text-gray-600">
-              <AnimatedCounter end={filteredEvents.length} /> recommended events found
+              <AnimatedCounter end={filteredEvents.length} /> recommended events
+              found
             </div>
-            <Button variant="outline" onClick={loadRecommendations} disabled={isLoading}>
-              <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+            <Button
+              variant="outline"
+              onClick={loadRecommendations}
+              disabled={isLoading}
+            >
+              <RefreshCw
+                className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")}
+              />
               Refresh
             </Button>
           </div>
@@ -457,7 +536,10 @@ export default function EventRecommendations() {
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredEvents.map((event, index) => (
               <div key={event.id} className="stagger-item">
-                <AnimatedCard variant="3d" className="group cursor-pointer h-full">
+                <AnimatedCard
+                  variant="3d"
+                  className="group cursor-pointer h-full"
+                >
                   <div className="relative overflow-hidden h-48">
                     <Image
                       src={event.image || "/placeholder.svg"}
@@ -473,7 +555,7 @@ export default function EventRecommendations() {
                       <Badge
                         className={cn(
                           "text-white border-0 flex items-center gap-1",
-                          getAlgorithmColor(event.recommendationMethod || ""),
+                          getAlgorithmColor(event.recommendationMethod || "")
                         )}
                       >
                         {getAlgorithmIcon(event.recommendationMethod || "")}
@@ -484,13 +566,18 @@ export default function EventRecommendations() {
                     {/* Match Score */}
                     <div className="absolute top-4 right-4">
                       <Badge className="bg-green-500 text-white border-0 font-bold">
-                        {Math.round((event.recommendationScore || 0) * 100)}% match
+                        {Math.round((event.recommendationScore || 0) * 100)}%
+                        match
                       </Badge>
                     </div>
 
                     {/* Featured/Trending Badges */}
                     <div className="absolute bottom-4 left-4 flex gap-2">
-                      {event.featured && <Badge className="bg-purple-500 text-white border-0">Featured</Badge>}
+                      {event.featured && (
+                        <Badge className="bg-purple-500 text-white border-0">
+                          Featured
+                        </Badge>
+                      )}
                       {event.trending && (
                         <Badge className="bg-orange-500 text-white border-0 flex items-center gap-1">
                           <TrendingUp className="h-3 w-3" />
@@ -507,7 +594,9 @@ export default function EventRecommendations() {
                       </h3>
                       <div className="flex items-center gap-1 ml-2">
                         <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                        <span className="text-sm font-medium">{event.rating}</span>
+                        <span className="text-sm font-medium">
+                          {event.rating}
+                        </span>
                       </div>
                     </div>
 
@@ -516,17 +605,26 @@ export default function EventRecommendations() {
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                         <div className="flex items-start gap-2">
                           <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                          <p className="text-xs text-blue-700">{event.recommendationReason}</p>
+                          <p className="text-xs text-blue-700">
+                            {event.recommendationReason}
+                          </p>
                         </div>
                       </div>
                     )}
 
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{event.description}</p>
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                      {event.description}
+                    </p>
 
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Calendar className="h-4 w-4" />
-                        {new Date(event.date).toLocaleDateString()} at {event.time}
+                        {new Date(event.date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}{" "}
+                        at {event.time}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <MapPin className="h-4 w-4" />
@@ -540,7 +638,11 @@ export default function EventRecommendations() {
 
                     <div className="flex flex-wrap gap-1 mb-4">
                       {event.tags.slice(0, 3).map((tag, tagIndex) => (
-                        <Badge key={tagIndex} variant="outline" className="text-xs">
+                        <Badge
+                          key={tagIndex}
+                          variant="outline"
+                          className="text-xs"
+                        >
                           {tag}
                         </Badge>
                       ))}
@@ -549,12 +651,21 @@ export default function EventRecommendations() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
-                          <AvatarImage src={event.organizer.avatar || "/placeholder.svg"} />
-                          <AvatarFallback className="text-xs">{event.organizer.name[0]}</AvatarFallback>
+                          <AvatarImage
+                            src={event.organizer.avatar || "/placeholder.svg"}
+                          />
+                          <AvatarFallback className="text-xs">
+                            {event.organizer.name[0]}
+                          </AvatarFallback>
                         </Avatar>
-                        <span className="text-xs text-gray-600">{event.organizer.name}</span>
+                        <span className="text-xs text-gray-600">
+                          {event.organizer.name}
+                        </span>
                         {event.organizer.verified && (
-                          <Badge variant="secondary" className="text-xs px-1 py-0">
+                          <Badge
+                            variant="secondary"
+                            className="text-xs px-1 py-0"
+                          >
                             ✓
                           </Badge>
                         )}
@@ -575,7 +686,10 @@ export default function EventRecommendations() {
                         <Share2 className="h-4 w-4" />
                       </Button>
                       <Link href={`/events/${event.id}`} className="flex-1">
-                        <Button size="sm" className="w-full bg-gradient-to-r from-purple-500 to-blue-500">
+                        <Button
+                          size="sm"
+                          className="w-full bg-gradient-to-r from-purple-500 to-blue-500"
+                        >
                           View Event
                           <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>
@@ -595,9 +709,12 @@ export default function EventRecommendations() {
           <Card className="text-center py-12">
             <CardContent>
               <Brain className="h-16 w-16 text-purple-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No recommendations found</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                No recommendations found
+              </h3>
               <p className="text-gray-600 mb-4">
-                Try adjusting your filters or attend more events to improve recommendations
+                Try adjusting your filters or attend more events to improve
+                recommendations
               </p>
               <Button onClick={() => setFilters(defaultFilters)}>
                 <Filter className="h-4 w-4 mr-2" />
@@ -608,5 +725,5 @@ export default function EventRecommendations() {
         </SmoothReveal>
       )}
     </div>
-  )
+  );
 }
