@@ -813,6 +813,9 @@ export default function EventDetailsPage({
   const availableSpots = event ? event.capacity - event.registered : 0;
   const registrationPercentage = event ? (event.registered / event.capacity) * 100 : 0;
 
+  // Check if event is in the past
+  const isEventPast = event ? new Date(event.date) < new Date(new Date().setHours(0, 0, 0, 0)) : false;
+
 
   // Show loading state
   if (isLoading || isCheckingAuth) {
@@ -962,7 +965,7 @@ export default function EventDetailsPage({
                   : "bg-violet-600 hover:bg-violet-700 text-white"
                 }
                 onClick={isRegistered ? () => setIsRemoveInterestDialogOpen(true) : handleInterestedClick}
-                disabled={isCheckingAuth}
+                disabled={isCheckingAuth || isEventPast}
                 variant={isRegistered ? "outline" : "default"}
               >
                 {isCheckingAuth ? (
@@ -990,7 +993,7 @@ export default function EventDetailsPage({
                   : "border-gray-300 text-gray-700 hover:bg-gray-50"
                 }
                 onClick={handleSaveEvent}
-                disabled={isCheckingAuth || isSaving}
+                disabled={isCheckingAuth || isSaving || isEventPast}
                 variant="outline"
               >
                 {isSaving ? (
@@ -1333,17 +1336,9 @@ export default function EventDetailsPage({
                                   ? event.location.address 
                                   : "Online event"}
                               </div>
-                              {event.location.meetingLink && (
-                                <a
-                                  href={event.location.meetingLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:underline break-all"
-                                >
-                                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                                  {event.location.meetingLink}
-                                </a>
-                              )}
+                              <div className="text-gray-500 italic text-sm">
+                                The virtual meeting link can be accessed via the registration form
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1360,8 +1355,8 @@ export default function EventDetailsPage({
                             Join this online event
                           </h3>
                           <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                            Click the button below to attend this virtual event
-                            and get the meeting link.
+                            Register now to receive the virtual meeting link
+                            and event details.
                           </p>
                           <Button
                             size="lg"
@@ -1371,6 +1366,7 @@ export default function EventDetailsPage({
                             }
                             onClick={handleInterestedClick}
                             variant={isRegistered ? "outline" : "default"}
+                            disabled={isEventPast}
                           >
                             {isRegistered ? "You're interested" : "Interested to join"}
                           </Button>

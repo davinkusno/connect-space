@@ -444,6 +444,59 @@ export class CommunityService extends BaseService {
     });
   }
 
+  /**
+   * Bulk reject multiple join requests
+   * @param memberIds - Array of member record IDs to reject
+   * @param communityId - The community ID
+   * @param adminUserId - The admin user making the rejections
+   * @returns ServiceResult with counts of rejected and failed
+   */
+  public async bulkReject(
+    memberIds: string[],
+    communityId: string,
+    adminUserId: string
+  ): Promise<ServiceResult<BulkApproveResult>> {
+    const isAdmin: boolean = await this.isAdminOrCreator(communityId, adminUserId);
+    if (!isAdmin) {
+      return ApiResponse.forbidden("Permission denied");
+    }
+
+    // If no member IDs provided, reject all pending requests
+    let targetMemberIds = memberIds;
+    if (memberIds.length === 0) {
+      const { data: pendingMembers } = await this.supabaseAdmin
+        .from("community_members")
+        .select("id")
+        .eq("community_id", communityId)
+        .eq("status", "pending");
+      
+      targetMemberIds = (pendingMembers || []).map((m: any) => m.id);
+    }
+
+    let rejected: number = 0;
+    let failed: number = 0;
+
+    for (const memberId of targetMemberIds) {
+      const result: ServiceResult<ApproveResult> = await this.rejectRequest(
+        memberId, 
+        communityId, 
+        adminUserId
+      );
+      
+      if (result.success) {
+        rejected++;
+      } else {
+        failed++;
+      }
+    }
+
+    return ApiResponse.success<BulkApproveResult>({
+      message: `Rejected ${rejected} members`,
+      approved: rejected, // reusing the same type
+      failed,
+    });
+  }
+
 
   /**
    * Join a community (send request)

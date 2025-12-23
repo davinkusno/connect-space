@@ -211,6 +211,39 @@ export class CommunityController extends BaseController {
   }
 
   /**
+   * POST /api/communities/members/bulk-reject
+   * Bulk reject multiple join requests
+   * @param request - The incoming request with community_id and member_ids
+   * @returns NextResponse with rejection counts
+   */
+  public async bulkReject(
+    request: NextRequest
+  ): Promise<NextResponse<BulkApproveResponse | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      const body: BulkApproveRequestBody = await this.parseBody<BulkApproveRequestBody>(request);
+
+      if (!body.community_id) {
+        return this.badRequest("Community ID is required");
+      }
+
+      const result: ServiceResult<BulkApproveResponse> = await this.service.bulkReject(
+        body.member_ids || [],
+        body.community_id,
+        user.id
+      );
+
+      if (result.success) {
+        return this.json<BulkApproveResponse>(result.data as BulkApproveResponse, result.status);
+      }
+      
+      return this.error(result.error?.message || "Failed to bulk reject", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * GET /api/communities/[id]/requests
    * Get pending join requests for a community
    * @param request - The incoming request

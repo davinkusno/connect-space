@@ -686,26 +686,15 @@ export default function CommunityAdminPage({
         return
       }
 
-      const supabase = getSupabaseBrowser()
-      
-      // Delete the member record (reject = remove from community_members)
-      // Only delete from the current community's members for security
-      const { error: deleteError } = await supabase
-        .from("community_members")
-        .delete()
-        .eq("id", requestId)
-        .eq("community_id", community.id)
+      const response = await fetch(`/api/communities/members/${requestId}/approve?community_id=${community.id}`, {
+        method: "DELETE"
+      })
 
-      if (deleteError) {
-        console.error("Error rejecting request:", deleteError)
-        toast.error("Failed to reject request")
-        return
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to reject request")
       }
-
-      // Note: We do NOT update memberCount here because:
-      // 1. Rejected requests (status = 'pending') are NOT counted in memberCount
-      // 2. Only approved members (status = 'approved') are counted
-      // 3. Deleting a pending request does not affect the member count
 
       // Remove from UI
       setRecentJoinRequests((prev) => prev.filter((req) => req.id !== requestId))
@@ -715,10 +704,10 @@ export default function CommunityAdminPage({
         await loadJoinRequests(community.id)
       }
       
-      toast.success("Request rejected")
-    } catch (error) {
+      toast.success("Request rejected successfully")
+    } catch (error: any) {
       console.error("Error rejecting request:", error)
-      toast.error("Failed to reject request")
+      toast.error(error.message || "Failed to reject request")
     }
   }
 

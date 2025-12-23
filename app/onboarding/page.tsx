@@ -10,12 +10,14 @@ import {
     CardTitle
 } from "@/components/ui/card";
 import { FloatingElements } from "@/components/ui/floating-elements";
+import { LocationPickerStandardized } from "@/components/ui/location-picker-standardized";
 import { PageTransition } from "@/components/ui/page-transition";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { getClientSession } from "@/lib/supabase/client";
-import { CheckCircle, Sparkles, Tag } from "lucide-react";
+import { StandardizedLocation } from "@/types/location";
+import { CheckCircle, MapPin, Sparkles, Tag } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 
@@ -36,9 +38,11 @@ const INTEREST_CATEGORIES = [
 export default function OnboardingPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
 
   // Form data
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [location, setLocation] = useState<StandardizedLocation | null>(null);
 
   // User data
   const [userId, setUserId] = useState<string | null>(null);
@@ -71,10 +75,31 @@ export default function OnboardingPage() {
     );
   };
 
+  const handleLocationChange = useCallback((newLocation: StandardizedLocation) => {
+    setLocation(newLocation);
+  }, []);
+
+  const handleNext = () => {
+    if (currentStep === 1 && selectedInterests.length < 3) {
+      toast.error("Please select at least 3 interests");
+      return;
+    }
+    setCurrentStep(2);
+  };
+
+  const handleBack = () => {
+    setCurrentStep(1);
+  };
+
   const handleSubmit = async () => {
 
     if (!userId) {
       toast.error("Authentication error. Please try again.");
+      return;
+    }
+
+    if (selectedInterests.length < 3) {
+      toast.error("Please select at least 3 interests");
       return;
     }
 
@@ -86,6 +111,17 @@ export default function OnboardingPage() {
         throw new Error("No session found");
       }
 
+      // Prepare location data
+      const locationData = location ? {
+        city: location.city,
+        placeId: location.placeId,
+        lat: location.lat,
+        lon: location.lon,
+        displayName: location.displayName,
+        fullAddress: location.fullAddress || location.displayName,
+        country: location.country,
+      } : null;
+
       const response = await fetch("/api/user/onboarding", {
         method: "POST",
         headers: {
@@ -95,7 +131,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           userId,
           interests: selectedInterests,
-          location: null,
+          location: locationData,
           onboardingCompleted: true,
         }),
       });
@@ -149,90 +185,157 @@ export default function OnboardingPage() {
 
           {/* Progress Steps */}
           <SmoothReveal delay={100}>
-            <div className="flex justify-center mb-8">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium bg-purple-600 text-white shadow-lg shadow-purple-500/30">
+            <div className="flex justify-center items-center gap-4 mb-8">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+                currentStep === 1 
+                  ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30" 
+                  : "bg-purple-200 text-purple-700"
+              }`}>
                 1
+              </div>
+              <div className={`h-1 w-16 transition-all ${
+                currentStep === 2 ? "bg-purple-600" : "bg-gray-300"
+              }`}></div>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+                currentStep === 2 
+                  ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30" 
+                  : "bg-gray-200 text-gray-500"
+              }`}>
+                2
               </div>
             </div>
           </SmoothReveal>
 
           <SmoothReveal delay={200}>
             <Card className="max-w-3xl mx-auto border-0 shadow-xl">
-              <CardHeader className="text-center pb-6">
-                <div className="flex justify-center mb-4">
-                  <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
-                    <Tag className="w-7 h-7 text-purple-600" />
-                  </div>
-                </div>
-                <CardTitle className="text-2xl">
-                  Choose Your Interests
-                </CardTitle>
-                <CardDescription className="text-base">
-                  Select at least 3 topics you're passionate about
-                </CardDescription>
-              </CardHeader>
+              {currentStep === 1 ? (
+                <>
+                  <CardHeader className="text-center pb-6">
+                    <div className="flex justify-center mb-4">
+                      <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
+                        <Tag className="w-7 h-7 text-purple-600" />
+                      </div>
+                    </div>
+                    <CardTitle className="text-2xl">
+                      Choose Your Interests
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Select at least 3 topics you're passionate about
+                    </CardDescription>
+                  </CardHeader>
 
-              <CardContent className="space-y-6">
-                {/* Interests Selection */}
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {INTEREST_CATEGORIES.map((interest) => (
-                      <Badge
-                        key={interest}
-                        variant={
-                          selectedInterests.includes(interest)
-                            ? "default"
-                            : "outline"
-                        }
-                        className={`cursor-pointer transition-all hover:scale-105 py-3 px-4 text-sm justify-center ${
-                          selectedInterests.includes(interest)
-                            ? "bg-purple-600 text-white shadow-md shadow-purple-500/30"
-                            : "hover:bg-purple-50 hover:border-purple-300"
-                        }`}
-                        onClick={() => handleInterestToggle(interest)}
+                  <CardContent className="space-y-6">
+                    {/* Interests Selection */}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {INTEREST_CATEGORIES.map((interest) => (
+                          <Badge
+                            key={interest}
+                            variant={
+                              selectedInterests.includes(interest)
+                                ? "default"
+                                : "outline"
+                            }
+                            className={`cursor-pointer transition-all hover:scale-105 py-3 px-4 text-sm justify-center ${
+                              selectedInterests.includes(interest)
+                                ? "bg-purple-600 text-white shadow-md shadow-purple-500/30"
+                                : "hover:bg-purple-50 hover:border-purple-300"
+                            }`}
+                            onClick={() => handleInterestToggle(interest)}
+                          >
+                            {interest}
+                          </Badge>
+                        ))}
+                      </div>
+
+                      <div className="text-center pt-2">
+                        <p className="text-sm text-gray-600">
+                          Selected: {selectedInterests.length}{" "}
+                          <span
+                            className={
+                              selectedInterests.length >= 3
+                                ? "text-green-600 font-medium"
+                                : "text-gray-500"
+                            }
+                          >
+                            (minimum 3)
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Navigation Buttons */}
+                    <div className="flex justify-end pt-6">
+                      <Button
+                        onClick={handleNext}
+                        disabled={selectedInterests.length < 3}
+                        className="bg-purple-600 hover:bg-purple-700 px-8"
                       >
-                        {interest}
-                      </Badge>
-                    ))}
-                  </div>
+                        Next
+                      </Button>
+                    </div>
+                  </CardContent>
+                </>
+              ) : (
+                <>
+                  <CardHeader className="text-center pb-6">
+                    <div className="flex justify-center mb-4">
+                      <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
+                        <MapPin className="w-7 h-7 text-purple-600" />
+                      </div>
+                    </div>
+                    <CardTitle className="text-2xl">
+                      Set Your Location
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Help us show you nearby communities and events
+                    </CardDescription>
+                  </CardHeader>
 
-                  <div className="text-center pt-2">
-                    <p className="text-sm text-gray-600">
-                      Selected: {selectedInterests.length}{" "}
-                      <span
-                        className={
-                          selectedInterests.length >= 3
-                            ? "text-green-600 font-medium"
-                            : "text-gray-500"
-                        }
+                  <CardContent className="space-y-6">
+                    {/* Location Selection */}
+                    <div className="space-y-4">
+                      <LocationPickerStandardized
+                        value={location || undefined}
+                        onChange={handleLocationChange}
+                        locationType="physical"
+                        required={false}
+                      />
+                      <p className="text-sm text-gray-500 text-center">
+                        This is optional - you can skip or update it later in your profile
+                      </p>
+                    </div>
+
+                    {/* Navigation Buttons */}
+                    <div className="flex justify-between pt-6 gap-3">
+                      <Button
+                        onClick={handleBack}
+                        variant="outline"
+                        className="border-purple-300 hover:bg-purple-50"
                       >
-                        (minimum 3)
-                      </span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Navigation Buttons */}
-                <div className="flex justify-end pt-6 gap-3">
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={selectedInterests.length < 3 || isSubmitting}
-                    className="bg-purple-600 hover:bg-purple-700 px-8"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Completing...
-                      </>
-                    ) : (
-                      <>
-                        Complete Setup
-                        <CheckCircle className="w-4 h-4 ml-2" />
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
+                        Back
+                      </Button>
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={isSubmitting}
+                        className="bg-purple-600 hover:bg-purple-700 px-8"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                            Completing...
+                          </>
+                        ) : (
+                          <>
+                            Complete Setup
+                            <CheckCircle className="w-4 h-4 ml-2" />
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </>
+              )}
             </Card>
           </SmoothReveal>
 

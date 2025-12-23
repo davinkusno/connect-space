@@ -321,26 +321,26 @@ export default function CommunityAdminRequestsPage({
     if (!communityId) return
 
     try {
-      const supabase = getSupabaseBrowser()
-      
-      // Delete all pending requests
-      const { error } = await supabase
-        .from("community_members")
-        .delete()
-        .eq("community_id", communityId)
-        .eq("status", "pending")
+      const response = await fetch("/api/communities/members/bulk-reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          community_id: communityId,
+          member_ids: [] // Empty array means reject all pending
+        })
+      })
 
-      if (error) {
-        console.error("Error rejecting all requests:", error)
-        toast.error("Failed to reject all requests")
-        return
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to reject all requests")
       }
 
-      toast.success("All requests rejected")
+      toast.success("All requests rejected successfully")
       await loadJoinRequests(communityId)
-    } catch (error) {
-      console.error("Error rejecting all requests:", error)
-      toast.error("Failed to reject all requests")
+    } catch (error: any) {
+      console.error("Reject all API error:", error)
+      toast.error(error.message || "Failed to reject all requests")
     }
   }
 
@@ -372,24 +372,21 @@ export default function CommunityAdminRequestsPage({
     if (!communityId) return
 
     try {
-      const supabase = getSupabaseBrowser()
-      const { error } = await supabase
-        .from("community_members")
-        .delete()
-        .eq("id", requestId)
-        .eq("community_id", communityId)
+      const response = await fetch(`/api/communities/members/${requestId}/approve?community_id=${communityId}`, {
+        method: "DELETE"
+      })
 
-      if (error) {
-        console.error("Error rejecting request:", error)
-        toast.error("Failed to reject request")
-        return
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to reject request")
       }
 
-      toast.success("Request rejected")
+      toast.success("Request rejected successfully")
       await loadJoinRequests(communityId)
-    } catch (error) {
-      console.error("Error rejecting request:", error)
-      toast.error("Failed to reject request")
+    } catch (error: any) {
+      console.error("Reject API error:", error)
+      toast.error(error.message || "Failed to reject request")
     }
   }
 

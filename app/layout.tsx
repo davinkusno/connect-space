@@ -1,7 +1,7 @@
 import { OnboardingGuard } from "@/components/auth/onboarding-guard";
 import { NavbarWrapper } from "@/components/navigation/navbar-wrapper";
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as SonnerToaster } from "sonner";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
 import type React from "react";
 import "./globals.css";
@@ -28,7 +28,7 @@ export default function RootLayout({
           <NavbarWrapper />
           <main className="min-h-screen">{children}</main>
           <Toaster />
-          <SonnerToaster position="top-center" richColors />
+          <SonnerToaster />
         </OnboardingGuard>
       </body>
     </html>

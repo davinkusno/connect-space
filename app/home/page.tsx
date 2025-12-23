@@ -2131,11 +2131,9 @@ export default function DashboardPage() {
                               </div>
 
                               {/* Description */}
-                              {community.description && (
-                                <p className="text-sm text-gray-600 line-clamp-2 mb-4">
-                                  {community.description}
-                                </p>
-                              )}
+                              <p className="text-sm text-gray-600 line-clamp-2 mb-4 min-h-[2.5rem]">
+                                {community.description || "No description available"}
+                              </p>
 
                               {/* Stats */}
                               <div className="space-y-2 mb-4">

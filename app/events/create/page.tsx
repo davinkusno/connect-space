@@ -13,7 +13,7 @@ import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { Textarea } from "@/components/ui/textarea";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { StandardizedLocation } from "@/types/location";
-import { ArrowLeft, Calendar, Clock, FileText, Globe, Loader2, Map, MapPin, RefreshCw, Sparkles, Upload, Users, Wand2, X } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, ExternalLink, FileText, Globe, Loader2, Map, MapPin, RefreshCw, Sparkles, Upload, Users, Wand2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useCallback, useEffect, useState } from "react";
@@ -42,6 +42,7 @@ export default function CreateEventPage() {
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [registrationLink, setRegistrationLink] = useState("");
   const [aiSuggestions, setAiSuggestions] = useState<{
     alternativeDescriptions?: string[];
   } | null>(null);
@@ -111,7 +112,7 @@ export default function CreateEventPage() {
     setIsUploadingImage(true);
     try {
       const formDataToUpload = new FormData();
-      formDataToUpload.append("image", file);
+      formDataToUpload.append("file", file);
 
       const response = await fetch("/api/events/upload-image", {
         method: "POST",
@@ -127,9 +128,10 @@ export default function CreateEventPage() {
       setFormData((prev) => ({ ...prev, image_url: data.url }));
       setImagePreview(data.url);
       toast.success("Image uploaded successfully!");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error uploading image:", error);
-      toast.error(error.message || "Failed to upload image");
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload image";
+      toast.error(errorMessage);
     } finally {
       setIsUploadingImage(false);
     }
@@ -145,6 +147,16 @@ export default function CreateEventPage() {
 
     if (!formData.title || !formData.description || !formData.start_time || !formData.end_time) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (!formData.image_url) {
+      toast.error("Please upload an event image");
+      return;
+    }
+
+    if (!registrationLink) {
+      toast.error("Please provide a registration link");
       return;
     }
 
@@ -341,26 +353,62 @@ export default function CreateEventPage() {
               <div className="space-y-3">
                   <Label htmlFor="event-image" className="text-gray-700">
                   Event Image
-                    <span className="text-sm font-normal text-gray-500 ml-2">(optional but recommended)</span>
+                    <span className="text-red-500 ml-1">*</span>
                 </Label>
                 <div className="space-y-3">
                   {imagePreview ? (
-                    <div className="relative group">
-                      <div className="relative w-full h-64 rounded-xl overflow-hidden border-2 border-gray-200">
-                        <img
-                          src={imagePreview}
-                          alt="Event preview"
-                          className="w-full h-full object-cover"
+                    <div className="space-y-3">
+                      {/* Image Preview */}
+                      <div className="relative group">
+                        <div className="relative w-full h-64 rounded-xl overflow-hidden border-2 border-gray-200 shadow-sm">
+                          <img
+                            src={imagePreview}
+                            alt="Event preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
+                          <div className="absolute top-3 left-3 bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            Image Uploaded
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex gap-2">
+                        <label
+                          htmlFor="event-image-change"
+                          className="flex-1"
+                        >
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full border-violet-200 text-violet-600 hover:bg-violet-50"
+                            asChild
+                          >
+                            <span className="cursor-pointer">
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Change Image
+                            </span>
+                          </Button>
+                        </label>
+                        <input
+                          type="file"
+                          id="event-image-change"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={isUploadingImage}
+                          className="hidden"
                         />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
                         <Button
                           type="button"
-                          variant="destructive"
-                          size="sm"
+                          variant="outline"
                           onClick={handleRemoveImage}
-                          className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="border-red-200 text-red-600 hover:bg-red-50"
                         >
-                          <X className="h-4 w-4 mr-1" />
+                          <X className="h-4 w-4 mr-2" />
                           Remove
                         </Button>
                       </div>
@@ -625,22 +673,7 @@ export default function CreateEventPage() {
                     </div>
                   )}
                 </div>
-                ) : (
-                  <div className="space-y-3">
-                    <Label htmlFor="location" className="text-gray-700 flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-violet-600" />
-                    Online Meeting Link
-                    <span className="text-sm font-normal text-gray-500">(optional)</span>
-                  </Label>
-                  <Input
-                    id="location"
-                    placeholder="Online meeting link (e.g., Zoom, Google Meet, Discord)"
-                    value={formData.location}
-                      onChange={(e) => handleInputChange("location", e.target.value)}
-                      className="border-gray-200 focus:border-violet-300 focus:ring-violet-200 transition-colors duration-200"
-                  />
-                </div>
-                )}
+                ) : null}
 
               {/* Max Attendees Section */}
               <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 border border-purple-100/50">
@@ -661,6 +694,27 @@ export default function CreateEventPage() {
                 <p className="text-sm text-gray-500 flex items-center gap-1">
                   <span className="text-purple-600">💡</span>
                   Leave empty for unlimited attendees
+                </p>
+              </div>
+
+              {/* Registration Link Section */}
+              <div className="space-y-3 p-4 rounded-lg bg-gradient-to-r from-violet-50/50 to-purple-50/50 border border-violet-100/50">
+                <Label htmlFor="link" className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4 text-violet-600" />
+                  Registration Link *
+                </Label>
+                <Input
+                  id="link"
+                  type="url"
+                  placeholder="https://forms.google.com/... or https://eventbrite.com/..."
+                  value={registrationLink}
+                  onChange={(e) => setRegistrationLink(e.target.value)}
+                  className="h-12 border-gray-200 focus:border-violet-500 focus:ring-violet-500 transition-all bg-white"
+                  required
+                />
+                <p className="text-sm text-gray-500 flex items-center gap-1">
+                  <span className="text-violet-600">🔗</span>
+                  Provide a link where attendees can register or get more details
                 </p>
               </div>
 
@@ -688,9 +742,15 @@ export default function CreateEventPage() {
                 onClick={(e) => {
                   e.preventDefault();
                   // Validation before moving to next step
-                  if (currentStep === 1 && (!formData.title || !formData.description)) {
-                    toast.error("Please fill in title and description");
-                    return;
+                  if (currentStep === 1) {
+                    if (!formData.title || !formData.description) {
+                      toast.error("Please fill in title and description");
+                      return;
+                    }
+                    if (!formData.image_url || !imagePreview) {
+                      toast.error("Please upload an event image before proceeding");
+                      return;
+                    }
                   }
                   setCurrentStep(Math.min(2, currentStep + 1));
                 }}
