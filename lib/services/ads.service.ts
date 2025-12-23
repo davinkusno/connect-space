@@ -1,9 +1,5 @@
-import {
-    AdStatus
-} from "@/lib/types";
-import {
-    ApiResponse, BaseService, ServiceResult
-} from "./base.service";
+import { AdStatus } from "@/lib/types";
+import { ApiResponse, BaseService, ServiceResult } from "./base.service";
 
 // ==================== Ads Service Types ====================
 
@@ -87,12 +83,14 @@ export class AdsService extends BaseService {
   public async getById(adId: string): Promise<ServiceResult<AdWithCommunity>> {
     const { data, error } = await this.supabaseAdmin
       .from("ads")
-      .select(`
+      .select(
+        `
         *,
         ad_communities (
           community:communities (id, name, logo_url)
         )
-      `)
+      `
+      )
       .eq("id", adId)
       .single();
 
@@ -101,7 +99,10 @@ export class AdsService extends BaseService {
     }
 
     // Transform the data to flatten ad_communities
-    const communities = (data as any).ad_communities?.map((ac: any) => ac.community).filter(Boolean) || [];
+    const communities =
+      (data as any).ad_communities
+        ?.map((ac: any) => ac.community)
+        .filter(Boolean) || [];
     delete (data as any).ad_communities;
 
     return ApiResponse.success<AdWithCommunity>({
@@ -120,12 +121,14 @@ export class AdsService extends BaseService {
   ): Promise<ServiceResult<AdWithCommunity[]>> {
     let query = this.supabaseAdmin
       .from("ads")
-      .select(`
+      .select(
+        `
         *,
         ad_communities (
           community:communities (id, name, logo_url)
         )
-      `)
+      `
+      )
       .order("created_at", { ascending: false });
 
     // Filter by is_active (not status)
@@ -149,7 +152,8 @@ export class AdsService extends BaseService {
 
     // Transform the data to flatten ad_communities
     let transformedAds = (data || []).map((ad: any) => {
-      const communities = ad.ad_communities?.map((ac: any) => ac.community).filter(Boolean) || [];
+      const communities =
+        ad.ad_communities?.map((ac: any) => ac.community).filter(Boolean) || [];
       delete ad.ad_communities;
       return {
         ...ad,
@@ -159,13 +163,21 @@ export class AdsService extends BaseService {
 
     // Auto-deactivate expired ads (end_date < today)
     const now = new Date();
-    const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const nowDateOnly = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
     const expiredAdIds: string[] = [];
-    
+
     transformedAds.forEach((ad: any) => {
       if (ad.is_active && ad.end_date) {
         const endDate = new Date(ad.end_date);
-        const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+        const endDateOnly = new Date(
+          endDate.getFullYear(),
+          endDate.getMonth(),
+          endDate.getDate()
+        );
         if (endDateOnly < nowDateOnly) {
           expiredAdIds.push(ad.id);
           ad.is_active = false; // Update in memory
@@ -183,7 +195,9 @@ export class AdsService extends BaseService {
           if (updateError) {
             console.error("Error auto-deactivating expired ads:", updateError);
           } else {
-            console.log(`Auto-deactivated ${expiredAdIds.length} expired ad(s)`);
+            console.log(
+              `Auto-deactivated ${expiredAdIds.length} expired ad(s)`
+            );
           }
         });
     }
@@ -216,24 +230,32 @@ export class AdsService extends BaseService {
         if (ad.start_date) {
           const startDate = new Date(ad.start_date);
           // Compare dates (ignore time) - ad is active if today is >= start_date
-          const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+          const startDateOnly = new Date(
+            startDate.getFullYear(),
+            startDate.getMonth(),
+            startDate.getDate()
+          );
           if (startDateOnly > nowDateOnly) {
             return false; // Ad hasn't started yet
           }
         }
-        
+
         // Check end_date - ad should be active if end_date is null OR end_date >= now
         // Ads should be active for the entire day of end_date
         if (ad.end_date) {
           const endDate = new Date(ad.end_date);
           // Compare dates (ignore time) - ad is active if today is <= end_date
-          const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+          const endDateOnly = new Date(
+            endDate.getFullYear(),
+            endDate.getMonth(),
+            endDate.getDate()
+          );
           if (endDateOnly < nowDateOnly) {
             return false; // Ad has expired (past end_date)
           }
         }
       }
-      
+
       return true;
     });
 
@@ -249,20 +271,23 @@ export class AdsService extends BaseService {
    * @returns ServiceResult containing created ad
    */
   public async create(
-    userId: string, 
+    userId: string,
     input: CreateAdInput
   ): Promise<ServiceResult<AdWithCommunity>> {
     const { community_ids, ...adData } = input;
-    
+
     // Validate start_date is not in the past
     if (adData.start_date) {
       const startDate = new Date(adData.start_date);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       startDate.setHours(0, 0, 0, 0);
-      
+
       if (startDate < today) {
-        return ApiResponse.error("Start date cannot be in the past. Please select today or a future date.", 400);
+        return ApiResponse.error(
+          "Start date cannot be in the past. Please select today or a future date.",
+          400
+        );
       }
     }
 
@@ -294,17 +319,20 @@ export class AdsService extends BaseService {
 
     // If community_ids provided, insert into junction table
     if (community_ids && community_ids.length > 0) {
-      const adCommunities = community_ids.map(communityId => ({
+      const adCommunities = community_ids.map((communityId) => ({
         ad_id: ad.id,
-        community_id: communityId
+        community_id: communityId,
       }));
-      
+
       const { error: junctionError } = await this.supabaseAdmin
         .from("ad_communities")
         .insert(adCommunities);
-      
+
       if (junctionError) {
-        console.error("Error creating ad-community relationships:", junctionError);
+        console.error(
+          "Error creating ad-community relationships:",
+          junctionError
+        );
         // Don't fail the whole operation, just log it
       }
     }
@@ -312,7 +340,9 @@ export class AdsService extends BaseService {
     // Fetch the complete ad with communities
     const result = await this.getById(ad.id);
     if (result.success && result.data) {
-      return ApiResponse.created<AdWithCommunity>(result.data as AdWithCommunity);
+      return ApiResponse.created<AdWithCommunity>(
+        result.data as AdWithCommunity
+      );
     }
 
     return ApiResponse.created<AdWithCommunity>(ad as AdWithCommunity);
@@ -353,30 +383,40 @@ export class AdsService extends BaseService {
     input: Partial<CreateAdInput & { is_active?: boolean }>
   ): Promise<ServiceResult<AdWithCommunity>> {
     const { community_ids, ...restInput } = input;
-    
+
     // Validate start_date is not in the past (if being updated)
     if (restInput.start_date) {
       const startDate = new Date(restInput.start_date);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       startDate.setHours(0, 0, 0, 0);
-      
+
       if (startDate < today) {
-        return ApiResponse.error("Start date cannot be in the past. Please select today or a future date.", 400);
+        return ApiResponse.error(
+          "Start date cannot be in the past. Please select today or a future date.",
+          400
+        );
       }
     }
 
     // Map frontend fields to database fields
     const updateData: Record<string, unknown> = {};
-    
+
     if (restInput.title !== undefined) updateData.title = restInput.title;
-    if (restInput.description !== undefined) updateData.description = restInput.description || null;
-    if (restInput.image_url !== undefined) updateData.image_url = restInput.image_url;
-    if (restInput.video_url !== undefined) updateData.video_url = restInput.video_url || null;
-    if (restInput.link_url !== undefined) updateData.link_url = restInput.link_url || null;
-    if (restInput.start_date !== undefined) updateData.start_date = restInput.start_date || null;
-    if (restInput.end_date !== undefined) updateData.end_date = restInput.end_date || null;
-    if (restInput.is_active !== undefined) updateData.is_active = restInput.is_active;
+    if (restInput.description !== undefined)
+      updateData.description = restInput.description || null;
+    if (restInput.image_url !== undefined)
+      updateData.image_url = restInput.image_url;
+    if (restInput.video_url !== undefined)
+      updateData.video_url = restInput.video_url || null;
+    if (restInput.link_url !== undefined)
+      updateData.link_url = restInput.link_url || null;
+    if (restInput.start_date !== undefined)
+      updateData.start_date = restInput.start_date || null;
+    if (restInput.end_date !== undefined)
+      updateData.end_date = restInput.end_date || null;
+    if (restInput.is_active !== undefined)
+      updateData.is_active = restInput.is_active;
 
     const { data, error } = await this.supabaseAdmin
       .from("ads")
@@ -397,20 +437,27 @@ export class AdsService extends BaseService {
         .from("ad_communities")
         .delete()
         .eq("ad_id", adId);
-      
+
       // Insert new relationships (only if community_ids is a non-empty array)
-      if (community_ids && Array.isArray(community_ids) && community_ids.length > 0) {
-        const adCommunities = community_ids.map(communityId => ({
+      if (
+        community_ids &&
+        Array.isArray(community_ids) &&
+        community_ids.length > 0
+      ) {
+        const adCommunities = community_ids.map((communityId) => ({
           ad_id: adId,
-          community_id: communityId
+          community_id: communityId,
         }));
-        
+
         const { error: junctionError } = await this.supabaseAdmin
           .from("ad_communities")
           .insert(adCommunities);
-        
+
         if (junctionError) {
-          console.error("Error updating ad-community relationships:", junctionError);
+          console.error(
+            "Error updating ad-community relationships:",
+            junctionError
+          );
           // Don't fail the whole operation, just log it
         }
       }
@@ -419,7 +466,9 @@ export class AdsService extends BaseService {
     // Fetch the complete ad with communities
     const result = await this.getById(adId);
     if (result.success && result.data) {
-      return ApiResponse.success<AdWithCommunity>(result.data as AdWithCommunity);
+      return ApiResponse.success<AdWithCommunity>(
+        result.data as AdWithCommunity
+      );
     }
 
     return ApiResponse.success<AdWithCommunity>(data as AdWithCommunity);
