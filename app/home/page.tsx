@@ -671,6 +671,8 @@ export default function DashboardPage() {
               hour: "2-digit",
               minute: "2-digit",
             }),
+            end_time: event.end_time,
+            is_online: event.is_online,
             location: locationDisplay,
             image: event.image_url,
             category: null,
@@ -1508,12 +1510,32 @@ export default function DashboardPage() {
                                         <div className="flex items-center gap-3 text-xs text-gray-500">
                                           <div className="flex items-center gap-1">
                                             <Clock className="h-3 w-3" />
-                                            <span>{event.time}</span>
+                                            <span>
+                                              {(() => {
+                                                const startTime = event.time;
+                                                const endTime = event.end_time
+                                                  ? new Date(
+                                                      event.end_time
+                                                    ).toLocaleTimeString(
+                                                      "en-US",
+                                                      {
+                                                        hour: "2-digit",
+                                                        minute: "2-digit",
+                                                      }
+                                                    )
+                                                  : null;
+                                                return endTime
+                                                  ? `${startTime} - ${endTime}`
+                                                  : startTime;
+                                              })()}
+                                            </span>
                                           </div>
                                           <div className="flex items-center gap-1">
                                             <MapPin className="h-3 w-3" />
                                             <span className="truncate max-w-[80px]">
-                                              {event.location}
+                                              {event.is_online
+                                                ? "Online"
+                                                : event.location}
                                             </span>
                                           </div>
                                         </div>
@@ -1629,12 +1651,29 @@ export default function DashboardPage() {
                               </div>
                               <div className="flex items-center gap-2 text-sm text-gray-700">
                                 <Clock className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                                <span>{selectedEvent.time}</span>
+                                <span>
+                                  {(() => {
+                                    const startTime = selectedEvent.time;
+                                    const endTime = selectedEvent.end_time
+                                      ? new Date(
+                                          selectedEvent.end_time
+                                        ).toLocaleTimeString("en-US", {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })
+                                      : null;
+                                    return endTime
+                                      ? `${startTime} - ${endTime}`
+                                      : startTime;
+                                  })()}
+                                </span>
                               </div>
                               <div className="flex items-center gap-2 text-sm text-gray-700">
                                 <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
                                 <span className="truncate">
-                                  {selectedEvent.location}
+                                  {selectedEvent.is_online
+                                    ? "Online"
+                                    : selectedEvent.location}
                                 </span>
                               </div>
                               {selectedEvent.community && (
@@ -1669,8 +1708,8 @@ export default function DashboardPage() {
                     </CardContent>
                   </Card>
 
-                  {/* Saved Events Section - Spans from calendar to upcoming events (cols 1-2) */}
-                  <div className="lg:col-span-2 lg:col-start-1 lg:row-start-2">
+                  {/* Saved Events Section - Full width row below the calendar grid */}
+                  <div className="lg:col-span-3 lg:col-start-1 lg:row-start-2">
                     {/* Saved Events List - Full width */}
                     <Card className="border-0 shadow-sm">
                       <CardHeader className="pb-3">
