@@ -8,7 +8,8 @@ import { NextRequest } from "next/server";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  return communityController.updateCommunity(request, params.id);
+  const { id } = await params;
+  return communityController.updateCommunity(request, id);
 }

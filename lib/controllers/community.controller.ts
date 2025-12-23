@@ -1,4 +1,9 @@
-import { communityService, CommunityService, storageService, StorageService } from "@/lib/services";
+import {
+  communityService,
+  CommunityService,
+  storageService,
+  StorageService,
+} from "@/lib/services";
 import { ServiceResult } from "@/lib/services/base.service";
 import { CommunityMember, MemberRole } from "@/lib/types";
 import { User } from "@supabase/supabase-js";
@@ -91,28 +96,33 @@ export class CommunityController extends BaseController {
    * @returns NextResponse indicating success or failure
    */
   public async approveRequest(
-    request: NextRequest, 
+    request: NextRequest,
     memberId: string
   ): Promise<NextResponse<ApproveResponse | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      const body: ApproveRequestBody = await this.parseBody<ApproveRequestBody>(request);
+      const body: ApproveRequestBody = await this.parseBody<ApproveRequestBody>(
+        request
+      );
 
       if (!body.community_id) {
         return this.badRequest("Community ID is required");
       }
 
-      const result: ServiceResult<ApproveResponse> = await this.service.approveRequest(
-        memberId, 
-        body.community_id, 
-        user.id
-      );
+      const result: ServiceResult<ApproveResponse> =
+        await this.service.approveRequest(memberId, body.community_id, user.id);
 
       if (result.success) {
-        return this.json<ApproveResponse>(result.data as ApproveResponse, result.status);
+        return this.json<ApproveResponse>(
+          result.data as ApproveResponse,
+          result.status
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to approve", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to approve",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -126,28 +136,34 @@ export class CommunityController extends BaseController {
    * @returns NextResponse indicating success or failure
    */
   public async rejectRequest(
-    request: NextRequest, 
+    request: NextRequest,
     memberId: string
   ): Promise<NextResponse<ApproveResponse | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      const communityId: string | null = this.getQueryParam(request, "community_id");
+      const communityId: string | null = this.getQueryParam(
+        request,
+        "community_id"
+      );
 
       if (!communityId) {
         return this.badRequest("Community ID is required");
       }
 
-      const result: ServiceResult<ApproveResponse> = await this.service.rejectRequest(
-        memberId, 
-        communityId, 
-        user.id
-      );
+      const result: ServiceResult<ApproveResponse> =
+        await this.service.rejectRequest(memberId, communityId, user.id);
 
       if (result.success) {
-        return this.json<ApproveResponse>(result.data as ApproveResponse, result.status);
+        return this.json<ApproveResponse>(
+          result.data as ApproveResponse,
+          result.status
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to reject", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to reject",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -164,23 +180,31 @@ export class CommunityController extends BaseController {
   ): Promise<NextResponse<BulkApproveResponse | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      const body: BulkApproveRequestBody = await this.parseBody<BulkApproveRequestBody>(request);
+      const body: BulkApproveRequestBody =
+        await this.parseBody<BulkApproveRequestBody>(request);
 
       if (!body.community_id) {
         return this.badRequest("Community ID is required");
       }
 
-      const result: ServiceResult<BulkApproveResponse> = await this.service.bulkApprove(
-        body.member_ids || [],
-        body.community_id,
-        user.id
-      );
+      const result: ServiceResult<BulkApproveResponse> =
+        await this.service.bulkApprove(
+          body.member_ids || [],
+          body.community_id,
+          user.id
+        );
 
       if (result.success) {
-        return this.json<BulkApproveResponse>(result.data as BulkApproveResponse, result.status);
+        return this.json<BulkApproveResponse>(
+          result.data as BulkApproveResponse,
+          result.status
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to bulk approve", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to bulk approve",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -194,18 +218,25 @@ export class CommunityController extends BaseController {
    * @returns NextResponse with array of pending requests
    */
   public async getPendingRequests(
-    request: NextRequest, 
+    request: NextRequest,
     communityId: string
   ): Promise<NextResponse<RequestsResponse | ApiErrorResponse>> {
     try {
       await this.requireAuth();
-      const result: ServiceResult<unknown[]> = await this.service.getPendingRequests(communityId);
+      const result: ServiceResult<unknown[]> =
+        await this.service.getPendingRequests(communityId);
 
       if (result.success) {
-        return this.json<RequestsResponse>({ requests: result.data || [] }, result.status);
+        return this.json<RequestsResponse>(
+          { requests: result.data || [] },
+          result.status
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to fetch requests", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to fetch requests",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -222,22 +253,27 @@ export class CommunityController extends BaseController {
   ): Promise<NextResponse<JoinResponse | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      const body: JoinCommunityRequestBody = await this.parseBody<JoinCommunityRequestBody>(request);
+      const body: JoinCommunityRequestBody =
+        await this.parseBody<JoinCommunityRequestBody>(request);
 
       if (!body.community_id) {
         return this.badRequest("Community ID is required");
       }
 
-      const result: ServiceResult<JoinResponse> = await this.service.joinCommunity(
-        body.community_id, 
-        user.id
-      );
+      const result: ServiceResult<JoinResponse> =
+        await this.service.joinCommunity(body.community_id, user.id);
 
       if (result.success) {
-        return this.json<JoinResponse>(result.data as JoinResponse, result.status);
+        return this.json<JoinResponse>(
+          result.data as JoinResponse,
+          result.status
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to join", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to join",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -257,16 +293,20 @@ export class CommunityController extends BaseController {
     try {
       const user: User = await this.requireAuth();
 
-      const result: ServiceResult<ApproveResponse> = await this.service.cancelJoinRequest(
-        communityId,
-        user.id
-      );
+      const result: ServiceResult<ApproveResponse> =
+        await this.service.cancelJoinRequest(communityId, user.id);
 
       if (result.success) {
-        return this.json<ApproveResponse>(result.data as ApproveResponse, result.status);
+        return this.json<ApproveResponse>(
+          result.data as ApproveResponse,
+          result.status
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to cancel request", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to cancel request",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -280,29 +320,35 @@ export class CommunityController extends BaseController {
    * @returns NextResponse indicating success or failure
    */
   public async updateMemberRole(
-    request: NextRequest, 
+    request: NextRequest,
     memberId: string
   ): Promise<NextResponse<ApproveResponse | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      const body: UpdateRoleRequestBody = await this.parseBody<UpdateRoleRequestBody>(request);
+      const body: UpdateRoleRequestBody =
+        await this.parseBody<UpdateRoleRequestBody>(request);
 
       const validRoles: MemberRole[] = ["admin", "member", "moderator"];
       if (!body.role || !validRoles.includes(body.role)) {
-        return this.badRequest("Invalid role. Must be 'admin', 'member', or 'moderator'");
+        return this.badRequest(
+          "Invalid role. Must be 'admin', 'member', or 'moderator'"
+        );
       }
 
-      const result: ServiceResult<ApproveResponse> = await this.service.updateMemberRole(
-        memberId, 
-        body.role, 
-        user.id
-      );
+      const result: ServiceResult<ApproveResponse> =
+        await this.service.updateMemberRole(memberId, body.role, user.id);
 
       if (result.success) {
-        return this.json<ApproveResponse>(result.data as ApproveResponse, result.status);
+        return this.json<ApproveResponse>(
+          result.data as ApproveResponse,
+          result.status
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to update role", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to update role",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -322,16 +368,20 @@ export class CommunityController extends BaseController {
     try {
       const user: User = await this.requireAuth();
 
-      const result: ServiceResult<ApproveResponse> = await this.service.removeMember(
-        memberId,
-        user.id
-      );
+      const result: ServiceResult<ApproveResponse> =
+        await this.service.removeMember(memberId, user.id);
 
       if (result.success) {
-        return this.json<ApproveResponse>(result.data as ApproveResponse, result.status);
+        return this.json<ApproveResponse>(
+          result.data as ApproveResponse,
+          result.status
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to remove member", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to remove member",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -345,30 +395,38 @@ export class CommunityController extends BaseController {
    * @returns NextResponse with paginated member list
    */
   public async getMembers(
-    request: NextRequest, 
+    request: NextRequest,
     communityId: string
   ): Promise<NextResponse<MembersResponse | ApiErrorResponse>> {
     try {
       const page: number = this.getQueryParamAsNumber(request, "page", 1);
-      const pageSize: number = this.getQueryParamAsNumber(request, "pageSize", 10);
+      const pageSize: number = this.getQueryParamAsNumber(
+        request,
+        "pageSize",
+        10
+      );
       const role: string | null = this.getQueryParam(request, "role");
       const search: string | null = this.getQueryParam(request, "search");
 
-      const result: ServiceResult<MembersResponse> = await this.service.getMembers(
-        communityId, 
-        { 
-          page, 
-          pageSize, 
-          role: role as MemberRole | undefined, 
-          search: search || undefined 
-        }
-      );
+      const result: ServiceResult<MembersResponse> =
+        await this.service.getMembers(communityId, {
+          page,
+          pageSize,
+          role: role as MemberRole | undefined,
+          search: search || undefined,
+        });
 
       if (result.success) {
-        return this.json<MembersResponse>(result.data as MembersResponse, result.status);
+        return this.json<MembersResponse>(
+          result.data as MembersResponse,
+          result.status
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to fetch members", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to fetch members",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -382,29 +440,37 @@ export class CommunityController extends BaseController {
    * @returns NextResponse with new member data
    */
   public async addMember(
-    request: NextRequest, 
+    request: NextRequest,
     communityId: string
   ): Promise<NextResponse<CommunityMember | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      const body: AddMemberRequestBody = await this.parseBody<AddMemberRequestBody>(request);
+      const body: AddMemberRequestBody =
+        await this.parseBody<AddMemberRequestBody>(request);
 
       if (!body.user_id) {
         return this.badRequest("User ID is required");
       }
 
-      const result: ServiceResult<CommunityMember> = await this.service.addMember(
-        communityId, 
-        body.user_id, 
-        body.role || "member", 
-        user.id
-      );
+      const result: ServiceResult<CommunityMember> =
+        await this.service.addMember(
+          communityId,
+          body.user_id,
+          body.role || "member",
+          user.id
+        );
 
       if (result.success) {
-        return this.json<CommunityMember>(result.data as CommunityMember, result.status);
+        return this.json<CommunityMember>(
+          result.data as CommunityMember,
+          result.status
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to add member", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to add member",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -420,7 +486,9 @@ export class CommunityController extends BaseController {
    */
   public async createCommunity(
     request: NextRequest
-  ): Promise<NextResponse<{ communityId: string; message: string } | ApiErrorResponse>> {
+  ): Promise<
+    NextResponse<{ communityId: string; message: string } | ApiErrorResponse>
+  > {
     try {
       const user: User = await this.requireAuth();
       const body = await this.parseBody<{
@@ -429,7 +497,12 @@ export class CommunityController extends BaseController {
         logoUrl?: string;
         categoryName?: string;
         interests?: string[];
-        location?: { lat: number; lng: number; address?: string; city?: string };
+        location?: {
+          lat: number;
+          lng: number;
+          address?: string;
+          city?: string;
+        };
         completeOnboarding?: boolean;
       }>(request);
 
@@ -440,10 +513,19 @@ export class CommunityController extends BaseController {
       const result = await this.service.createCommunity(body, user.id);
 
       if (result.success && result.data) {
-        return this.json({ communityId: result.data.id, message: "Community created successfully" }, 201);
+        return this.json(
+          {
+            communityId: result.data.id,
+            message: "Community created successfully",
+          },
+          201
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to create community", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to create community",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -457,7 +539,9 @@ export class CommunityController extends BaseController {
    */
   public async createCommunityWithImage(
     request: NextRequest
-  ): Promise<NextResponse<{ communityId: string; message: string } | ApiErrorResponse>> {
+  ): Promise<
+    NextResponse<{ communityId: string; message: string } | ApiErrorResponse>
+  > {
     try {
       const user: User = await this.requireAuth();
 
@@ -476,12 +560,18 @@ export class CommunityController extends BaseController {
       // Handle profile image upload if provided
       let profileImageUrl: string | undefined = undefined;
       if (profileImage && profileImage.size > 0) {
-        const uploadResult = await this.storage.uploadImage(profileImage, "community");
-        
+        const uploadResult = await this.storage.uploadImage(
+          profileImage,
+          "community"
+        );
+
         if (!uploadResult.success) {
-          return this.error(uploadResult.error?.message || "Failed to upload image", uploadResult.status);
+          return this.error(
+            uploadResult.error?.message || "Failed to upload image",
+            uploadResult.status
+          );
         }
-        
+
         profileImageUrl = uploadResult.data?.url;
       }
 
@@ -503,10 +593,19 @@ export class CommunityController extends BaseController {
       );
 
       if (result.success && result.data) {
-        return this.json({ communityId: result.data.id, message: "Community created successfully" }, 201);
+        return this.json(
+          {
+            communityId: result.data.id,
+            message: "Community created successfully",
+          },
+          201
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to create community", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to create community",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -520,7 +619,9 @@ export class CommunityController extends BaseController {
    */
   public async getCommunities(
     request: NextRequest
-  ): Promise<NextResponse<{ communities: unknown[]; total: number } | ApiErrorResponse>> {
+  ): Promise<
+    NextResponse<{ communities: unknown[]; total: number } | ApiErrorResponse>
+  > {
     try {
       const { searchParams } = new URL(request.url);
       const categoryId = searchParams.get("category") || undefined;
@@ -538,8 +639,11 @@ export class CommunityController extends BaseController {
       if (result.success) {
         return this.json(result.data!, result.status);
       }
-      
-      return this.error(result.error?.message || "Failed to fetch communities", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to fetch communities",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -562,8 +666,11 @@ export class CommunityController extends BaseController {
       if (result.success) {
         return this.json(result.data!, result.status);
       }
-      
-      return this.error(result.error?.message || "Community not found", result.status);
+
+      return this.error(
+        result.error?.message || "Community not found",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -592,8 +699,11 @@ export class CommunityController extends BaseController {
       if (result.success) {
         return this.json(result.data!, result.status);
       }
-      
-      return this.error(result.error?.message || "Failed to fetch membership status", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to fetch membership status",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -623,38 +733,56 @@ export class CommunityController extends BaseController {
 
       // Handle profile image upload
       if (profileImage && profileImage.size > 0) {
-        const uploadResult = await this.storage.uploadImage(profileImage, "community");
+        const uploadResult = await this.storage.uploadImage(profileImage, {
+          folder: "communities",
+          maxSizeKey: "community",
+        });
         if (!uploadResult.success) {
-          return this.error(uploadResult.error?.message || "Failed to upload profile image", uploadResult.status);
+          return this.error(
+            uploadResult.error?.message || "Failed to upload profile image",
+            uploadResult.status
+          );
         }
         logoUrl = uploadResult.data?.url;
       }
 
       // Handle banner image upload
       if (bannerImage && bannerImage.size > 0) {
-        const uploadResult = await this.storage.uploadImage(bannerImage, "banner");
+        const uploadResult = await this.storage.uploadImage(bannerImage, {
+          folder: "banners",
+          maxSizeKey: "banner",
+        });
         if (!uploadResult.success) {
-          return this.error(uploadResult.error?.message || "Failed to upload banner image", uploadResult.status);
+          return this.error(
+            uploadResult.error?.message || "Failed to upload banner image",
+            uploadResult.status
+          );
         }
         bannerUrl = uploadResult.data?.url;
       }
 
       // Update community
       const result = await this.service.updateCommunity(communityId, user.id, {
-        logoUrl,
-        bannerUrl,
+        logo_url: logoUrl,
+        banner_url: bannerUrl,
         location: location || undefined,
       });
 
       if (result.success) {
-        return this.json<UpdateCommunityResponse>({
-          success: true,
-          message: "Community updated successfully",
-          data: result.data!,
-        }, result.status);
+        return this.json<UpdateCommunityResponse>(
+          {
+            success: true,
+            message: "Community updated successfully",
+            data: result.data!,
+          },
+          result.status
+        );
       }
-      
-      return this.error(result.error?.message || "Failed to update community", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to update community",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -675,13 +803,19 @@ export class CommunityController extends BaseController {
       const user: User = await this.requireAuth();
 
       // Get pending join requests
-      const requestsResult = await this.service.getPendingRequests(communityId, user.id);
+      const requestsResult = await this.service.getPendingRequests(
+        communityId,
+        user.id
+      );
       if (!requestsResult.success) {
-        return this.error(requestsResult.error?.message || "Failed to fetch requests", requestsResult.status);
+        return this.error(
+          requestsResult.error?.message || "Failed to fetch requests",
+          requestsResult.status
+        );
       }
 
       const requests = requestsResult.data || [];
-      
+
       if (requests.length === 0) {
         return this.json({ requests: [] });
       }
@@ -690,21 +824,30 @@ export class CommunityController extends BaseController {
       const userIds = requests.map((r: any) => r.user_id);
 
       // Get comprehensive user stats
-      const statsResult = await this.service.getUsersComprehensiveStats(userIds);
+      const statsResult = await this.service.getUsersComprehensiveStats(
+        userIds
+      );
       if (!statsResult.success) {
-        return this.error(statsResult.error?.message || "Failed to fetch user stats", statsResult.status);
+        return this.error(
+          statsResult.error?.message || "Failed to fetch user stats",
+          statsResult.status
+        );
       }
 
       const userStats = statsResult.data || {};
 
       // Combine requests with stats
       const requestsWithStats = requests.map((request: any) => {
-        const stats = userStats[request.user_id] || { points_count: 0, report_count: 0, reports: [] };
+        const stats = userStats[request.user_id] || {
+          points_count: 0,
+          report_count: 0,
+          reports: [],
+        };
         return {
           ...request,
           points_count: stats.points_count,
           report_count: stats.report_count,
-          reports: stats.reports
+          reports: stats.reports,
         };
       });
 
@@ -729,17 +872,24 @@ export class CommunityController extends BaseController {
       const user: User = await this.requireAuth();
 
       // Get approved members
-      const membersResult = await this.service.getMembers(communityId, user.id, {
-        page: 1,
-        pageSize: 1000 // Get all members
-      });
-      
+      const membersResult = await this.service.getMembers(
+        communityId,
+        user.id,
+        {
+          page: 1,
+          pageSize: 1000, // Get all members
+        }
+      );
+
       if (!membersResult.success) {
-        return this.error(membersResult.error?.message || "Failed to fetch members", membersResult.status);
+        return this.error(
+          membersResult.error?.message || "Failed to fetch members",
+          membersResult.status
+        );
       }
 
       const members = membersResult.data?.members || [];
-      
+
       if (members.length === 0) {
         return this.json({ members: [] });
       }
@@ -748,20 +898,29 @@ export class CommunityController extends BaseController {
       const userIds = members.map((m: any) => m.user_id);
 
       // Get comprehensive user stats
-      const statsResult = await this.service.getUsersComprehensiveStats(userIds);
+      const statsResult = await this.service.getUsersComprehensiveStats(
+        userIds
+      );
       if (!statsResult.success) {
-        return this.error(statsResult.error?.message || "Failed to fetch user stats", statsResult.status);
+        return this.error(
+          statsResult.error?.message || "Failed to fetch user stats",
+          statsResult.status
+        );
       }
 
       const userStats = statsResult.data || {};
 
       // Combine members with stats
       const membersWithStats = members.map((member: any) => {
-        const stats = userStats[member.user_id] || { points_count: 0, report_count: 0, reports: [] };
+        const stats = userStats[member.user_id] || {
+          points_count: 0,
+          report_count: 0,
+          reports: [],
+        };
         return {
           ...member,
           points_count: stats.points_count,
-          report_count: stats.report_count
+          report_count: stats.report_count,
         };
       });
 
@@ -782,14 +941,17 @@ export class CommunityController extends BaseController {
   ): Promise<NextResponse<unknown | ApiErrorResponse>> {
     try {
       const user: User = await this.requireAuth();
-      
+
       const result = await this.service.canUserCreateCommunity(user.id);
-      
+
       if (result.success) {
         return this.json(result.data);
       }
-      
-      return this.error(result.error?.message || "Failed to check permission", result.status);
+
+      return this.error(
+        result.error?.message || "Failed to check permission",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -817,13 +979,19 @@ export class CommunityController extends BaseController {
         userId = undefined;
       }
 
-      const result = await this.service.getCommunityDetails(communityId, userId);
+      const result = await this.service.getCommunityDetails(
+        communityId,
+        userId
+      );
 
       if (result.success) {
         return this.json({ success: true, data: result.data }, result.status);
       }
 
-      return this.error(result.error?.message || "Failed to fetch community", result.status);
+      return this.error(
+        result.error?.message || "Failed to fetch community",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -845,9 +1013,16 @@ export class CommunityController extends BaseController {
       const body = await request.json();
 
       // Validate update data
-      const allowedFields = ['name', 'description', 'category', 'location', 'logo_url', 'banner_url'];
+      const allowedFields = [
+        "name",
+        "description",
+        "category",
+        "location",
+        "logo_url",
+        "banner_url",
+      ];
       const updateData: any = {};
-      
+
       for (const field of allowedFields) {
         if (body[field] !== undefined) {
           updateData[field] = body[field];
@@ -858,13 +1033,20 @@ export class CommunityController extends BaseController {
         return this.badRequest("No valid fields to update");
       }
 
-      const result = await this.service.updateCommunity(communityId, user.id, updateData);
+      const result = await this.service.updateCommunity(
+        communityId,
+        user.id,
+        updateData
+      );
 
       if (result.success) {
         return this.json({ success: true, data: result.data }, result.status);
       }
 
-      return this.error(result.error?.message || "Failed to update community", result.status);
+      return this.error(
+        result.error?.message || "Failed to update community",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -889,7 +1071,10 @@ export class CommunityController extends BaseController {
         return this.json({ success: true, data: result.data }, result.status);
       }
 
-      return this.error(result.error?.message || "Failed to delete community", result.status);
+      return this.error(
+        result.error?.message || "Failed to delete community",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -897,4 +1082,5 @@ export class CommunityController extends BaseController {
 }
 
 // Export singleton instance
-export const communityController: CommunityController = new CommunityController();
+export const communityController: CommunityController =
+  new CommunityController();

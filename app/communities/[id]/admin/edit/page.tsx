@@ -1,81 +1,85 @@
-"use client"
+"use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FloatingElements } from "@/components/ui/floating-elements"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { PageTransition } from "@/components/ui/page-transition"
-import { getSupabaseBrowser } from "@/lib/supabase/client"
-import { ArrowLeft, Loader2, MapPin, Save, Search, Upload } from "lucide-react"
-import Image from "next/image"
-import Link from "next/link"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FloatingElements } from "@/components/ui/floating-elements";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PageTransition } from "@/components/ui/page-transition";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { ArrowLeft, Loader2, MapPin, Save, Search, Upload } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface CommunityProfile {
-  name: string
-  profilePicture: string
-  bannerUrl: string
+  name: string;
+  profilePicture: string;
+  bannerUrl: string;
   location: {
-    city: string
-    country: string
-    address: string
-  }
+    city: string;
+    country: string;
+    address: string;
+  };
 }
 
 export default function EditCommunityPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }) {
-  const [isLoading, setIsLoading] = useState(true)
-  const [community, setCommunity] = useState<CommunityProfile | null>(null)
+  const [isLoading, setIsLoading] = useState(true);
+  const [community, setCommunity] = useState<CommunityProfile | null>(null);
 
   // Form state
-  const [profilePreview, setProfilePreview] = useState<string>("")
-  const [bannerPreview, setBannerPreview] = useState<string>("")
-  const [profileFile, setProfileFile] = useState<File | null>(null)
-  const [bannerFile, setBannerFile] = useState<File | null>(null)
-  const [city, setCity] = useState("")
-  const [country, setCountry] = useState("")
-  const [address, setAddress] = useState("")
-  const [isSaving, setIsSaving] = useState(false)
-  const [communityId, setCommunityId] = useState<string | null>(null)
+  const [profilePreview, setProfilePreview] = useState<string>("");
+  const [bannerPreview, setBannerPreview] = useState<string>("");
+  const [profileFile, setProfileFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [address, setAddress] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [communityId, setCommunityId] = useState<string | null>(null);
 
   // Location picker state
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isSearching, setIsSearching] = useState(false)
-  const [searchSuggestions, setSearchSuggestions] = useState<Array<{
-    display_name: string
-    lat: string
-    lon: string
-    address?: any
-  }>>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [locationLat, setLocationLat] = useState<number | null>(null)
-  const [locationLng, setLocationLng] = useState<number | null>(null)
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState<
+    Array<{
+      display_name: string;
+      lat: string;
+      lon: string;
+      address?: any;
+    }>
+  >([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLng, setLocationLng] = useState<number | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Load current community data from database
     const load = async () => {
-      setIsLoading(true)
+      setIsLoading(true);
       try {
-        const resolvedParams = await params
-        const communityIdFromParams = resolvedParams.id
-        setCommunityId(communityIdFromParams)
+        const resolvedParams = await params;
+        const communityIdFromParams = resolvedParams.id;
+        setCommunityId(communityIdFromParams);
 
-        const supabase = getSupabaseBrowser()
-        
+        const supabase = getSupabaseBrowser();
+
         // Get current user
-        const { data: { user } } = await supabase.auth.getUser()
-        
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
         if (!user) {
-          console.error("User not found")
-          setIsLoading(false)
-          return
+          console.error("User not found");
+          setIsLoading(false);
+          return;
         }
 
         // Get community by ID from params
@@ -83,22 +87,22 @@ export default function EditCommunityPage({
           .from("communities")
           .select("*")
           .eq("id", communityIdFromParams)
-          .single()
+          .single();
 
         if (communityError || !communityData) {
-          console.error("Community not found:", communityError)
-          toast.error("Community not found or you don't have access")
-          setIsLoading(false)
-          return
+          console.error("Community not found:", communityError);
+          toast.error("Community not found or you don't have access");
+          setIsLoading(false);
+          return;
         }
 
         // Verify user is creator only
-        const isCreator = communityData.creator_id === user.id
+        const isCreator = communityData.creator_id === user.id;
 
         if (!isCreator) {
-          toast.error("Only the community creator can edit this community")
-          setIsLoading(false)
-          return
+          toast.error("Only the community creator can edit this community");
+          setIsLoading(false);
+          return;
         }
 
         // Use actual data from database or fallback to defaults
@@ -106,258 +110,309 @@ export default function EditCommunityPage({
           name: communityData?.name || "Community",
           profilePicture: communityData?.logo_url || "/placeholder-user.jpg",
           bannerUrl: communityData?.banner_url || "/placeholder.jpg",
-          location: { 
-            city: "", 
-            country: "", 
-            address: "" 
+          location: {
+            city: "",
+            country: "",
+            address: "",
           },
-        }
+        };
 
         // Parse location from database
         if (communityData?.location) {
           try {
-            const locationData = typeof communityData.location === 'string' 
-              ? JSON.parse(communityData.location) 
-              : communityData.location
-            if (locationData.city) communityProfile.location.city = locationData.city
-            if (locationData.country) communityProfile.location.country = locationData.country
-            if (locationData.address) communityProfile.location.address = locationData.address
+            const locationData =
+              typeof communityData.location === "string"
+                ? JSON.parse(communityData.location)
+                : communityData.location;
+            if (locationData.city)
+              communityProfile.location.city = locationData.city;
+            if (locationData.country)
+              communityProfile.location.country = locationData.country;
+            if (locationData.address)
+              communityProfile.location.address = locationData.address;
           } catch (e) {
             // If location is a plain string (city name), use it as city
-            if (typeof communityData.location === 'string') {
-              communityProfile.location.city = communityData.location
+            if (typeof communityData.location === "string") {
+              communityProfile.location.city = communityData.location;
             }
           }
         }
 
-        setCommunity(communityProfile)
-        setProfilePreview(communityProfile.profilePicture)
-        setBannerPreview(communityProfile.bannerUrl)
-        setCity(communityProfile.location.city)
-        setCountry(communityProfile.location.country)
-        setAddress(communityProfile.location.address)
-        setSearchQuery(communityProfile.location.address || "")
+        setCommunity(communityProfile);
+        setProfilePreview(communityProfile.profilePicture);
+        setBannerPreview(communityProfile.bannerUrl);
+        setCity(communityProfile.location.city);
+        setCountry(communityProfile.location.country);
+        setAddress(communityProfile.location.address);
+        setSearchQuery(communityProfile.location.address || "");
       } catch (error) {
-        console.error("Failed to load community data:", error)
-        toast.error("Failed to load community data")
+        console.error("Failed to load community data:", error);
+        toast.error("Failed to load community data");
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
-    load()
-  }, [params])
+    };
+    load();
+  }, [params]);
 
   // Autocomplete search suggestions
   const fetchSearchSuggestions = useCallback(async (query: string) => {
     if (!query.trim() || query.length < 2) {
-      setSearchSuggestions([])
-      setShowSuggestions(false)
-      return
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+      return;
     }
 
-    setIsSearching(true)
+    setIsSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&extratags=1`
-      )
-      const data = await response.json()
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          query
+        )}&limit=5&addressdetails=1&extratags=1`
+      );
+      const data = await response.json();
 
       if (data && data.length > 0) {
-        setSearchSuggestions(data)
-        setShowSuggestions(true)
+        setSearchSuggestions(data);
+        setShowSuggestions(true);
       } else {
-        setSearchSuggestions([])
-        setShowSuggestions(false)
+        setSearchSuggestions([]);
+        setShowSuggestions(false);
       }
     } catch (error) {
-      console.error("Search suggestions error:", error)
-      setSearchSuggestions([])
+      console.error("Search suggestions error:", error);
+      setSearchSuggestions([]);
     } finally {
-      setIsSearching(false)
+      setIsSearching(false);
     }
-  }, [])
+  }, []);
 
   // Handle search input change with debouncing
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchQuery(value)
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
 
-    // Clear previous timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
+      // Clear previous timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
 
-    // Debounce search suggestions
-    if (value.trim().length >= 2) {
-      searchTimeoutRef.current = setTimeout(() => {
-        fetchSearchSuggestions(value)
-      }, 300) // 300ms delay
-    } else {
-      setSearchSuggestions([])
-      setShowSuggestions(false)
-    }
-  }, [fetchSearchSuggestions])
+      // Debounce search suggestions
+      if (value.trim().length >= 2) {
+        searchTimeoutRef.current = setTimeout(() => {
+          fetchSearchSuggestions(value);
+        }, 300); // 300ms delay
+      } else {
+        setSearchSuggestions([]);
+        setShowSuggestions(false);
+      }
+    },
+    [fetchSearchSuggestions]
+  );
 
   // Select a suggestion and update map
-  const selectSuggestion = useCallback((suggestion: {
-    display_name: string
-    lat: string
-    lon: string
-    address?: any
-  }) => {
-    const lat = parseFloat(suggestion.lat)
-    const lng = parseFloat(suggestion.lon)
+  const selectSuggestion = useCallback(
+    (suggestion: {
+      display_name: string;
+      lat: string;
+      lon: string;
+      address?: any;
+    }) => {
+      const lat = parseFloat(suggestion.lat);
+      const lng = parseFloat(suggestion.lon);
 
-    setSearchQuery(suggestion.display_name)
-    setSearchSuggestions([])
-    setShowSuggestions(false)
+      setSearchQuery(suggestion.display_name);
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
 
-    // Extract address components
-    const addressParts = suggestion.address || {}
-    setAddress(suggestion.display_name)
-    setCity(addressParts.city || addressParts.town || addressParts.village || addressParts.municipality || "")
-    setCountry(addressParts.country || "")
-    setLocationLat(lat)
-    setLocationLng(lng)
+      // Extract address components
+      const addressParts = suggestion.address || {};
+      setAddress(suggestion.display_name);
+      setCity(
+        addressParts.city ||
+          addressParts.town ||
+          addressParts.village ||
+          addressParts.municipality ||
+          ""
+      );
+      setCountry(addressParts.country || "");
+      setLocationLat(lat);
+      setLocationLng(lng);
 
-    toast.success("Location selected!")
-  }, [])
+      toast.success("Location selected!");
+    },
+    []
+  );
 
   // Geocoding: Convert address to coordinates (for manual search button)
   const searchLocation = useCallback(async () => {
-    if (!searchQuery.trim()) return
+    if (!searchQuery.trim()) return;
 
-    setIsSearching(true)
-    setShowSuggestions(false)
+    setIsSearching(true);
+    setShowSuggestions(false);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1&addressdetails=1`
-      )
-      const data = await response.json()
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          searchQuery
+        )}&limit=1&addressdetails=1`
+      );
+      const data = await response.json();
 
       if (data && data.length > 0) {
-        const result = data[0]
-        const lat = parseFloat(result.lat)
-        const lng = parseFloat(result.lon)
+        const result = data[0];
+        const lat = parseFloat(result.lat);
+        const lng = parseFloat(result.lon);
 
-        const addressParts = result.address || {}
-        setAddress(result.display_name || searchQuery)
-        setCity(addressParts.city || addressParts.town || addressParts.village || addressParts.municipality || "")
-        setCountry(addressParts.country || "")
-        setLocationLat(lat)
-        setLocationLng(lng)
+        const addressParts = result.address || {};
+        setAddress(result.display_name || searchQuery);
+        setCity(
+          addressParts.city ||
+            addressParts.town ||
+            addressParts.village ||
+            addressParts.municipality ||
+            ""
+        );
+        setCountry(addressParts.country || "");
+        setLocationLat(lat);
+        setLocationLng(lng);
 
-        toast.success("Location found!")
+        toast.success("Location found!");
       } else {
-        toast.error("Location not found. Try a different address.")
+        toast.error("Location not found. Try a different address.");
       }
     } catch (error) {
-      console.error("Geocoding error:", error)
-      toast.error("Failed to search location")
+      console.error("Geocoding error:", error);
+      toast.error("Failed to search location");
     } finally {
-      setIsSearching(false)
+      setIsSearching(false);
     }
-  }, [searchQuery])
+  }, [searchQuery]);
 
   // Handle search on Enter key
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      e.preventDefault()
+      e.preventDefault();
       if (searchSuggestions.length > 0) {
-        selectSuggestion(searchSuggestions[0])
+        selectSuggestion(searchSuggestions[0]);
       } else {
-        searchLocation()
+        searchLocation();
       }
     } else if (e.key === "Escape") {
-      setShowSuggestions(false)
+      setShowSuggestions(false);
     }
-  }
+  };
 
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
+        clearTimeout(searchTimeoutRef.current);
       }
-    }
-  }, [])
+    };
+  }, []);
 
   const isLocationValid = useMemo(() => {
-    return city.trim().length > 1 && country.trim().length > 1 && address.trim().length > 5
-  }, [city, country, address])
+    return (
+      city.trim().length > 1 &&
+      country.trim().length > 1 &&
+      address.trim().length > 5
+    );
+  }, [city, country, address]);
 
   const handleProfileFile = (file: File | null) => {
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    setProfilePreview(url)
-    setProfileFile(file)
-  }
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setProfilePreview(url);
+    setProfileFile(file);
+  };
 
   const handleBannerFile = (file: File | null) => {
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    setBannerPreview(url)
-    setBannerFile(file)
-  }
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setBannerPreview(url);
+    setBannerFile(file);
+  };
 
   const handleSave = async () => {
     if (!communityId) {
-      toast.error("Community not found")
-      return
+      toast.error("Community not found");
+      return;
     }
 
     // Check if there's anything to save
-    const hasProfileFile = profileFile !== null
-    const hasBannerFile = bannerFile !== null
+    const hasProfileFile = profileFile !== null;
+    const hasBannerFile = bannerFile !== null;
     // Check if location has meaningful data (user is trying to set/update location)
-    const hasLocationData = city.trim().length > 0 && country.trim().length > 0 && address.trim().length > 5
-    
+    const hasLocationData =
+      city.trim().length > 0 &&
+      country.trim().length > 0 &&
+      address.trim().length > 5;
+
     if (!hasProfileFile && !hasBannerFile && !hasLocationData) {
-      toast.error("Please make at least one change before saving")
-      return
+      toast.error("Please make at least one change before saving");
+      return;
     }
 
-    setIsSaving(true)
+    setIsSaving(true);
     try {
       // Prepare FormData
-      const formDataToSend = new FormData()
+      const formDataToSend = new FormData();
       if (profileFile) {
-        formDataToSend.append("profileImage", profileFile)
+        formDataToSend.append("profileImage", profileFile);
       }
       if (bannerFile) {
-        formDataToSend.append("bannerImage", bannerFile)
+        formDataToSend.append("bannerImage", bannerFile);
       }
-      
+
       // Only include location if user has provided city data
       if (hasLocationData && city.trim()) {
         // Save just the city name
-        formDataToSend.append("location", city.trim())
+        formDataToSend.append("location", city.trim());
       }
 
       // Call API
       const response = await fetch(`/api/communities/${communityId}/update`, {
         method: "POST",
         body: formDataToSend,
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to update community")
+        // Handle error object structure from API: { success: false, error: { code, message } }
+        const errorMessage =
+          data.error?.message ||
+          data.error ||
+          data.message ||
+          "Failed to update community";
+        throw new Error(
+          typeof errorMessage === "string"
+            ? errorMessage
+            : JSON.stringify(errorMessage)
+        );
       }
 
-      toast.success("Community updated successfully!")
-      
+      toast.success("Community updated successfully!");
+
       // Redirect to community admin page after a short delay
       setTimeout(() => {
-        window.location.href = communityId ? `/communities/${communityId}/admin` : "/communities/admin"
-      }, 1000)
+        window.location.href = communityId
+          ? `/communities/${communityId}/admin`
+          : "/communities/admin";
+      }, 1000);
     } catch (error: any) {
-      console.error("Error saving community:", error)
-      toast.error(error.message || "Failed to save changes. Please try again.")
+      console.error("Error saving community:", error);
+      const errorMsg =
+        error?.message || "Failed to save changes. Please try again.";
+      toast.error(
+        typeof errorMsg === "string"
+          ? errorMsg
+          : "Failed to save changes. Please try again."
+      );
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
     }
-  }
+  };
 
   return (
     <PageTransition>
@@ -366,8 +421,18 @@ export default function EditCommunityPage({
         <div className="max-w-5xl mx-auto p-6 md:p-8 relative z-10">
           <div className="mb-6 flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">Edit Community</h1>
-            <Link href={communityId ? `/communities/${communityId}/admin` : "/communities/admin"} className="inline-flex">
-              <Button variant="outline" className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300">
+            <Link
+              href={
+                communityId
+                  ? `/communities/${communityId}/admin`
+                  : "/communities/admin"
+              }
+              className="inline-flex"
+            >
+              <Button
+                variant="outline"
+                className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300"
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard
               </Button>
@@ -388,11 +453,28 @@ export default function EditCommunityPage({
                       {community?.name?.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  <input id="profile-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleProfileFile(e.target.files?.[0] || null)} />
-                  <Button type="button" variant="outline" className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300" onClick={() => document.getElementById('profile-upload')?.click()}>
+                  <input
+                    id="profile-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) =>
+                      handleProfileFile(e.target.files?.[0] || null)
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300"
+                    onClick={() =>
+                      document.getElementById("profile-upload")?.click()
+                    }
+                  >
                     Choose File
                   </Button>
-                  <p className="text-xs text-gray-500">PNG/JPG, recommended 400x400px, max ~2MB</p>
+                  <p className="text-xs text-gray-500">
+                    PNG/JPG, recommended 400x400px, max ~2MB
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -407,27 +489,63 @@ export default function EditCommunityPage({
                   <div className="relative w-full h-40 rounded-xl overflow-hidden border border-dashed border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center text-center">
                     {bannerPreview ? (
                       <>
-                        <Image src={bannerPreview} alt="Banner Preview" fill className="object-cover" />
-                        <div className="absolute inset-x-0 bottom-0 bg-black/30 text-white text-xs py-1">Click below to change background</div>
+                        <Image
+                          src={bannerPreview}
+                          alt="Banner Preview"
+                          fill
+                          className="object-cover"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 bg-black/30 text-white text-xs py-1">
+                          Click below to change background
+                        </div>
                       </>
                     ) : (
-                      <button type="button" onClick={() => document.getElementById('banner-upload')?.click()} className="flex flex-col items-center justify-center gap-2 p-6">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          document.getElementById("banner-upload")?.click()
+                        }
+                        className="flex flex-col items-center justify-center gap-2 p-6"
+                      >
                         <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 text-white flex items-center justify-center shadow">
                           <Upload className="w-5 h-5" />
                         </div>
-                        <div className="text-sm font-medium text-purple-700">Upload Background</div>
-                        <div className="text-xs text-purple-600/80">or upload logo coba</div>
-                        <div className="text-[10px] text-gray-500">Recommended 1200x400px</div>
+                        <div className="text-sm font-medium text-purple-700">
+                          Upload Background
+                        </div>
+                        <div className="text-xs text-purple-600/80">
+                          or upload logo coba
+                        </div>
+                        <div className="text-[10px] text-gray-500">
+                          Recommended 1200x400px
+                        </div>
                       </button>
                     )}
                   </div>
-                  <input id="banner-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleBannerFile(e.target.files?.[0] || null)} />
+                  <input
+                    id="banner-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) =>
+                      handleBannerFile(e.target.files?.[0] || null)
+                    }
+                  />
                   <div className="w-full text-center">
-                    <Button type="button" variant="outline" className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300" onClick={() => document.getElementById('banner-upload')?.click()}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300"
+                      onClick={() =>
+                        document.getElementById("banner-upload")?.click()
+                      }
+                    >
                       Choose File
                     </Button>
                   </div>
-                  <p className="text-xs text-gray-500 text-center">PNG/JPG, recommended 1200x400px, max ~4MB</p>
+                  <p className="text-xs text-gray-500 text-center">
+                    PNG/JPG, recommended 1200x400px, max ~4MB
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -443,7 +561,12 @@ export default function EditCommunityPage({
               <CardContent className="space-y-4">
                 {/* Search Location */}
                 <div>
-                  <Label htmlFor="search-address" className="text-sm text-gray-600">Search City or Address</Label>
+                  <Label
+                    htmlFor="search-address"
+                    className="text-sm text-gray-600"
+                  >
+                    Search City or Address
+                  </Label>
                   <div className="mt-1 relative">
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -455,11 +578,11 @@ export default function EditCommunityPage({
                           onKeyDown={handleSearchKeyDown}
                           onFocus={() => {
                             if (searchSuggestions.length > 0) {
-                              setShowSuggestions(true)
+                              setShowSuggestions(true);
                             }
                           }}
                           onBlur={() => {
-                            setTimeout(() => setShowSuggestions(false), 200)
+                            setTimeout(() => setShowSuggestions(false), 200);
                           }}
                           placeholder="Search city or address (e.g., Jakarta, Bandung)"
                           className="pl-10"
@@ -501,21 +624,40 @@ export default function EditCommunityPage({
                   <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                     <div className="flex items-start gap-3">
                       <MapPin className="w-5 h-5 text-purple-600 mt-0.5" />
-                <div>
-                        <p className="font-medium text-gray-900">{city}{city && country ? `, ${country}` : country}</p>
-                        {address && <p className="text-sm text-gray-600 mt-1">{address}</p>}
-                </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {city}
+                          {city && country ? `, ${country}` : country}
+                        </p>
+                        {address && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            {address}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
 
                 <div className="pt-4 flex items-center justify-end gap-2">
-                  <Button variant="outline" className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300" asChild>
-                    <Link href={communityId ? `/communities/${communityId}/admin` : "/communities/admin"}>Cancel</Link>
+                  <Button
+                    variant="outline"
+                    className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300"
+                    asChild
+                  >
+                    <Link
+                      href={
+                        communityId
+                          ? `/communities/${communityId}/admin`
+                          : "/communities/admin"
+                      }
+                    >
+                      Cancel
+                    </Link>
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleSave}
-                    disabled={isSaving} 
+                    disabled={isSaving}
                     className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600"
                   >
                     {isSaving ? (
@@ -525,7 +667,7 @@ export default function EditCommunityPage({
                       </>
                     ) : (
                       <>
-                    <Save className="w-4 h-4 mr-2" />
+                        <Save className="w-4 h-4 mr-2" />
                         Save Changes
                       </>
                     )}
@@ -537,7 +679,5 @@ export default function EditCommunityPage({
         </div>
       </div>
     </PageTransition>
-  )
+  );
 }
-
-
