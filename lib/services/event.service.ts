@@ -933,6 +933,23 @@ export class EventService extends BaseService {
       return ApiResponse.badRequest("Start and end time are required");
     }
 
+    // Validate that dates are not in the past
+    const now = new Date();
+    const startDate = new Date(data.start_time);
+    const endDate = new Date(data.end_time);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return ApiResponse.badRequest("Invalid date format for start or end time");
+    }
+
+    if (startDate < now) {
+      return ApiResponse.badRequest("Start date and time cannot be in the past");
+    }
+
+    if (endDate < startDate) {
+      return ApiResponse.badRequest("End date and time must be after start date and time");
+    }
+
     if (!data.community_id) {
       return ApiResponse.badRequest("Community ID is required");
     }

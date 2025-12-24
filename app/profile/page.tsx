@@ -125,13 +125,23 @@ export default function ProfilePage() {
                         "email";
         setAuthProvider(provider);
 
-        // Load user profile data from metadata
+        // Fetch user profile data from users table (not user_metadata)
+        const { data: userProfile, error: profileError } = await supabase
+          .from("users")
+          .select("full_name, username, interests, location")
+          .eq("id", session.user.id)
+          .single();
+
+        if (profileError) {
+          console.error("Error fetching user profile:", profileError);
+        }
+
+        // Load user profile data - prioritize users table, fallback to metadata
         const metadata = session.user.user_metadata || {};
         setFormData({
-          fullName: metadata.full_name || metadata.name || "",
-          username:
-            metadata.username || session.user.email?.split("@")[0] || "",
-          interests: metadata.interests || ["Technology", "Community", "Networking"],
+          fullName: userProfile?.full_name || metadata.full_name || metadata.name || "",
+          username: userProfile?.username || metadata.username || session.user.email?.split("@")[0] || "",
+          interests: userProfile?.interests || metadata.interests || [],
         });
         
         // Fetch points and report counts from API
@@ -151,28 +161,59 @@ export default function ProfilePage() {
           setReportCount(0);
         }
         
-        // Load location from metadata (support both new and legacy formats)
-        if (metadata.location) {
-          // NEW standardized format
-          const loc = metadata.location as UserLocationData;
-          setLocationQuery(loc.city);
-          setSelectedLocation({
-            id: loc.placeId,
-            name: loc.city,
-            display_name: loc.displayName,
-            lat: loc.lat.toString(),
-            lon: loc.lon.toString(),
-          });
-        } else if (metadata.location_city) {
-          // LEGACY format - still support during migration
-          setLocationQuery(metadata.location_city_name || "");
-          setSelectedLocation({
-            id: metadata.location_city,
-            name: metadata.location_city_name || "",
-            display_name: metadata.location_city_name || "",
-            lat: metadata.location_lat || "0",
-            lon: metadata.location_lon || "0",
-          });
+        // Load location from users table (prioritize), then fallback to metadata
+        let locationLoaded = false;
+        
+        if (userProfile?.location) {
+          try {
+            // Parse location from users table (stored as JSON string)
+            const locationData = typeof userProfile.location === 'string' 
+              ? JSON.parse(userProfile.location) 
+              : userProfile.location;
+            
+            if (locationData && locationData.city) {
+              setLocationQuery(locationData.city);
+              setSelectedLocation({
+                id: locationData.placeId || locationData.city,
+                name: locationData.city,
+                display_name: locationData.displayName || locationData.fullAddress || locationData.city,
+                lat: locationData.lat?.toString() || "0",
+                lon: locationData.lon?.toString() || "0",
+              });
+              locationLoaded = true;
+            }
+          } catch (e) {
+            console.error("Error parsing location from users table:", e);
+          }
+        }
+        
+        // Fallback to metadata if not loaded from users table
+        if (!locationLoaded) {
+          if (metadata.location) {
+            // NEW standardized format
+            const loc = metadata.location as UserLocationData;
+            setLocationQuery(loc.city);
+            setSelectedLocation({
+              id: loc.placeId,
+              name: loc.city,
+              display_name: loc.displayName,
+              lat: loc.lat.toString(),
+              lon: loc.lon.toString(),
+            });
+          } else if (metadata.location_city) {
+            // LEGACY format - still support during migration
+            setLocationQuery(metadata.location_city_name || "");
+            setSelectedLocation({
+              id: metadata.location_city,
+              name: metadata.location_city_name || "",
+              display_name: metadata.location_city_name || "",
+              lat: metadata.location_lat || "0",
+              lon: metadata.location_lon || "0",
+            });
+          } else {
+            setLocationQuery("");
+            setSelectedLocation(null);
+          }
         }
       } catch (error) {
         console.error("Error getting user:", error);
@@ -279,8 +320,11 @@ export default function ProfilePage() {
         ? toStandardizedLocation(selectedLocation)
         : undefined;
 
-      // Update user metadata in Supabase
-      const { error } = await supabase.auth.updateUser({
+      // Prepare location as JSON string for users table
+      const locationString = locationData ? JSON.stringify(locationData) : null;
+
+      // Update user metadata in Supabase Auth (for backwards compatibility)
+      const { error: authError } = await supabase.auth.updateUser({
         data: {
           full_name: formData.fullName,
           username: formData.username,
@@ -294,8 +338,24 @@ export default function ProfilePage() {
         },
       });
 
-      if (error) {
-        throw error;
+      if (authError) {
+        throw authError;
+      }
+
+      // Update users table in database
+      const { error: dbError } = await supabase
+        .from("users")
+        .update({
+          full_name: formData.fullName,
+          username: formData.username,
+          interests: formData.interests,
+          location: locationString,
+        })
+        .eq("id", user.id);
+
+      if (dbError) {
+        console.error("Error updating users table:", dbError);
+        throw new Error("Failed to update profile in database");
       }
 
       // Update local user state
@@ -338,43 +398,75 @@ export default function ProfilePage() {
   const handleCancel = () => {
     setIsEditing(false);
     setSelectedInterest("");
-    // Reset form data to original values
+    // Reset form data to original values - fetch from users table
     if (user) {
-      setFormData({
-        fullName:
-          user.user_metadata?.full_name || user.user_metadata?.name || "",
-        username:
-          user.user_metadata?.username || user.email?.split("@")[0] || "",
-        interests: user.user_metadata?.interests || ["Technology", "Community", "Networking"],
-      });
-      // Points counts are fetched from API, not user metadata
+      const resetFormData = async () => {
+        const { data: userProfile } = await supabase
+          .from("users")
+          .select("full_name, username, interests, location")
+          .eq("id", user.id)
+          .single();
+
+        const metadata = user.user_metadata || {};
+        setFormData({
+          fullName: userProfile?.full_name || metadata.full_name || metadata.name || "",
+          username: userProfile?.username || metadata.username || user.email?.split("@")[0] || "",
+          interests: userProfile?.interests || metadata.interests || [],
+        });
+        
+        // Reset location from users table
+        let locationReset = false;
+        if (userProfile?.location) {
+          try {
+            const locationData = typeof userProfile.location === 'string' 
+              ? JSON.parse(userProfile.location) 
+              : userProfile.location;
+            
+            if (locationData && locationData.city) {
+              setLocationQuery(locationData.city);
+              setSelectedLocation({
+                id: locationData.placeId || locationData.city,
+                name: locationData.city,
+                display_name: locationData.displayName || locationData.fullAddress || locationData.city,
+                lat: locationData.lat?.toString() || "0",
+                lon: locationData.lon?.toString() || "0",
+              });
+              locationReset = true;
+            }
+          } catch (e) {
+            console.error("Error parsing location:", e);
+          }
+        }
+        
+        // Fallback to metadata
+        if (!locationReset) {
+          if (metadata.location) {
+            const loc = metadata.location as UserLocationData;
+            setLocationQuery(loc.city);
+            setSelectedLocation({
+              id: loc.placeId,
+              name: loc.city,
+              display_name: loc.displayName,
+              lat: loc.lat.toString(),
+              lon: loc.lon.toString(),
+            });
+          } else if (metadata.location_city) {
+            setLocationQuery(metadata.location_city_name || "");
+            setSelectedLocation({
+              id: metadata.location_city,
+              name: metadata.location_city_name || "",
+              display_name: metadata.location_city_name || "",
+              lat: metadata.location_lat || "0",
+              lon: metadata.location_lon || "0",
+            });
+          } else {
+            setLocationQuery("");
+            setSelectedLocation(null);
+          }
+        }
+      };
       
-      // Reset location (support both new and legacy formats)
-      if (user.user_metadata?.location) {
-        // NEW standardized format
-        const loc = user.user_metadata.location as UserLocationData;
-        setLocationQuery(loc.city);
-        setSelectedLocation({
-          id: loc.placeId,
-          name: loc.city,
-          display_name: loc.displayName,
-          lat: loc.lat.toString(),
-          lon: loc.lon.toString(),
-        });
-      } else if (user.user_metadata?.location_city) {
-        // LEGACY format
-        setLocationQuery(user.user_metadata.location_city_name || "");
-        setSelectedLocation({
-          id: user.user_metadata.location_city,
-          name: user.user_metadata.location_city_name || "",
-          display_name: user.user_metadata.location_city_name || "",
-          lat: user.user_metadata.location_lat || "0",
-          lon: user.user_metadata.location_lon || "0",
-        });
-      } else {
-        setLocationQuery("");
-        setSelectedLocation(null);
-      }
+      resetFormData();
     }
   };
 

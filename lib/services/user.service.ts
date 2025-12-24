@@ -38,6 +38,7 @@ interface AwardPointsResult {
 
 interface UpdateProfileRequest {
   full_name?: string;
+  username?: string;
   bio?: string;
   avatar_url?: string;
   interests?: string[];

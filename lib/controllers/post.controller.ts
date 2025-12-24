@@ -51,6 +51,7 @@ export class PostController extends BaseController {
     try {
       const communityId: string | null = this.getQueryParam(request, "community_id");
       const authorId: string | null = this.getQueryParam(request, "author_id");
+      const eventId: string | null = this.getQueryParam(request, "event_id");
       const type: string | null = this.getQueryParam(request, "type");
       const page: number = this.getQueryParamAsNumber(request, "page", 1);
       const pageSize: number = this.getQueryParamAsNumber(request, "pageSize", 20);
@@ -58,6 +59,7 @@ export class PostController extends BaseController {
       const result = await this.service.getAll({
         communityId: communityId || undefined,
         authorId: authorId || undefined,
+        eventId: eventId || undefined,
         type: type as PostType | undefined,
         page,
         pageSize,

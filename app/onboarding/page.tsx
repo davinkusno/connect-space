@@ -111,7 +111,7 @@ export default function OnboardingPage() {
         throw new Error("No session found");
       }
 
-      // Prepare location data
+      // Prepare location data - convert to JSON string for storage
       const locationData = location ? {
         city: location.city,
         placeId: location.placeId,
@@ -131,7 +131,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           userId,
           interests: selectedInterests,
-          location: locationData,
+          location: locationData ? JSON.stringify(locationData) : null,
           onboardingCompleted: true,
         }),
       });

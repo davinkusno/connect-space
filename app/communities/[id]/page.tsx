@@ -453,15 +453,20 @@ export default function CommunityPage({
         }
       }
 
-      // Get member count - only approved members (status = 'approved')
-      // Creator is already included in community_members table, so no need to add +1
-      const { count } = await supabase
+      // Get member count - only "member" role, exclude creator, admin, moderator
+      const { data: membersData } = await supabase
         .from("community_members")
-        .select("*", { count: "exact", head: true })
+        .select("user_id, role")
         .eq("community_id", id)
-        .eq("status", "approved");
+        .eq("status", "approved")
+        .eq("role", "member");
 
-      setMemberCount(count || 0);
+      // Filter out creator from count
+      const memberCount = membersData?.filter(
+        (member: any) => member.user_id !== communityData.creator_id
+      ).length || 0;
+
+      setMemberCount(memberCount);
     } catch (error) {
       console.error("Error loading community:", error);
       toast.error("Failed to load community");

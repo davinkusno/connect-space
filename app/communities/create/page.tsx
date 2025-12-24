@@ -126,10 +126,17 @@ export default function CreateCommunityPage() {
 
       toast.success("Community created successfully!")
       
-      // Redirect to home
-      setTimeout(() => {
-        router.push("/home")
-      }, 1000)
+      // Redirect to community management page
+      if (data.communityId) {
+        setTimeout(() => {
+          router.push(`/communities/${data.communityId}/admin`)
+        }, 1000)
+      } else {
+        // Fallback to home if no communityId
+        setTimeout(() => {
+          router.push("/home")
+        }, 1000)
+      }
     } catch (error: any) {
       console.error("Error creating community:", error)
       toast.error(error.message || "Failed to create community. Please try again.")

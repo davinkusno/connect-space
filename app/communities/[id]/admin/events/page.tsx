@@ -34,12 +34,15 @@ function getLocationDisplay(location: any): string {
     if (locData.meetingLink) {
       return locData.meetingLink;
     }
-    if (locData.isOnline && locData.meetingLink) {
-      return locData.meetingLink;
+    if (locData.isOnline) {
+      return "Online";
     }
     
     // Handle physical events
-    return locData.city || locData.venue || locData.address || "";
+    if (locData.address) {
+      return `${locData.address}${locData.city ? `, ${locData.city}` : ''}`;
+    }
+    return locData.city || locData.venue || "";
   } catch {
     return typeof location === "string" ? location : "";
   }
@@ -53,7 +56,7 @@ interface Event {
   time: string
   location: string
   attendeeCount: number
-  maxAttendees: number
+  maxAttendees: number | null
   image: string
   status: "upcoming" | "past"
   category: string
@@ -144,6 +147,23 @@ export default function CommunityAdminEventsPage({
         return
       }
 
+      // Fetch attendee counts for all events
+      const eventIds = (eventsData || []).map((e: any) => e.id)
+      let attendeeCounts: Record<string, number> = {}
+      
+      if (eventIds.length > 0) {
+        const { data: attendeesData } = await supabase
+          .from("event_attendees")
+          .select("event_id")
+          .in("event_id", eventIds)
+        
+        if (attendeesData) {
+          attendeesData.forEach((a: any) => {
+            attendeeCounts[a.event_id] = (attendeeCounts[a.event_id] || 0) + 1
+          })
+        }
+      }
+
       // Convert database events to Event interface format
       const now = new Date()
       const realEvents: Event[] = (eventsData || []).map((event: any) => {
@@ -152,28 +172,49 @@ export default function CommunityAdminEventsPage({
         const isUpcoming = startTime > now
         
         // Parse location
-        let locationStr = "Location TBD"
-        if (event.location) {
+        let locationStr = ""
+        
+        // Handle online events first
+        if (event.is_online) {
+          if (event.location) {
+            try {
+              const locationData = typeof event.location === 'string' 
+                ? JSON.parse(event.location) 
+                : event.location
+              
+              // For online events, check for meeting link in location data
+              locationStr = locationData.meetingLink || "Online"
+            } catch (e) {
+              // If parsing fails, just show "Online"
+              locationStr = "Online"
+            }
+          } else {
+            // No location data, but event is online
+            locationStr = "Online"
+          }
+        } else if (event.location) {
+          // Handle physical events
           try {
             const locationData = typeof event.location === 'string' 
               ? JSON.parse(event.location) 
               : event.location
             
-            if (event.is_online && locationData.meetingLink) {
-              locationStr = locationData.meetingLink
-            } else if (locationData.address) {
+            if (locationData.address) {
               locationStr = `${locationData.address}${locationData.city ? `, ${locationData.city}` : ''}`
+            } else if (locationData.city) {
+              locationStr = locationData.city
             } else if (typeof event.location === 'string') {
               locationStr = event.location
             }
           } catch (e) {
-            locationStr = typeof event.location === 'string' ? event.location : "Location TBD"
+            if (typeof event.location === 'string') {
+              locationStr = event.location
+            }
           }
         }
 
-        // Get attendee count (you may need to query event_attendees table)
-        // For now, using max_attendees as placeholder
-        const attendeeCount = 0 // TODO: Fetch from event_attendees table
+        // Get attendee count from fetched data
+        const attendeeCount = attendeeCounts[event.id] || 0
 
         return {
           id: event.id,
@@ -183,7 +224,7 @@ export default function CommunityAdminEventsPage({
           time: format(startTime, "HH:mm"),
           location: locationStr,
           attendeeCount: attendeeCount,
-          maxAttendees: event.max_attendees || 0,
+          maxAttendees: event.max_attendees || null,
           image: event.image_url || "/placeholder.svg?height=200&width=300",
           status: isUpcoming ? "upcoming" : "past",
           category: event.category || "General",
@@ -619,7 +660,11 @@ export default function CommunityAdminEventsPage({
                           </div>
                           <div className="flex items-center gap-2">
                             <Users className="w-4 h-4 text-purple-600" />
-                            <span>{event.attendeeCount}/{event.maxAttendees} attendees</span>
+                            <span>
+                              {event.maxAttendees 
+                                ? `${event.attendeeCount}/${event.maxAttendees} interested`
+                                : `${event.attendeeCount} interested`}
+                            </span>
                           </div>
                         </div>
 

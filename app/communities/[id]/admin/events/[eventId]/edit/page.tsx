@@ -11,7 +11,7 @@ import { SmoothReveal } from "@/components/ui/smooth-reveal"
 import { Textarea } from "@/components/ui/textarea"
 import {
     ArrowLeft,
-    Calendar, Clock, Globe, Image as ImageIcon, Loader2, MapPin, Search, Sparkles,
+    Calendar, Clock, Globe, Image as ImageIcon, Loader2, MapPin, Search,
     Wand2
 } from "lucide-react"
 import Link from "next/link"
@@ -154,8 +154,6 @@ export default function EditEventPage({
     location: "",
     capacity: "",
     isOnline: false,
-    meetingLink: "",
-    isPublic: true,
     link: "",
   })
   
@@ -260,7 +258,6 @@ export default function EditEventPage({
         // Parse location
         let locationStr = ""
         let isOnline = eventRecord.is_online || false
-        let meetingLink = ""
         
         if (eventRecord.location) {
           try {
@@ -268,10 +265,7 @@ export default function EditEventPage({
               ? JSON.parse(eventRecord.location) 
               : eventRecord.location
             
-            if (isOnline && parsed.meetingLink) {
-              locationStr = parsed.meetingLink
-              meetingLink = parsed.meetingLink
-            } else if (parsed.address || parsed.venue) {
+            if (parsed.address || parsed.venue) {
               locationStr = parsed.address || parsed.venue || ""
               if (parsed.lat && parsed.lng) {
                 setLocationLat(parsed.lat)
@@ -313,8 +307,6 @@ export default function EditEventPage({
           location: locationStr,
           capacity: eventRecord.max_attendees?.toString() || "",
           isOnline: isOnline,
-          meetingLink: meetingLink,
-          isPublic: eventRecord.is_public !== false,
           link: eventRecord.link || "",
         })
 
@@ -388,14 +380,7 @@ export default function EditEventPage({
 
       // Format location as JSON with city for searchability
       let locationValue: string | null = null
-      if (eventData.isOnline) {
-        if (eventData.meetingLink) {
-          locationValue = JSON.stringify({
-            isOnline: true,
-            meetingLink: eventData.meetingLink,
-          })
-        }
-      } else {
+      if (!eventData.isOnline) {
         if (eventData.location || locationLat || locationLng || locationCity) {
           locationValue = JSON.stringify({
             address: eventData.location || "",
@@ -417,7 +402,6 @@ export default function EditEventPage({
       if (endTime) updatePayload.end_time = endTime
       if (imageUrl) updatePayload.image_url = imageUrl
       if (eventData.isOnline !== undefined) updatePayload.is_online = eventData.isOnline
-      if (eventData.isPublic !== undefined) updatePayload.is_public = eventData.isPublic
       if (eventData.capacity) updatePayload.max_attendees = parseInt(eventData.capacity)
       if (eventData.link !== undefined) updatePayload.link = eventData.link || null
 
@@ -441,7 +425,7 @@ export default function EditEventPage({
       
       // Redirect to event detail page
       setTimeout(() => {
-        window.location.href = communityId ? `/communities/${communityId}/admin/events/${eventId}` : `/communities/admin/${eventId}`
+        window.location.href = `/events/${eventId}`
       }, 500)
     } catch (error: any) {
       console.error("Error updating event:", error)
@@ -522,66 +506,174 @@ export default function EditEventPage({
     }
   }, [])
 
-  // Initialize map
+  // Initialize map - only when all conditions are met
   useEffect(() => {
-    if (!leafletLoaded || !mapRef.current || mapInstanceRef.current) return
+    // Don't initialize if: online event, leaflet not loaded, already initialized, or still loading event
+    if (eventData.isOnline || !leafletLoaded || mapInstanceRef.current || isLoadingEvent) return
 
-    try {
-      const L = (window as any).L
-      const defaultCenter = locationLat && locationLng 
-        ? { lat: locationLat, lng: locationLng }
-        : { lat: -6.2088, lng: 106.8456 } // Jakarta default
+    // Function to initialize the map
+    const initMap = () => {
+      // Double-check conditions
+      if (!mapRef.current || mapInstanceRef.current || eventData.isOnline) return
 
-      const map = L.map(mapRef.current, {
-        center: [defaultCenter.lat, defaultCenter.lng],
-        zoom: 13,
-        zoomControl: true,
-      })
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      }).addTo(map)
-
-      // Add marker
-      const marker = L.marker([defaultCenter.lat, defaultCenter.lng], {
-        draggable: true,
-      }).addTo(map)
-
-      marker.on("dragend", (e: any) => {
-        const { lat, lng } = e.target.getLatLng()
-        handleMapClick(lat, lng)
-      })
-
-      map.on("click", (e: any) => {
-        const { lat, lng } = e.latlng
-        handleMapClick(lat, lng)
-      })
-
-      mapInstanceRef.current = map
-      markerRef.current = marker
-
-      // Cleanup function
-      return () => {
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.remove()
-          mapInstanceRef.current = null
-          markerRef.current = null
-        }
+      const container = mapRef.current
+      // Check if container has dimensions (is visible)
+      if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+        // Container not ready yet, retry
+        return false
       }
-    } catch (error) {
-      console.error("Error initializing map:", error)
-      toast.error("Failed to initialize map")
-    }
-  }, [leafletLoaded, handleMapClick])
 
-  // Update map when location changes
+      try {
+        const L = (window as any).L
+        if (!L) {
+          console.error("Leaflet not available")
+          return false
+        }
+
+        const defaultCenter = locationLat && locationLng 
+          ? { lat: locationLat, lng: locationLng }
+          : { lat: -6.2088, lng: 106.8456 } // Jakarta default
+
+        const map = L.map(container, {
+          center: [defaultCenter.lat, defaultCenter.lng],
+          zoom: locationLat && locationLng ? 15 : 13,
+          zoomControl: true,
+        })
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19,
+        }).addTo(map)
+
+        // Add marker with custom icon
+        const marker = L.marker([defaultCenter.lat, defaultCenter.lng], {
+          draggable: true,
+          icon: L.divIcon({
+            className: "custom-marker",
+            html: `<div style="background-color: #7c3aed; width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 30],
+          }),
+        }).addTo(map)
+
+        marker.on("dragend", (e: any) => {
+          const { lat, lng } = e.target.getLatLng()
+          handleMapClick(lat, lng)
+        })
+
+        map.on("click", (e: any) => {
+          const { lat, lng } = e.latlng
+          handleMapClick(lat, lng)
+        })
+
+        mapInstanceRef.current = map
+        markerRef.current = marker
+
+        // Invalidate size after initialization to ensure proper rendering
+        setTimeout(() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize()
+          }
+        }, 300)
+        
+        return true
+      } catch (error) {
+        console.error("Error initializing map:", error)
+        toast.error("Failed to initialize map")
+        return false
+      }
+    }
+
+    // Try to initialize immediately
+    if (!initMap()) {
+      // If container not ready, retry with increasing delays
+      let retryCount = 0
+      const maxRetries = 10
+      const retryInterval = setInterval(() => {
+        retryCount++
+        if (initMap() || retryCount >= maxRetries) {
+          clearInterval(retryInterval)
+        }
+      }, 200)
+      
+      return () => {
+        clearInterval(retryInterval)
+      }
+    }
+
+    // Cleanup function
+    return () => {
+      // Don't cleanup map here, let the cleanup effect handle it
+    }
+  }, [leafletLoaded, eventData.isOnline, isLoadingEvent, locationLat, locationLng, handleMapClick])
+
+  // Cleanup map when switching to online event
   useEffect(() => {
-    if (mapInstanceRef.current && markerRef.current && locationLat && locationLng) {
+    if (eventData.isOnline && mapInstanceRef.current) {
+      mapInstanceRef.current.remove()
+      mapInstanceRef.current = null
+      markerRef.current = null
+    }
+  }, [eventData.isOnline])
+
+  // Cleanup map on unmount
+  useEffect(() => {
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+        markerRef.current = null
+      }
+    }
+  }, [])
+
+  // Update map when location changes (after map is initialized)
+  useEffect(() => {
+    if (!mapInstanceRef.current || !markerRef.current) {
+      // Map not initialized yet, but we have location data - try to initialize
+      if (locationLat && locationLng && leafletLoaded && !eventData.isOnline && !isLoadingEvent && mapRef.current) {
+        // Trigger map initialization by forcing a re-render check
+        // The initialization effect will handle this
+        return
+      }
+      return
+    }
+    
+    if (locationLat && locationLng) {
       markerRef.current.setLatLng([locationLat, locationLng])
       mapInstanceRef.current.setView([locationLat, locationLng], 15)
+      // Invalidate size to ensure proper rendering
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize()
+        }
+      }, 100)
     }
-  }, [locationLat, locationLng])
+  }, [locationLat, locationLng, leafletLoaded, eventData.isOnline, isLoadingEvent])
+
+  // Cleanup map when switching to online event
+  useEffect(() => {
+    if (eventData.isOnline && mapInstanceRef.current) {
+      mapInstanceRef.current.remove()
+      mapInstanceRef.current = null
+      markerRef.current = null
+    }
+  }, [eventData.isOnline])
+
+  // Invalidate map size when container becomes visible or when not loading
+  useEffect(() => {
+    if (!eventData.isOnline && mapInstanceRef.current && mapRef.current && !isLoadingEvent) {
+      const timeout = setTimeout(() => {
+        if (mapInstanceRef.current && mapRef.current) {
+          const container = mapRef.current
+          if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+            mapInstanceRef.current.invalidateSize()
+          }
+        }
+      }, 300)
+      return () => clearTimeout(timeout)
+    }
+  }, [eventData.isOnline, isLoadingEvent])
 
   // Autocomplete search suggestions
   const fetchSearchSuggestions = useCallback(async (query: string) => {
@@ -883,62 +975,29 @@ export default function EditEventPage({
                   <p className="text-xs text-gray-500">Optional: Add a link to external registration page</p>
                 </div>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <Label htmlFor="isOnline" className="flex items-center gap-2">
-                    <Globe className="w-4 h-4" />
-                    Online Event
-                  </Label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="isOnline"
-                      checked={eventData.isOnline}
-                      onChange={(e) => handleInputChange("isOnline", e.target.checked)}
-                      className="w-4 h-4 text-violet-600 border-gray-300 rounded focus:ring-violet-500"
-                    />
-                    <Label htmlFor="isOnline" className="text-sm text-gray-600 cursor-pointer">
-                      This is an online event
-                    </Label>
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <Label htmlFor="isPublic" className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    Public Event
-                  </Label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="isPublic"
-                      checked={eventData.isPublic}
-                      onChange={(e) => handleInputChange("isPublic", e.target.checked)}
-                      className="w-4 h-4 text-violet-600 border-gray-300 rounded focus:ring-violet-500"
-                    />
-                    <Label htmlFor="isPublic" className="text-sm text-gray-600 cursor-pointer">
-                      Make this event visible to everyone
-                    </Label>
-                  </div>
-                </div>
+
+              {/* Online Event Checkbox */}
+              <div className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200">
+                <input
+                  type="checkbox"
+                  id="isOnline"
+                  checked={eventData.isOnline}
+                  onChange={(e) => {
+                    handleInputChange("isOnline", e.target.checked);
+                    if (e.target.checked) {
+                      handleInputChange("location", "");
+                      setLocationLat(null);
+                      setLocationLng(null);
+                      setLocationCity("");
+                    }
+                  }}
+                  className="w-4 h-4 text-violet-600 border-gray-300 rounded focus:ring-violet-500"
+                />
+                <Label htmlFor="isOnline" className="cursor-pointer font-medium text-gray-700 flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-violet-600" />
+                  This is an online event
+                </Label>
               </div>
-              
-              {eventData.isOnline && (
-                <div className="space-y-3">
-                  <Label htmlFor="meetingLink">Meeting Link *</Label>
-                  <Input
-                    id="meetingLink"
-                    type="url"
-                    placeholder="e.g., https://zoom.us/j/123456789 or https://meet.google.com/abc-defg-hij"
-                    value={eventData.meetingLink}
-                    onChange={(e) => handleInputChange("meetingLink", e.target.value)}
-                    className="border-gray-200 focus:border-violet-300 focus:ring-violet-200"
-                    required={eventData.isOnline}
-                  />
-                  <p className="text-xs text-gray-500">Provide the meeting link for online attendees</p>
-                </div>
-              )}
 
               {/* Location Section - Only show for offline events */}
               {!eventData.isOnline && (
@@ -1014,14 +1073,17 @@ export default function EditEventPage({
                 {/* Interactive Map */}
                 <div>
                   <Label className="text-sm text-gray-600 mb-2 block">Select location on map</Label>
-                  <div 
-                    ref={mapRef} 
-                    className="w-full h-[400px] rounded-lg border border-gray-200 overflow-hidden"
-                    style={{ zIndex: 0 }}
-                  />
-                  {!leafletLoaded && (
+                  {!leafletLoaded ? (
                     <div className="w-full h-[400px] rounded-lg border border-gray-200 flex items-center justify-center bg-gray-50">
                       <p className="text-gray-500">Loading map...</p>
+                    </div>
+                  ) : (
+                    <div className="relative w-full h-[400px] rounded-lg border border-gray-200 overflow-hidden bg-gray-100">
+                      <div 
+                        ref={mapRef} 
+                        className="relative w-full h-full z-0"
+                        style={{ minHeight: '400px' }}
+                      />
                     </div>
                   )}
                 </div>

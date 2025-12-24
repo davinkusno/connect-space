@@ -952,7 +952,7 @@ export class CommunityService extends BaseService {
         slug,
         logo_url: input.logoUrl || null,
         creator_id: userId,
-        member_count: 1,
+        member_count: 0, // Start with 0 - creator is not counted as a member
         category_id: categoryId,
         location: input.location ? JSON.stringify(input.location) : null,
       })
@@ -1499,12 +1499,13 @@ export class CommunityService extends BaseService {
 
     // Get counts in parallel
     const [memberCountResult, eventCountResult, membershipResult] = await Promise.all([
-      // Member count
+      // Member count - only count "member" role, exclude creator, admin, moderator
       this.supabaseAdmin
         .from("community_members")
-        .select("id", { count: "exact", head: true })
+        .select("user_id, role")
         .eq("community_id", communityId)
-        .eq("status", "approved"),
+        .eq("status", "approved")
+        .eq("role", "member"),
       
       // Event count
       this.supabaseAdmin
@@ -1524,9 +1525,17 @@ export class CommunityService extends BaseService {
         : Promise.resolve({ data: null, error: null })
     ]);
 
+    // Filter out creator from member count
+    let memberCount = 0;
+    if (memberCountResult.data) {
+      memberCount = memberCountResult.data.filter(
+        (member: any) => member.user_id !== community.creator_id
+      ).length;
+    }
+
     return ApiResponse.success({
       ...community,
-      member_count: memberCountResult.count || 0,
+      member_count: memberCount,
       event_count: eventCountResult.count || 0,
       is_member: !!membershipResult.data
     });
@@ -1595,15 +1604,16 @@ export class CommunityService extends BaseService {
 
   /**
    * Delete a community (creator only)
+   * Notifies all members before deletion
    */
   public async deleteCommunity(
     communityId: string,
     userId: string
   ): Promise<ServiceResult<{ deleted: boolean }>> {
-    // Check if user is the creator
+    // Check if user is the creator and get community name
     const { data: community, error: fetchError } = await this.supabaseAdmin
       .from("communities")
-      .select("creator_id")
+      .select("creator_id, name")
       .eq("id", communityId)
       .single();
 
@@ -1613,6 +1623,27 @@ export class CommunityService extends BaseService {
 
     if (community.creator_id !== userId) {
       return ApiResponse.error("Only the community creator can delete the community", 403);
+    }
+
+    // Get all approved members (excluding creator)
+    const { data: members, error: membersError } = await this.supabaseAdmin
+      .from("community_members")
+      .select("user_id")
+      .eq("community_id", communityId)
+      .eq("status", "approved")
+      .neq("user_id", userId); // Exclude creator
+
+    // Notify all members about community deletion
+    if (members && members.length > 0) {
+      const memberIds = members.map(m => m.user_id);
+      await notificationService.createBulk(
+        memberIds,
+        "community_deleted",
+        "Community Deleted",
+        `The community "${community.name}" has been deleted by its creator.`,
+        communityId,
+        "community"
+      );
     }
 
     // Delete community (cascade should handle related records)

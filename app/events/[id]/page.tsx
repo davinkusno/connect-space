@@ -1371,27 +1371,6 @@ export default function EventDetailsPage({
                             {isRegistered ? "You're interested" : "Interested to join"}
                           </Button>
                         </div>
-
-                        {/* Platform Info */}
-                        <div className="bg-violet-50 rounded-lg p-4 border border-violet-200">
-                          <h4 className="font-semibold text-gray-900 mb-3">
-                            Platform Information
-                          </h4>
-                          <div className="space-y-2 text-sm text-gray-700">
-                            <p className="flex items-center gap-2">
-                              <span className="h-1.5 w-1.5 rounded-full bg-violet-600"></span>
-                              This event will be hosted on Zoom
-                            </p>
-                            <p className="flex items-center gap-2">
-                              <span className="h-1.5 w-1.5 rounded-full bg-violet-600"></span>
-                              No special software installation required
-                            </p>
-                            <p className="flex items-center gap-2">
-                              <span className="h-1.5 w-1.5 rounded-full bg-violet-600"></span>
-                              Works on desktop, mobile, and tablet
-                            </p>
-                          </div>
-                        </div>
                       </>
                     )}
                   </CardContent>

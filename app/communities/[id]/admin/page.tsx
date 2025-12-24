@@ -8,6 +8,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -28,11 +29,13 @@ import {
   Save,
   ShieldAlert,
   Star,
+  Trash2,
   UserPlus,
   Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getReportReasonLabel } from "@/lib/utils/report-utils";
@@ -143,6 +146,38 @@ export default function CommunityAdminPage({
     userName: string;
     reports: UserReport[];
   } | null>(null);
+
+  // Delete community dialog state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const router = useRouter();
+
+  const handleDeleteCommunity = async () => {
+    if (!communityId) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/communities/${communityId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to delete community");
+      }
+
+      toast.success("Community deleted successfully. All members have been notified.");
+      router.push("/home");
+    } catch (error: any) {
+      console.error("Error deleting community:", error);
+      toast.error(error.message || "Failed to delete community. Please try again.");
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+    }
+  };
 
   useEffect(() => {
     const loadParams = async () => {
@@ -1580,6 +1615,36 @@ export default function CommunityAdminPage({
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Danger Zone - Delete Community */}
+              <Card className="border-red-200 bg-red-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3 text-xl text-red-700">
+                    <AlertTriangle className="w-5 h-5" />
+                    <span>Danger Zone</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">
+                        Delete Community
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Once you delete a community, there is no going back. All members will be notified and all data will be permanently deleted.
+                      </p>
+                      <Button
+                        variant="destructive"
+                        onClick={() => setIsDeleteDialogOpen(true)}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Community
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
@@ -1660,6 +1725,65 @@ export default function CommunityAdminPage({
               </Card>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Community Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              Delete Community
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this community? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> All members will be notified and the following will be permanently deleted:
+              </p>
+              <ul className="list-disc list-inside text-sm text-red-700 mt-2 space-y-1">
+                <li>All community data</li>
+                <li>All events</li>
+                <li>All posts and discussions</li>
+                <li>All member records</li>
+              </ul>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+              <span>Type the community name to confirm: <strong>{community?.name}</strong></span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteCommunity}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Community
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </PageTransition>

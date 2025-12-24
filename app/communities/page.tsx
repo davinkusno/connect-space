@@ -70,6 +70,9 @@ export default function DiscoverPage() {
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  
+  // Cache for geocoded cities to avoid duplicate API calls
+  const geocodeCache = useRef<Record<string, { lat: number; lng: number; city: string; country: string }>>({});
 
 
   // Data will be loaded from database
@@ -91,6 +94,113 @@ export default function DiscoverPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Trigger geocoding when switching to map view
+  // Use a ref to track if geocoding is in progress to avoid duplicate calls
+  const geocodingInProgress = useRef(false);
+  
+  useEffect(() => {
+    // Only geocode when in map view and not already geocoding
+    if (viewMode === "map" && communities.length > 0 && !geocodingInProgress.current) {
+      const communitiesToGeocode = communities.filter(
+        (comm) => comm.location && (comm.location as any).needsGeocoding
+      );
+
+      if (communitiesToGeocode.length > 0) {
+        geocodingInProgress.current = true;
+        
+        // Geocode sequentially with caching to avoid duplicate API calls
+        const geocodeSequentially = async () => {
+          const updatedCommunities = [...communities];
+          
+          for (let i = 0; i < communitiesToGeocode.length; i++) {
+            const comm = communitiesToGeocode[i];
+            const cityName = comm.location?.city;
+            if (!cityName) continue;
+
+            // Check cache first
+            if (geocodeCache.current[cityName]) {
+              const cached = geocodeCache.current[cityName];
+              const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
+              if (commIndex !== -1) {
+                updatedCommunities[commIndex].location = {
+                  lat: cached.lat,
+                  lng: cached.lng,
+                  city: cached.city,
+                  country: cached.country,
+                };
+              }
+              continue;
+            }
+
+            // Add delay to respect Nominatim rate limits (1 request per second)
+            if (i > 0) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            try {
+              const geocodeResponse = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&limit=1&addressdetails=1`,
+                {
+                  headers: {
+                    'User-Agent': 'ConnectSpace/1.0' // Required by Nominatim
+                  }
+                }
+              );
+
+              if (geocodeResponse.ok) {
+                const geocodeData = await geocodeResponse.json();
+                if (geocodeData && geocodeData.length > 0) {
+                  const result = geocodeData[0];
+                  const geocodedLocation = {
+                    lat: parseFloat(result.lat),
+                    lng: parseFloat(result.lon),
+                    city: comm.location?.city || result.address?.city || result.address?.town || result.address?.village || "",
+                    country: comm.location?.country || result.address?.country || "",
+                  };
+                  
+                  // Cache the result
+                  geocodeCache.current[cityName] = geocodedLocation;
+                  
+                  // Update all communities with the same city name
+                  updatedCommunities.forEach((c, idx) => {
+                    if (c.location && (c.location as any).needsGeocoding && c.location?.city === cityName) {
+                      updatedCommunities[idx].location = geocodedLocation;
+                    }
+                  });
+                } else {
+                  // Remove location if geocoding returns no results
+                  const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
+                  if (commIndex !== -1) {
+                    updatedCommunities[commIndex].location = undefined;
+                  }
+                }
+              } else {
+                const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
+                if (commIndex !== -1) {
+                  updatedCommunities[commIndex].location = undefined;
+                }
+              }
+            } catch (geocodeError) {
+              console.warn(`Geocoding failed for ${cityName}:`, geocodeError);
+              // Remove location if geocoding fails
+              const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
+              if (commIndex !== -1) {
+                updatedCommunities[commIndex].location = undefined;
+              }
+            }
+          }
+
+          // Update communities with geocoded locations
+          setCommunities(updatedCommunities);
+          geocodingInProgress.current = false;
+        };
+
+        // Run geocoding asynchronously without blocking
+        geocodeSequentially();
+      }
+    }
+  }, [viewMode]); // Only depend on viewMode, not communities to avoid infinite loops
 
   const loadData = async () => {
     setIsLoading(true);
@@ -233,7 +343,7 @@ export default function DiscoverPage() {
           return;
         }
         
-        await processCommunitiesData(communitiesData, user, supabase);
+        await processCommunitiesData(communitiesData, user, supabase, false);
         return;
       }
     } catch (error) {
@@ -248,7 +358,8 @@ export default function DiscoverPage() {
   const processCommunitiesData = async (
     communitiesData: any[],
     user: any,
-    supabase: any
+    supabase: any,
+    shouldGeocode: boolean = false
   ) => {
     // Fetch membership status for current user in a single query
     const membershipStatusMap: Record<string, "joined" | "pending" | "not_joined"> = {};
@@ -386,68 +497,107 @@ export default function DiscoverPage() {
       });
     }
 
-    // Geocode communities that have city names but no coordinates
-    const communitiesToGeocode = transformedCommunities.filter(
-      (comm) => comm.location && (comm.location as any).needsGeocoding
-    );
+    // Only geocode if explicitly requested (e.g., when in map view)
+    // Set communities first without geocoding to avoid blocking
+    setCommunities(transformedCommunities);
+    
+    // Geocode only when requested and only for communities that need it
+    // This prevents unnecessary API calls when viewing grid/list
+    if (shouldGeocode) {
+      const communitiesToGeocode = transformedCommunities.filter(
+        (comm) => comm.location && (comm.location as any).needsGeocoding
+      );
 
-    if (communitiesToGeocode.length > 0) {
-      // Geocode in parallel (with rate limiting)
-      const geocodePromises = communitiesToGeocode.map(async (comm, index) => {
-        const cityName = comm.location?.city;
-        if (!cityName) return comm;
+      if (communitiesToGeocode.length > 0) {
+        // Geocode sequentially with caching to avoid duplicate API calls
+        const geocodeSequentially = async () => {
+          const updatedCommunities = [...transformedCommunities];
+          
+          for (let i = 0; i < communitiesToGeocode.length; i++) {
+            const comm = communitiesToGeocode[i];
+            const cityName = comm.location?.city;
+            if (!cityName) continue;
 
-        // Add delay to respect Nominatim rate limits (1 request per second)
-        await new Promise(resolve => setTimeout(resolve, index * 1000));
+            // Check cache first
+            if (geocodeCache.current[cityName]) {
+              const cached = geocodeCache.current[cityName];
+              const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
+              if (commIndex !== -1) {
+                updatedCommunities[commIndex].location = {
+                  lat: cached.lat,
+                  lng: cached.lng,
+                  city: cached.city,
+                  country: cached.country,
+                };
+              }
+              continue;
+            }
 
-        try {
-          const geocodeResponse = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&limit=1&addressdetails=1`,
-            {
-              headers: {
-                'User-Agent': 'ConnectSpace/1.0' // Required by Nominatim
+            // Add delay to respect Nominatim rate limits (1 request per second)
+            if (i > 0) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            try {
+              const geocodeResponse = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&limit=1&addressdetails=1`,
+                {
+                  headers: {
+                    'User-Agent': 'ConnectSpace/1.0' // Required by Nominatim
+                  }
+                }
+              );
+
+              if (geocodeResponse.ok) {
+                const geocodeData = await geocodeResponse.json();
+                if (geocodeData && geocodeData.length > 0) {
+                  const result = geocodeData[0];
+                  const geocodedLocation = {
+                    lat: parseFloat(result.lat),
+                    lng: parseFloat(result.lon),
+                    city: comm.location?.city || result.address?.city || result.address?.town || result.address?.village || "",
+                    country: comm.location?.country || result.address?.country || "",
+                  };
+                  
+                  // Cache the result
+                  geocodeCache.current[cityName] = geocodedLocation;
+                  
+                  // Update all communities with the same city name
+                  updatedCommunities.forEach((c, idx) => {
+                    if (c.location && (c.location as any).needsGeocoding && c.location?.city === cityName) {
+                      updatedCommunities[idx].location = geocodedLocation;
+                    }
+                  });
+                } else {
+                  // Remove location if geocoding returns no results
+                  const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
+                  if (commIndex !== -1) {
+                    updatedCommunities[commIndex].location = undefined;
+                  }
+                }
+              } else {
+                const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
+                if (commIndex !== -1) {
+                  updatedCommunities[commIndex].location = undefined;
+                }
+              }
+            } catch (geocodeError) {
+              console.warn(`Geocoding failed for ${cityName}:`, geocodeError);
+              // Remove location if geocoding fails
+              const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
+              if (commIndex !== -1) {
+                updatedCommunities[commIndex].location = undefined;
               }
             }
-          );
-
-          if (geocodeResponse.ok) {
-            const geocodeData = await geocodeResponse.json();
-            if (geocodeData && geocodeData.length > 0) {
-              const result = geocodeData[0];
-              comm.location = {
-                lat: parseFloat(result.lat),
-                lng: parseFloat(result.lon),
-                city: comm.location?.city || result.address?.city || result.address?.town || result.address?.village || "",
-                country: comm.location?.country || result.address?.country || "",
-              };
-            } else {
-              // Remove location if geocoding returns no results
-              comm.location = undefined;
-            }
-          } else {
-            comm.location = undefined;
           }
-        } catch (geocodeError) {
-          console.warn(`Geocoding failed for ${cityName}:`, geocodeError);
-          // Remove location if geocoding fails
-          comm.location = undefined;
-        }
 
-        return comm;
-      });
+          // Update communities with geocoded locations
+          setCommunities(updatedCommunities);
+        };
 
-      // Wait for all geocoding to complete
-      const geocodedCommunities = await Promise.all(geocodePromises);
-
-      // Update communities with geocoded locations
-      const updatedCommunities = transformedCommunities.map((comm) => {
-        const geocoded = geocodedCommunities.find((gc: any) => gc.id === comm.id);
-        return geocoded || comm;
-      });
-
-      setCommunities(updatedCommunities);
-    } else {
-      setCommunities(transformedCommunities);
+        // Run geocoding asynchronously without blocking
+        geocodeSequentially();
+      }
     }
   };
 

@@ -497,7 +497,7 @@ export default function DashboardPage() {
               .gte("start_time", now),
             supabase
               .from("community_members")
-              .select("community_id, status")
+              .select("community_id, status, role, user_id")
               .in("community_id", communityIds)
           ]);
 
@@ -510,13 +510,21 @@ export default function DashboardPage() {
             });
           }
 
-          // Count approved members per community
+          // Count approved members per community (only "member" role, exclude creator, admin, moderator)
           const memberCounts: { [key: string]: number } = {};
           if (memberCountsData?.data) {
             memberCountsData.data.forEach((member: any) => {
-              if (member.status === "approved") {
-                memberCounts[member.community_id] =
-                  (memberCounts[member.community_id] || 0) + 1;
+              // Only count "member" role, exclude admin and moderator
+              // Also exclude creator by checking if user_id matches creator_id
+              if (member.status === "approved" && member.role === "member") {
+                // Double-check: exclude creator
+                const isCreator = createdData.some((comm: any) => 
+                  comm.id === member.community_id && comm.creator_id === member.user_id
+                );
+                if (!isCreator) {
+                  memberCounts[member.community_id] =
+                    (memberCounts[member.community_id] || 0) + 1;
+                }
               }
             });
           }
@@ -575,14 +583,29 @@ export default function DashboardPage() {
           if (joinedCommunityIds.length > 0) {
             const { data: joinedMemberCountsData } = await supabase
               .from("community_members")
-              .select("community_id, status")
+              .select("community_id, status, role, user_id")
               .in("community_id", joinedCommunityIds);
+            
+            // Get creator IDs for these communities to exclude them
+            const { data: joinedCommunitiesData } = await supabase
+              .from("communities")
+              .select("id, creator_id")
+              .in("id", joinedCommunityIds);
+            
+            const creatorMap: { [key: string]: string } = {};
+            joinedCommunitiesData?.forEach((comm: any) => {
+              creatorMap[comm.id] = comm.creator_id;
+            });
             
             if (joinedMemberCountsData) {
               joinedMemberCountsData.forEach((member: any) => {
-                if (member.status === "approved") {
-                  joinedMemberCounts[member.community_id] =
-                    (joinedMemberCounts[member.community_id] || 0) + 1;
+                // Only count "member" role, exclude admin, moderator, and creator
+                if (member.status === "approved" && member.role === "member") {
+                  const isCreator = creatorMap[member.community_id] === member.user_id;
+                  if (!isCreator) {
+                    joinedMemberCounts[member.community_id] =
+                      (joinedMemberCounts[member.community_id] || 0) + 1;
+                  }
                 }
               });
             }

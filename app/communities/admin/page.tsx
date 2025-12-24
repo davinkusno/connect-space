@@ -105,19 +105,33 @@ export default function CommunityAdminSelectorPage() {
         })
       }
 
-      // Get member counts for each community
+      // Get member counts for each community (only "member" role, exclude creator, admin, moderator)
       const communityIds = allCommunities.map(c => c.id)
       if (communityIds.length > 0) {
+        // Get creator IDs for these communities
+        const { data: communitiesData } = await supabase
+          .from("communities")
+          .select("id, creator_id")
+          .in("id", communityIds)
+        
+        const creatorMap: Record<string, string> = {}
+        communitiesData?.forEach(comm => {
+          creatorMap[comm.id] = comm.creator_id
+        })
+        
         const { data: memberCounts } = await supabase
           .from("community_members")
-          .select("community_id, status")
+          .select("community_id, status, role, user_id")
           .in("community_id", communityIds)
         
-        // Count approved members for each community
+        // Count only "member" role, exclude creator
         const counts: Record<string, number> = {}
         memberCounts?.forEach(member => {
-          if (member.status === "approved") {
-            counts[member.community_id] = (counts[member.community_id] || 0) + 1
+          if (member.status === "approved" && member.role === "member") {
+            const isCreator = creatorMap[member.community_id] === member.user_id
+            if (!isCreator) {
+              counts[member.community_id] = (counts[member.community_id] || 0) + 1
+            }
           }
         })
 

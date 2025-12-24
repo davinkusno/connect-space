@@ -46,6 +46,7 @@ interface PostWithRelations extends PostData {
 interface PostsQueryOptions {
   communityId?: string;
   authorId?: string;
+  eventId?: string;
   type?: PostType;
   status?: PostStatus;
   page?: number;
@@ -137,6 +138,10 @@ export class PostService extends BaseService {
 
     if (options?.authorId) {
       query = query.eq("author_id", options.authorId);
+    }
+
+    if (options?.eventId) {
+      query = query.eq("event_id", options.eventId);
     }
 
     if (options?.type) {

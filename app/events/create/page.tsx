@@ -193,6 +193,39 @@ export default function CreateEventPage() {
         });
       }
 
+      // Validate that dates are not in the past
+      const now = new Date();
+      const startDate = new Date(formData.start_time);
+      const endDate = new Date(formData.end_time);
+
+      if (startDate < now) {
+        toast.error("Start date and time cannot be in the past");
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (endDate < startDate) {
+        toast.error("End date and time must be after start date and time");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Convert datetime-local to ISO string
+      // datetime-local gives format "YYYY-MM-DDTHH:mm" (local time, no timezone)
+      // We need to convert it to ISO string so the server stores it correctly
+      let startTimeISO = formData.start_time;
+      let endTimeISO = formData.end_time;
+      
+      if (formData.start_time) {
+        // Create a Date object from the datetime-local value (treats as local time)
+        startTimeISO = startDate.toISOString();
+      }
+      
+      if (formData.end_time) {
+        // Create a Date object from the datetime-local value (treats as local time)
+        endTimeISO = endDate.toISOString();
+      }
+
       const response = await fetch("/api/events/create", {
         method: "POST",
         headers: {
@@ -200,6 +233,8 @@ export default function CreateEventPage() {
         },
         body: JSON.stringify({
           ...formData,
+          start_time: startTimeISO,
+          end_time: endTimeISO,
           location: locationPayload,
           community_id: communityId,
           max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : null,
@@ -576,10 +611,20 @@ export default function CreateEventPage() {
                       id="start_time"
                       type="datetime-local"
                       value={formData.start_time}
-                        onChange={(e) => handleInputChange("start_time", e.target.value)}
+                        onChange={(e) => {
+                          handleInputChange("start_time", e.target.value);
+                          // Update end_time min if start_time is after current end_time
+                          if (formData.end_time && e.target.value > formData.end_time) {
+                            handleInputChange("end_time", "");
+                          }
+                        }}
+                        min={new Date().toISOString().slice(0, 16)}
                         className="border-gray-200 focus:border-violet-300 focus:ring-violet-200 transition-colors duration-200"
                       required
                     />
+                    <p className="text-xs text-gray-500">
+                      Cannot be in the past
+                    </p>
                   </div>
                   <div className="space-y-3">
                       <Label htmlFor="end_time" className="text-gray-700 flex items-center gap-2">
@@ -591,9 +636,13 @@ export default function CreateEventPage() {
                       type="datetime-local"
                       value={formData.end_time}
                         onChange={(e) => handleInputChange("end_time", e.target.value)}
+                        min={formData.start_time || new Date().toISOString().slice(0, 16)}
                         className="border-gray-200 focus:border-violet-300 focus:ring-violet-200 transition-colors duration-200"
                       required
                     />
+                    <p className="text-xs text-gray-500">
+                      Must be after start time
+                    </p>
                   </div>
                 </div>
               </div>

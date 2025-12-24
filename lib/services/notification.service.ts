@@ -6,6 +6,7 @@ export type NotificationType =
   | "new_message" 
   | "community_invite" 
   | "community_update"
+  | "community_deleted"
   | "join_request"
   | "join_approved"
   | "join_rejected"

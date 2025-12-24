@@ -192,13 +192,33 @@ export class UserController extends BaseController {
       // Extract interests and location from request body
       const { interests, location } = body;
       
+      // Parse location if it's a JSON string
+      let locationValue: string | undefined = undefined;
+      if (location) {
+        if (typeof location === 'string') {
+          // If it's already a JSON string, use it directly
+          try {
+            // Validate it's valid JSON
+            JSON.parse(location);
+            locationValue = location;
+          } catch {
+            // If parsing fails, it might be a plain string, convert to JSON
+            locationValue = JSON.stringify({ city: location });
+          }
+        } else {
+          // If it's an object, stringify it
+          locationValue = JSON.stringify(location);
+        }
+      }
+      
       // Update user profile with interests and location if provided
       if (interests && Array.isArray(interests) && interests.length > 0) {
         console.log("[UserController] Updating profile with interests:", interests);
+        console.log("[UserController] Updating profile with location:", locationValue);
         
         const updateResult = await this.service.updateProfile(user.id, {
           interests,
-          location: location || undefined,
+          location: locationValue,
         });
         
         if (!updateResult.success) {
