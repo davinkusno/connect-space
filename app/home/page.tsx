@@ -489,18 +489,35 @@ export default function DashboardPage() {
           const communityIds = createdData.map((c) => c.id);
           const now = new Date().toISOString();
 
-          const { data: eventsData } = await supabase
-            .from("events")
-            .select("community_id")
-            .in("community_id", communityIds)
-            .gte("start_time", now);
+          const [eventsData, memberCountsData] = await Promise.all([
+            supabase
+              .from("events")
+              .select("community_id")
+              .in("community_id", communityIds)
+              .gte("start_time", now),
+            supabase
+              .from("community_members")
+              .select("community_id, status")
+              .in("community_id", communityIds)
+          ]);
 
           // Count events per community
           const eventCounts: { [key: string]: number } = {};
-          if (eventsData) {
-            eventsData.forEach((event: any) => {
+          if (eventsData?.data) {
+            eventsData.data.forEach((event: any) => {
               eventCounts[event.community_id] =
                 (eventCounts[event.community_id] || 0) + 1;
+            });
+          }
+
+          // Count approved members per community
+          const memberCounts: { [key: string]: number } = {};
+          if (memberCountsData?.data) {
+            memberCountsData.data.forEach((member: any) => {
+              if (member.status === "approved") {
+                memberCounts[member.community_id] =
+                  (memberCounts[member.community_id] || 0) + 1;
+              }
             });
           }
 
@@ -509,6 +526,7 @@ export default function DashboardPage() {
               ...comm,
               isCreator: true,
               upcomingEvents: eventCounts[comm.id] || 0,
+              member_count: memberCounts[comm.id] || 0,
             }))
           );
         }
@@ -550,6 +568,26 @@ export default function DashboardPage() {
               status: m.status,
             }));
 
+          // Get member counts for joined communities
+          const joinedCommunityIds = nonCreatorCommunities.map((c: any) => c.id);
+          let joinedMemberCounts: { [key: string]: number } = {};
+          
+          if (joinedCommunityIds.length > 0) {
+            const { data: joinedMemberCountsData } = await supabase
+              .from("community_members")
+              .select("community_id, status")
+              .in("community_id", joinedCommunityIds);
+            
+            if (joinedMemberCountsData) {
+              joinedMemberCountsData.forEach((member: any) => {
+                if (member.status === "approved") {
+                  joinedMemberCounts[member.community_id] =
+                    (joinedMemberCounts[member.community_id] || 0) + 1;
+                }
+              });
+            }
+          }
+
           // Separate admin communities (co-admin) from regular member communities
           const adminComms = nonCreatorCommunities.filter(
             (c: any) => c.role === "admin"
@@ -571,13 +609,19 @@ export default function DashboardPage() {
                   isCreator: false,
                   isAdmin: true,
                   upcomingEvents: 0,
+                  member_count: joinedMemberCounts[c.id] || 0,
                 }));
 
               return [...prev, ...newAdminComms];
             });
           }
 
-          setJoinedCommunities(memberComms);
+          setJoinedCommunities(
+            memberComms.map((c: any) => ({
+              ...c,
+              member_count: joinedMemberCounts[c.id] || 0,
+            }))
+          );
         }
       } catch (error) {
         console.error("Error fetching communities:", error);

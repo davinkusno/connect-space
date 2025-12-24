@@ -23,7 +23,7 @@ import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Community } from "@/types/community";
 import {
-    Award, Calendar, CheckCircle2, ChevronLeft, ChevronRight, Clock, MapPin, Search, Users, X
+    Award, Calendar, CheckCircle2, ChevronLeft, ChevronRight, Clock, MapPin, Map, Search, Users, X
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -60,6 +60,9 @@ export default function DiscoverPage() {
   const [itemsPerPage] = useState(6); // Set to 6 for testing recommendations
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [membershipFilter, setMembershipFilter] = useState<"all" | "joined" | "pending" | "not_joined">("all");
+  const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
+  const [mapSidebarPage, setMapSidebarPage] = useState(1);
+  const [mapSidebarItemsPerPage] = useState(10);
   
   // Membership status tracking
   const [membershipStatus, setMembershipStatus] = useState<Record<string, "joined" | "pending" | "not_joined">>({});
@@ -151,14 +154,28 @@ export default function DiscoverPage() {
         `)
         .or("status.is.null,status.eq.active");
       
-      // If user is logged in and we have recommendations, filter by recommended IDs
-      // This ensures only suggested communities are shown
-      if (user && recommendedCommunityIds.length > 0) {
-        console.log("[COMMUNITIES PAGE] Using recommended IDs filter:", recommendedCommunityIds.length, "communities");
-        query = query.in("id", recommendedCommunityIds);
-      } else if (user && recommendedCommunityIds.length === 0) {
-        // If user is logged in but has no recommendations (new user), show all communities
-        console.log("[COMMUNITIES PAGE] WARNING: No recommendations returned, showing all communities");
+      // If user is logged in, we need to include communities where they have pending requests
+      // even if they're not in recommendations
+      if (user) {
+        // Fetch communities where user has pending requests
+        const { data: pendingMemberships } = await supabase
+          .from("community_members")
+          .select("community_id")
+          .eq("user_id", user.id)
+          .eq("status", "pending");
+        
+        const pendingCommunityIds = pendingMemberships?.map((m: any) => m.community_id) || [];
+        
+        // Combine recommended IDs with pending community IDs
+        const allRelevantIds = [...new Set([...recommendedCommunityIds, ...pendingCommunityIds])];
+        
+        if (allRelevantIds.length > 0) {
+          console.log("[COMMUNITIES PAGE] Using combined filter (recommendations + pending):", allRelevantIds.length, "communities");
+          query = query.in("id", allRelevantIds);
+        } else if (recommendedCommunityIds.length === 0) {
+          // If user is logged in but has no recommendations and no pending requests, show all communities
+          console.log("[COMMUNITIES PAGE] No recommendations or pending requests, showing all communities");
+        }
       } else {
         // If user is not logged in, show all communities
         console.log("[COMMUNITIES PAGE] User not logged in, showing all communities");
@@ -175,8 +192,25 @@ export default function DiscoverPage() {
           return;
         }
         
-        // Sort communities to match recommendation order
+        // Fetch pending community IDs for sorting
+        const { data: pendingMemberships } = await supabase
+          .from("community_members")
+          .select("community_id")
+          .eq("user_id", user.id)
+          .eq("status", "pending");
+        
+        const pendingCommunityIds = pendingMemberships?.map((m: any) => m.community_id) || [];
+        
+        // Sort communities: pending first, then by recommendation order
         const sortedCommunities = (communitiesData || []).sort((a: any, b: any) => {
+          const aIsPending = pendingCommunityIds.includes(a.id);
+          const bIsPending = pendingCommunityIds.includes(b.id);
+          
+          // Pending requests come first
+          if (aIsPending && !bIsPending) return -1;
+          if (!aIsPending && bIsPending) return 1;
+          
+          // Then sort by recommendation order
           const aIndex = recommendedCommunityIds.indexOf(a.id);
           const bIndex = recommendedCommunityIds.indexOf(b.id);
           if (aIndex === -1 && bIndex === -1) return 0;
@@ -274,7 +308,7 @@ export default function DiscoverPage() {
             }
             
             // Only set location if we have valid coordinates or city
-            if (location.lat && location.lng) {
+            if (location.lat && location.lng && location.lat !== 0 && location.lng !== 0) {
               parsedLocation = {
                 lat: location.lat,
                 lng: location.lng,
@@ -282,13 +316,16 @@ export default function DiscoverPage() {
                 country: location.country || "",
               };
             } else if (location.city || location.town || location.village || location.municipality) {
-              // If we have city but no coordinates, still include it
+              // If we have city but no coordinates, try to geocode it
+              const cityName = location.city || location.town || location.village || location.municipality;
+              // We'll geocode this async after setting communities
               parsedLocation = {
                 lat: 0,
                 lng: 0,
-                city: location.city || location.town || location.village || location.municipality || "",
+                city: cityName,
                 country: location.country || "",
-              };
+                needsGeocoding: true, // Flag to indicate we need to geocode
+              } as any;
             }
           }
 
@@ -349,7 +386,69 @@ export default function DiscoverPage() {
       });
     }
 
-    setCommunities(transformedCommunities);
+    // Geocode communities that have city names but no coordinates
+    const communitiesToGeocode = transformedCommunities.filter(
+      (comm) => comm.location && (comm.location as any).needsGeocoding
+    );
+
+    if (communitiesToGeocode.length > 0) {
+      // Geocode in parallel (with rate limiting)
+      const geocodePromises = communitiesToGeocode.map(async (comm, index) => {
+        const cityName = comm.location?.city;
+        if (!cityName) return comm;
+
+        // Add delay to respect Nominatim rate limits (1 request per second)
+        await new Promise(resolve => setTimeout(resolve, index * 1000));
+
+        try {
+          const geocodeResponse = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&limit=1&addressdetails=1`,
+            {
+              headers: {
+                'User-Agent': 'ConnectSpace/1.0' // Required by Nominatim
+              }
+            }
+          );
+
+          if (geocodeResponse.ok) {
+            const geocodeData = await geocodeResponse.json();
+            if (geocodeData && geocodeData.length > 0) {
+              const result = geocodeData[0];
+              comm.location = {
+                lat: parseFloat(result.lat),
+                lng: parseFloat(result.lon),
+                city: comm.location?.city || result.address?.city || result.address?.town || result.address?.village || "",
+                country: comm.location?.country || result.address?.country || "",
+              };
+            } else {
+              // Remove location if geocoding returns no results
+              comm.location = undefined;
+            }
+          } else {
+            comm.location = undefined;
+          }
+        } catch (geocodeError) {
+          console.warn(`Geocoding failed for ${cityName}:`, geocodeError);
+          // Remove location if geocoding fails
+          comm.location = undefined;
+        }
+
+        return comm;
+      });
+
+      // Wait for all geocoding to complete
+      const geocodedCommunities = await Promise.all(geocodePromises);
+
+      // Update communities with geocoded locations
+      const updatedCommunities = transformedCommunities.map((comm) => {
+        const geocoded = geocodedCommunities.find((gc: any) => gc.id === comm.id);
+        return geocoded || comm;
+      });
+
+      setCommunities(updatedCommunities);
+    } else {
+      setCommunities(transformedCommunities);
+    }
   };
 
   const filteredCommunities = useMemo(() => {
@@ -431,6 +530,7 @@ export default function DiscoverPage() {
   // Reset to page 1 when search/filters change
   useEffect(() => {
     setCurrentPage(1);
+    setMapSidebarPage(1); // Also reset map sidebar pagination
   }, [searchQuery, locationQuery, selectedCategory, membershipFilter]);
 
   // Check scroll position on mount and when layout changes
@@ -709,7 +809,6 @@ export default function DiscoverPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Communities</SelectItem>
-                        <SelectItem value="joined">My Communities</SelectItem>
                         <SelectItem value="pending">Pending Requests</SelectItem>
                         <SelectItem value="not_joined">Not Joined</SelectItem>
                       </SelectContent>
@@ -849,13 +948,178 @@ export default function DiscoverPage() {
                 )}
 
                 {viewMode === "map" && (
-                  <div className="h-[70vh] rounded-lg overflow-hidden shadow-lg">
-                    <LeafletCommunitiesMap 
-                      communities={filteredCommunities.filter(
-                        (c) => c.location && c.location.lat && c.location.lng && 
-                               c.location.lat !== 0 && c.location.lng !== 0
-                      )} 
-                    />
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                        <div className="p-2 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg">
+                          <MapPin className="h-6 w-6 text-white" />
+                        </div>
+                        Communities on Map (
+                        {filteredCommunities.filter(
+                          (c) => c.location && (
+                            (c.location.lat && c.location.lng && c.location.lat !== 0 && c.location.lng !== 0) ||
+                            (c.location as any).needsGeocoding
+                          )
+                        ).length})
+                      </h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                      <div className="lg:col-span-2">
+                        <LeafletCommunitiesMap 
+                          communities={filteredCommunities.filter(
+                            (c) => c.location && c.location.lat && c.location.lng && 
+                                   c.location.lat !== 0 && c.location.lng !== 0 &&
+                                   !(c.location as any).needsGeocoding
+                          )}
+                          selectedCommunity={selectedCommunity}
+                          onCommunitySelect={(community) => {
+                            setSelectedCommunity(community);
+                          }}
+                          height="700px"
+                          className="rounded-2xl shadow-lg border"
+                        />
+                      </div>
+                      <div className="flex flex-col h-[700px]">
+                        <div className="flex items-center justify-between sticky top-0 bg-white py-2 border-b mb-2">
+                          <h3 className="text-xl font-bold text-gray-900">
+                            Communities on Map (
+                            {
+                              filteredCommunities.filter(
+                                (c) => c.location && c.location.lat && c.location.lng && 
+                                       c.location.lat !== 0 && c.location.lng !== 0 &&
+                                       !(c.location as any).needsGeocoding
+                              ).length
+                            }
+                            )
+                          </h3>
+                        </div>
+                        <div className="flex-1 space-y-4 overflow-y-auto">
+                          {(() => {
+                            const physicalCommunities = filteredCommunities.filter(
+                              (c) => c.location && c.location.lat && c.location.lng && 
+                                     c.location.lat !== 0 && c.location.lng !== 0 &&
+                                     !(c.location as any).needsGeocoding
+                            );
+                            const startIdx =
+                              (mapSidebarPage - 1) * mapSidebarItemsPerPage;
+                            const endIdx = startIdx + mapSidebarItemsPerPage;
+                            const paginatedMapCommunities = physicalCommunities.slice(
+                              startIdx,
+                              endIdx
+                            );
+
+                            return paginatedMapCommunities.map((community) => (
+                              <Card
+                                key={community.id}
+                                className={cn(
+                                  "cursor-pointer transition-all duration-200 border-2 hover:shadow-md",
+                                  selectedCommunity?.id === community.id
+                                    ? "border-violet-400 bg-violet-50 shadow-md"
+                                    : "border-gray-200 hover:border-violet-200"
+                                )}
+                                onClick={() => setSelectedCommunity(community)}
+                              >
+                                <CardContent className="p-4">
+                                  <div className="flex items-start gap-3">
+                                    <Image
+                                      src={community.image || "/placeholder.svg"}
+                                      alt={community.name}
+                                      width={60}
+                                      height={60}
+                                      className="rounded-lg object-cover flex-shrink-0"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="font-semibold text-sm text-gray-900 truncate">
+                                        {community.name}
+                                      </h4>
+                                      <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                                        {community.description}
+                                      </p>
+                                      <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+                                        <span className="flex items-center gap-1">
+                                          <Users className="h-3 w-3" />
+                                          {community.memberCount.toLocaleString()} members
+                                        </span>
+                                        {community.location?.city && (
+                                          <span className="flex items-center gap-1">
+                                            <MapPin className="h-3 w-3" />
+                                            {community.location.city}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center justify-between">
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs"
+                                        >
+                                          {community.category}
+                                        </Badge>
+                                        {membershipStatus[community.id] === "joined" && (
+                                          <Badge className="bg-green-500 text-white text-xs">
+                                            Joined
+                                          </Badge>
+                                        )}
+                                        {membershipStatus[community.id] === "pending" && (
+                                          <Badge className="bg-amber-500 text-white text-xs">
+                                            Pending
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ));
+                          })()}
+                        </div>
+                        {/* Pagination controls */}
+                        {(() => {
+                          const physicalCommunities = filteredCommunities.filter(
+                            (c) => c.location && c.location.lat && c.location.lng && 
+                                   c.location.lat !== 0 && c.location.lng !== 0 &&
+                                   !(c.location as any).needsGeocoding
+                          );
+                          const totalMapPages = Math.ceil(
+                            physicalCommunities.length / mapSidebarItemsPerPage
+                          );
+
+                          if (totalMapPages <= 1) return null;
+
+                          return (
+                            <div className="flex items-center justify-between gap-2 pt-4 border-t mt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setMapSidebarPage((p) => Math.max(1, p - 1))
+                                }
+                                disabled={mapSidebarPage === 1}
+                                className="h-8"
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                              </Button>
+                              <span className="text-sm text-gray-600">
+                                Page {mapSidebarPage} of {totalMapPages}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setMapSidebarPage((p) =>
+                                    Math.min(totalMapPages, p + 1)
+                                  )
+                                }
+                                disabled={mapSidebarPage === totalMapPages}
+                                className="h-8"
+                              >
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
                   </div>
                 )}
 

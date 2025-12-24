@@ -486,7 +486,7 @@ export default function EventDetailsPage({
           image: eventData.image_url || "",
           images: eventData.image_url ? [eventData.image_url] : [],
           tags: eventData.category ? [eventData.category] : [],
-          link: eventData.link || undefined,
+          link: (eventData.link && eventData.link.trim() !== "") ? eventData.link : undefined,
           communities: eventData.communities as any,
           relatedEvents: relatedEvents,
           organizerEvents: organizerEvents,
@@ -1048,7 +1048,7 @@ export default function EventDetailsPage({
               </Card>
 
               {/* Registration Link */}
-              {event.link && (
+              {event.link && event.link.trim() !== "" && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
