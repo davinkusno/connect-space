@@ -141,7 +141,7 @@ export function UnifiedNav() {
             case "mention":
               uiType = "community";
               if (notif.reference_type === "community" && notif.reference_id) {
-                actionUrl = `/communities/${notif.reference_id}?tab=announcements`;
+                actionUrl = `/communities/${notif.reference_id}?tab=discussions`;
               }
               break;
             default:

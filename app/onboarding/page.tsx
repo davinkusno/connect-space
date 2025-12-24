@@ -301,9 +301,6 @@ export default function OnboardingPage() {
                         locationType="physical"
                         required={false}
                       />
-                      <p className="text-sm text-gray-500 text-center">
-                        This is optional - you can skip or update it later in your profile
-                      </p>
                     </div>
 
                     {/* Navigation Buttons */}

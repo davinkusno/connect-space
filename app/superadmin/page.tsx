@@ -27,7 +27,7 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Activity, AlertTriangle, Award, Ban, Bell, CalendarDays, CheckCircle2, ChevronLeft,
-    ChevronRight, Clock, Crown, Eye, ExternalLink, FileText, Filter, Flame, Gift, Heart, Medal, Megaphone, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trophy, Users, XCircle
+    ChevronRight, Clock, Crown, Eye, ExternalLink, FileText, Filter, Flame, Gift, Heart, Medal, Megaphone, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trash2, Trophy, Users, XCircle
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -986,6 +986,7 @@ export default function SuperadminPage() {
         const transformedReports = (data.reports || []).map((report: any) => {
           // Determine the display name based on report type
           let displayName = "Unknown";
+          let communityName = "";
           let reporterInfo = {
             name: report.reporter?.full_name || "Anonymous",
             email: report.reporter?.email || "N/A",
@@ -993,20 +994,34 @@ export default function SuperadminPage() {
 
           if (report.reported_community?.name) {
             displayName = report.reported_community.name;
+            communityName = report.reported_community.name;
           } else if (report.reported_user?.full_name) {
             displayName = report.reported_user.full_name;
           } else if (report.reported_event?.title) {
             displayName = report.reported_event.title;
+            // Get community name from event if available
+            if (report.reported_event?.communities?.name) {
+              communityName = report.reported_event.communities.name;
+            }
           } else if (report.reported_thread?.content) {
             displayName = report.reported_thread.content.substring(0, 50) + (report.reported_thread.content.length > 50 ? "..." : "");
+            // Get community name from thread
+            if (report.reported_thread?.communities?.name) {
+              communityName = report.reported_thread.communities.name;
+            }
           } else if (report.reported_reply?.content) {
             displayName = report.reported_reply.content.substring(0, 50) + (report.reported_reply.content.length > 50 ? "..." : "");
+            // Get community name from reply's parent thread
+            if (report.reported_reply?.parent?.communities?.name) {
+              communityName = report.reported_reply.parent.communities.name;
+            }
           }
 
           return {
             id: report.id,
             communityId: report.target_id,
             communityName: displayName,
+            actualCommunityName: communityName, // Add this to show in the UI
             category: report.report_type,
             reportCount: 1,
             lastReportDate: report.created_at,
@@ -1038,6 +1053,36 @@ export default function SuperadminPage() {
       fetchReports();
     }
   }, [activeTab]);
+
+  // Handle delete report
+  const handleDeleteReport = async (reportId: string) => {
+    try {
+      setIsProcessingAction(true);
+      const response = await fetch(`/api/admin/reports/${reportId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete report");
+      }
+
+      toast.success("Report deleted successfully");
+      
+      // Refresh reports list
+      setReportedCommunities(prev => prev.filter(r => r.id !== reportId));
+      
+      // Close detail dialog if open
+      if (selectedReport?.id === reportId) {
+        setIsReportDetailOpen(false);
+        setSelectedReport(null);
+      }
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      toast.error("Failed to delete report");
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
 
   // Reports management state
   const [reportSearchQuery, setReportSearchQuery] = useState("");
@@ -1391,7 +1436,7 @@ export default function SuperadminPage() {
       <SuperAdminNav />
 
       <PageTransition>
-        <div className="max-w-7xl mx-auto px-6 py-12 relative z-10">
+        <div className="max-w-[95%] mx-auto px-6 py-12 relative z-10">
           {/* Header */}
           <div className="mb-12">
             <div className="flex items-center gap-3 mb-4">
@@ -1432,22 +1477,18 @@ export default function SuperadminPage() {
 
             {/* Reports Tab - Community Reports & Inactive Communities */}
             <TabsContent value="reports" className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <AlertTriangle className="h-6 w-6 text-orange-600" />
-                  Community Reports
-                </h3>
+              <div className="flex justify-end items-center">
                 <div className="text-sm text-gray-600">
                   Total Reports: {reportedCommunities.length}
                 </div>
               </div>
 
-              {/* Reported Communities Section */}
+              {/* Reports Section */}
               <AnimatedCard variant="glass" className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                     <Ban className="h-5 w-5 text-red-600" />
-                    Reported Communities
+                    Reports
                     <Badge className="bg-red-100 text-red-700 border-red-200">
                       {reportedCommunities.length} Reports
                     </Badge>
@@ -1484,22 +1525,22 @@ export default function SuperadminPage() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full min-w-[1400px]">
                       <thead>
                         <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[30%]">
                             Reported Item
                           </th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[12%]">
                             Type
                           </th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[10%]">
                             Reports
                           </th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[13%]">
                             Last Report
                           </th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[35%]">
                             Actions
                           </th>
                         </tr>
@@ -1511,7 +1552,7 @@ export default function SuperadminPage() {
                               colSpan={5}
                               className="text-center py-8 text-gray-500"
                             >
-                              No reported communities found
+                              No reports found
                             </td>
                           </tr>
                         ) : (
@@ -1526,6 +1567,11 @@ export default function SuperadminPage() {
                                   <div className="font-medium text-gray-900">
                                     {report.communityName}
                                   </div>
+                                  {report.actualCommunityName && report.category !== "community" && (
+                                    <div className="text-xs text-gray-600 mt-0.5">
+                                      Community: {report.actualCommunityName}
+                                    </div>
+                                  )}
                                   <div className="text-xs text-gray-500">
                                     Reported by: {report.reporterInfo?.name || "Anonymous"}
                                   </div>
@@ -1596,9 +1642,9 @@ export default function SuperadminPage() {
                                     // Reset pagination when opening dialog
                                     setReportDetailPage(1);
                                   }}
-                                  className="text-blue-600 hover:text-blue-700 w-[120px]"
+                                  className="text-blue-600 hover:text-blue-700 min-w-[160px] px-3"
                                 >
-                                  <Eye className="h-4 w-4 mr-1" />
+                                  <Eye className="h-4 w-4 mr-1.5" />
                                   View Report
                                 </AnimatedButton>
                                 {report.category === "community" && report.communityId && (
@@ -1606,9 +1652,9 @@ export default function SuperadminPage() {
                                     <AnimatedButton
                                       variant="glass"
                                       size="sm"
-                                      className="text-purple-600 hover:text-purple-700 w-[140px]"
+                                      className="text-purple-600 hover:text-purple-700 min-w-[160px] px-3"
                                     >
-                                      <ExternalLink className="h-4 w-4 mr-1" />
+                                      <ExternalLink className="h-4 w-4 mr-1.5" />
                                       View Community
                                     </AnimatedButton>
                                   </Link>
@@ -1618,42 +1664,58 @@ export default function SuperadminPage() {
                                     <AnimatedButton
                                       variant="glass"
                                       size="sm"
-                                      className="text-blue-600 hover:text-blue-700 w-[140px]"
+                                      className="text-blue-600 hover:text-blue-700 min-w-[160px] px-3"
                                     >
-                                      <ExternalLink className="h-4 w-4 mr-1" />
+                                      <ExternalLink className="h-4 w-4 mr-1.5" />
                                       View Event
                                     </AnimatedButton>
                                   </Link>
                                 )}
-                                {report.category === "thread" && report._originalReport?.reported_thread?.community_id && (
-                                  <Link href={`/communities/${report._originalReport.reported_thread.community_id}?tab=discussions`} target="_blank">
+                                {report.category === "thread" && report._originalReport?.reported_thread?.community_id && report._originalReport?.reported_thread?.id && (
+                                  <Link href={`/communities/${report._originalReport.reported_thread.community_id}?tab=discussions&threadId=${report._originalReport.reported_thread.id}`} target="_blank">
                                     <AnimatedButton
                                       variant="glass"
                                       size="sm"
-                                      className="text-green-600 hover:text-green-700 w-[140px]"
+                                      className="text-green-600 hover:text-green-700 min-w-[160px] px-3"
                                     >
-                                      <ExternalLink className="h-4 w-4 mr-1" />
+                                      <ExternalLink className="h-4 w-4 mr-1.5" />
                                       View Thread
                                     </AnimatedButton>
                                   </Link>
                                 )}
-                                {report.category === "reply" && report._originalReport?.reported_reply?.thread?.community_id && (
-                                  <Link href={`/communities/${report._originalReport.reported_reply.thread.community_id}?tab=discussions`} target="_blank">
+                                {report.category === "reply" && report._originalReport?.reported_reply?.parent?.community_id && report._originalReport?.reported_reply?.id && (
+                                  <Link href={`/communities/${report._originalReport.reported_reply.parent.community_id}?tab=discussions&threadId=${report._originalReport.reported_reply.parent_id}&replyId=${report._originalReport.reported_reply.id}`} target="_blank">
                                     <AnimatedButton
                                       variant="glass"
                                       size="sm"
-                                      className="text-orange-600 hover:text-orange-700 w-[140px]"
+                                      className="text-orange-600 hover:text-orange-700 min-w-[160px] px-3"
                                     >
-                                      <ExternalLink className="h-4 w-4 mr-1" />
+                                      <ExternalLink className="h-4 w-4 mr-1.5" />
                                       View Reply
                                     </AnimatedButton>
                                   </Link>
                                 )}
+                                <AnimatedButton
+                                  variant="glass"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[160px] px-3"
+                                  onClick={() => handleDeleteReport(report.id)}
+                                  disabled={isProcessingAction}
+                                >
+                                  {isProcessingAction ? (
+                                    <Spinner size="sm" />
+                                  ) : (
+                                    <>
+                                      <Trash2 className="h-4 w-4 mr-1.5" />
+                                      Delete
+                                    </>
+                                  )}
+                                </AnimatedButton>
                                 {report.communityStatus === "suspended" ? (
                                   <AnimatedButton
                                     variant="glass"
                                     size="sm"
-                                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 min-w-[160px] px-3"
                                     onClick={() => handleReportAction(report.communityId, "reactivate")}
                                     disabled={isProcessingAction}
                                   >
@@ -1661,7 +1723,7 @@ export default function SuperadminPage() {
                                       <Spinner size="sm" />
                                     ) : (
                                       <>
-                                        <RotateCcw className="h-4 w-4 mr-1" />
+                                        <RotateCcw className="h-4 w-4 mr-1.5" />
                                         Reactivate
                                       </>
                                     )}
@@ -1670,7 +1732,7 @@ export default function SuperadminPage() {
                                   <AnimatedButton
                                     variant="glass"
                                     size="sm"
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[160px] px-3"
                                     onClick={() => handleReportAction(report.communityId, "suspend")}
                                     disabled={isProcessingAction}
                                   >
@@ -1678,7 +1740,7 @@ export default function SuperadminPage() {
                                       <Spinner size="sm" />
                                     ) : (
                                       <>
-                                        <Ban className="h-4 w-4 mr-1" />
+                                        <Ban className="h-4 w-4 mr-1.5" />
                                         Suspend
                                       </>
                                     )}

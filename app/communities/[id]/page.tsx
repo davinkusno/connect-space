@@ -180,6 +180,10 @@ export default function CommunityPage({
 
   // Additional UI states
   const [isChatOpen, setIsChatOpen] = useState(false);
+  
+  // Highlight reported thread/reply
+  const [highlightedThreadId, setHighlightedThreadId] = useState<string | null>(null);
+  const [highlightedReplyId, setHighlightedReplyId] = useState<string | null>(null);
 
   // Load community data from database
   useEffect(() => {
@@ -190,11 +194,22 @@ export default function CommunityPage({
 
   // Community data is already loaded in community state
 
+  // Handle tab change - update both state and URL
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+    // Update URL without losing other params (like threadId, replyId)
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", newTab);
+    router.push(`/communities/${id}?${params.toString()}`, { scroll: false });
+  };
+
   // Update active tab when URL parameter changes
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam && tabParam !== activeTab) {
-      setActiveTab(tabParam);
+    // Map old "announcements" to "discussions" for backward compatibility
+    const normalizedTab = tabParam === "announcements" ? "discussions" : tabParam;
+    if (normalizedTab && normalizedTab !== activeTab) {
+      setActiveTab(normalizedTab);
     }
   }, [searchParams, activeTab]);
 
@@ -204,6 +219,61 @@ export default function CommunityPage({
       loadTabData(activeTab);
     }
   }, [activeTab, community, creatorData]);
+
+  // Handle threadId and replyId from URL params for reported content
+  useEffect(() => {
+    const threadId = searchParams.get("threadId");
+    const replyId = searchParams.get("replyId");
+    
+    if (threadId) {
+      setHighlightedThreadId(threadId);
+      // Ensure replies are expanded for the highlighted thread
+      if (threadId) {
+        setShowReplies((prev) => ({ ...prev, [threadId]: true }));
+      }
+    }
+    
+    if (replyId) {
+      setHighlightedReplyId(replyId);
+      // If replyId is provided, we need to find its parent thread and expand it
+      if (replyId && discussions.length > 0) {
+        const parentThread = discussions.find((thread) =>
+          thread.replies?.some((reply: any) => reply.id === replyId)
+        );
+        if (parentThread) {
+          setShowReplies((prev) => ({ ...prev, [parentThread.id]: true }));
+        }
+      }
+    }
+  }, [searchParams, discussions]);
+
+  // Scroll to highlighted thread/reply when discussions are loaded
+  useEffect(() => {
+    if (discussions.length > 0 && (highlightedThreadId || highlightedReplyId)) {
+      // Small delay to ensure DOM is rendered
+      setTimeout(() => {
+        if (highlightedReplyId) {
+          const replyElement = document.getElementById(`reply-${highlightedReplyId}`);
+          if (replyElement) {
+            replyElement.scrollIntoView({ behavior: "smooth", block: "center" });
+            // Remove highlight after 5 seconds
+            setTimeout(() => {
+              setHighlightedReplyId(null);
+            }, 5000);
+          }
+        } else if (highlightedThreadId) {
+          const threadElement = document.getElementById(`thread-${highlightedThreadId}`);
+          if (threadElement) {
+            threadElement.scrollIntoView({ behavior: "smooth", block: "center" });
+            // Remove highlight after 5 seconds
+            setTimeout(() => {
+              setHighlightedThreadId(null);
+            }, 5000);
+          }
+        }
+      }, 300);
+    }
+  }, [discussions, highlightedThreadId, highlightedReplyId]);
 
   // Show pending dialog if status is pending on load
   useEffect(() => {
@@ -408,7 +478,8 @@ export default function CommunityPage({
       const supabase = getSupabaseBrowser();
 
       switch (tab) {
-        case "announcements":
+        case "discussions":
+        case "announcements": // Backward compatibility
           // Load discussion threads from messages table (top-level messages only)
           const { data: messagesData } = await supabase
             .from("messages")
@@ -995,7 +1066,7 @@ export default function CommunityPage({
       setNewPost("");
       setThreadMediaFile(null);
       // Reload discussion forum
-      loadTabData("announcements");
+      loadTabData("discussions");
     } catch (error: any) {
       console.error("Error posting discussion:", error);
       toast.error(error.message || "Failed to post discussion");
@@ -1024,7 +1095,7 @@ export default function CommunityPage({
       setReplyContent("");
       setReplyingTo(null);
       // Reload discussion forum
-      loadTabData("announcements");
+      loadTabData("discussions");
     } catch (error: any) {
       console.error("Error posting reply:", error);
       toast.error(error.message || "Failed to post reply");
@@ -1050,7 +1121,7 @@ export default function CommunityPage({
       );
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
-      loadTabData("announcements");
+      loadTabData("discussions");
     } catch (error: any) {
       console.error("Error deleting message:", error);
       toast.error(error.message || "Failed to delete message");
@@ -1313,7 +1384,7 @@ export default function CommunityPage({
                   {/* Community Tabs */}
                   <Tabs
                     value={activeTab}
-                    onValueChange={setActiveTab}
+                    onValueChange={handleTabChange}
                     className="w-full"
                   >
                     <TabsList className="grid w-full grid-cols-4 bg-white border border-gray-200 rounded-lg p-1 h-auto">
@@ -1324,7 +1395,7 @@ export default function CommunityPage({
                         About
                       </TabsTrigger>
                       <TabsTrigger
-                        value="announcements"
+                        value="discussions"
                         className="data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-all"
                       >
                         Discussion Forum
@@ -1454,7 +1525,7 @@ export default function CommunityPage({
 
                     {/* Discussion Forum Tab */}
                     <TabsContent
-                      value="announcements"
+                      value="discussions"
                       className="space-y-6 mt-8"
                     >
                       {/* Show join message for non-members and pending users */}
@@ -1607,10 +1678,17 @@ export default function CommunityPage({
                                   thread.replies?.length ||
                                   0;
 
+                                const isHighlighted = highlightedThreadId === thread.id;
+                                
                                 return (
                                   <Card
                                     key={thread.id}
-                                    className="border-gray-200 hover:border-gray-300 transition-colors"
+                                    id={`thread-${thread.id}`}
+                                    className={`border-gray-200 hover:border-gray-300 transition-colors ${
+                                      isHighlighted
+                                        ? "border-red-500 border-2 shadow-lg bg-red-50/30"
+                                        : ""
+                                    }`}
                                   >
                                     <CardContent className="p-0">
                                       {/* Main Thread Post */}
@@ -1793,8 +1871,11 @@ export default function CommunityPage({
                                                 )}
                                               {isMember &&
                                                 currentUser &&
-                                                thread.sender_id ===
-                                                  currentUser.id && (
+                                                (thread.sender_id ===
+                                                  currentUser.id ||
+                                                  userRole === "admin" ||
+                                                  userRole === "moderator" ||
+                                                  userRole === "creator") && (
                                                   <Button
                                                     variant="ghost"
                                                     size="sm"
@@ -1890,10 +1971,18 @@ export default function CommunityPage({
                                       {/* Replies Section */}
                                       {hasReplies && isExpanded && (
                                         <div className="bg-gray-50">
-                                          {thread.replies.map((reply: any) => (
+                                          {thread.replies.map((reply: any) => {
+                                            const isReplyHighlighted = highlightedReplyId === reply.id;
+                                            
+                                            return (
                                             <div
                                               key={reply.id}
-                                              className="p-4 border-b border-gray-100 last:border-b-0"
+                                              id={`reply-${reply.id}`}
+                                              className={`p-4 border-b border-gray-100 last:border-b-0 ${
+                                                isReplyHighlighted
+                                                  ? "bg-red-50/50 border-red-300 border-l-4"
+                                                  : ""
+                                              }`}
                                             >
                                               <div className="flex gap-3 pl-8">
                                                 <Avatar className="h-8 w-8 flex-shrink-0">
@@ -2006,10 +2095,38 @@ export default function CommunityPage({
                                                         </Button>
                                                       </div>
                                                     )}
+                                                  {isMember &&
+                                                    currentUser &&
+                                                    (reply.sender_id ===
+                                                      currentUser.id ||
+                                                      userRole === "admin" ||
+                                                      userRole === "moderator" ||
+                                                      userRole === "creator") && (
+                                                      <div className="mt-2">
+                                                        <Button
+                                                          variant="ghost"
+                                                          size="sm"
+                                                          className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                          onClick={() => {
+                                                            setDeleteTarget({
+                                                              id: reply.id,
+                                                              type: "reply",
+                                                            });
+                                                            setDeleteDialogOpen(
+                                                              true
+                                                            );
+                                                          }}
+                                                        >
+                                                          <Trash2 className="h-3 w-3 mr-1" />
+                                                          Delete
+                                                        </Button>
+                                                      </div>
+                                                    )}
                                                 </div>
                                               </div>
                                             </div>
-                                          ))}
+                                            );
+                                          })}
                                         </div>
                                       )}
                                     </CardContent>

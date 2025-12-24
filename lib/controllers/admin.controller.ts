@@ -163,6 +163,34 @@ export class AdminController extends BaseController {
   }
 
   /**
+   * DELETE /api/admin/reports/[id]
+   * Delete a report
+   * @param request - The incoming request
+   * @param reportId - The report ID to delete
+   * @returns NextResponse indicating success
+   */
+  public async deleteReport(
+    request: NextRequest,
+    reportId: string
+  ): Promise<NextResponse<MessageResponse | ApiErrorResponse>> {
+    try {
+      await this.requireSuperAdmin();
+      const result: ServiceResult<void> = await this.service.deleteReport(reportId);
+
+      if (result.success) {
+        return this.json<MessageResponse>(
+          { message: "Report deleted successfully" },
+          result.status
+        );
+      }
+
+      return this.error(result.error?.message || "Failed to delete report", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * GET /api/admin/inactive-communities
    * Get all inactive communities
    * @param request - The incoming request

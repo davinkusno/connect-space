@@ -162,25 +162,41 @@ export class AdminService extends BaseService {
           targetData = { reported_event: event };
         } else if (report.report_type === "thread" && report.target_id) {
           const { data: thread } = await this.supabaseAdmin
-            .from("discussion_threads")
-            .select("id, content, community_id, sender_id")
+            .from("messages")
+            .select(`
+              id, 
+              content, 
+              community_id, 
+              sender_id,
+              communities (
+                id,
+                name
+              )
+            `)
             .eq("id", report.target_id)
+            .is("parent_id", null)
             .single();
           targetData = { reported_thread: thread };
         } else if (report.report_type === "reply" && report.target_id) {
           const { data: reply } = await this.supabaseAdmin
-            .from("thread_replies")
+            .from("messages")
             .select(`
               id, 
               content, 
-              thread_id, 
+              parent_id, 
               sender_id,
-              thread:thread_id (
+              community_id,
+              parent:parent_id (
                 id,
-                community_id
+                community_id,
+                communities (
+                  id,
+                  name
+                )
               )
             `)
             .eq("id", report.target_id)
+            .not("parent_id", "is", null)
             .single();
           targetData = { reported_reply: reply };
         } else if (report.report_type === "post" && report.target_id) {
@@ -247,25 +263,41 @@ export class AdminService extends BaseService {
       targetData = { reported_event: event };
     } else if (report.report_type === "thread" && report.target_id) {
       const { data: thread } = await this.supabaseAdmin
-        .from("discussion_threads")
-        .select("id, content, community_id, sender_id")
+        .from("messages")
+        .select(`
+          id, 
+          content, 
+          community_id, 
+          sender_id,
+          communities (
+            id,
+            name
+          )
+        `)
         .eq("id", report.target_id)
+        .is("parent_id", null)
         .single();
       targetData = { reported_thread: thread };
     } else if (report.report_type === "reply" && report.target_id) {
       const { data: reply } = await this.supabaseAdmin
-        .from("thread_replies")
+        .from("messages")
         .select(`
           id, 
           content, 
-          thread_id, 
+          parent_id, 
           sender_id,
-          thread:thread_id (
+          community_id,
+          parent:parent_id (
             id,
-            community_id
+            community_id,
+            communities (
+              id,
+              name
+            )
           )
         `)
         .eq("id", report.target_id)
+        .not("parent_id", "is", null)
         .single();
       targetData = { reported_reply: reply };
     } else if (report.report_type === "post" && report.target_id) {
@@ -358,6 +390,24 @@ export class AdminService extends BaseService {
     }
 
     return ApiResponse.success<ReportData>(data as ReportData);
+  }
+
+  /**
+   * Delete a report
+   * @param reportId - The report ID to delete
+   * @returns ServiceResult indicating success
+   */
+  public async deleteReport(reportId: string): Promise<ServiceResult<void>> {
+    const { error } = await this.supabaseAdmin
+      .from("reports")
+      .delete()
+      .eq("id", reportId);
+
+    if (error) {
+      return ApiResponse.error("Failed to delete report", 500);
+    }
+
+    return ApiResponse.success<void>(undefined);
   }
 
   /**
