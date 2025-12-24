@@ -41,7 +41,7 @@ export const AI_CONFIG: AIConfiguration = {
     apiKey: process.env.GITHUB_MODELS_API_KEY || 
             process.env.GITHUB_PERSONAL_ACCESS_TOKEN || 
             process.env.GITHUB_TOKEN,
-    model: "openai/gpt-4o",
+    model: "openai/gpt-4o-mini",
     baseURL: "https://models.github.ai/inference",
     maxTokens: 2000,
     temperature: 0.7,

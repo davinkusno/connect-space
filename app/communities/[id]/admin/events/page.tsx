@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { FloatingElements } from "@/components/ui/floating-elements"
 import { Input } from "@/components/ui/input"
 import { PageTransition } from "@/components/ui/page-transition"
+import { PaginationControls } from "@/components/ui/pagination-controls"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getSupabaseBrowser } from "@/lib/supabase/client"
@@ -86,6 +87,8 @@ export default function CommunityAdminEventsPage({
   const [isUploading, setIsUploading] = useState(false)
   const [communityId, setCommunityId] = useState<string | null>(null)
   const [communityName, setCommunityName] = useState<string>("Community")
+  const [currentPage, setCurrentPage] = useState(1)
+  const eventsPerPage = 10
 
   useEffect(() => {
     const loadParams = async () => {
@@ -293,6 +296,19 @@ export default function CommunityAdminEventsPage({
 
     return filtered
   }, [events, activeTab, searchQuery, dateRange])
+
+  // Pagination
+  const totalPages = Math.ceil(filteredEvents.length / eventsPerPage)
+  const paginatedEvents = useMemo(() => {
+    const startIndex = (currentPage - 1) * eventsPerPage
+    const endIndex = startIndex + eventsPerPage
+    return filteredEvents.slice(startIndex, endIndex)
+  }, [filteredEvents, currentPage, eventsPerPage])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, searchQuery, dateRange])
 
   const formatEventDate = (dateString: string) => {
     return format(new Date(dateString), "MMM dd, yyyy")
@@ -619,7 +635,7 @@ export default function CommunityAdminEventsPage({
                 </CardContent>
               </Card>
             ) : (
-              filteredEvents.map((event) => (
+              paginatedEvents.map((event) => (
                 <Card key={event.id} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
                   <CardContent className="p-6">
                     <div className="flex gap-6">
@@ -711,6 +727,19 @@ export default function CommunityAdminEventsPage({
               ))
             )}
           </div>
+
+          {/* Pagination */}
+          {filteredEvents.length > 0 && totalPages > 1 && (
+            <div className="mt-6">
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={eventsPerPage}
+                totalItems={filteredEvents.length}
+              />
+            </div>
+          )}
         </div>
 
         {/* Delete Confirmation Dialog */}

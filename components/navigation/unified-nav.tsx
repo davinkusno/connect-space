@@ -40,6 +40,7 @@ interface UserType {
     avatar_url?: string;
     name?: string;
   };
+  customAvatarUrl?: string; // Custom avatar from users table
 }
 
 const navigationLinks = [
@@ -71,6 +72,7 @@ const navigationLinks = [
 
 export function UnifiedNav() {
   const [user, setUser] = useState<UserType | null>(null);
+  const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -377,16 +379,42 @@ export function UnifiedNav() {
     }
   };
 
+  // Helper function to fetch custom avatar from users table
+  const fetchCustomAvatar = async (userId: string) => {
+    try {
+      const { data: userProfile } = await supabase
+        .from("users")
+        .select("avatar_url")
+        .eq("id", userId)
+        .single();
+      
+      return userProfile?.avatar_url || null;
+    } catch (error) {
+      console.error("Error fetching custom avatar:", error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     const getUser = async () => {
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        setUser(session?.user || null);
+        
+        if (session?.user) {
+          setUser(session.user);
+          // Fetch custom avatar from users table
+          const customAvatar = await fetchCustomAvatar(session.user.id);
+          setCustomAvatarUrl(customAvatar);
+        } else {
+          setUser(null);
+          setCustomAvatarUrl(null);
+        }
       } catch (error) {
         console.error("Error getting session:", error);
         setUser(null);
+        setCustomAvatarUrl(null);
       } finally {
         setIsLoading(false);
       }
@@ -399,25 +427,41 @@ export function UnifiedNav() {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state changed:", event, session?.user?.email);
 
-      setUser(session?.user || null);
+      if (session?.user) {
+        setUser(session.user);
+        // Fetch custom avatar from users table
+        const customAvatar = await fetchCustomAvatar(session.user.id);
+        setCustomAvatarUrl(customAvatar);
+      } else {
+        setUser(null);
+        setCustomAvatarUrl(null);
+      }
+      
       setIsLoading(false);
 
       if (event === "SIGNED_OUT") {
         // Clear any cached data
         setUser(null);
+        setCustomAvatarUrl(null);
         // Redirect to home page, unless on reset password page
         if (pathname !== "/auth/reset-password") {
           router.push("/");
         }
       }
-
-      if (event === "SIGNED_IN" && session?.user) {
-        setUser(session.user);
-      }
     });
 
     return () => subscription.unsubscribe();
   }, [supabase.auth, router, pathname]);
+
+  // Refresh avatar when returning from profile page
+  useEffect(() => {
+    if (user?.id && pathname !== "/profile") {
+      // Refresh custom avatar when navigating away from profile (in case it was updated)
+      fetchCustomAvatar(user.id).then((avatar) => {
+        setCustomAvatarUrl(avatar);
+      });
+    }
+  }, [pathname, user?.id]);
 
   const handleProfileNavigation = () => {
     if (!user) {
@@ -460,6 +504,11 @@ export function UnifiedNav() {
       .join("")
       .toUpperCase()
       .substring(0, 2);
+  };
+
+  // Get avatar URL - prioritize custom avatar from users table
+  const getAvatarUrl = () => {
+    return customAvatarUrl || user?.user_metadata?.avatar_url || "";
   };
 
   const isActivePage = (href: string) => {
@@ -570,7 +619,7 @@ export function UnifiedNav() {
                   >
                     <Avatar className="h-10 w-10 ring-2 ring-purple-100 group-hover:ring-purple-300 transition-all duration-200">
                       <AvatarImage
-                        src={user.user_metadata?.avatar_url || ""}
+                        src={getAvatarUrl()}
                         alt={getUserDisplayName()}
                       />
                       <AvatarFallback className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold">
@@ -589,9 +638,9 @@ export function UnifiedNav() {
                   {/* User Header */}
                   <DropdownMenuLabel className="font-normal p-3 rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100/50">
                     <div className="flex items-center space-x-3">
-                      <Avatar className="h-12 w-12 ring-2 ring-purple-200">
+                        <Avatar className="h-12 w-12 ring-2 ring-purple-200">
                         <AvatarImage
-                          src={user.user_metadata?.avatar_url || ""}
+                          src={getAvatarUrl()}
                           alt={getUserDisplayName()}
                         />
                         <AvatarFallback className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold">
@@ -717,7 +766,7 @@ export function UnifiedNav() {
                         <div className="flex items-center space-x-3">
                           <Avatar className="h-12 w-12">
                             <AvatarImage
-                              src={user.user_metadata?.avatar_url || ""}
+                              src={getAvatarUrl()}
                               alt={getUserDisplayName()}
                             />
                             <AvatarFallback className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
@@ -851,7 +900,7 @@ export function UnifiedNav() {
               <div className="flex items-center space-x-3">
                 <Avatar className="h-10 w-10">
                   <AvatarImage
-                    src={user?.user_metadata?.avatar_url || ""}
+                    src={getAvatarUrl()}
                     alt={getUserDisplayName()}
                   />
                   <AvatarFallback className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold">

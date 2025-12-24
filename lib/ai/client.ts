@@ -16,10 +16,17 @@ class AIClient {
       const apiKey = AI_CONFIG.github.apiKey;
       
       if (!apiKey) {
+        console.error("[AIClient] GitHub Models API key not found. Checked for:");
+        console.error("  - GITHUB_MODELS_API_KEY:", !!process.env.GITHUB_MODELS_API_KEY);
+        console.error("  - GITHUB_PERSONAL_ACCESS_TOKEN:", !!process.env.GITHUB_PERSONAL_ACCESS_TOKEN);
+        console.error("  - GITHUB_TOKEN:", !!process.env.GITHUB_TOKEN);
         throw new Error(
-          "GitHub Models API key not configured. Set GITHUB_MODELS_API_KEY environment variable."
+          "GitHub Models API key not configured. Set GITHUB_MODELS_API_KEY, GITHUB_PERSONAL_ACCESS_TOKEN, or GITHUB_TOKEN environment variable."
         );
       }
+
+      // Log first few characters for debugging (don't log full key)
+      console.log("[AIClient] Using GitHub Models API key:", apiKey.substring(0, 8) + "...");
 
       this.client = new OpenAI({
         apiKey: apiKey,

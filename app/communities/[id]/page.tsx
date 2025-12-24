@@ -2157,7 +2157,7 @@ export default function CommunityPage({
                           </p>
                         </div>
                         {canManage && (
-                          <Link href={`/communities/${id}/admin`}>
+                          <Link href={`/communities/${id}/admin/events`}>
                             <Button
                               variant="outline"
                               className="border-violet-200 text-violet-600 hover:bg-violet-50"
@@ -2238,6 +2238,7 @@ export default function CommunityPage({
                                         startDate.toLocaleDateString("en-US", {
                                           weekday: "short",
                                         });
+                                      const year = startDate.getFullYear();
                                       const timeRange = `${startDate.toLocaleTimeString(
                                         "en-US",
                                         {
@@ -2273,6 +2274,9 @@ export default function CommunityPage({
                                                     <div className="text-xs mt-1 text-violet-500">
                                                       {weekday}
                                                     </div>
+                                                    <div className="text-xs mt-1 font-medium text-violet-600">
+                                                      {year}
+                                                    </div>
                                                   </div>
                                                 </div>
 
@@ -2300,78 +2304,73 @@ export default function CommunityPage({
                                                   {/* Event Info */}
                                                   <div className="space-y-1.5 text-sm">
                                                     <div className="flex items-center gap-2 text-gray-700">
-                                                      <Clock className="h-4 w-4 text-violet-600 flex-shrink-0" />
+                                                      <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                        <Calendar className="h-4 w-4 text-violet-600" />
+                                                      </div>
                                                       <span className="font-medium">
-                                                        {timeRange}
-                                                      </span>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                      <div className="font-medium">
                                                         {startDate.toLocaleDateString(
                                                           "en-US",
                                                           {
                                                             weekday: "long",
                                                             month: "long",
                                                             day: "numeric",
+                                                            year: "numeric",
                                                           }
                                                         )}
-                                                      </div>
-                                                      <div className="text-xs text-gray-500">
-                                                        {startDate.toLocaleTimeString(
-                                                          "en-US",
-                                                          {
-                                                            hour: "numeric",
-                                                            minute: "2-digit",
-                                                          }
-                                                        )}{" "}
-                                                        -{" "}
-                                                        {endDate.toLocaleTimeString(
-                                                          "en-US",
-                                                          {
-                                                            hour: "numeric",
-                                                            minute: "2-digit",
-                                                          }
-                                                        )}
-                                                      </div>
+                                                      </span>
                                                     </div>
+                                                    <div className="flex items-center gap-2 text-gray-700">
+                                                      <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                        <Clock className="h-4 w-4 text-violet-600" />
+                                                      </div>
+                                                      <span className="font-medium">
+                                                        {timeRange}
+                                                      </span>
+                                                    </div>
+
+                                                    {event.location && (
+                                                      <div className="flex items-center gap-2 text-gray-700">
+                                                        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                          <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
+                                                            <MapPin className="h-4 w-4" />
+                                                          </div>
+                                                        </div>
+                                                        <span className="flex-1 truncate">
+                                                          {getLocationDisplay(
+                                                            event.location
+                                                          )}
+                                                        </span>
+                                                      </div>
+                                                    )}
+
+                                                    {event.is_online && (
+                                                      <div className="flex items-center gap-2 text-gray-700">
+                                                        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                          <div className="p-1.5 rounded-lg bg-green-100 text-green-600">
+                                                            <Globe className="h-4 w-4" />
+                                                          </div>
+                                                        </div>
+                                                        <span className="flex-1">
+                                                          Online Event
+                                                        </span>
+                                                      </div>
+                                                    )}
+
+                                                    {event.max_attendees && (
+                                                      <div className="flex items-center gap-2 text-gray-700">
+                                                        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                          <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
+                                                            <Users className="h-4 w-4" />
+                                                          </div>
+                                                        </div>
+                                                        <span className="flex-1">
+                                                          Max{" "}
+                                                          {event.max_attendees}{" "}
+                                                          attendees
+                                                        </span>
+                                                      </div>
+                                                    )}
                                                   </div>
-
-                                                  {event.location && (
-                                                    <div className="flex items-center gap-2 text-gray-700">
-                                                      <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
-                                                        <MapPin className="h-4 w-4" />
-                                                      </div>
-                                                      <span className="flex-1 truncate">
-                                                        {getLocationDisplay(
-                                                          event.location
-                                                        )}
-                                                      </span>
-                                                    </div>
-                                                  )}
-
-                                                  {event.is_online && (
-                                                    <div className="flex items-center gap-2 text-gray-700">
-                                                      <div className="p-1.5 rounded-lg bg-green-100 text-green-600">
-                                                        <Globe className="h-4 w-4" />
-                                                      </div>
-                                                      <span className="flex-1">
-                                                        Online Event
-                                                      </span>
-                                                    </div>
-                                                  )}
-
-                                                  {event.max_attendees && (
-                                                    <div className="flex items-center gap-2 text-gray-700">
-                                                      <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
-                                                        <Users className="h-4 w-4" />
-                                                      </div>
-                                                      <span className="flex-1">
-                                                        Max{" "}
-                                                        {event.max_attendees}{" "}
-                                                        attendees
-                                                      </span>
-                                                    </div>
-                                                  )}
                                                 </div>
                                               </div>
                                             </CardContent>
@@ -2474,9 +2473,9 @@ export default function CommunityPage({
                                                     <div className="text-xs mt-1 text-gray-500">
                                                       {weekday}
                                                     </div>
-                                                  </div>
-                                                  <div className="text-xs text-gray-500 mt-1">
-                                                    {year}
+                                                    <div className="text-xs mt-1 font-medium text-gray-600">
+                                                      {year}
+                                                    </div>
                                                   </div>
                                                 </div>
 
@@ -2808,7 +2807,7 @@ export default function CommunityPage({
                           Upcoming Events
                         </span>
                         <span className="font-semibold text-gray-900">
-                          {upcomingEvents.length + pastEvents.length}
+                          {upcomingEvents.length}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">

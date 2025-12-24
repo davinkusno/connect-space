@@ -796,8 +796,8 @@ export class CommunityController extends BaseController {
 
       // Update community
       const result = await this.service.updateCommunity(communityId, user.id, {
-        logo_url: logoUrl,
-        banner_url: bannerUrl,
+        logoUrl: logoUrl,
+        bannerUrl: bannerUrl,
         location: location || undefined,
       });
 

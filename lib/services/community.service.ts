@@ -529,6 +529,31 @@ export class CommunityService extends BaseService {
       });
     }
 
+    // Check if user is joining second+ community (requires 50 usable points)
+    const { data: existingMemberships } = await this.supabaseAdmin
+      .from("community_members")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("status", "approved")
+      .limit(1);
+
+    const isFirstCommunity = !existingMemberships || existingMemberships.length === 0;
+
+    if (!isFirstCommunity) {
+      // User is joining second+ community, check for 50 usable points
+      const usablePointsResult = await pointsService.getUsablePoints(userId);
+      if (!usablePointsResult.success) {
+        return ApiResponse.error("Failed to check points", 500);
+      }
+
+      const usablePoints = usablePointsResult.data || 0;
+      if (usablePoints < 50) {
+        return ApiResponse.badRequest(
+          `You need at least 50 usable points to join additional communities. You currently have ${usablePoints} usable points.`
+        );
+      }
+    }
+
     // Insert with status = 'pending' (awaiting approval)
     const { data: insertData, error: insertError } = await this.supabaseAdmin
       .from("community_members")
@@ -977,8 +1002,8 @@ export class CommunityService extends BaseService {
       console.error("[CommunityService] Error adding creator as member:", memberError);
     }
 
-    // Award points for creating community
-    await pointsService.onCommunityCreated(userId, community.id);
+    // Note: Creating a community no longer awards points
+    // Points are only awarded for joining communities
 
     // Save user interests if provided
     if (input.interests && input.interests.length > 0) {
@@ -1542,9 +1567,9 @@ export class CommunityService extends BaseService {
   }
 
   /**
-   * Update community details
+   * Update community details (full update)
    */
-  public async updateCommunity(
+  public async updateCommunityDetails(
     communityId: string,
     userId: string,
     data: {

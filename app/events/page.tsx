@@ -609,6 +609,9 @@ export default function EventsPage() {
     isListView?: boolean;
   }) => {
     const isSaved = savedEvents.includes(event.id);
+    
+    // Check if event is in the past
+    const isEventPast = new Date(event.date) < new Date(new Date().setHours(0, 0, 0, 0));
 
     // Determine border color based on registration status
     const getBorderColor = () => {
@@ -661,11 +664,13 @@ export default function EventsPage() {
               e.stopPropagation();
               toggleSaveEvent(event.id);
             }}
+            disabled={isEventPast}
           >
             <Heart
               className={cn(
                 "h-4 w-4",
-                isSaved ? "fill-red-500 text-red-500" : "text-gray-600"
+                isSaved ? "fill-red-500 text-red-500" : "text-gray-600",
+                isEventPast && "opacity-50"
               )}
             />
           </Button>

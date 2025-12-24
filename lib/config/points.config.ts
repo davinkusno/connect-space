@@ -33,25 +33,8 @@ export function calculateRequiredPoints(communitiesOwned: number): number {
 // ==================== Points Earning System ====================
 
 export const POINTS_EARNING = {
-  // Community Activities
-  COMMUNITY_JOINED: 2,      // Join a community
-  COMMUNITY_CREATED: 25,    // Create a new community
-  
-  // Content Creation
-  POST_CREATED: 5,          // Create a post/thread
-  POST_LIKED: 1,            // Receive a like on your post
-  
-  // Events
-  EVENT_CREATED: 15,        // Create an event
-  EVENT_JOINED: 10,         // Join an event
-  
-  // Engagement
-  DAILY_ACTIVE: 1,          // Daily login/activity
-  COMMENT_CREATED: 3,       // Create a comment/reply
-  
-  // Milestones
-  FIRST_POST: 10,           // Bonus for first post
-  FIRST_EVENT: 20,          // Bonus for first event created
+  // Community Activities (only way to earn points)
+  COMMUNITY_JOINED: 3,      // Join a community (3 points per community, locked for 3 days)
 } as const;
 
 // ==================== Point Type Mapping ====================
@@ -63,34 +46,6 @@ export const POINT_TYPE_INFO = {
   community_joined: {
     points: POINTS_EARNING.COMMUNITY_JOINED,
     label: 'Joined Community'
-  },
-  community_created: {
-    points: POINTS_EARNING.COMMUNITY_CREATED,
-    label: 'Created Community'
-  },
-  post_created: {
-    points: POINTS_EARNING.POST_CREATED,
-    label: 'Created Post'
-  },
-  post_liked: {
-    points: POINTS_EARNING.POST_LIKED,
-    label: 'Post Liked'
-  },
-  event_created: {
-    points: POINTS_EARNING.EVENT_CREATED,
-    label: 'Created Event'
-  },
-  event_joined: {
-    points: POINTS_EARNING.EVENT_JOINED,
-    label: 'Joined Event'
-  },
-  daily_active: {
-    points: POINTS_EARNING.DAILY_ACTIVE,
-    label: 'Daily Activity'
-  },
-  comment_created: {
-    points: POINTS_EARNING.COMMENT_CREATED,
-    label: 'Created Comment'
   },
   report_received: {
     points: 0,

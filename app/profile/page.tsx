@@ -99,6 +99,7 @@ export default function ProfilePage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [authProvider, setAuthProvider] = useState<string>("email"); // "email" or "google"
+  const [userProfile, setUserProfile] = useState<any>(null); // Store userProfile from database
 
   const router = useRouter();
   const supabase = getSupabaseBrowser();
@@ -116,8 +117,6 @@ export default function ProfilePage() {
           return;
         }
 
-        setUser(session.user);
-
         // Determine authentication provider
         // OAuth users have app_metadata.provider or identities array
         const provider = session.user.app_metadata?.provider || 
@@ -128,13 +127,28 @@ export default function ProfilePage() {
         // Fetch user profile data from users table (not user_metadata)
         const { data: userProfile, error: profileError } = await supabase
           .from("users")
-          .select("full_name, username, interests, location")
+          .select("full_name, username, interests, location, avatar_url")
           .eq("id", session.user.id)
           .single();
+        
+        // Store userProfile in a way that's accessible in handleSave
+        setUserProfile(userProfile);
 
         if (profileError) {
           console.error("Error fetching user profile:", profileError);
         }
+
+        // Prioritize avatar_url from users table over user_metadata (to prevent Google OAuth from overriding custom avatars)
+        const customAvatarUrl = userProfile?.avatar_url || null;
+        const finalAvatarUrl = customAvatarUrl || session.user.user_metadata?.avatar_url;
+        
+        setUser({
+          ...session.user,
+          user_metadata: {
+            ...session.user.user_metadata,
+            avatar_url: finalAvatarUrl,
+          },
+        });
 
         // Load user profile data - prioritize users table, fallback to metadata
         const metadata = session.user.user_metadata || {};
@@ -166,10 +180,23 @@ export default function ProfilePage() {
         
         if (userProfile?.location) {
           try {
-            // Parse location from users table (stored as JSON string)
-            const locationData = typeof userProfile.location === 'string' 
-              ? JSON.parse(userProfile.location) 
-              : userProfile.location;
+            // Parse location from users table (stored as JSON string or plain string)
+            let locationData;
+            if (typeof userProfile.location === 'string') {
+              // Try to parse as JSON, if it fails, treat as plain string
+              try {
+                locationData = JSON.parse(userProfile.location);
+              } catch (e) {
+                // If parsing fails, it's likely a plain string (legacy data)
+                // Create a simple location object from the string
+                locationData = {
+                  city: userProfile.location,
+                  displayName: userProfile.location,
+                };
+              }
+            } else {
+              locationData = userProfile.location;
+            }
             
             if (locationData && locationData.city) {
               setLocationQuery(locationData.city);
@@ -342,20 +369,55 @@ export default function ProfilePage() {
         throw authError;
       }
 
+      // Check if username has changed before updating
+      const currentUsername = userProfile?.username || user.user_metadata?.username;
+      const usernameChanged = formData.username !== currentUsername;
+
+      // Prepare update object - only include username if it has changed
+      const updateData: any = {
+        full_name: formData.fullName,
+        interests: formData.interests,
+        location: locationString,
+      };
+      
+      // Only update username if it has actually changed
+      if (usernameChanged) {
+        updateData.username = formData.username;
+      }
+
       // Update users table in database
       const { error: dbError } = await supabase
         .from("users")
-        .update({
-          full_name: formData.fullName,
-          username: formData.username,
-          interests: formData.interests,
-          location: locationString,
-        })
+        .update(updateData)
         .eq("id", user.id);
 
       if (dbError) {
         console.error("Error updating users table:", dbError);
-        throw new Error("Failed to update profile in database");
+        
+        // Check for unique constraint violation (duplicate username)
+        // PostgreSQL error code 23505 = unique_violation
+        if (dbError.code === "23505" || 
+            dbError.message?.toLowerCase().includes("duplicate") || 
+            dbError.message?.toLowerCase().includes("unique") ||
+            dbError.message?.toLowerCase().includes("already exists")) {
+          toast({
+            title: "Username already taken",
+            description: "This username is already in use. Please choose a different username.",
+            variant: "destructive",
+          });
+          setIsSaving(false);
+          return;
+        }
+        
+        // If username hasn't changed, it should be allowed
+        // But if we still get an error, it might be a different issue
+        if (!usernameChanged) {
+          // Username is the same, this should be allowed
+          // The error might be from another field, so we'll show a generic error
+          throw new Error(dbError.message || "Failed to update profile in database");
+        } else {
+          throw new Error(dbError.message || "Failed to update profile in database");
+        }
       }
 
       // Update local user state
@@ -418,9 +480,22 @@ export default function ProfilePage() {
         let locationReset = false;
         if (userProfile?.location) {
           try {
-            const locationData = typeof userProfile.location === 'string' 
-              ? JSON.parse(userProfile.location) 
-              : userProfile.location;
+            let locationData;
+            if (typeof userProfile.location === 'string') {
+              // Try to parse as JSON, if it fails, treat as plain string
+              try {
+                locationData = JSON.parse(userProfile.location);
+              } catch (e) {
+                // If parsing fails, it's likely a plain string (legacy data)
+                // Create a simple location object from the string
+                locationData = {
+                  city: userProfile.location,
+                  displayName: userProfile.location,
+                };
+              }
+            } else {
+              locationData = userProfile.location;
+            }
             
             if (locationData && locationData.city) {
               setLocationQuery(locationData.city);
@@ -614,14 +689,22 @@ export default function ProfilePage() {
         data: { session: newSession },
       } = await supabase.auth.refreshSession();
 
+      // Also fetch from users table to get the saved avatar_url (prioritize over user_metadata)
+      const { data: userProfile } = await supabase
+        .from("users")
+        .select("avatar_url")
+        .eq("id", user.id)
+        .single();
+
       if (newSession?.user) {
-        // Update local state with new avatar URL and cache-busting
+        // Prioritize avatar_url from users table (custom avatar) over user_metadata (Google OAuth might override)
+        const customAvatarUrl = userProfile?.avatar_url || data.avatar_url;
         const timestamp = Date.now();
         setUser({
           ...newSession.user,
           user_metadata: {
             ...newSession.user.user_metadata,
-            avatar_url: `${data.avatar_url}?t=${timestamp}`,
+            avatar_url: `${customAvatarUrl}?t=${timestamp}`,
           },
         });
       }
@@ -696,14 +779,22 @@ export default function ProfilePage() {
         data: { session: newSession },
       } = await supabase.auth.refreshSession();
 
+      // Also fetch from users table to get the saved avatar_url (prioritize over user_metadata)
+      const { data: userProfile } = await supabase
+        .from("users")
+        .select("avatar_url")
+        .eq("id", user.id)
+        .single();
+
       if (newSession?.user) {
-        // Update local state with placeholder avatar
+        // Prioritize avatar_url from users table (custom avatar) over user_metadata (Google OAuth might override)
+        const customAvatarUrl = userProfile?.avatar_url || data.avatar_url;
         const timestamp = Date.now();
         setUser({
           ...newSession.user,
           user_metadata: {
             ...newSession.user.user_metadata,
-            avatar_url: `${data.avatar_url}?t=${timestamp}`,
+            avatar_url: `${customAvatarUrl}?t=${timestamp}`,
           },
         });
       }
@@ -932,12 +1023,6 @@ export default function ProfilePage() {
                   </p>
                   <p className="text-sm text-gray-500 mb-6">{user.email}</p>
 
-                  {/* Status Badge */}
-                  <div className="flex flex-wrap justify-center gap-2 mb-6">
-                    <Badge className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-300 px-3 py-1">
-                      Community Member
-                    </Badge>
-                  </div>
 
                   {/* Points Stats - Stacked */}
                   <div className="mb-6 space-y-3">

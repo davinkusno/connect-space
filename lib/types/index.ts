@@ -50,6 +50,9 @@ export interface UserPointsSummary {
   communities_joined: number;
   active_days: number;
   last_activity_at: string | null;
+  total_points: number;      // Total points (including locked)
+  usable_points: number;     // Usable points (unlocked)
+  locked_points: number;     // Locked points (not yet usable)
 }
 
 export interface UserTransaction {

@@ -2,13 +2,7 @@ import { BaseService, ServiceResult, ApiResponse } from "./base.service";
 
 // ==================== Types ====================
 export type PointType =
-  | "post_created"
-  | "post_liked"
-  | "event_joined"
-  | "event_created"
   | "community_joined"
-  | "community_created"
-  | "daily_active"
   | "report_received"
   | "report_resolved";
 
@@ -19,6 +13,7 @@ export interface PointTransaction {
   related_id?: string;
   related_type?: "post" | "event" | "community" | "report";
   description?: string;
+  points_unlocked_at?: string; // ISO timestamp when points become usable
 }
 
 export interface UserPointsSummary {
@@ -29,22 +24,19 @@ export interface UserPointsSummary {
   communities_joined: number;
   active_days: number;
   last_activity_at: string | null;
+  total_points: number;      // Total points (including locked)
+  usable_points: number;     // Usable points (unlocked)
+  locked_points: number;     // Locked points (not yet usable)
 }
 
 // ==================== Points Service ====================
 export class PointsService extends BaseService {
   private static instance: PointsService;
 
-  // Point values for different activities (+1 for each positive activity)
+  // Point values - only community_joined awards points (3 points per community)
   public readonly POINT_VALUES = {
-    post_created: 1,
-    post_liked: 1,
-    event_joined: 1,
-    event_created: 1,
-    community_joined: 1,
-    community_created: 1,
-    daily_active: 1,
-    report_received: 1,  // Stored as separate count, not subtracted
+    community_joined: 3,  // 3 points per community join
+    report_received: 1,   // Stored as separate count, not subtracted
     report_resolved: 1,
   } as const;
 
@@ -81,14 +73,21 @@ export class PointsService extends BaseService {
       }
     }
 
-    const { error } = await supabase.from("user_points").insert({
+    const insertData: any = {
       user_id: transaction.user_id,
       points: transaction.points,
       point_type: transaction.point_type,
       related_id: transaction.related_id,
       related_type: transaction.related_type,
       description: transaction.description,
-    });
+    };
+
+    // Add points_unlocked_at if provided
+    if (transaction.points_unlocked_at) {
+      insertData.points_unlocked_at = transaction.points_unlocked_at;
+    }
+
+    const { error } = await supabase.from("user_points").insert(insertData);
 
     if (error) {
       console.error(`[PointsService] Failed to award points:`, error);
@@ -100,15 +99,16 @@ export class PointsService extends BaseService {
   }
 
   /**
-   * Get user's total points
+   * Get user's total points (including locked points)
    */
-  public async getUserPoints(userId: string): Promise<ServiceResult<number>> {
+  public async getTotalPoints(userId: string): Promise<ServiceResult<number>> {
     const supabase = this.supabaseAdmin;
 
     const { data, error } = await supabase
       .from("user_points")
       .select("points")
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .eq("point_type", "community_joined");
 
     if (error) {
       return ApiResponse.error(`Failed to get points: ${error.message}`, 500);
@@ -116,6 +116,91 @@ export class PointsService extends BaseService {
 
     const totalPoints = data?.reduce((sum, row) => sum + row.points, 0) || 0;
     return ApiResponse.success(totalPoints);
+  }
+
+  /**
+   * Get user's usable points (only unlocked points - on-demand calculation)
+   * Points are unlocked when points_unlocked_at <= NOW() or points_unlocked_at IS NULL
+   */
+  public async getUsablePoints(userId: string): Promise<ServiceResult<number>> {
+    const supabase = this.supabaseAdmin;
+    const now = new Date().toISOString();
+
+    // Get all community_joined points
+    const { data, error } = await supabase
+      .from("user_points")
+      .select("points, points_unlocked_at")
+      .eq("user_id", userId)
+      .eq("point_type", "community_joined");
+
+    if (error) {
+      return ApiResponse.error(`Failed to get usable points: ${error.message}`, 500);
+    }
+
+    // Filter to only unlocked points (on-demand calculation)
+    const usablePoints = (data || []).reduce((sum, row) => {
+      // Points are usable if:
+      // 1. points_unlocked_at is NULL (immediately usable)
+      // 2. points_unlocked_at <= NOW() (unlock time has passed)
+      if (!row.points_unlocked_at || new Date(row.points_unlocked_at) <= new Date(now)) {
+        return sum + row.points;
+      }
+      return sum;
+    }, 0);
+
+    return ApiResponse.success(usablePoints);
+  }
+
+  /**
+   * Get user's locked points count
+   */
+  public async getLockedPoints(userId: string): Promise<ServiceResult<number>> {
+    const totalResult = await this.getTotalPoints(userId);
+    const usableResult = await this.getUsablePoints(userId);
+
+    if (!totalResult.success || !usableResult.success) {
+      return ApiResponse.error("Failed to calculate locked points", 500);
+    }
+
+    const lockedPoints = (totalResult.data || 0) - (usableResult.data || 0);
+    return ApiResponse.success(lockedPoints);
+  }
+
+  /**
+   * Check if user already received community points today
+   * Only 1 community can award points per day
+   */
+  public async hasReceivedCommunityPointsToday(userId: string): Promise<ServiceResult<boolean>> {
+    const supabase = this.supabaseAdmin;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStart = today.toISOString();
+    const todayEnd = new Date(today);
+    todayEnd.setHours(23, 59, 59, 999);
+    const todayEndStr = todayEnd.toISOString();
+
+    const { data, error } = await supabase
+      .from("user_points")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("point_type", "community_joined")
+      .gte("created_at", todayStart)
+      .lte("created_at", todayEndStr)
+      .limit(1);
+
+    if (error) {
+      return ApiResponse.error(`Failed to check daily points: ${error.message}`, 500);
+    }
+
+    return ApiResponse.success((data?.length || 0) > 0);
+  }
+
+  /**
+   * Get user's total points (legacy method - now calls getTotalPoints)
+   * @deprecated Use getTotalPoints() or getUsablePoints() instead
+   */
+  public async getUserPoints(userId: string): Promise<ServiceResult<number>> {
+    return this.getTotalPoints(userId);
   }
 
   /**
@@ -158,15 +243,22 @@ export class PointsService extends BaseService {
       reportCount = points.filter((p) => p.point_type === "report_received").length;
     }
 
-    // Calculate breakdown (always from transactions for accuracy)
-    const postsCreated = points.filter((p) => p.point_type === "post_created").length;
-    const eventsJoined = points.filter((p) => p.point_type === "event_joined").length;
+    // Calculate breakdown (only community_joined awards points now)
+    const postsCreated = 0; // No longer awarded
+    const eventsJoined = 0; // No longer awarded
     const communitiesJoined = points.filter((p) => p.point_type === "community_joined").length;
-    const activeDays = points.filter((p) => p.point_type === "daily_active").length;
+    const activeDays = 0; // No longer awarded
 
     const lastActivity = points.length > 0
       ? points.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at
       : null;
+
+    // Get total, usable, and locked points
+    const totalPointsResult = await this.getTotalPoints(userId);
+    const usablePointsResult = await this.getUsablePoints(userId);
+    const totalPoints = totalPointsResult.success ? (totalPointsResult.data || 0) : 0;
+    const usablePoints = usablePointsResult.success ? (usablePointsResult.data || 0) : 0;
+    const lockedPoints = totalPoints - usablePoints;
 
     return ApiResponse.success({
       activity_count: activityCount,
@@ -176,6 +268,9 @@ export class PointsService extends BaseService {
       communities_joined: communitiesJoined,
       active_days: activeDays,
       last_activity_at: lastActivity,
+      total_points: totalPoints,
+      usable_points: usablePoints,
+      locked_points: lockedPoints,
     });
   }
 
@@ -234,77 +329,28 @@ export class PointsService extends BaseService {
     return ApiResponse.success(data || []);
   }
 
-  /**
-   * Check if user already received daily active points today
-   */
-  public async hasDailyActiveToday(userId: string): Promise<ServiceResult<boolean>> {
-    const supabase = this.supabaseAdmin;
-    const today = new Date().toISOString().split("T")[0];
-
-    const { data, error } = await supabase
-      .from("user_points")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("point_type", "daily_active")
-      .gte("created_at", `${today}T00:00:00`)
-      .lt("created_at", `${today}T23:59:59`)
-      .limit(1);
-
-    if (error) {
-      return ApiResponse.error(`Failed to check daily active: ${error.message}`, 500);
-    }
-
-    return ApiResponse.success((data?.length || 0) > 0);
-  }
 
   // ==================== Helper Methods ====================
 
   /**
-   * Award points when user creates a post
-   */
-  public async onPostCreated(userId: string, postId: string): Promise<ServiceResult<void>> {
-    return this.awardPoints({
-      user_id: userId,
-      points: this.POINT_VALUES.post_created,
-      point_type: "post_created",
-      related_id: postId,
-      related_type: "post",
-      description: "Created a post",
-    });
-  }
-
-  /**
-   * Award points when user joins an event
-   */
-  public async onEventJoined(userId: string, eventId: string): Promise<ServiceResult<void>> {
-    return this.awardPoints({
-      user_id: userId,
-      points: this.POINT_VALUES.event_joined,
-      point_type: "event_joined",
-      related_id: eventId,
-      related_type: "event",
-      description: "Joined an event",
-    });
-  }
-
-  /**
-   * Award points when user creates an event
-   */
-  public async onEventCreated(userId: string, eventId: string): Promise<ServiceResult<void>> {
-    return this.awardPoints({
-      user_id: userId,
-      points: this.POINT_VALUES.event_created,
-      point_type: "event_created",
-      related_id: eventId,
-      related_type: "event",
-      description: "Created an event",
-    });
-  }
-
-  /**
    * Award points when user joins a community
+   * - Awards 3 points per community
+   * - Points are locked for 3 days (points_unlocked_at = created_at + 3 days)
+   * - Only awards if user hasn't received points from another community today
    */
   public async onCommunityJoined(userId: string, communityId: string): Promise<ServiceResult<void>> {
+    // Check if user already received points today
+    const hasToday = await this.hasReceivedCommunityPointsToday(userId);
+    if (hasToday.success && hasToday.data) {
+      console.log(`[PointsService] User ${userId} already received community points today, skipping`);
+      return ApiResponse.success(undefined); // Already received points today, skip
+    }
+
+    // Calculate unlock date (3 days from now)
+    const unlockDate = new Date();
+    unlockDate.setDate(unlockDate.getDate() + 3);
+    const unlockDateISO = unlockDate.toISOString();
+
     return this.awardPoints({
       user_id: userId,
       points: this.POINT_VALUES.community_joined,
@@ -312,20 +358,7 @@ export class PointsService extends BaseService {
       related_id: communityId,
       related_type: "community",
       description: "Joined a community",
-    });
-  }
-
-  /**
-   * Award points when user creates a community
-   */
-  public async onCommunityCreated(userId: string, communityId: string): Promise<ServiceResult<void>> {
-    return this.awardPoints({
-      user_id: userId,
-      points: this.POINT_VALUES.community_created,
-      point_type: "community_created",
-      related_id: communityId,
-      related_type: "community",
-      description: "Created a community",
+      points_unlocked_at: unlockDateISO,
     });
   }
 
@@ -342,25 +375,6 @@ export class PointsService extends BaseService {
       description: "Received a report",
     });
   }
-
-  /**
-   * Award daily active points
-   */
-  public async onDailyActive(userId: string): Promise<ServiceResult<void>> {
-    // Check if already awarded today
-    const hasToday = await this.hasDailyActiveToday(userId);
-    if (hasToday.success && hasToday.data) {
-      return ApiResponse.success(undefined); // Already awarded
-    }
-
-    const today = new Date().toISOString().split("T")[0];
-    return this.awardPoints({
-      user_id: userId,
-      points: this.POINT_VALUES.daily_active,
-      point_type: "daily_active",
-      description: `Active on ${today}`,
-    });
-  }
 }
 
 // Export singleton instance
@@ -370,13 +384,9 @@ export const pointsService = PointsService.getInstance();
 export const POINT_VALUES = pointsService.POINT_VALUES;
 
 // Export legacy helper object for backwards compatibility
+// Note: Only community_joined awards points now
 export const PointsHelper = {
-  onPostCreated: (userId: string, postId: string) => pointsService.onPostCreated(userId, postId),
-  onEventJoined: (userId: string, eventId: string) => pointsService.onEventJoined(userId, eventId),
-  onEventCreated: (userId: string, eventId: string) => pointsService.onEventCreated(userId, eventId),
   onCommunityJoined: (userId: string, communityId: string) => pointsService.onCommunityJoined(userId, communityId),
-  onCommunityCreated: (userId: string, communityId: string) => pointsService.onCommunityCreated(userId, communityId),
   onReportReceived: (userId: string, reportId: string) => pointsService.onReportReceived(userId, reportId),
-  onDailyActive: (userId: string) => pointsService.onDailyActive(userId),
 };
 

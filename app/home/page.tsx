@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { EnhancedCalendar } from "@/components/ui/enhanced-calendar";
+import { FloatingElements } from "@/components/ui/floating-elements";
 import { PageTransition } from "@/components/ui/page-transition";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
@@ -1399,8 +1400,9 @@ export default function DashboardPage() {
   return (
     <>
       <PageTransition>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative">
+          <FloatingElements />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 relative z-10">
             {/* Compact Header with Inline Actions */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
               <div>

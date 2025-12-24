@@ -157,6 +157,7 @@ export class AuthService extends BaseService {
 
   /**
    * Update user metadata for OAuth providers (e.g., Google)
+   * Preserves custom avatar_url from users table if it exists
    */
   public async updateOAuthMetadata(user: any): Promise<ServiceResult<void>> {
     if (!user || user.app_metadata?.provider !== "google") {
@@ -165,15 +166,43 @@ export class AuthService extends BaseService {
 
     const supabase = await this.getAuthClient();
 
+    // Check if user has a custom avatar in the users table
+    const { data: userProfile } = await this.supabaseAdmin
+      .from("users")
+      .select("avatar_url")
+      .eq("id", user.id)
+      .single();
+
+    // Only use Google's avatar if there's no custom avatar in the users table
+    // This prevents Google OAuth from overwriting custom profile pictures
+    const googleAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+    const finalAvatarUrl = userProfile?.avatar_url || googleAvatarUrl;
+
     const metadata: OAuthMetadata = {
       full_name: user.user_metadata?.full_name || user.user_metadata?.name,
-      avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+      avatar_url: finalAvatarUrl,
     };
 
     const { error } = await supabase.auth.updateUser({ data: metadata });
 
     if (error) {
       return ApiResponse.error(error.message, 500);
+    }
+
+    // If user has a custom avatar, also ensure it's saved in the users table
+    if (userProfile?.avatar_url && userProfile.avatar_url !== googleAvatarUrl) {
+      // Custom avatar exists, make sure it's preserved in users table
+      // (It should already be there, but we ensure it's not overwritten)
+      await this.supabaseAdmin
+        .from("users")
+        .update({ avatar_url: userProfile.avatar_url })
+        .eq("id", user.id);
+    } else if (googleAvatarUrl && !userProfile?.avatar_url) {
+      // No custom avatar exists, save Google's avatar to users table for first-time login
+      await this.supabaseAdmin
+        .from("users")
+        .update({ avatar_url: googleAvatarUrl })
+        .eq("id", user.id);
     }
 
     return ApiResponse.success(undefined);
