@@ -77,6 +77,16 @@ interface Community {
   isAdmin?: boolean; // For co-admins who were appointed
 }
 
+// Helper function to get ordinal suffix (1st, 2nd, 3rd, 4th, etc.)
+function getOrdinalSuffix(num: number): string {
+  const j = num % 10;
+  const k = num % 100;
+  if (j === 1 && k !== 11) return "st";
+  if (j === 2 && k !== 12) return "nd";
+  if (j === 3 && k !== 13) return "rd";
+  return "th";
+}
+
 export default function DashboardPage() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(
@@ -2766,34 +2776,45 @@ export default function DashboardPage() {
                 More Points Needed
               </DialogTitle>
               <DialogDescription>
-                You need more points to create another community
+                {createPermissionData?.communitiesOwned === 0 
+                  ? "You need more points to create your second community"
+                  : createPermissionData?.communitiesOwned === 1
+                  ? "You need more points to create your second community"
+                  : `You need more points to create your ${(createPermissionData?.communitiesOwned || 0) + 1}${getOrdinalSuffix((createPermissionData?.communitiesOwned || 0) + 1)} community`}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Your Points</span>
+                  <span className="text-sm text-gray-600">Your Usable Points</span>
                   <span className="text-2xl font-bold text-amber-600">
                     {createPermissionData?.currentPoints || 0}
                   </span>
                 </div>
+                {createPermissionData?.lockedPoints > 0 && (
+                  <div className="text-xs text-gray-500 mb-2">
+                    {createPermissionData.lockedPoints} points locked (unlock in 3 days after joining)
+                  </div>
+                )}
                 <Progress
                   value={
-                    (createPermissionData?.currentPoints /
-                      createPermissionData?.requiredPoints) *
-                    100
+                    createPermissionData?.requiredPoints > 0
+                      ? (createPermissionData?.currentPoints /
+                          createPermissionData?.requiredPoints) *
+                        100
+                      : 0
                   }
                   className="h-2 mb-2"
                 />
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500">
-                    {createPermissionData?.requiredPoints -
-                      createPermissionData?.currentPoints}{" "}
+                    {Math.max(0, (createPermissionData?.requiredPoints || 0) -
+                      (createPermissionData?.currentPoints || 0))}{" "}
                     more needed
                   </span>
                   <span className="text-xs font-medium text-gray-700">
-                    Goal: {createPermissionData?.requiredPoints}
+                    Goal: {createPermissionData?.requiredPoints || 0}
                   </span>
                 </div>
               </div>
@@ -2805,23 +2826,12 @@ export default function DashboardPage() {
                 <ul className="space-y-2 text-sm text-gray-600">
                   <li className="flex items-center gap-2">
                     <Star className="w-4 h-4 text-green-500" />
-                    Create posts: 5 points
+                    Join communities: 3 points per community
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="w-4 h-4 text-green-500" />
-                    Create events: 15 points
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="w-4 h-4 text-green-500" />
-                    Join events: 10 points
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="w-4 h-4 text-green-500" />
-                    Comment: 3 points
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="w-4 h-4 text-green-500" />
-                    Join communities: 2 points
+                  <li className="text-xs text-gray-500 ml-6 mt-1">
+                    • Only 1 community can award points per day
+                    • Points are locked for 3 days after joining
+                    • Points become usable after 3 days
                   </li>
                 </ul>
               </div>

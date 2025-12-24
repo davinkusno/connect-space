@@ -1,6 +1,6 @@
 "use client"
 
-import { ContentEnhancerDialog } from "@/components/ai/content-enhancer-dialog"
+import { EnhanceContentButton } from "@/components/ai/enhance-content-button"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FloatingElements } from "@/components/ui/floating-elements"
@@ -11,8 +11,7 @@ import { SmoothReveal } from "@/components/ui/smooth-reveal"
 import { Textarea } from "@/components/ui/textarea"
 import {
     ArrowLeft,
-    Calendar, Clock, Globe, Image as ImageIcon, Loader2, MapPin, Search,
-    Wand2
+    Calendar, Clock, Globe, Image as ImageIcon, Loader2, MapPin, Search
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -164,8 +163,6 @@ export default function EditEventPage({
   const [communityName, setCommunityName] = useState<string>("Community")
   
   // AI Enhancement state
-  const [enhanceDialogOpen, setEnhanceDialogOpen] = useState(false)
-  const [enhancingContentType, setEnhancingContentType] = useState<"description" | null>(null)
 
   // Location picker state
   const [searchQuery, setSearchQuery] = useState("")
@@ -190,23 +187,6 @@ export default function EditEventPage({
     setEventData((prev) => ({ ...prev, [field]: value }))
   }
 
-  // AI Enhancement handlers
-  const handleEnhanceDescription = () => {
-    if (!eventData.description.trim()) {
-      toast.error("Please enter a description first")
-      return
-    }
-    setEnhancingContentType("description")
-    setEnhanceDialogOpen(true)
-  }
-
-  const handleAcceptEnhancedContent = (enhancedContent: string) => {
-    if (enhancingContentType === "description") {
-      setEventData((prev) => ({ ...prev, description: enhancedContent }))
-    }
-    setEnhanceDialogOpen(false)
-    setEnhancingContentType(null)
-  }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -885,17 +865,18 @@ export default function EditEventPage({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="description">Description *</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleEnhanceDescription}
+                  <EnhanceContentButton
+                    content={eventData.description}
+                    contentType="description"
+                    onEnhanced={(enhanced) => handleInputChange("description", enhanced)}
+                    context={{
+                      name: eventData.title,
+                      category: communityName || "",
+                      type: "event",
+                    }}
                     disabled={!eventData.description.trim()}
-                    className="text-xs border-purple-200 hover:bg-purple-50 hover:border-purple-300"
-                  >
-                    <Wand2 className="h-3 w-3 mr-1" />
-                    Enhance
-                  </Button>
+                    className="text-xs"
+                  />
                 </div>
                 <Textarea
                   id="description"
@@ -1184,20 +1165,6 @@ export default function EditEventPage({
         </div>
       </div>
 
-      {/* AI Enhancement Dialog */}
-      {enhancingContentType === "description" && (
-        <ContentEnhancerDialog
-          open={enhanceDialogOpen}
-          onOpenChange={setEnhanceDialogOpen}
-          originalContent={eventData.description}
-          contentType="description"
-          context={{
-            name: eventData.title,
-            category: communityName || "",
-          }}
-          onAccept={handleAcceptEnhancedContent}
-        />
-      )}
     </PageTransition>
   )
 }

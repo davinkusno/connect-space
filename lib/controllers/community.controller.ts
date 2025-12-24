@@ -590,12 +590,20 @@ export class CommunityController extends BaseController {
         return this.badRequest("All required fields must be provided");
       }
 
-      // Handle profile image upload if provided
+      // Profile picture is now mandatory
+      if (!profileImage || profileImage.size === 0) {
+        return this.badRequest("Profile picture is required to create a community");
+      }
+
+      // Handle profile image upload (required)
       let profileImageUrl: string | undefined = undefined;
       if (profileImage && profileImage.size > 0) {
         const uploadResult = await this.storage.uploadImage(
           profileImage,
-          "community"
+          {
+            folder: "communities",
+            maxSizeKey: "community"
+          }
         );
 
         if (!uploadResult.success) {

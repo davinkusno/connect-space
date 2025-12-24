@@ -1,7 +1,6 @@
 "use client"
 
 import { EnhanceContentButton } from "@/components/ai/enhance-content-button"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SmoothReveal } from "@/components/ui/smooth-reveal"
 import { Textarea } from "@/components/ui/textarea"
 import {
-    Copy,
-    Lightbulb, RefreshCw, Sparkles, Users,
-    Wand2
+    ImageIcon,
+    RefreshCw, Users,
+    X
 } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
 import type React from "react"
 import { useState } from "react"
@@ -29,9 +29,7 @@ export default function CreateCommunityPage() {
     profileImage: null as File | null,
   })
 
-  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [aiSuggestions, setAiSuggestions] = useState<any>(null)
 
   const categories = [
     "Hobbies & Crafts",
@@ -50,37 +48,6 @@ export default function CreateCommunityPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const generateDescription = async () => {
-    if (!formData.name || !formData.category) {
-      alert("Please enter a community name and select a category first")
-      return
-    }
-
-    setIsGeneratingDescription(true)
-    try {
-      const response = await fetch("/api/ai/generate-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "community-description",
-          params: {
-            name: formData.name,
-            category: formData.category,
-          },
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setFormData((prev) => ({ ...prev, description: data.description }))
-        setAiSuggestions(data)
-      }
-    } catch (error) {
-      console.error("Failed to generate description:", error)
-    } finally {
-      setIsGeneratingDescription(false)
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -90,6 +57,12 @@ export default function CreateCommunityPage() {
     // Validation
     if (!formData.name || !formData.description || !formData.category) {
       toast.error("Please fill in all required fields")
+      return
+    }
+
+    // Validate profile picture is required
+    if (!formData.profileImage) {
+      toast.error("Profile picture is required to create a community")
       return
     }
 
@@ -109,19 +82,47 @@ export default function CreateCommunityPage() {
       formDataToSend.append("name", formData.name)
       formDataToSend.append("description", formData.description)
       
-      if (formData.profileImage) {
-        formDataToSend.append("profileImage", formData.profileImage)
+      // Profile picture is now mandatory
+      if (!formData.profileImage) {
+        toast.error("Profile picture is required")
+        setIsSubmitting(false)
+        return
       }
+      
+      formDataToSend.append("profileImage", formData.profileImage)
 
       const response = await fetch("/api/communities/create", {
         method: "POST",
         body: formDataToSend,
       })
 
-      const data = await response.json()
+      // Try to parse JSON response
+      let data: any;
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch (parseError) {
+        console.error("Failed to parse response:", parseError);
+        throw new Error("Invalid response from server");
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create community")
+        // Extract error message from different possible formats
+        let errorMessage = "Failed to create community";
+        
+        if (data.error) {
+          if (typeof data.error === "string") {
+            errorMessage = data.error;
+          } else if (data.error.message) {
+            errorMessage = data.error.message;
+          } else if (typeof data.error === "object") {
+            errorMessage = JSON.stringify(data.error);
+          }
+        } else if (data.message) {
+          errorMessage = data.message;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       toast.success("Community created successfully!")
@@ -139,7 +140,18 @@ export default function CreateCommunityPage() {
       }
     } catch (error: any) {
       console.error("Error creating community:", error)
-      toast.error(error.message || "Failed to create community. Please try again.")
+      
+      // Extract error message properly
+      let errorMessage = "Failed to create community. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage)
     } finally {
       setIsSubmitting(false)
     }
@@ -169,31 +181,18 @@ export default function CreateCommunityPage() {
           <SmoothReveal delay={200} direction="up">
               <Card className="border-gray-200/50 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="text-xl font-medium text-gray-900 flex items-center gap-2">
+                <CardTitle className="text-xl font-medium text-gray-900">
                   Basic Information
-                  <Badge variant="secondary" className="ml-2">
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    AI-Powered
-                  </Badge>
                 </CardTitle>
                 <p className="text-gray-600">
-                  Tell us about your community and let AI help you craft the perfect description
+                  Tell us about your community
                 </p>
               </CardHeader>
               <CardContent className="space-y-8">
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="name" className="text-gray-700">
-                      Community Name *
-                    </Label>
-                    <EnhanceContentButton
-                      content={formData.name}
-                      contentType="title"
-                      onEnhanced={(enhanced) => handleInputChange("name", enhanced)}
-                      context={{ category: formData.category }}
-                      disabled={!formData.name}
-                    />
-                  </div>
+                  <Label htmlFor="name" className="text-gray-700">
+                    Community Name *
+                  </Label>
                   <Input
                     id="name"
                     placeholder="e.g., Tech Innovators NYC"
@@ -230,39 +229,17 @@ export default function CreateCommunityPage() {
                     <Label htmlFor="description" className="text-gray-700">
                       Description *
                     </Label>
-                    <div className="flex gap-2">
-                      <EnhanceContentButton
-                        content={formData.description}
-                        contentType="description"
-                        onEnhanced={(enhanced) => handleInputChange("description", enhanced)}
-                        context={{
-                          name: formData.name,
-                          category: formData.category,
-                          type: "community",
-                        }}
-                        disabled={!formData.description}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={generateDescription}
-                        disabled={!formData.name || !formData.category || isGeneratingDescription}
-                        className="border-violet-200 text-violet-600 hover:bg-violet-50"
-                      >
-                        {isGeneratingDescription ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Wand2 className="h-4 w-4 mr-2" />
-                            Generate with AI
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                    <EnhanceContentButton
+                      content={formData.description}
+                      contentType="description"
+                      onEnhanced={(enhanced) => handleInputChange("description", enhanced)}
+                      context={{
+                        name: formData.name,
+                        category: formData.category,
+                        type: "community",
+                      }}
+                      disabled={!formData.description}
+                    />
                   </div>
                   <Textarea
                     id="description"
@@ -282,55 +259,74 @@ export default function CreateCommunityPage() {
                         </p>
                       );
                     })()}
-                    {aiSuggestions && (
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </SmoothReveal>
+
+          {/* Profile Picture Upload */}
+          <SmoothReveal delay={300} direction="up">
+            <Card className="border-gray-200/50 shadow-lg bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-xl font-medium text-gray-900 flex items-center gap-2">
+                  Profile Picture *
+                </CardTitle>
+                <p className="text-gray-600">
+                  Upload a profile picture for your community (required)
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center gap-4">
+                  <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
+                    {formData.profileImage ? (
+                      <AvatarImage 
+                        src={URL.createObjectURL(formData.profileImage)} 
+                        alt="Community preview" 
+                      />
+                    ) : (
+                      <AvatarFallback className="text-3xl font-bold bg-gradient-to-br from-purple-500 to-blue-500 text-white">
+                        {formData.name?.charAt(0) || "?"}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <input
+                    id="profile-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      handleInputChange("profileImage", file);
+                    }}
+                    required
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-violet-200 text-violet-600 hover:bg-violet-50 hover:border-violet-300"
+                      onClick={() => document.getElementById("profile-upload")?.click()}
+                    >
+                      <ImageIcon className="h-4 w-4 mr-2" />
+                      {formData.profileImage ? "Change Picture" : "Choose Picture"}
+                    </Button>
+                    {formData.profileImage && (
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigator.clipboard.writeText(formData.description)}
-                        className="text-violet-600 hover:text-violet-700"
+                        variant="outline"
+                        className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                        onClick={() => handleInputChange("profileImage", null)}
                       >
-                        <Copy className="h-4 w-4 mr-1" />
-                        Copy
+                        <X className="h-4 w-4 mr-2" />
+                        Remove
                       </Button>
                     )}
                   </div>
+                  <p className="text-xs text-gray-500 text-center">
+                    PNG/JPG, recommended 400x400px, max 2MB
+                  </p>
                 </div>
-
-                {/* AI Suggestions Panel */}
-                {aiSuggestions && (
-                  <Card className="border-violet-200 bg-violet-50/50">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium text-violet-700 flex items-center gap-2">
-                        <Lightbulb className="h-4 w-4" />
-                        AI Suggestions
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {aiSuggestions.alternativeDescriptions && (
-                        <div>
-                          <Label className="text-xs font-medium text-gray-600">Alternative Descriptions:</Label>
-                          <div className="space-y-2 mt-1">
-                            {aiSuggestions.alternativeDescriptions.slice(0, 2).map((alt: string, index: number) => (
-                              <div key={index} className="p-2 bg-white rounded border text-sm">
-                                <p className="text-gray-700">{alt}</p>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleInputChange("description", alt)}
-                                  className="mt-1 h-6 px-2 text-xs text-violet-600"
-                                >
-                                  Use this
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
               </CardContent>
             </Card>
           </SmoothReveal>
@@ -341,7 +337,7 @@ export default function CreateCommunityPage() {
               <Button 
                 type="submit" 
                 className="bg-violet-700 hover:bg-violet-800 text-white"
-                disabled={isSubmitting || !formData.name || !formData.description || !formData.category}
+                disabled={isSubmitting || !formData.name || !formData.description || !formData.category || !formData.profileImage}
               >
                 {isSubmitting ? (
                   <>

@@ -341,7 +341,35 @@ export class AIService extends BaseService {
       };
     };
 
-    const prompt = `Create a community description.
+    const originalDescription = String(params.description || "").trim();
+    const hasOriginalDescription = originalDescription.length > 0;
+
+    const prompt = hasOriginalDescription 
+      ? `Enhance and improve this community description while preserving ALL the original information and key points:
+
+ORIGINAL DESCRIPTION:
+${originalDescription}
+
+Community context:
+- Name: ${safeName}
+- Category: ${safeCategory}
+${safeTags ? `- Topics: ${safeTags}` : ""}
+${safeLocation ? `- Location: ${safeLocation}` : ""}
+
+IMPORTANT REQUIREMENTS:
+1. PRESERVE all information from the original description - do not remove or ignore any details
+2. Keep all specific mentions (e.g., company names, locations, topics mentioned)
+3. Improve grammar, clarity, and flow while keeping the same meaning
+4. Make it more engaging and professional
+5. Keep it concise - aim for similar length or slightly longer (max 50% longer), NOT 500 words
+6. Maintain the original tone and style
+
+Return JSON with:
+- description: string (enhanced version that preserves all original content)
+- alternativeDescriptions: array of strings (optional)
+- suggestedTags: array of strings (optional)
+- targetAudience: string (optional, NOT an array)`
+      : `Create a community description.
 
 Community details:
 - Name: ${safeName}
@@ -349,14 +377,11 @@ Community details:
 - Topics: ${safeTags || "General"}
 - Location: ${safeLocation}
 
-Write a description that:
+Write a concise description (100-200 words) that:
 1. Explains the community purpose
 2. Covers the topics: ${safeTags || "general interests"}
 3. Describes activities
-4. Is EXACTLY 100-500 words (MUST NOT exceed 500 words)
-5. Uses professional language
-
-IMPORTANT: The description MUST be 500 words or less.
+4. Uses professional language
 
 Return JSON with:
 - description: string (required)
@@ -365,10 +390,14 @@ Return JSON with:
 - targetAudience: string (optional, NOT an array)`;
 
     try {
+      const systemPrompt = hasOriginalDescription
+        ? "You are a content editor who enhances descriptions while preserving all original information. Never remove or ignore details from the original text. Improve clarity, grammar, and flow while keeping the same meaning and all specific mentions. Keep enhancements concise - similar length or slightly longer, not verbose."
+        : "You are a content writer creating factual community descriptions. Write only appropriate, professional content. Always return targetAudience as a string, not an array. Keep descriptions concise (100-200 words).";
+
       const result = await aiClient.generateObject(prompt, CommunityDescriptionSchema, {
-        systemPrompt: "You are a content writer creating factual community descriptions. Write only appropriate, professional content. Always return targetAudience as a string, not an array.",
+        systemPrompt,
         temperature: 0.6,
-        maxTokens: 1500,
+        maxTokens: hasOriginalDescription ? 800 : 1500,
       });
 
       if (!result || !result.description) {
@@ -484,24 +513,48 @@ Rules should:
     params: ContentGenerationParams
   ): Promise<ServiceResult<EventDescriptionResult>> {
     try {
-      const safeTitle = String(params.title || "").trim().substring(0, 200);
+      // Support both 'title' and 'name' for event title (for backward compatibility)
+      const safeTitle = String(params.title || params.name || "").trim().substring(0, 200);
       const safeCategory = String(params.category || "").trim().substring(0, 50);
       const safeDuration = String(params.duration || "").trim().substring(0, 100);
       const safeLocation = String(params.location || "Not specified").trim().substring(0, 200);
 
-      const prompt = `Generate a compelling event description for:
+      const originalDescription = String(params.description || "").trim();
+      const hasOriginalDescription = originalDescription.length > 0;
+
+      const prompt = hasOriginalDescription
+        ? `Enhance this event description to make it more complete, engaging, and professional while preserving ALL the original information.
+
+ORIGINAL DESCRIPTION:
+${originalDescription}
+
+Event context:
+- Title: ${safeTitle}
+${safeCategory ? `- Category: ${safeCategory}` : ""}
+${safeDuration ? `- Duration: ${safeDuration}` : ""}
+${safeLocation ? `- Location: ${safeLocation}` : ""}
+
+Your task:
+1. PRESERVE all information from the original - keep every detail, mention, and fact
+2. Improve grammar, spelling, and sentence structure
+3. Add natural, relevant wording to make it more complete and engaging (expand where it makes sense)
+4. Make it flow better and sound more professional
+5. Keep similar length or slightly longer (up to 50% longer if needed for clarity and completeness)
+6. Maintain the original tone and style
+
+Return ONLY the enhanced description text.`
+        : `Generate a compelling event description for:
 
 Title: ${safeTitle}
 Category: ${safeCategory}
-Duration: ${safeDuration}
-Location: ${safeLocation}
+${safeDuration ? `Duration: ${safeDuration}` : ""}
+${safeLocation ? `Location: ${safeLocation}` : ""}
 
-Create a description that:
+Create a concise description (100-200 words) that:
 - Explains what attendees will learn/experience
 - Highlights key benefits and outcomes
 - Attracts the right audience
 - Is engaging and informative
-- Is EXACTLY 150-500 words (MUST NOT exceed 500 words)
 
 Also identify the target audience and expected outcomes.`;
 
@@ -512,21 +565,58 @@ Also identify the target audience and expected outcomes.`;
       };
 
       try {
-        const result = await aiClient.generateObject(prompt, EventDescriptionSchema, {
-          systemPrompt: "You are an expert event organizer who creates compelling event descriptions that drive registrations. Always keep descriptions under 500 words.",
-        });
+        if (hasOriginalDescription) {
+          // For enhancement, use generateText to get just the enhanced description
+          // This ensures the AI focuses on improving the text, not generating structured data
+          const systemPrompt = "You are a content editor who enhances event descriptions. You improve grammar, spelling, and sentence structure while preserving all original information. You can add natural, relevant wording to make descriptions more complete and engaging, but you must keep all original details, mentions, and facts. Never remove or change the meaning of the original content. Return only the enhanced description text.";
+          
+          const enhancedDescription = await aiClient.generateText(prompt, {
+            systemPrompt,
+            maxTokens: 1000, // Allow more tokens for expansion
+            temperature: 0.5, // Slightly higher for more creative expansion while still preserving content
+          });
 
-        const validatedResult: EventDescriptionResult = {
-          description: result.description ? truncateToWords(String(result.description), 500) : "",
-          targetAudience: result.targetAudience || `People interested in ${params.category || "general events"}`,
-          expectedOutcomes: result.expectedOutcomes || ["Learn new skills", "Network with professionals", "Gain insights"],
-          alternativeDescriptions: result.alternativeDescriptions 
-            ? result.alternativeDescriptions.map((alt: string) => truncateToWords(String(alt), 500))
-            : [],
-        };
+          const validatedResult: EventDescriptionResult = {
+            description: enhancedDescription ? truncateToWords(String(enhancedDescription).trim(), 500) : originalDescription,
+            targetAudience: `People interested in ${params.category || "general events"}`,
+            expectedOutcomes: ["Learn new skills", "Network with professionals", "Gain insights"],
+            alternativeDescriptions: []
+          };
 
-        return ApiResponse.success(validatedResult);
-      } catch {
+          return ApiResponse.success(validatedResult);
+        } else {
+          // For generation (no original description), use generateObject for structured output
+          const systemPrompt = "You are an expert event organizer who creates compelling event descriptions that drive registrations. Keep descriptions concise (100-200 words).";
+
+          const result = await aiClient.generateObject(prompt, EventDescriptionSchema, {
+            systemPrompt,
+            maxTokens: 1000,
+          });
+
+          const validatedResult: EventDescriptionResult = {
+            description: result.description ? truncateToWords(String(result.description), 500) : "",
+            targetAudience: result.targetAudience || `People interested in ${params.category || "general events"}`,
+            expectedOutcomes: result.expectedOutcomes || ["Learn new skills", "Network with professionals", "Gain insights"],
+            alternativeDescriptions: result.alternativeDescriptions 
+              ? result.alternativeDescriptions.map((alt: string) => truncateToWords(String(alt), 500))
+              : [],
+          };
+
+          return ApiResponse.success(validatedResult);
+        }
+      } catch (error) {
+        console.error("[AIService] Event description generation error:", error);
+        // If enhancement fails, return the original description instead of a generic fallback
+        if (hasOriginalDescription) {
+          const validatedResult: EventDescriptionResult = {
+            description: originalDescription,
+            targetAudience: `People interested in ${params.category || "general events"}`,
+            expectedOutcomes: ["Learn new skills", "Network with professionals", "Gain insights"],
+            alternativeDescriptions: []
+          };
+          return ApiResponse.success(validatedResult);
+        }
+        
         const fallbackResult: EventDescriptionResult = {
           description: `${params.title || "This event"} is a ${params.category || "general"} event. Join us for an engaging experience.`,
           targetAudience: `People interested in ${params.category || "general events"}`,

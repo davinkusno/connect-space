@@ -1450,16 +1450,17 @@ export class CommunityService extends BaseService {
     requiredPoints: number;
     communitiesOwned: number;
     message?: string;
+    usablePoints?: number;
+    lockedPoints?: number;
   }>> {
     try {
-      // Get user's total activity points (excluding reports)
-      const { data: pointsData } = await this.supabaseAdmin
-        .from("user_points")
-        .select("points")
-        .eq("user_id", userId)
-        .neq("point_type", "report_received");
+      // Get user's usable points (unlocked points only) using pointsService
+      const usablePointsResult = await pointsService.getUsablePoints(userId);
+      const lockedPointsResult = await pointsService.getLockedPoints(userId);
       
-      const currentPoints = pointsData?.reduce((sum, p) => sum + (p.points || 1), 0) || 0;
+      const usablePoints = usablePointsResult.success ? (usablePointsResult.data || 0) : 0;
+      const lockedPoints = lockedPointsResult.success ? (lockedPointsResult.data || 0) : 0;
+      const currentPoints = usablePoints; // Use usable points for community creation
       
       // Get number of communities owned by this user (all statuses - active, suspended, archived)
       // We count all communities the user created, regardless of status
@@ -1474,10 +1475,10 @@ export class CommunityService extends BaseService {
       
       const ownedCount = communitiesOwned || 0;
       
-      console.log(`[CommunityService] User ${userId} owns ${ownedCount} communities, has ${currentPoints} points`);
-      
       // Calculate required points based on progression
       const requiredPoints = calculateRequiredPoints(ownedCount);
+      
+      console.log(`[CommunityService] User ${userId} owns ${ownedCount} communities, has ${currentPoints} usable points, needs ${requiredPoints} points for next community`);
       
       const canCreate = currentPoints >= requiredPoints;
       
@@ -1492,6 +1493,8 @@ export class CommunityService extends BaseService {
         currentPoints,
         requiredPoints,
         communitiesOwned: ownedCount,
+        usablePoints,
+        lockedPoints,
         message: canCreate ? undefined : message
       });
     } catch (error) {

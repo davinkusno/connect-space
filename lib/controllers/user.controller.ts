@@ -192,42 +192,47 @@ export class UserController extends BaseController {
       // Extract interests and location from request body
       const { interests, location } = body;
       
-      // Parse location if it's a JSON string
-      let locationValue: string | undefined = undefined;
-      if (location) {
-        if (typeof location === 'string') {
-          // If it's already a JSON string, use it directly
-          try {
-            // Validate it's valid JSON
-            JSON.parse(location);
-            locationValue = location;
-          } catch {
-            // If parsing fails, it might be a plain string, convert to JSON
-            locationValue = JSON.stringify({ city: location });
-          }
-        } else {
-          // If it's an object, stringify it
-          locationValue = JSON.stringify(location);
-        }
+      // Validate required fields
+      if (!interests || !Array.isArray(interests) || interests.length < 3) {
+        return this.error("At least 3 interests are required", 400);
       }
       
-      // Update user profile with interests and location if provided
-      if (interests && Array.isArray(interests) && interests.length > 0) {
-        console.log("[UserController] Updating profile with interests:", interests);
-        console.log("[UserController] Updating profile with location:", locationValue);
-        
-        const updateResult = await this.service.updateProfile(user.id, {
-          interests,
-          location: locationValue,
-        });
-        
-        if (!updateResult.success) {
-          console.error("[UserController] Profile update failed:", updateResult.error);
-          return this.error(updateResult.error?.message || "Failed to update profile", updateResult.status);
-        }
-        
-        console.log("[UserController] Profile updated successfully");
+      if (!location) {
+        return this.error("Location is required to complete onboarding", 400);
       }
+      
+      // Parse location if it's a JSON string
+      let locationValue: string | undefined = undefined;
+      if (typeof location === 'string') {
+        // If it's already a JSON string, use it directly
+        try {
+          // Validate it's valid JSON
+          JSON.parse(location);
+          locationValue = location;
+        } catch {
+          // If parsing fails, it might be a plain string, convert to JSON
+          locationValue = JSON.stringify({ city: location });
+        }
+      } else {
+        // If it's an object, stringify it
+        locationValue = JSON.stringify(location);
+      }
+      
+      // Update user profile with interests and location
+      console.log("[UserController] Updating profile with interests:", interests);
+      console.log("[UserController] Updating profile with location:", locationValue);
+      
+      const updateResult = await this.service.updateProfile(user.id, {
+        interests,
+        location: locationValue,
+      });
+      
+      if (!updateResult.success) {
+        console.error("[UserController] Profile update failed:", updateResult.error);
+        return this.error(updateResult.error?.message || "Failed to update profile", updateResult.status);
+      }
+      
+      console.log("[UserController] Profile updated successfully");
       
       // Mark onboarding as complete
       console.log("[UserController] Marking onboarding as complete");

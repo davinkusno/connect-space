@@ -103,6 +103,11 @@ export default function OnboardingPage() {
       return;
     }
 
+    if (!location) {
+      toast.error("Please select your location");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -299,7 +304,7 @@ export default function OnboardingPage() {
                         value={location || undefined}
                         onChange={handleLocationChange}
                         locationType="physical"
-                        required={false}
+                        required={true}
                       />
                     </div>
 
@@ -314,7 +319,7 @@ export default function OnboardingPage() {
                       </Button>
                       <Button
                         onClick={handleSubmit}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || !location}
                         className="bg-purple-600 hover:bg-purple-700 px-8"
                       >
                         {isSubmitting ? (
