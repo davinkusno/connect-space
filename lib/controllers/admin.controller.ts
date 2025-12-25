@@ -191,6 +191,80 @@ export class AdminController extends BaseController {
   }
 
   /**
+   * POST /api/admin/reports/[id]/ban-community-admin
+   * Ban a community admin from creating communities (superadmin only)
+   * Used when a community admin is reported
+   * @param request - The incoming request with ban reason
+   * @param reportId - The report ID
+   * @returns NextResponse with success message
+   */
+  public async banCommunityAdmin(
+    request: NextRequest,
+    reportId: string
+  ): Promise<NextResponse<{ message: string } | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireSuperAdmin();
+      const body = await this.parseBody<{
+        reason?: string;
+      }>(request);
+
+      // Get the report to find the target user
+      const adminService = this.service as any;
+      const { data: report, error: reportError } = await adminService.supabaseAdmin
+        .from("reports")
+        .select("target_id, report_type, reason, details")
+        .eq("id", reportId)
+        .single();
+
+      if (reportError || !report) {
+        return this.notFound("Report not found");
+      }
+
+      // Check if the report is for a community (which means the admin is being reported)
+      if (report.report_type !== "community") {
+        return this.badRequest("This endpoint is only for banning community admins. Use the resolve endpoint with ban action for other report types.");
+      }
+
+      // Get the community to find the admin
+      const { data: community, error: communityError } = await adminService.supabaseAdmin
+        .from("communities")
+        .select("creator_id")
+        .eq("id", report.target_id)
+        .single();
+
+      if (communityError || !community) {
+        return this.notFound("Community not found");
+      }
+
+      const adminUserId = community.creator_id;
+      const banReason = body.reason || report.reason || "Violation of platform guidelines";
+
+      // Ban the admin from creating communities
+      const result = await this.service.banUserFromCreatingCommunities(
+        adminUserId,
+        user.id,
+        banReason,
+        reportId
+      );
+
+      if (result.success) {
+        // Also update the report status to resolved
+        await this.service.resolveReport(
+          reportId,
+          user.id,
+          `Community admin banned from creating communities: ${banReason}`,
+          "ban"
+        );
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to ban community admin", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * GET /api/admin/inactive-communities
    * Get all inactive communities
    * @param request - The incoming request

@@ -66,6 +66,8 @@ interface Report {
   reported_member?: ReportedMember;
   target_name?: string; // Generic name for the reported item
   target_type_label?: string; // Human-readable type label
+  reporter_count?: number; // Number of unique community members who reported this
+  threshold_met?: boolean; // Whether this report meets the 30% threshold
 }
 
 interface ReportsData {
@@ -93,6 +95,9 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState<Report["status"]>("pending");
   const [reviewNotes, setReviewNotes] = useState("");
+  const [isBanning, setIsBanning] = useState(false);
+  const [banReason, setBanReason] = useState("");
+  const [showBanDialog, setShowBanDialog] = useState(false);
 
   const pageSize = 10;
 
@@ -172,6 +177,42 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
       toast.error(error instanceof Error ? error.message : "Failed to update report");
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleBanUser = async () => {
+    if (!selectedReport || selectedReport.report_type !== "member") return;
+
+    try {
+      setIsBanning(true);
+
+      const response = await fetch(
+        `/api/communities/${communityId}/reports/${selectedReport.id}/ban`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reason: banReason.trim() || selectedReport.reason || "Violation of community guidelines",
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || "Failed to ban user");
+      }
+
+      const result = await response.json();
+      toast.success(result.message);
+      setShowBanDialog(false);
+      setIsDetailOpen(false);
+      setBanReason("");
+      loadReports(); // Reload reports
+    } catch (error) {
+      console.error("Error banning user:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to ban user");
+    } finally {
+      setIsBanning(false);
     }
   };
 
@@ -417,6 +458,13 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
                               : "reports"}
                           </Badge>
                         )}
+                        
+                        {/* Threshold indicator */}
+                        {report.reporter_count !== undefined && report.reporter_count > 0 && (
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                            {report.reporter_count} {report.reporter_count === 1 ? "member" : "members"} reported
+                          </Badge>
+                        )}
                       </div>
 
                       {/* Member-specific details */}
@@ -452,6 +500,14 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
 
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         <span>Reported by {report.reporter.full_name}</span>
+                        {report.reporter_count !== undefined && report.reporter_count > 1 && (
+                          <>
+                            <span>•</span>
+                            <span className="text-green-600 font-medium">
+                              {report.reporter_count} total reporters
+                            </span>
+                          </>
+                        )}
                         <span>•</span>
                         <span>{formatDate(report.created_at)}</span>
                       </div>
@@ -621,6 +677,31 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
 
               {/* Action Section */}
               <div className="space-y-4 border-t pt-4">
+                {/* Ban Button for Member Reports */}
+                {selectedReport.report_type === "member" && selectedReport.status !== "resolved" && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-red-900 mb-1">Ban User from Community</h4>
+                        <p className="text-sm text-red-700 mb-3">
+                          This will remove the user from the community and prevent them from joining again.
+                        </p>
+                        <Button
+                          variant="destructive"
+                          onClick={() => {
+                            setBanReason(selectedReport.reason || "");
+                            setShowBanDialog(true);
+                          }}
+                          className="w-full"
+                        >
+                          <UserX className="w-4 h-4 mr-2" />
+                          Ban User from Community
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Status
@@ -685,6 +766,99 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
                 </>
               ) : (
                 "Update Status"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ban User Confirmation Dialog */}
+      <Dialog open={showBanDialog} onOpenChange={setShowBanDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ban User from Community</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to ban this user? They will be removed from the community
+              and will not be able to join again.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {selectedReport?.reported_member && (
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Avatar className="w-12 h-12">
+                    <AvatarImage
+                      src={selectedReport.reported_member.avatar_url || undefined}
+                    />
+                    <AvatarFallback>
+                      {selectedReport.reported_member.full_name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h4 className="font-semibold">
+                      {selectedReport.reported_member.full_name}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      {selectedReport.reported_member.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Ban Reason
+              </label>
+              <Textarea
+                placeholder="Enter the reason for banning this user..."
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-red-800">
+                  <p className="font-medium mb-1">This action cannot be undone</p>
+                  <p>
+                    The user will be immediately removed from the community and will not
+                    be able to rejoin unless you manually unban them.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowBanDialog(false);
+                setBanReason("");
+              }}
+              disabled={isBanning}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBanUser}
+              disabled={isBanning || !banReason.trim()}
+            >
+              {isBanning ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Banning...
+                </>
+              ) : (
+                <>
+                  <UserX className="w-4 h-4 mr-2" />
+                  Confirm Ban
+                </>
               )}
             </Button>
           </DialogFooter>

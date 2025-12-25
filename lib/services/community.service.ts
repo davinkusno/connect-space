@@ -508,6 +508,20 @@ export class CommunityService extends BaseService {
     communityId: string, 
     userId: string
   ): Promise<ServiceResult<JoinResult>> {
+    // Check if user is banned from this community
+    const { data: ban } = await this.supabaseAdmin
+      .from("community_bans")
+      .select("reason, created_at")
+      .eq("community_id", communityId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (ban) {
+      return ApiResponse.forbidden(
+        `You are banned from this community. Reason: ${ban.reason || "Violation of community guidelines"}`
+      );
+    }
+
     // Check if already a member
     const { data: existingMember } = await this.supabaseAdmin
       .from("community_members")
@@ -929,6 +943,19 @@ export class CommunityService extends BaseService {
     },
     userId: string
   ): Promise<ServiceResult<CommunityData>> {
+    // Check if user is banned from creating communities
+    const { data: ban } = await this.supabaseAdmin
+      .from("banned_users")
+      .select("reason, created_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (ban) {
+      return ApiResponse.forbidden(
+        `You are banned from creating communities. Reason: ${ban.reason || "Violation of platform guidelines"}`
+      );
+    }
+
     // Validate description word count
     const wordCount = input.description.trim().split(/\s+/).filter(word => word.length > 0).length;
     if (wordCount > 500) {
@@ -1454,6 +1481,25 @@ export class CommunityService extends BaseService {
     lockedPoints?: number;
   }>> {
     try {
+      // Check if user is banned from creating communities
+      const { data: ban } = await this.supabaseAdmin
+        .from("banned_users")
+        .select("reason, created_at")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (ban) {
+        return ApiResponse.success({
+          canCreate: false,
+          currentPoints: 0,
+          requiredPoints: 0,
+          communitiesOwned: 0,
+          usablePoints: 0,
+          lockedPoints: 0,
+          message: `You are banned from creating communities. Reason: ${ban.reason || "Violation of platform guidelines"}`
+        });
+      }
+
       // Get user's usable points (unlocked points only) using pointsService
       const usablePointsResult = await pointsService.getUsablePoints(userId);
       const lockedPointsResult = await pointsService.getLockedPoints(userId);

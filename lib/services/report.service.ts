@@ -274,19 +274,21 @@ export class ReportService extends BaseService {
       return ApiResponse.forbidden("Only admins and moderators can view member reports");
     }
 
-    // Get all members of this community to filter reports
+    // Get all approved members of this community to calculate threshold
     const { data: communityMembers, error: membersError } = await this.supabaseAdmin
       .from("community_members")
       .select("user_id")
-      .eq("community_id", communityId);
+      .eq("community_id", communityId)
+      .eq("status", "approved"); // Only count approved members
 
     if (membersError || !communityMembers) {
       return ApiResponse.error("Failed to fetch community members", 500);
     }
 
     const memberIds = communityMembers.map(m => m.user_id);
+    const totalMembers = memberIds.length;
 
-    if (memberIds.length === 0) {
+    if (totalMembers === 0) {
       return ApiResponse.success({
         reports: [],
         total: 0,
@@ -295,17 +297,16 @@ export class ReportService extends BaseService {
       });
     }
 
-    // Build query for member reports
-    const page = options?.page || 1;
-    const pageSize = options?.pageSize || 20;
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    let query = this.supabaseAdmin
+    // Calculate 30% threshold (minimum number of unique reporters needed)
+    const threshold = Math.ceil(totalMembers * 0.3);
+    
+    // Get all reports for members of this community (before filtering by threshold)
+    let allReportsQuery = this.supabaseAdmin
       .from("reports")
       .select(`
         id,
         target_id,
+        report_type,
         reason,
         details,
         status,
@@ -313,25 +314,109 @@ export class ReportService extends BaseService {
         updated_at,
         resolved_at,
         review_notes,
-        reporter:reporter_id (id, full_name, avatar_url)
-      `, { count: "exact" })
-      .eq("report_type", "member")
+        reporter_id
+      `)
       .in("target_id", memberIds)
       .order("created_at", { ascending: false });
 
     if (options?.status && options.status !== "all") {
-      query = query.eq("status", options.status);
+      allReportsQuery = allReportsQuery.eq("status", options.status);
     }
 
-    const { data: reportsData, count, error: reportsError } = await query.range(from, to);
+    const { data: allReports, error: allReportsError } = await allReportsQuery;
 
-    if (reportsError) {
-      console.error("Error fetching community reports:", reportsError);
+    if (allReportsError) {
+      console.error("Error fetching all reports:", allReportsError);
       return ApiResponse.error("Failed to fetch reports", 500);
     }
 
-    // Fetch detailed user information for reported members
-    const reportedUserIds = [...new Set(reportsData?.map(r => r.target_id) || [])];
+    // Group reports by target_id and report_type, count unique reporters
+    const reportGroups = new Map<string, {
+      target_id: string;
+      report_type: string;
+      unique_reporters: Set<string>;
+      reports: any[];
+    }>();
+
+    (allReports || []).forEach((report: any) => {
+      const key = `${report.report_type}_${report.target_id}`;
+      if (!reportGroups.has(key)) {
+        reportGroups.set(key, {
+          target_id: report.target_id,
+          report_type: report.report_type,
+          unique_reporters: new Set<string>(),
+          reports: [],
+        });
+      }
+      const group = reportGroups.get(key)!;
+      // Only count reporters who are members of the community
+      if (memberIds.includes(report.reporter_id)) {
+        group.unique_reporters.add(report.reporter_id);
+      }
+      group.reports.push(report);
+    });
+
+    // Filter: Only keep reports where unique_reporters >= threshold
+    const filteredReports: any[] = [];
+    reportGroups.forEach((group) => {
+      if (group.unique_reporters.size >= threshold) {
+        // Add all reports for this target (they all meet the threshold)
+        filteredReports.push(...group.reports);
+      }
+    });
+
+    // Sort by created_at descending
+    filteredReports.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    // Apply pagination
+    const page = options?.page || 1;
+    const pageSize = options?.pageSize || 20;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize;
+    const paginatedReports = filteredReports.slice(from, to);
+    const totalCount = filteredReports.length;
+
+    // Get reporter information for paginated reports
+    const reporterIds = [...new Set(paginatedReports.map((r: any) => r.reporter_id))];
+    const { data: reportersData } = await this.supabaseAdmin
+      .from("users")
+      .select("id, full_name, avatar_url")
+      .in("id", reporterIds);
+
+    const reportersMap = new Map(reportersData?.map(r => [r.id, r]) || []);
+
+    // Create a map of report counts per target for display
+    const reportCountsMap = new Map<string, number>();
+    reportGroups.forEach((group, key) => {
+      if (group.unique_reporters.size >= threshold) {
+        reportCountsMap.set(key, group.unique_reporters.size);
+      }
+    });
+
+    // Enrich reports with reporter info
+    const reportsData = paginatedReports.map((report: any) => {
+      const key = `${report.report_type}_${report.target_id}`;
+      const reporterCount = reportCountsMap.get(key) || 0;
+      
+      return {
+        ...report,
+        reporter: reportersMap.get(report.reporter_id) || {
+          id: report.reporter_id,
+          full_name: "Unknown",
+          avatar_url: null,
+        },
+        reporter_count: reporterCount,
+        threshold_met: true, // All reports shown here meet the threshold
+      };
+    });
+
+    // Fetch detailed user information for reported members (only for member reports)
+    const memberReportTargets = reportsData
+      .filter((r: any) => r.report_type === "member")
+      .map((r: any) => r.target_id);
+    const reportedUserIds = [...new Set(memberReportTargets)];
     
     const { data: usersData, error: usersError } = await this.supabaseAdmin
       .from("users")
@@ -367,26 +452,31 @@ export class ReportService extends BaseService {
     // Map user data by ID for easy lookup
     const usersMap = new Map(usersData?.map(u => [u.id, u]) || []);
 
-    // Enrich reports with user details
-    const enrichedReports = reportsData?.map(report => {
-      const stats = userStatsMap[report.target_id] || { points_count: 0, report_count: 0 };
-      return {
-        ...report,
-        reporter: report.reporter as { id: string; full_name: string; avatar_url: string | null },
-        reported_member: {
-          id: report.target_id,
-          full_name: usersMap.get(report.target_id)?.full_name || "Unknown User",
-          email: usersMap.get(report.target_id)?.email || "",
-          avatar_url: usersMap.get(report.target_id)?.avatar_url || null,
-          points_count: stats.points_count,
-          report_count: stats.report_count,
-        },
-      };
-    }) || [];
+    // Enrich reports with user details (only for member reports)
+    const enrichedReports = reportsData.map((report: any) => {
+      if (report.report_type === "member") {
+        const stats = userStatsMap[report.target_id] || { points_count: 0, report_count: 0 };
+        return {
+          ...report,
+          reporter: report.reporter as { id: string; full_name: string; avatar_url: string | null },
+          reported_member: {
+            id: report.target_id,
+            full_name: usersMap.get(report.target_id)?.full_name || "Unknown User",
+            email: usersMap.get(report.target_id)?.email || "",
+            avatar_url: usersMap.get(report.target_id)?.avatar_url || null,
+            points_count: stats.points_count,
+            report_count: stats.report_count,
+          },
+        };
+      } else {
+        // For non-member reports, return as-is (reporter_count and threshold_met already included)
+        return report;
+      }
+    });
 
     return ApiResponse.success({
       reports: enrichedReports,
-      total: count || 0,
+      total: totalCount,
       page,
       pageSize,
     });
@@ -508,6 +598,122 @@ export class ReportService extends BaseService {
     }
 
     return ApiResponse.success(data.user_type);
+  }
+
+  /**
+   * Ban a user from a community
+   * @param communityId - The community ID
+   * @param userId - The user ID to ban
+   * @param adminUserId - The admin performing the ban
+   * @param reason - The reason for the ban
+   * @param reportId - Optional report ID that led to this ban
+   * @returns ServiceResult indicating success or failure
+   */
+  public async banUserFromCommunity(
+    communityId: string,
+    userId: string,
+    adminUserId: string,
+    reason: string,
+    reportId?: string
+  ): Promise<ServiceResult<{ message: string }>> {
+    // Verify the user is an admin or moderator
+    const { data: membership, error: membershipError } = await this.supabaseAdmin
+      .from("community_members")
+      .select("role")
+      .eq("community_id", communityId)
+      .eq("user_id", adminUserId)
+      .single();
+
+    if (membershipError || !membership) {
+      return ApiResponse.forbidden("You do not have permission to ban users");
+    }
+
+    if (membership.role !== "admin" && membership.role !== "moderator") {
+      return ApiResponse.forbidden("Only admins and moderators can ban users");
+    }
+
+    // Check if user is the community creator (cannot ban creator)
+    const { data: community } = await this.supabaseAdmin
+      .from("communities")
+      .select("creator_id")
+      .eq("id", communityId)
+      .single();
+
+    if (community && community.creator_id === userId) {
+      return ApiResponse.forbidden("Cannot ban the community creator");
+    }
+
+    // Remove user from community if they are a member
+    const { error: removeError } = await this.supabaseAdmin
+      .from("community_members")
+      .delete()
+      .eq("community_id", communityId)
+      .eq("user_id", userId);
+
+    if (removeError) {
+      console.error("Error removing user from community:", removeError);
+      // Continue anyway - user might not be a member
+    }
+
+    // Check if user is already banned
+    const { data: existingBan } = await this.supabaseAdmin
+      .from("community_bans")
+      .select("id")
+      .eq("community_id", communityId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (existingBan) {
+      return ApiResponse.success({ message: "User is already banned from this community" });
+    }
+
+    // Create ban record
+    const { error: banError } = await this.supabaseAdmin
+      .from("community_bans")
+      .insert({
+        community_id: communityId,
+        user_id: userId,
+        banned_by: adminUserId,
+        reason,
+        report_id: reportId || null,
+      });
+
+    if (banError) {
+      console.error("Error creating ban:", banError);
+      return ApiResponse.error("Failed to ban user", 500);
+    }
+
+    return ApiResponse.success({ 
+      message: "User has been banned from the community and removed from membership" 
+    });
+  }
+
+  /**
+   * Check if a user is banned from a community
+   * @param communityId - The community ID
+   * @param userId - The user ID to check
+   * @returns ServiceResult with ban status
+   */
+  public async isUserBannedFromCommunity(
+    communityId: string,
+    userId: string
+  ): Promise<ServiceResult<{ isBanned: boolean; ban?: { reason: string; created_at: string } }>> {
+    const { data: ban, error } = await this.supabaseAdmin
+      .from("community_bans")
+      .select("reason, created_at")
+      .eq("community_id", communityId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error checking ban status:", error);
+      return ApiResponse.error("Failed to check ban status", 500);
+    }
+
+    return ApiResponse.success({
+      isBanned: !!ban,
+      ban: ban || undefined,
+    });
   }
 }
 

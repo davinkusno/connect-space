@@ -180,6 +180,70 @@ export class ReportController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * POST /api/communities/[communityId]/reports/[reportId]/ban
+   * Ban a user from the community based on a report (admin/moderator only)
+   * @param request - The incoming request with ban reason
+   * @param communityId - The community ID
+   * @param reportId - The report ID
+   * @returns NextResponse with success message
+   */
+  public async banUserFromCommunity(
+    request: NextRequest,
+    communityId: string,
+    reportId: string
+  ): Promise<NextResponse<{ message: string } | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      const body = await this.parseBody<{
+        reason?: string;
+      }>(request);
+
+      // Get the report to find the target user - we need to access supabaseAdmin through the service
+      // First, let's get the report using a service method or directly query
+      const reportService = this.service as any;
+      const { data: report, error: reportError } = await reportService.supabaseAdmin
+        .from("reports")
+        .select("target_id, report_type, reason, details")
+        .eq("id", reportId)
+        .single();
+
+      if (reportError || !report) {
+        return this.notFound("Report not found");
+      }
+
+      if (report.report_type !== "member") {
+        return this.badRequest("Only member reports can result in bans");
+      }
+
+      const banReason = body.reason || report.reason || "Violation of community guidelines";
+
+      const result = await this.service.banUserFromCommunity(
+        communityId,
+        report.target_id,
+        user.id,
+        banReason,
+        reportId
+      );
+
+      if (result.success) {
+        // Also update the report status to resolved
+        await this.service.updateReportStatus(
+          reportId,
+          communityId,
+          user.id,
+          "resolved",
+          `User banned: ${banReason}`
+        );
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to ban user", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance
