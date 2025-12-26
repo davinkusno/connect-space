@@ -9,15 +9,21 @@ import { forwardRef } from "react"
 interface AnimatedCardProps extends React.ComponentProps<typeof Card> {
   variant?: "default" | "glass" | "gradient" | "3d"
   children: React.ReactNode
+  disableHoverScale?: boolean
 }
 
 export const AnimatedCard = forwardRef<HTMLDivElement, AnimatedCardProps>(
-  ({ className, variant = "default", children, ...props }, ref) => {
+  ({ className, variant = "default", disableHoverScale = false, children, ...props }, ref) => {
     const variants = {
-      default:
-        "hover:shadow-2xl transform hover:scale-[1.02] transition-all duration-500 border-0 bg-white/80 backdrop-blur-sm",
-      glass: "glass-effect hover:bg-white/20 transform hover:scale-[1.02] transition-all duration-500",
-      gradient: "gradient-primary text-white hover:shadow-2xl transform hover:scale-[1.02] transition-all duration-500",
+      default: disableHoverScale
+        ? "hover:shadow-2xl transition-all duration-500 border-0 bg-white/80 backdrop-blur-sm"
+        : "hover:shadow-2xl transform hover:scale-[1.02] transition-all duration-500 border-0 bg-white/80 backdrop-blur-sm",
+      glass: disableHoverScale
+        ? "glass-effect hover:bg-white/20 transition-all duration-500"
+        : "glass-effect hover:bg-white/20 transform hover:scale-[1.02] transition-all duration-500",
+      gradient: disableHoverScale
+        ? "gradient-primary text-white hover:shadow-2xl transition-all duration-500"
+        : "gradient-primary text-white hover:shadow-2xl transform hover:scale-[1.02] transition-all duration-500",
       "3d": "card-3d hover:shadow-2xl perspective-1000 preserve-3d backface-hidden",
     }
 

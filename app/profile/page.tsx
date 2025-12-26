@@ -404,6 +404,17 @@ export default function ProfilePage() {
         return;
       }
 
+      // Validate location is required
+      if (!selectedLocation) {
+        toast({
+          title: "Validation Error",
+          description: "Location is required. Please select a location.",
+          variant: "destructive",
+        });
+        setIsSaving(false);
+        return;
+      }
+
       // Get session token
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -416,11 +427,9 @@ export default function ProfilePage() {
         return;
       }
 
-      // Prepare location
-      const locationData = selectedLocation
-        ? toStandardizedLocation(selectedLocation)
-        : undefined;
-      const locationString = locationData ? JSON.stringify(locationData) : null;
+      // Prepare location (guaranteed to exist due to validation above)
+      const locationData = toStandardizedLocation(selectedLocation);
+      const locationString = JSON.stringify(locationData);
 
       // Prepare update data
       const updateData = {

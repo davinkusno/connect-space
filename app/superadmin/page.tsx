@@ -1051,13 +1051,32 @@ export default function SuperadminPage() {
 
     if (activeTab === "reports") {
       fetchReports();
+      fetchReviewQueueReports();
     }
   }, [activeTab]);
+
+  // Fetch reports review queue (30% threshold)
+  const fetchReviewQueueReports = async () => {
+    setIsLoadingReviewQueue(true);
+    try {
+      const response = await fetch("/api/admin/reports-review-queue");
+      if (!response.ok) {
+        throw new Error("Failed to fetch review queue reports");
+      }
+      const data = await response.json();
+      setReviewQueueReports(data.reports || []);
+    } catch (error) {
+      console.error("Error fetching review queue reports:", error);
+      toast.error("Failed to load review queue reports");
+    } finally {
+      setIsLoadingReviewQueue(false);
+    }
+  };
 
   // Handle delete report
   const handleDeleteReport = async (reportId: string) => {
     try {
-      setIsProcessingAction(true);
+      setProcessingReportId(reportId);
       const response = await fetch(`/api/admin/reports/${reportId}`, {
         method: "DELETE",
       });
@@ -1070,6 +1089,7 @@ export default function SuperadminPage() {
       
       // Refresh reports list
       setReportedCommunities(prev => prev.filter(r => r.id !== reportId));
+      setReviewQueueReports(prev => prev.filter(r => r.id !== reportId));
       
       // Close detail dialog if open
       if (selectedReport?.id === reportId) {
@@ -1080,13 +1100,13 @@ export default function SuperadminPage() {
       console.error("Error deleting report:", error);
       toast.error("Failed to delete report");
     } finally {
-      setIsProcessingAction(false);
+      setProcessingReportId(null);
     }
   };
 
   // Reports management state
   const [reportSearchQuery, setReportSearchQuery] = useState("");
-  const [reportTypeFilter, setReportTypeFilter] = useState<"all" | "community" | "event" | "thread" | "reply">("all");
+  const [reportTypeFilter, setReportTypeFilter] = useState<"all" | "community" | "event" | "thread" | "reply" | "member">("all");
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [isReportDetailOpen, setIsReportDetailOpen] = useState(false);
   const [currentReportPage, setCurrentReportPage] = useState(1);
@@ -1095,6 +1115,13 @@ export default function SuperadminPage() {
   const [reportedCommunities, setReportedCommunities] = useState<any[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(true);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
+  const [processingReportId, setProcessingReportId] = useState<string | null>(null);
+  
+  // Reports Review Queue state (30% threshold)
+  const [reviewQueueReports, setReviewQueueReports] = useState<any[]>([]);
+  const [isLoadingReviewQueue, setIsLoadingReviewQueue] = useState(false);
+  const [currentReviewQueuePage, setCurrentReviewQueuePage] = useState(1);
+  const [reviewQueueItemsPerPage] = useState(5);
 
   // Report detail dialog state
   const [reportDetailPage, setReportDetailPage] = useState(1);
@@ -1227,6 +1254,7 @@ export default function SuperadminPage() {
     reportIds?: string[]
   ) => {
     setIsProcessingAction(true);
+    setProcessingReportId(communityId);
     try {
       const response = await fetch(`/api/admin/reports/${communityId}`, {
         method: "PATCH",
@@ -1270,6 +1298,7 @@ export default function SuperadminPage() {
       toast.error(error.message || "Failed to process action");
     } finally {
       setIsProcessingAction(false);
+      setProcessingReportId(null);
     }
   };
 
@@ -1483,8 +1512,286 @@ export default function SuperadminPage() {
                 </div>
               </div>
 
+              {/* Reports Review Queue (30% Threshold) */}
+              <AnimatedCard variant="glass" className="p-6" disableHoverScale>
+                <div className="flex justify-between items-center mb-6">
+                  <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-orange-600" />
+                    Reports Review Queue (30% Threshold)
+                    <Badge className="bg-orange-100 text-orange-700 border-orange-200">
+                      {reviewQueueReports.length} Reports
+                    </Badge>
+                  </h4>
+                </div>
+
+                {isLoadingReviewQueue ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Spinner size="lg" />
+                  </div>
+                ) : (
+                  <>
+                    {reviewQueueReports.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        No reports currently meet the 30% threshold for review.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[1400px]">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[25%]">
+                                Reported Item
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[12%]">
+                                Type
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[13%]">
+                                Community
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[12%]">
+                                Reports / Threshold
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[13%]">
+                                Last Report
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[25%]">
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reviewQueueReports
+                              .slice((currentReviewQueuePage - 1) * reviewQueueItemsPerPage, currentReviewQueuePage * reviewQueueItemsPerPage)
+                              .map((report) => (
+                              <tr
+                                key={report.id}
+                                className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                              >
+                                <td className="py-4 px-4">
+                                  <div>
+                                    <div className="font-medium text-gray-900">
+                                      {report.target_name || "Unknown"}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      Reported by: {report.reporter?.full_name || "Anonymous"}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-4 px-4">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs ${
+                                      report.report_type === "member"
+                                        ? "bg-purple-50 border-purple-200 text-purple-600"
+                                        : report.report_type === "event"
+                                        ? "bg-blue-50 border-blue-200 text-blue-600"
+                                        : report.report_type === "thread"
+                                        ? "bg-green-50 border-green-200 text-green-600"
+                                        : report.report_type === "reply"
+                                        ? "bg-orange-50 border-orange-200 text-orange-600"
+                                        : report.report_type === "community"
+                                        ? "bg-red-50 border-red-200 text-red-600"
+                                        : "bg-gray-50 border-gray-200 text-gray-600"
+                                    }`}
+                                  >
+                                    {report.report_type}
+                                  </Badge>
+                                </td>
+                                <td className="py-4 px-4">
+                                  <div className="text-sm text-gray-700">
+                                    {report.community_name || "N/A"}
+                                  </div>
+                                </td>
+                                <td className="py-4 px-4">
+                                  <Badge className="bg-orange-500 text-white">
+                                    {report.unique_reporters} / {report.threshold}
+                                  </Badge>
+                                </td>
+                                <td className="py-4 px-4">
+                                  <div className="text-sm text-gray-700">
+                                    {new Date(report.created_at).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                  </div>
+                                </td>
+                                <td className="py-4 px-4">
+                                  <div className="flex gap-2">
+                                    <AnimatedButton
+                                      variant="glass"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedReport(report);
+                                        setIsReportDetailOpen(true);
+                                        setReportDetailPage(1);
+                                      }}
+                                      className="text-blue-600 hover:text-blue-700 min-w-[120px] px-3"
+                                    >
+                                      <Eye className="h-4 w-4 mr-1.5" />
+                                      View Report
+                                    </AnimatedButton>
+                                    {report.report_type === "community" && report.community_id && (
+                                      <Link href={`/communities/${report.community_id}`} target="_blank">
+                                        <AnimatedButton
+                                          variant="glass"
+                                          size="sm"
+                                          className="text-red-600 hover:text-red-700 min-w-[120px] px-3"
+                                        >
+                                          <ExternalLink className="h-4 w-4 mr-1.5" />
+                                          View Item
+                                        </AnimatedButton>
+                                      </Link>
+                                    )}
+                                    {report.report_type === "event" && report.reported_event?.id && (
+                                      <Link href={`/events/${report.reported_event.id}`} target="_blank">
+                                        <AnimatedButton
+                                          variant="glass"
+                                          size="sm"
+                                          className="text-blue-600 hover:text-blue-700 min-w-[120px] px-3"
+                                        >
+                                          <ExternalLink className="h-4 w-4 mr-1.5" />
+                                          View Item
+                                        </AnimatedButton>
+                                      </Link>
+                                    )}
+                                    {report.report_type === "thread" && report.reported_thread?.community_id && report.reported_thread?.id && (
+                                      <Link href={`/communities/${report.reported_thread.community_id}?tab=discussions&threadId=${report.reported_thread.id}`} target="_blank">
+                                        <AnimatedButton
+                                          variant="glass"
+                                          size="sm"
+                                          className="text-green-600 hover:text-green-700 min-w-[120px] px-3"
+                                        >
+                                          <ExternalLink className="h-4 w-4 mr-1.5" />
+                                          View Item
+                                        </AnimatedButton>
+                                      </Link>
+                                    )}
+                                    {report.report_type === "reply" && report.reported_reply?.parent?.community_id && report.reported_reply?.id && (
+                                      <Link href={`/communities/${report.reported_reply.parent.community_id}?tab=discussions&threadId=${report.reported_reply.parent_id}&replyId=${report.reported_reply.id}`} target="_blank">
+                                        <AnimatedButton
+                                          variant="glass"
+                                          size="sm"
+                                          className="text-orange-600 hover:text-orange-700 min-w-[120px] px-3"
+                                        >
+                                          <ExternalLink className="h-4 w-4 mr-1.5" />
+                                          View Item
+                                        </AnimatedButton>
+                                      </Link>
+                                    )}
+                                    {report.report_type === "member" && report.reported_user?.id && (
+                                      <Link href={`/users/${report.reported_user.id}`} target="_blank">
+                                        <AnimatedButton
+                                          variant="glass"
+                                          size="sm"
+                                          className="text-purple-600 hover:text-purple-700 min-w-[120px] px-3"
+                                        >
+                                          <ExternalLink className="h-4 w-4 mr-1.5" />
+                                          View Item
+                                        </AnimatedButton>
+                                      </Link>
+                                    )}
+                                    <AnimatedButton
+                                      variant="glass"
+                                      size="sm"
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[120px] px-3"
+                                      onClick={() => handleDeleteReport(report.id)}
+                                      disabled={processingReportId === report.id}
+                                    >
+                                      {processingReportId === report.id ? (
+                                        <Spinner size="sm" />
+                                      ) : (
+                                        <>
+                                          <Trash2 className="h-4 w-4 mr-1.5" />
+                                          Delete
+                                        </>
+                                      )}
+                                    </AnimatedButton>
+                                    {report.report_type === "community" && report.community_id && (
+                                      <>
+                                        {report.communityStatus === "suspended" ? (
+                                          <AnimatedButton
+                                            variant="glass"
+                                            size="sm"
+                                            className="text-green-600 hover:text-green-700 hover:bg-green-50 min-w-[120px] px-3"
+                                            onClick={() => handleReportAction(report.community_id, "reactivate")}
+                                            disabled={processingReportId === report.community_id}
+                                          >
+                                            {processingReportId === report.community_id ? (
+                                              <Spinner size="sm" />
+                                            ) : (
+                                              <>
+                                                <RotateCcw className="h-4 w-4 mr-1.5" />
+                                                Reactivate
+                                              </>
+                                            )}
+                                          </AnimatedButton>
+                                        ) : (
+                                          <AnimatedButton
+                                            variant="glass"
+                                            size="sm"
+                                            className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[120px] px-3"
+                                            onClick={() => handleReportAction(report.community_id, "suspend")}
+                                            disabled={processingReportId === report.community_id}
+                                          >
+                                            {processingReportId === report.community_id ? (
+                                              <Spinner size="sm" />
+                                            ) : (
+                                              <>
+                                                <Ban className="h-4 w-4 mr-1.5" />
+                                                Suspend
+                                              </>
+                                            )}
+                                          </AnimatedButton>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Pagination for Review Queue */}
+                    {reviewQueueReports.length > reviewQueueItemsPerPage && (
+                      <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                        <div className="text-sm text-gray-600">
+                          Showing {(currentReviewQueuePage - 1) * reviewQueueItemsPerPage + 1} to{" "}
+                          {Math.min(currentReviewQueuePage * reviewQueueItemsPerPage, reviewQueueReports.length)}{" "}
+                          of {reviewQueueReports.length} reports
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <AnimatedButton
+                            variant="glass"
+                            size="sm"
+                            onClick={() => setCurrentReviewQueuePage((prev) => Math.max(1, prev - 1))}
+                            disabled={currentReviewQueuePage === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </AnimatedButton>
+                          <span className="text-sm text-gray-600">
+                            Page {currentReviewQueuePage} of {Math.ceil(reviewQueueReports.length / reviewQueueItemsPerPage)}
+                          </span>
+                          <AnimatedButton
+                            variant="glass"
+                            size="sm"
+                            onClick={() => setCurrentReviewQueuePage((prev) => Math.min(Math.ceil(reviewQueueReports.length / reviewQueueItemsPerPage), prev + 1))}
+                            disabled={currentReviewQueuePage >= Math.ceil(reviewQueueReports.length / reviewQueueItemsPerPage)}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </AnimatedButton>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </AnimatedCard>
+
               {/* Reports Section */}
-              <AnimatedCard variant="glass" className="p-6">
+              <AnimatedCard variant="glass" className="p-6" disableHoverScale>
                 <div className="flex justify-between items-center mb-6">
                   <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                     <Ban className="h-5 w-5 text-red-600" />
@@ -1494,7 +1801,7 @@ export default function SuperadminPage() {
                     </Badge>
                   </h4>
                   <div className="flex items-center gap-3">
-                    <Select value={reportTypeFilter} onValueChange={(value: "all" | "community" | "event" | "thread" | "reply") => setReportTypeFilter(value)}>
+                    <Select value={reportTypeFilter} onValueChange={(value: "all" | "community" | "event" | "thread" | "reply" | "member") => setReportTypeFilter(value)}>
                       <SelectTrigger className="w-[160px]">
                         <Filter className="h-4 w-4 mr-2" />
                         <SelectValue />
@@ -1502,6 +1809,7 @@ export default function SuperadminPage() {
                       <SelectContent>
                         <SelectItem value="all">All Types</SelectItem>
                         <SelectItem value="community">Community</SelectItem>
+                        <SelectItem value="member">Member</SelectItem>
                         <SelectItem value="event">Event</SelectItem>
                         <SelectItem value="thread">Thread</SelectItem>
                         <SelectItem value="reply">Reply</SelectItem>
@@ -1652,10 +1960,10 @@ export default function SuperadminPage() {
                                     <AnimatedButton
                                       variant="glass"
                                       size="sm"
-                                      className="text-purple-600 hover:text-purple-700 min-w-[160px] px-3"
+                                      className="text-purple-600 hover:text-purple-700 min-w-[120px] px-3"
                                     >
                                       <ExternalLink className="h-4 w-4 mr-1.5" />
-                                      View Community
+                                      View Item
                                     </AnimatedButton>
                                   </Link>
                                 )}
@@ -1664,10 +1972,10 @@ export default function SuperadminPage() {
                                     <AnimatedButton
                                       variant="glass"
                                       size="sm"
-                                      className="text-blue-600 hover:text-blue-700 min-w-[160px] px-3"
+                                      className="text-blue-600 hover:text-blue-700 min-w-[120px] px-3"
                                     >
                                       <ExternalLink className="h-4 w-4 mr-1.5" />
-                                      View Event
+                                      View Item
                                     </AnimatedButton>
                                   </Link>
                                 )}
@@ -1676,10 +1984,10 @@ export default function SuperadminPage() {
                                     <AnimatedButton
                                       variant="glass"
                                       size="sm"
-                                      className="text-green-600 hover:text-green-700 min-w-[160px] px-3"
+                                      className="text-green-600 hover:text-green-700 min-w-[120px] px-3"
                                     >
                                       <ExternalLink className="h-4 w-4 mr-1.5" />
-                                      View Thread
+                                      View Item
                                     </AnimatedButton>
                                   </Link>
                                 )}
@@ -1688,10 +1996,10 @@ export default function SuperadminPage() {
                                     <AnimatedButton
                                       variant="glass"
                                       size="sm"
-                                      className="text-orange-600 hover:text-orange-700 min-w-[160px] px-3"
+                                      className="text-orange-600 hover:text-orange-700 min-w-[120px] px-3"
                                     >
                                       <ExternalLink className="h-4 w-4 mr-1.5" />
-                                      View Reply
+                                      View Item
                                     </AnimatedButton>
                                   </Link>
                                 )}
@@ -1700,9 +2008,9 @@ export default function SuperadminPage() {
                                   size="sm"
                                   className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[160px] px-3"
                                   onClick={() => handleDeleteReport(report.id)}
-                                  disabled={isProcessingAction}
+                                  disabled={processingReportId === report.id}
                                 >
-                                  {isProcessingAction ? (
+                                  {processingReportId === report.id ? (
                                     <Spinner size="sm" />
                                   ) : (
                                     <>
@@ -1711,40 +2019,44 @@ export default function SuperadminPage() {
                                     </>
                                   )}
                                 </AnimatedButton>
-                                {report.communityStatus === "suspended" ? (
-                                  <AnimatedButton
-                                    variant="glass"
-                                    size="sm"
-                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 min-w-[160px] px-3"
-                                    onClick={() => handleReportAction(report.communityId, "reactivate")}
-                                    disabled={isProcessingAction}
-                                  >
-                                    {isProcessingAction ? (
-                                      <Spinner size="sm" />
+                                {report.category === "community" && (
+                                  <>
+                                    {report.communityStatus === "suspended" ? (
+                                      <AnimatedButton
+                                        variant="glass"
+                                        size="sm"
+                                        className="text-green-600 hover:text-green-700 hover:bg-green-50 min-w-[160px] px-3"
+                                        onClick={() => handleReportAction(report.communityId, "reactivate")}
+                                        disabled={processingReportId === report.communityId}
+                                      >
+                                        {processingReportId === report.communityId ? (
+                                          <Spinner size="sm" />
+                                        ) : (
+                                          <>
+                                            <RotateCcw className="h-4 w-4 mr-1.5" />
+                                            Reactivate
+                                          </>
+                                        )}
+                                      </AnimatedButton>
                                     ) : (
-                                      <>
-                                        <RotateCcw className="h-4 w-4 mr-1.5" />
-                                        Reactivate
-                                      </>
+                                      <AnimatedButton
+                                        variant="glass"
+                                        size="sm"
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[160px] px-3"
+                                        onClick={() => handleReportAction(report.communityId, "suspend")}
+                                        disabled={processingReportId === report.communityId}
+                                      >
+                                        {processingReportId === report.communityId ? (
+                                          <Spinner size="sm" />
+                                        ) : (
+                                          <>
+                                            <Ban className="h-4 w-4 mr-1.5" />
+                                            Suspend
+                                          </>
+                                        )}
+                                      </AnimatedButton>
                                     )}
-                                  </AnimatedButton>
-                                ) : (
-                                  <AnimatedButton
-                                    variant="glass"
-                                    size="sm"
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[160px] px-3"
-                                    onClick={() => handleReportAction(report.communityId, "suspend")}
-                                    disabled={isProcessingAction}
-                                  >
-                                    {isProcessingAction ? (
-                                      <Spinner size="sm" />
-                                    ) : (
-                                      <>
-                                        <Ban className="h-4 w-4 mr-1.5" />
-                                        Suspend
-                                      </>
-                                    )}
-                                  </AnimatedButton>
+                                  </>
                                 )}
                               </div>
                             </td>
@@ -2005,7 +2317,7 @@ export default function SuperadminPage() {
               Report Details
             </DialogTitle>
             <DialogDescription className="text-gray-600">
-              View detailed information about this reported community
+              View detailed information about this report
             </DialogDescription>
           </DialogHeader>
 
@@ -2016,45 +2328,49 @@ export default function SuperadminPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      {selectedReport.communityName}
+                      {selectedReport.communityName || selectedReport.target_name || "Unknown"}
                     </h3>
+                    {/* Show community context for thread/reply/event */}
+                    {((selectedReport.category === "thread" || selectedReport.category === "reply" || selectedReport.category === "event") || 
+                      (selectedReport.report_type === "thread" || selectedReport.report_type === "reply" || selectedReport.report_type === "event")) && 
+                     (selectedReport.actualCommunityName || selectedReport.community_name) && (
+                      <div className="text-sm text-gray-700 mb-2 flex items-center gap-1">
+                        <span className="font-medium">Community:</span>
+                        <span>{selectedReport.actualCommunityName || selectedReport.community_name}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 mb-2">
                       <Badge className="bg-red-500 text-white">
-                        {selectedReport.reportCount} Reports
+                        {selectedReport.reportCount || selectedReport.report_count || selectedReport.unique_reporters || 1} Reports
                       </Badge>
                       <Badge
                         variant="outline"
                         className={`text-xs ${
-                          selectedReport.category === "community"
+                          (selectedReport.category || selectedReport.report_type) === "community"
                             ? "bg-red-50 border-red-200 text-red-700"
-                            : selectedReport.category === "event"
+                            : (selectedReport.category || selectedReport.report_type) === "event"
                             ? "bg-blue-50 border-blue-200 text-blue-700"
-                            : selectedReport.category === "thread"
+                            : (selectedReport.category || selectedReport.report_type) === "thread"
                             ? "bg-green-50 border-green-200 text-green-700"
-                            : selectedReport.category === "reply"
+                            : (selectedReport.category || selectedReport.report_type) === "reply"
                             ? "bg-orange-50 border-orange-200 text-orange-700"
+                            : (selectedReport.category || selectedReport.report_type) === "member"
+                            ? "bg-purple-50 border-purple-200 text-purple-700"
                             : "bg-gray-50 border-gray-200 text-gray-700"
                         }`}
                       >
-                        {selectedReport.category === "community"
-                          ? "Community"
-                          : selectedReport.category === "event"
-                          ? "Event"
-                          : selectedReport.category === "thread"
-                          ? "Thread"
-                          : selectedReport.category === "reply"
-                          ? "Reply"
-                          : selectedReport.category || "Unknown"}
+                        {selectedReport.category || selectedReport.report_type || "Unknown"}
                       </Badge>
                     </div>
                     <div className="text-sm text-gray-600">
-                      Reported by: {selectedReport.reporterInfo?.name || "Anonymous"}
+                      Reported by: {selectedReport.reporterInfo?.name || selectedReport.reporter?.full_name || "Anonymous"}
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Report Reasons Statistics */}
+              {selectedReport.reports && selectedReport.reports.length > 0 && (
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
                 <h4 className="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" />
@@ -2089,7 +2405,7 @@ export default function SuperadminPage() {
                               <span className="text-xs font-bold">👑</span>
                             )}
                             <span className="text-sm font-medium">
-                              {reason}
+                              {getReportReasonLabel(reason)}
                             </span>
                             <Badge
                               className={`${
@@ -2107,16 +2423,66 @@ export default function SuperadminPage() {
                   );
                 })()}
               </div>
+              )}
+
+              {/* Single Report Details - Show if this is a single report from review queue */}
+              {!selectedReport.reports && (
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
+                  <h4 className="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Report Details
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">Reason: </span>
+                      <span className="text-sm text-gray-900">{getReportReasonLabel(selectedReport.reason)}</span>
+                    </div>
+                    {selectedReport.details && (
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Details: </span>
+                        <p className="text-sm text-gray-900 mt-1">{selectedReport.details}</p>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">Status: </span>
+                      <Badge className={selectedReport.status === "pending" ? "bg-yellow-500 text-white" : "bg-green-500 text-white"}>
+                        {selectedReport.status}
+                      </Badge>
+                    </div>
+                    {selectedReport.unique_reporters && selectedReport.threshold && (
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Reports / Threshold: </span>
+                        <Badge className="bg-orange-500 text-white">
+                          {selectedReport.unique_reporters} / {selectedReport.threshold}
+                        </Badge>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">Reported: </span>
+                      <span className="text-sm text-gray-900">
+                        {new Date(selectedReport.created_at).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Report List with Pagination */}
-              <div>
-                <div className="mb-4">
-                  <h4 className="text-lg font-semibold text-gray-900">
-                    User Reports
-                  </h4>
-                </div>
+              {selectedReport.reports && selectedReport.reports.length > 0 && (
+                <>
+                  <div className="mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900">
+                      User Reports
+                    </h4>
+                  </div>
 
-                {(() => {
+                  {(() => {
                   // All reports without filter
                   const filteredReports = selectedReport.reports;
 
@@ -2300,7 +2666,8 @@ export default function SuperadminPage() {
                     </>
                   );
                 })()}
-              </div>
+                </>
+              )}
             </div>
           )}
 

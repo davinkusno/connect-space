@@ -219,6 +219,254 @@ export class AdminService extends BaseService {
   }
 
   /**
+   * Get all reports across all types with 30% threshold information
+   * Returns both all reports and reports that meet the 30% threshold for review
+   * @param options - Query options
+   * @returns ServiceResult containing all reports and review queue
+   */
+  public async getMemberReports(
+    options?: ReportsQueryOptions
+  ): Promise<ServiceResult<{
+    allReports: any[];
+    reviewQueue: any[];
+    totalAll: number;
+    totalReview: number;
+  }>> {
+    try {
+      // Get ALL reports (all types)
+      const { data: allReports, error: reportsError } = await this.supabaseAdmin
+        .from("reports")
+        .select(`
+          id,
+          target_id,
+          report_type,
+          reason,
+          details,
+          status,
+          created_at,
+          updated_at,
+          resolved_at,
+          review_notes,
+          reporter_id,
+          reporter:reporter_id (id, full_name, avatar_url, email)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (reportsError) {
+        console.error("Error fetching reports:", reportsError);
+        return ApiResponse.error("Failed to fetch reports", 500);
+      }
+
+      // Get all communities to calculate thresholds
+      const { data: communities, error: communitiesError } = await this.supabaseAdmin
+        .from("communities")
+        .select("id, name");
+
+      if (communitiesError) {
+        return ApiResponse.error("Failed to fetch communities", 500);
+      }
+
+      // For each community, get member count and calculate 30% threshold
+      const communityThresholds = new Map<string, { threshold: number; name: string; memberCount: number }>();
+      
+      for (const community of communities || []) {
+        const { count: memberCount } = await this.supabaseAdmin
+          .from("community_members")
+          .select("user_id", { count: "exact", head: true })
+          .eq("community_id", community.id)
+          .eq("status", "approved");
+
+        const threshold = Math.ceil((memberCount || 0) * 0.3);
+        communityThresholds.set(community.id, { 
+          threshold, 
+          name: community.name,
+          memberCount: memberCount || 0
+        });
+      }
+
+      // Group reports by target_id and report_type to count unique reporters
+      const reportGroups = new Map<string, {
+        reports: any[];
+        uniqueReporters: Set<string>;
+        communityId: string | null;
+      }>();
+
+      for (const report of allReports || []) {
+        const key = `${report.report_type}-${report.target_id}`;
+        
+        if (!reportGroups.has(key)) {
+          // Try to determine community context
+          let communityId: string | null = null;
+          
+          // For different report types, fetch community context
+          if (report.report_type === "member") {
+            // Get community from member's communities (use first one for now)
+            const { data: memberCommunities } = await this.supabaseAdmin
+              .from("community_members")
+              .select("community_id")
+              .eq("user_id", report.target_id)
+              .eq("status", "approved")
+              .limit(1);
+            communityId = memberCommunities?.[0]?.community_id || null;
+          } else if (report.report_type === "event") {
+            const { data: event } = await this.supabaseAdmin
+              .from("events")
+              .select("community_id")
+              .eq("id", report.target_id)
+              .single();
+            communityId = event?.community_id || null;
+          } else if (report.report_type === "thread" || report.report_type === "reply") {
+            const { data: message } = await this.supabaseAdmin
+              .from("messages")
+              .select("community_id")
+              .eq("id", report.target_id)
+              .single();
+            communityId = message?.community_id || null;
+          } else if (report.report_type === "community") {
+            communityId = report.target_id;
+          }
+          
+          reportGroups.set(key, {
+            reports: [],
+            uniqueReporters: new Set(),
+            communityId,
+          });
+        }
+        
+        const group = reportGroups.get(key)!;
+        group.reports.push(report);
+        group.uniqueReporters.add(report.reporter_id);
+      }
+
+      // Enrich reports with target data and threshold information
+      const enrichedAllReports: any[] = [];
+      const enrichedReviewQueue: any[] = [];
+
+      for (const [key, group] of reportGroups.entries()) {
+        const [reportType, targetId] = key.split('-');
+        const reportCount = group.uniqueReporters.size;
+        const communityInfo = group.communityId ? communityThresholds.get(group.communityId) : null;
+        const threshold = communityInfo?.threshold || 0;
+        const thresholdMet = threshold > 0 && reportCount >= threshold;
+
+        // Get target data based on report type
+        let targetData: any = null;
+        let targetName = "Unknown";
+        
+        if (reportType === "member") {
+          const { data: member } = await this.supabaseAdmin
+            .from("users")
+            .select("id, full_name, email, avatar_url")
+            .eq("id", targetId)
+            .single();
+          targetData = member;
+          targetName = member?.full_name || "Unknown Member";
+        } else if (reportType === "community") {
+          const { data: community } = await this.supabaseAdmin
+            .from("communities")
+            .select("id, name, logo_url, status")
+            .eq("id", targetId)
+            .single();
+          targetData = community;
+          targetName = community?.name || "Unknown Community";
+        } else if (reportType === "event") {
+          const { data: event } = await this.supabaseAdmin
+            .from("events")
+            .select("id, title")
+            .eq("id", targetId)
+            .single();
+          targetData = event;
+          targetName = event?.title || "Unknown Event";
+        } else if (reportType === "thread" || reportType === "reply") {
+          const { data: message } = await this.supabaseAdmin
+            .from("messages")
+            .select("id, content")
+            .eq("id", targetId)
+            .single();
+          targetData = message;
+          targetName = message?.content?.substring(0, 50) + "..." || "Unknown Message";
+        }
+
+        // Add each report with enriched data
+        for (const report of group.reports) {
+          const enrichedReport = {
+            ...report,
+            target_data: targetData,
+            target_name: targetName,
+            report_count: reportCount,
+            unique_reporters: reportCount,
+            threshold,
+            threshold_met: thresholdMet,
+            community_name: communityInfo?.name || "Unknown Community",
+            community_id: group.communityId,
+            member_count: communityInfo?.memberCount || 0,
+            communityStatus: reportType === "community" && targetData ? targetData.status : null,
+          };
+
+          enrichedAllReports.push(enrichedReport);
+
+          // Add to review queue if threshold is met
+          if (thresholdMet) {
+            enrichedReviewQueue.push(enrichedReport);
+          }
+        }
+      }
+
+      // Remove duplicates from enrichedReviewQueue (keep only one per group)
+      const uniqueReviewQueue = Array.from(
+        new Map(enrichedReviewQueue.map(r => [`${r.report_type}-${r.target_id}`, r])).values()
+      );
+
+      return ApiResponse.success({
+        allReports: enrichedAllReports,
+        reviewQueue: uniqueReviewQueue,
+        totalAll: enrichedAllReports.length,
+        totalReview: uniqueReviewQueue.length,
+      });
+    } catch (error) {
+      console.error("Error in getMemberReports:", error);
+      return ApiResponse.error("Failed to fetch reports", 500);
+    }
+  }
+
+  /**
+   * Get only reports that meet the 30% threshold for review
+   * @param options - Query options
+   * @returns ServiceResult containing paginated review queue reports
+   */
+  public async getReportsReviewQueue(
+    options?: ReportsQueryOptions
+  ): Promise<ServiceResult<ReportsResult>> {
+    try {
+      // Use getMemberReports to get all reports with threshold calculation
+      const memberReportsResult = await this.getMemberReports(options);
+      
+      if (!memberReportsResult.success || !memberReportsResult.data) {
+        return ApiResponse.error("Failed to fetch review queue reports", 500);
+      }
+
+      // Extract only the review queue (reports that meet 30% threshold)
+      const reviewQueue = memberReportsResult.data.reviewQueue;
+
+      // Apply pagination manually since getMemberReports doesn't paginate the reviewQueue
+      const page: number = options?.page || 1;
+      const pageSize: number = options?.pageSize || 20;
+      const from: number = (page - 1) * pageSize;
+      const to: number = from + pageSize;
+      
+      const paginatedReports = reviewQueue.slice(from, to);
+
+      return ApiResponse.success<ReportsResult>({
+        reports: paginatedReports as ReportData[],
+        total: reviewQueue.length,
+      });
+    } catch (error) {
+      console.error("Error in getReportsReviewQueue:", error);
+      return ApiResponse.error("Failed to fetch review queue reports", 500);
+    }
+  }
+
+  /**
    * Get report by ID
    * @param reportId - The report ID to fetch
    * @returns ServiceResult containing report data

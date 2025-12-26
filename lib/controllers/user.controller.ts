@@ -293,6 +293,10 @@ export class UserController extends BaseController {
         updates.interests = body.interests;
       }
       if (body.location !== undefined) {
+        // Validate location cannot be null or empty
+        if (body.location === null || body.location === "") {
+          return this.error("Location is required and cannot be null or empty", 400);
+        }
         updates.location = body.location;
       }
 

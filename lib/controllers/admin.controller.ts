@@ -98,6 +98,69 @@ export class AdminController extends BaseController {
   }
 
   /**
+   * GET /api/admin/member-reports
+   * Get all member reports with 30% threshold information
+   * @param request - The incoming request
+   * @returns NextResponse with all reports and review queue
+   */
+  public async getMemberReports(
+    request: NextRequest
+  ): Promise<NextResponse<any | ApiErrorResponse>> {
+    try {
+      await this.requireSuperAdmin();
+
+      const status: string | null = this.getQueryParam(request, "status");
+
+      const result = await this.service.getMemberReports({ 
+        status: status || undefined
+      });
+
+      if (result.success && result.data) {
+        return this.json(result.data, result.status);
+      }
+      
+      return this.error(result.error?.message || "Failed to fetch member reports", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/admin/reports-review-queue
+   * Get all reports that meet the 30% threshold for review
+   * @param request - The incoming request with query params
+   * @returns NextResponse with reports meeting threshold
+   */
+  public async getReportsReviewQueue(
+    request: NextRequest
+  ): Promise<NextResponse<ReportsListResponse | ApiErrorResponse>> {
+    try {
+      await this.requireSuperAdmin();
+
+      const status: string | null = this.getQueryParam(request, "status");
+      const page: number = this.getQueryParamAsNumber(request, "page", 1);
+      const pageSize: number = this.getQueryParamAsNumber(request, "pageSize", 20);
+
+      const result: ServiceResult<ReportsListResponse> = await this.service.getReportsReviewQueue({
+        status: status || undefined,
+        page,
+        pageSize
+      });
+
+      if (result.success && result.data) {
+        return this.json<ReportsListResponse>(
+          { reports: result.data.reports, total: result.data.total },
+          result.status
+        );
+      }
+
+      return this.error(result.error?.message || "Failed to fetch reports for review queue", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * GET /api/admin/reports/[id]
    * Get report by ID
    * @param request - The incoming request
