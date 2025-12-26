@@ -107,7 +107,6 @@ export class AdminService extends BaseService {
   ): Promise<ServiceResult<ReportsResult>> {
     try {
       // STEP 1: Fetch ALL reports (no pagination yet)
-      console.log('[AdminService] Fetching all reports for grouping...');
     let query = this.supabaseAdmin
       .from("reports")
       .select(`
@@ -124,15 +123,12 @@ export class AdminService extends BaseService {
       const { data: allReports, error } = await query;
 
     if (error) {
-        console.error('[AdminService] Error fetching reports:', error);
       return ApiResponse.error("Failed to fetch reports", 500);
     }
 
       if (!allReports || allReports.length === 0) {
         return ApiResponse.success<ReportsResult>({ reports: [], total: 0 });
       }
-
-      console.log(`[AdminService] Fetched ${allReports.length} individual reports`);
 
       // STEP 2: Group reports by target_id + report_type
       const groupMap = new Map<string, any[]>();
@@ -146,8 +142,6 @@ export class AdminService extends BaseService {
         
         groupMap.get(groupKey)!.push(report);
       }
-
-      console.log(`[AdminService] Grouped into ${groupMap.size} unique items`);
 
       // STEP 3: Create group objects with aggregated data
       const groups: any[] = [];
@@ -191,8 +185,6 @@ export class AdminService extends BaseService {
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
-      console.log(`[AdminService] Created ${groups.length} group objects`);
-
       // STEP 4: Paginate the groups
       const page = options?.page || 1;
       const pageSize = options?.pageSize || 20;
@@ -200,8 +192,6 @@ export class AdminService extends BaseService {
       const endIndex = startIndex + pageSize;
       
       const paginatedGroups = groups.slice(startIndex, endIndex);
-
-      console.log(`[AdminService] Paginating: page ${page}, showing ${paginatedGroups.length} groups`);
 
       // STEP 5: Enrich each group with target details
       const enrichedGroups = await Promise.all(
@@ -323,10 +313,8 @@ export class AdminService extends BaseService {
             target_name: targetName,
             community_id: communityId,
           };
-        })
-      );
-
-      console.log(`[AdminService] Returning ${enrichedGroups.length} enriched groups out of ${groups.length} total`);
+      })
+    );
 
     return ApiResponse.success<ReportsResult>({
         reports: enrichedGroups as ReportData[],
@@ -936,8 +924,6 @@ export class AdminService extends BaseService {
       const to: number = from + pageSize;
       
       const paginatedGroups = thresholdMetGroups.slice(from, to);
-
-      console.log(`[AdminService Review Queue] Returning ${paginatedGroups.length} groups out of ${thresholdMetGroups.length} total`);
 
       return ApiResponse.success<ReportsResult>({
         reports: paginatedGroups as ReportData[],

@@ -970,89 +970,75 @@ export default function SuperadminPage() {
     }
   }, [pathname]);
 
-
   // Fetch reports from API
-  useEffect(() => {
-    const fetchReports = async () => {
-      setIsLoadingReports(true);
-      try {
-        const response = await fetch("/api/admin/reports");
-        if (!response.ok) {
-          throw new Error("Failed to fetch reports");
-        }
-        const data = await response.json();
-        
-        console.log("[Frontend] Raw API response:", data);
-        console.log("[Frontend] Number of groups received:", data.reports?.length);
-        
-        // Backend already returns grouped data, just transform it for frontend use
-        const transformedReports = (data.reports || []).map((group: any) => {
-          console.log("[Frontend] Processing group:", {
-            id: group.id,
-            target_id: group.target_id,
-            report_type: group.report_type,
-            report_count: group.report_count,
-            has_reports_array: !!group.reports,
-            reports_array_length: group.reports?.length
-          });
-          
-          // Get community name based on report type
-          let communityName = "";
-          if (group.reported_community?.name) {
-            communityName = group.reported_community.name;
-          } else if (group.reported_event?.communities?.name) {
-            communityName = group.reported_event.communities.name;
-          } else if (group.reported_thread?.communities?.name) {
-            communityName = group.reported_thread.communities.name;
-          } else if (group.reported_reply?.parent?.communities?.name) {
-            communityName = group.reported_reply.parent.communities.name;
-          }
-
-          // Transform individual reports for display
-          const individualReports = (group.reports || []).map((report: any) => ({
-            reportedBy: report.reporter_id,
-            reporterName: report.reporter?.full_name || "Anonymous",
-            reason: report.reason,
-            description: report.description || report.reason,
-            reportDate: report.created_at,
-            reportId: report.id,
-          }));
-
-          return {
-            id: group.id,
-            target_id: group.target_id,
-            communityId: group.target_id,
-            communityName: group.target_name || "Unknown",
-            actualCommunityName: communityName,
-            category: group.report_type,
-            reportCount: group.report_count || 1,
-            lastReportDate: group.created_at,
-            status: group.status,
-            communityStatus: group.status === "resolved" ? "active" : "active",
-            reports: individualReports,
-            reporterInfo: {
-              name: individualReports[0]?.reporterName || "Anonymous",
-              email: "N/A",
-              count: group.report_count || 1,
-              allReporters: individualReports.map((r: any) => r.reporterName).join(", "),
-            },
-            // Keep original group data for reference
-            _originalReport: group,
-          };
-        });
-        
-        console.log("[Frontend] Transformed reports count:", transformedReports.length);
-        console.log("[Frontend] Transformed reports:", transformedReports);
-        
-        setReportedCommunities(transformedReports);
-      } catch (error) {
-        console.error("Error fetching reports:", error);
-        toast.error("Failed to load reports");
-      } finally {
-        setIsLoadingReports(false);
+  const fetchReports = async () => {
+    setIsLoadingReports(true);
+    try {
+      const response = await fetch("/api/admin/reports");
+      if (!response.ok) {
+        throw new Error("Failed to fetch reports");
       }
-    };
+      const data = await response.json();
+      
+      // Backend already returns grouped data, just transform it for frontend use
+      const transformedReports = (data.reports || []).map((group: any) => {
+        // Get community name based on report type
+        let communityName = "";
+        if (group.reported_community?.name) {
+          communityName = group.reported_community.name;
+        } else if (group.reported_event?.communities?.name) {
+          communityName = group.reported_event.communities.name;
+        } else if (group.reported_thread?.communities?.name) {
+          communityName = group.reported_thread.communities.name;
+        } else if (group.reported_reply?.parent?.communities?.name) {
+          communityName = group.reported_reply.parent.communities.name;
+        }
 
+        // Transform individual reports for display
+        const individualReports = (group.reports || []).map((report: any) => ({
+          reportedBy: report.reporter_id,
+          reporterName: report.reporter?.full_name || "Anonymous",
+          reason: report.reason,
+          description: report.details || report.description || "", // Backend uses 'details'
+          reportDate: report.created_at, // Ensure we use created_at
+          reportId: report.id,
+          report_type: report.report_type,
+        }));
+
+        return {
+          id: group.id,
+          target_id: group.target_id,
+          communityId: group.target_id,
+          communityName: group.target_name || "Unknown",
+          actualCommunityName: communityName,
+          category: group.report_type,
+          reportCount: group.report_count || 1,
+          lastReportDate: group.created_at,
+          status: group.status,
+          communityStatus: group.status === "resolved" ? "active" : "active",
+          reports: individualReports,
+          reporterInfo: {
+            name: individualReports[0]?.reporterName || "Anonymous",
+            email: "N/A",
+            count: group.report_count || 1,
+            allReporters: individualReports.map((r: any) => r.reporterName).join(", "),
+          },
+          // Keep original group data for reference
+          _originalReport: group,
+        };
+      });
+      
+      setReportedCommunities(transformedReports);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+      toast.error("Failed to load reports");
+    } finally {
+      setIsLoadingReports(false);
+    }
+  };
+
+  // Load reports when tab is active
+  useEffect(() => {
     if (activeTab === "reports") {
       fetchReports();
       fetchReviewQueueReports();
@@ -1068,9 +1054,6 @@ export default function SuperadminPage() {
         throw new Error("Failed to fetch review queue reports");
       }
       const data = await response.json();
-      
-      console.log("[Frontend Review Queue] Received groups:", data.reports?.length);
-      console.log("[Frontend Review Queue] Raw data:", data.reports);
       
       // Backend returns grouped data - use it directly without re-processing
       setReviewQueueReports(data.reports || []);
@@ -1230,15 +1213,6 @@ export default function SuperadminPage() {
     reportStartIndex,
     reportEndIndex
   );
-  
-  console.log("[Frontend] Paginated communities to display:", paginatedReportedCommunities.length);
-  console.log("[Frontend] Paginated data:", paginatedReportedCommunities.map(r => ({
-    id: r.id,
-    communityName: r.communityName,
-    category: r.category,
-    reportCount: r.reportCount,
-    reportsArrayLength: r.reports?.length
-  })));
 
 
   // Filter and paginate activity logs
@@ -1296,11 +1270,6 @@ export default function SuperadminPage() {
       // Refresh reports if action was on a reported community
       if (action === "suspend" || action === "dismiss" || action === "resolve") {
         fetchReports(); // Use the same fetch function that properly transforms data
-      }
-
-      // Refresh inactive communities if action was reactivate
-      if (action === "reactivate") {
-        fetchInactiveCommunities();
       }
 
       // Close dialog if open
@@ -2595,33 +2564,37 @@ export default function SuperadminPage() {
                                 </div>
                               </div>
                               <div className="text-xs text-gray-500">
-                                {new Date(report.reportDate).toLocaleDateString(
-                                  "en-US",
-                                  {
-                                    month: "short",
-                                    day: "numeric",
-                                    year: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )}
+                                {report.reportDate 
+                                  ? new Date(report.reportDate).toLocaleDateString(
+                                      "en-US",
+                                      {
+                                        month: "short",
+                                        day: "numeric",
+                                        year: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      }
+                                    )
+                                  : "Date not available"}
                               </div>
                             </div>
 
                             {/* Notes/Description from User */}
-                            <div className="mt-3 pt-3 border-t border-gray-100">
-                              <div className="flex items-start gap-2">
-                                <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                                <div>
-                                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
-                                    User Notes
-                                  </label>
-                                  <p className="text-sm text-gray-700 leading-relaxed">
-                                    {report.description}
-                                  </p>
+                            {report.description && (
+                              <div className="mt-3 pt-3 border-t border-gray-100">
+                                <div className="flex items-start gap-2">
+                                  <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                  <div>
+                                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+                                      User Notes
+                                    </label>
+                                    <p className="text-sm text-gray-700 leading-relaxed">
+                                      {report.description}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
+                            )}
                           </div>
                         ))}
                       </div>
