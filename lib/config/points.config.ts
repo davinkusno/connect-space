@@ -7,10 +7,7 @@
 
 export const COMMUNITY_CREATION_POINTS = {
   FIRST: 0,
-  SECOND: 50,
-  THIRD: 100,
-  FOURTH: 200,
-  FIFTH_PLUS: 500
+  SECOND_AND_BEYOND: 15
 } as const;
 
 /**
@@ -19,15 +16,11 @@ export const COMMUNITY_CREATION_POINTS = {
  * @returns Required points for next community
  */
 export function calculateRequiredPoints(communitiesOwned: number): number {
-  const progression = [
-    COMMUNITY_CREATION_POINTS.FIRST,
-    COMMUNITY_CREATION_POINTS.SECOND,
-    COMMUNITY_CREATION_POINTS.THIRD,
-    COMMUNITY_CREATION_POINTS.FOURTH,
-    COMMUNITY_CREATION_POINTS.FIFTH_PLUS
-  ];
-  
-  return progression[Math.min(communitiesOwned, progression.length - 1)];
+  // First community is free, all others require 15 points
+  if (communitiesOwned === 0) {
+    return COMMUNITY_CREATION_POINTS.FIRST;
+  }
+  return COMMUNITY_CREATION_POINTS.SECOND_AND_BEYOND;
 }
 
 // ==================== Points Earning System ====================
