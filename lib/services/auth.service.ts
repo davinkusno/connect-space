@@ -7,7 +7,6 @@ interface UserStatus {
   userId: string;
   userType: string | null;
   onboardingCompleted: boolean;
-  roleSelected: boolean;
   isAdminOfAnyCommunity: boolean;
   hasCreatedCommunity: boolean;
 }
@@ -217,7 +216,7 @@ export class AuthService extends BaseService {
     // Get user data
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("user_type, onboarding_completed, role_selected")
+      .select("user_type, onboarding_completed")
       .eq("id", userId)
       .single();
 
@@ -248,7 +247,6 @@ export class AuthService extends BaseService {
       userId,
       userType: userData?.user_type || null,
       onboardingCompleted: userData?.onboarding_completed || false,
-      roleSelected: userData?.role_selected || false,
       isAdminOfAnyCommunity,
       hasCreatedCommunity,
     });

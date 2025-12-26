@@ -2913,11 +2913,14 @@ export default function CommunityPage({
                     </div>
                     <div>
                       <p className="font-semibold text-violet-900">
-                        Earn 2 Points!
+                        Earn +3 Points!
                       </p>
                       <p className="text-sm text-violet-700">
-                        You'll receive 2 points when your join request is
+                        You'll receive 3 points when your join request is
                         approved.
+                      </p>
+                      <p className="text-xs text-violet-600 mt-1">
+                        Max 3 points per day
                       </p>
                     </div>
                   </div>

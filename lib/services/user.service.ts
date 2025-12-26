@@ -222,7 +222,6 @@ export class UserService extends BaseService {
           avatar_url: authUser.user.user_metadata?.avatar_url || null,
           interests: updates.interests || [],
           onboarding_completed: false,
-          role_selected: false,
           user_type: 'user',
         })
         .select()

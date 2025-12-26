@@ -2826,10 +2826,10 @@ export default function DashboardPage() {
                 <ul className="space-y-2 text-sm text-gray-600">
                   <li className="flex items-center gap-2">
                     <Star className="w-4 h-4 text-green-500" />
-                    Join communities: 3 points per community
+                    Join communities: +3 points per community
                   </li>
                   <li className="text-xs text-gray-500 ml-6 mt-1">
-                    • Only 1 community can award points per day
+                    • Max 3 points per day
                     • Points are locked for 3 days after joining
                     • Points become usable after 3 days
                   </li>

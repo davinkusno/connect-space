@@ -105,115 +105,238 @@ export class AdminService extends BaseService {
   public async getReports(
     options?: ReportsQueryOptions
   ): Promise<ServiceResult<ReportsResult>> {
-    const page: number = options?.page || 1;
-    const pageSize: number = options?.pageSize || 20;
-    const from: number = (page - 1) * pageSize;
-    const to: number = from + pageSize - 1;
-
+    try {
+      // STEP 1: Fetch ALL reports (no pagination yet)
+      console.log('[AdminService] Fetching all reports for grouping...');
     let query = this.supabaseAdmin
       .from("reports")
       .select(`
         *,
-        reporter:reporter_id (id, full_name, avatar_url)
-      `, { count: "exact" })
+          reporter:reporter_id (id, full_name, avatar_url, email)
+        `)
+        .in("report_type", ["community", "event", "thread", "reply"])
       .order("created_at", { ascending: false });
-
-    // Superadmin sees community, event, thread, and reply reports
-    // Member reports are handled by community admins
-    query = query.in("report_type", ["community", "event", "thread", "reply"]);
 
     if (options?.status && options.status !== "all") {
       query = query.eq("status", options.status);
     }
 
-    const { data, count, error } = await query.range(from, to);
+      const { data: allReports, error } = await query;
 
     if (error) {
+        console.error('[AdminService] Error fetching reports:', error);
       return ApiResponse.error("Failed to fetch reports", 500);
     }
 
-    // Enrich reports with target data based on report_type
-    const enrichedReports = await Promise.all(
-      (data || []).map(async (report: any) => {
-        let targetData: any = null;
+      if (!allReports || allReports.length === 0) {
+        return ApiResponse.success<ReportsResult>({ reports: [], total: 0 });
+      }
+
+      console.log(`[AdminService] Fetched ${allReports.length} individual reports`);
+
+      // STEP 2: Group reports by target_id + report_type
+      const groupMap = new Map<string, any[]>();
+
+      for (const report of allReports) {
+        const groupKey = `${report.report_type}|${report.target_id}`;
         
-        if (report.report_type === "community" && report.target_id) {
+        if (!groupMap.has(groupKey)) {
+          groupMap.set(groupKey, []);
+        }
+        
+        groupMap.get(groupKey)!.push(report);
+      }
+
+      console.log(`[AdminService] Grouped into ${groupMap.size} unique items`);
+
+      // STEP 3: Create group objects with aggregated data
+      const groups: any[] = [];
+      
+      for (const [groupKey, reportsInGroup] of groupMap.entries()) {
+        const [reportType, targetId] = groupKey.split('|');
+        
+        // Sort by date to get the latest
+        reportsInGroup.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        
+        const latestReport = reportsInGroup[0];
+        const uniqueReporterIds = new Set(reportsInGroup.map(r => r.reporter_id));
+        
+        groups.push({
+          // Core identifiers
+          id: latestReport.id, // Use latest report ID as the group ID
+          report_type: reportType,
+          target_id: targetId,
+          
+          // Aggregated counts
+          report_count: reportsInGroup.length,
+          unique_reporters: uniqueReporterIds.size,
+          
+          // All individual reports for detail view
+          reports: reportsInGroup,
+          
+          // Latest report data
+          created_at: latestReport.created_at,
+          status: latestReport.status,
+          reporter: latestReport.reporter,
+          reporter_id: latestReport.reporter_id,
+          reason: latestReport.reason,
+          description: latestReport.description,
+        });
+      }
+
+      // Sort groups by latest report date
+      groups.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      console.log(`[AdminService] Created ${groups.length} group objects`);
+
+      // STEP 4: Paginate the groups
+      const page = options?.page || 1;
+      const pageSize = options?.pageSize || 20;
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      
+      const paginatedGroups = groups.slice(startIndex, endIndex);
+
+      console.log(`[AdminService] Paginating: page ${page}, showing ${paginatedGroups.length} groups`);
+
+      // STEP 5: Enrich each group with target details
+      const enrichedGroups = await Promise.all(
+        paginatedGroups.map(async (group) => {
+          let targetName = "Unknown";
+          let targetData: any = {};
+          let communityId: string | null = null;
+
+          try {
+            if (group.report_type === "community") {
           const { data: community } = await this.supabaseAdmin
             .from("communities")
-            .select("id, name, logo_url")
-            .eq("id", report.target_id)
+                .select("id, name, logo_url, status")
+                .eq("id", group.target_id)
             .single();
-          targetData = { reported_community: community };
-        } else if (report.report_type === "member" && report.target_id) {
-          const { data: user } = await this.supabaseAdmin
-            .from("users")
-            .select("id, full_name, avatar_url")
-            .eq("id", report.target_id)
-            .single();
-          targetData = { reported_user: user };
-        } else if (report.report_type === "event" && report.target_id) {
+              
+              if (community) {
+                targetName = community.name;
+                targetData.reported_community = community;
+                communityId = community.id;
+              }
+            }
+            else if (group.report_type === "event") {
           const { data: event } = await this.supabaseAdmin
             .from("events")
             .select("id, title, community_id")
-            .eq("id", report.target_id)
+                .eq("id", group.target_id)
             .single();
-          targetData = { reported_event: event };
-        } else if (report.report_type === "thread" && report.target_id) {
+              
+              if (event) {
+                targetName = event.title;
+                targetData.reported_event = event;
+                communityId = event.community_id;
+              }
+            }
+            else if (group.report_type === "thread") {
           const { data: thread } = await this.supabaseAdmin
             .from("messages")
-            .select(`
-              id, 
-              content, 
-              community_id, 
-              sender_id,
-              communities (
-                id,
-                name
-              )
-            `)
-            .eq("id", report.target_id)
+                .select("id, content, community_id")
+                .eq("id", group.target_id)
             .is("parent_id", null)
             .single();
-          targetData = { reported_thread: thread };
-        } else if (report.report_type === "reply" && report.target_id) {
+              
+              if (thread) {
+                targetName = thread.content?.substring(0, 50) + 
+                  (thread.content && thread.content.length > 50 ? "..." : "");
+                communityId = thread.community_id;
+                
+                // Get community name
+                if (communityId) {
+                  const { data: community } = await this.supabaseAdmin
+                    .from("communities")
+                    .select("id, name")
+                    .eq("id", communityId)
+                    .single();
+                  
+                  targetData.reported_thread = {
+                    ...thread,
+                    communities: community
+                  };
+                } else {
+                  targetData.reported_thread = thread;
+                }
+              } else {
+                targetName = "Thread (deleted or not found)";
+              }
+            }
+            else if (group.report_type === "reply") {
           const { data: reply } = await this.supabaseAdmin
             .from("messages")
-            .select(`
-              id, 
-              content, 
-              parent_id, 
-              sender_id,
-              community_id,
-              parent:parent_id (
-                id,
-                community_id,
-                communities (
-                  id,
-                  name
-                )
-              )
-            `)
-            .eq("id", report.target_id)
+                .select("id, content, parent_id, community_id")
+                .eq("id", group.target_id)
             .not("parent_id", "is", null)
             .single();
-          targetData = { reported_reply: reply };
-        } else if (report.report_type === "post" && report.target_id) {
-          const { data: post } = await this.supabaseAdmin
-            .from("discussion_threads")
-            .select("id, title")
-            .eq("id", report.target_id)
+              
+              if (reply) {
+                targetName = reply.content?.substring(0, 50) + 
+                  (reply.content && reply.content.length > 50 ? "..." : "");
+                communityId = reply.community_id;
+                
+                // Get parent thread and community info
+                let parentData = null;
+                if (reply.parent_id) {
+                  const { data: parent } = await this.supabaseAdmin
+                    .from("messages")
+                    .select("id, community_id")
+                    .eq("id", reply.parent_id)
             .single();
-          targetData = { reported_post: post };
-        }
+                  
+                  if (parent && parent.community_id) {
+                    const { data: community } = await this.supabaseAdmin
+                      .from("communities")
+                      .select("id, name")
+                      .eq("id", parent.community_id)
+                      .single();
+                    
+                    parentData = {
+                      ...parent,
+                      communities: community
+                    };
+                  }
+                }
+                
+                targetData.reported_reply = {
+                  ...reply,
+                  parent: parentData
+                };
+              } else {
+                targetName = "Reply (deleted or not found)";
+              }
+            }
+          } catch (err) {
+            console.error(`[AdminService] Error enriching ${group.report_type} ${group.target_id}:`, err);
+          }
 
-        return { ...report, ...targetData };
-      })
-    );
+          return {
+            ...group,
+            ...targetData,
+            target_name: targetName,
+            community_id: communityId,
+          };
+        })
+      );
+
+      console.log(`[AdminService] Returning ${enrichedGroups.length} enriched groups out of ${groups.length} total`);
 
     return ApiResponse.success<ReportsResult>({
-      reports: enrichedReports as ReportData[],
-      total: count || 0,
+        reports: enrichedGroups as ReportData[],
+        total: groups.length, // Total GROUPS, not individual reports
     });
+
+    } catch (error) {
+      console.error('[AdminService] Unexpected error in getReports:', error);
+      return ApiResponse.error("Failed to fetch reports", 500);
+    }
   }
 
   /**
@@ -312,12 +435,27 @@ export class AdminService extends BaseService {
               .single();
             communityId = event?.community_id || null;
           } else if (report.report_type === "thread" || report.report_type === "reply") {
-            const { data: message } = await this.supabaseAdmin
+            // Validate UUID format before querying
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            const isValidUUID = uuidRegex.test(report.target_id) || report.target_id.length === 32;
+            
+            if (isValidUUID) {
+              const { data: message, error: messageError } = await this.supabaseAdmin
               .from("messages")
               .select("community_id")
               .eq("id", report.target_id)
               .single();
+              
+              if (messageError && messageError.code !== '22P02') {
+                // Only log non-UUID-format errors (22P02 is handled below)
+                console.error(`[AdminService] Error fetching ${report.report_type} ${report.target_id} for community context:`, messageError);
+              }
+              
             communityId = message?.community_id || null;
+            } else {
+              console.error(`[AdminService] ⚠️ Invalid UUID format for ${report.report_type} target_id: "${report.target_id}" (report ${report.id}). Skipping community context fetch.`);
+              communityId = null;
+            }
           } else if (report.report_type === "community") {
             communityId = report.target_id;
           }
@@ -339,7 +477,8 @@ export class AdminService extends BaseService {
       const enrichedReviewQueue: any[] = [];
 
       for (const [key, group] of reportGroups.entries()) {
-        const [reportType, targetId] = key.split('-');
+        const [reportType, ...targetIdParts] = key.split('-');
+        const targetId = targetIdParts.join('-'); // Handle UUIDs with dashes
         const reportCount = group.uniqueReporters.size;
         const communityInfo = group.communityId ? communityThresholds.get(group.communityId) : null;
         const threshold = communityInfo?.threshold || 0;
@@ -374,55 +513,99 @@ export class AdminService extends BaseService {
           targetData = event;
           targetName = event?.title || "Unknown Event";
         } else if (reportType === "thread" || reportType === "reply") {
-          const { data: message } = await this.supabaseAdmin
+          // Validate UUID format first
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const isValidUUID = uuidRegex.test(targetId) || targetId.length === 32;
+          
+          if (!isValidUUID) {
+            console.error(`[AdminService] ⚠️ Invalid UUID format for ${reportType} target_id: "${targetId}". This is a data integrity issue.`);
+            targetName = `${reportType === "thread" ? "Thread" : "Reply"} (invalid ID: ${targetId})`;
+            targetData = null;
+          } else {
+            const { data: message, error: messageError } = await this.supabaseAdmin
             .from("messages")
             .select("id, content")
             .eq("id", targetId)
             .single();
+            
+            if (messageError) {
+              // Check if it's a UUID format error (22P02) vs actual not found
+              if (messageError.code === '22P02') {
+                console.error(`[AdminService] ⚠️ Invalid UUID format in database for ${reportType} ${targetId}:`, messageError.message);
+                targetName = `${reportType === "thread" ? "Thread" : "Reply"} (invalid ID format: ${targetId})`;
+              } else {
+                console.error(`[AdminService] Error fetching ${reportType} ${targetId}:`, messageError);
+                targetName = `${reportType === "thread" ? "Thread" : "Reply"} (error fetching)`;
+              }
+            } else if (!message) {
+              console.warn(`[AdminService] ${reportType} ${targetId} not found. Message may have been deleted.`);
+              targetName = `${reportType === "thread" ? "Thread" : "Reply"} (deleted or not found)`;
+            } else if (message.content) {
+              targetName = message.content.length > 50 
+                ? message.content.substring(0, 50) + "..." 
+                : message.content;
+            } else {
+              targetName = `${reportType === "thread" ? "Thread" : "Reply"} (no content)`;
+            }
+            
           targetData = message;
-          targetName = message?.content?.substring(0, 50) + "..." || "Unknown Message";
+          }
         }
 
-        // Add each report with enriched data
-        for (const report of group.reports) {
+        // Create ONE grouped report object (not one per individual report)
+        // Sort reports by date (latest first)
+        const sortedReports = group.reports.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        
           // For community reports, use targetData name; for others, use communityInfo
           const finalCommunityName = reportType === "community" && targetData?.name
             ? targetData.name
             : communityInfo?.name || "Unknown Community";
           
-          const enrichedReport = {
-            ...report,
-            target_data: targetData,
-            target_name: targetName,
+        const groupedReport = {
+          id: sortedReports[0].id, // Use latest report ID as group ID
+          reporter_id: sortedReports[0].reporter_id,
+          reporter: sortedReports[0].reporter,
+          report_type: reportType,
+          target_id: targetId,
+          reason: sortedReports[0].reason,
+          details: sortedReports[0].details,
+          status: sortedReports[0].status,
+          created_at: sortedReports[0].created_at,
+          updated_at: sortedReports[0].updated_at,
+          // Grouped data
+          reports: sortedReports, // ALL individual reports in this group
             report_count: reportCount,
             unique_reporters: reportCount,
             threshold,
             threshold_met: thresholdMet,
+          // Target information
+          target_data: targetData,
+          target_name: targetName,
             community_name: finalCommunityName,
             community_id: group.communityId,
             member_count: communityInfo?.memberCount || 0,
-            communityStatus: reportType === "community" && targetData ? targetData.status : null,
-          };
+          // Additional context
+          reported_community: reportType === "community" ? targetData : null,
+          reported_event: reportType === "event" ? targetData : null,
+          reported_thread: reportType === "thread" ? targetData : null,
+          reported_reply: reportType === "reply" ? targetData : null,
+        };
 
-          enrichedAllReports.push(enrichedReport);
+        enrichedAllReports.push(groupedReport);
 
           // Add to review queue if threshold is met
           if (thresholdMet) {
-            enrichedReviewQueue.push(enrichedReport);
-          }
+          enrichedReviewQueue.push(groupedReport);
         }
       }
 
-      // Remove duplicates from enrichedReviewQueue (keep only one per group)
-      const uniqueReviewQueue = Array.from(
-        new Map(enrichedReviewQueue.map(r => [`${r.report_type}-${r.target_id}`, r])).values()
-      );
-
       return ApiResponse.success({
         allReports: enrichedAllReports,
-        reviewQueue: uniqueReviewQueue,
+        reviewQueue: enrichedReviewQueue,
         totalAll: enrichedAllReports.length,
-        totalReview: uniqueReviewQueue.length,
+        totalReview: enrichedReviewQueue.length,
       });
     } catch (error) {
       console.error("Error in getMemberReports:", error);
@@ -432,6 +615,7 @@ export class AdminService extends BaseService {
 
   /**
    * Get only reports that meet the 30% threshold for review
+   * Recreated from scratch using same approach as getReports
    * @param options - Query options
    * @returns ServiceResult containing paginated review queue reports
    */
@@ -439,27 +623,325 @@ export class AdminService extends BaseService {
     options?: ReportsQueryOptions
   ): Promise<ServiceResult<ReportsResult>> {
     try {
-      // Use getMemberReports to get all reports with threshold calculation
-      const memberReportsResult = await this.getMemberReports(options);
-      
-      if (!memberReportsResult.success || !memberReportsResult.data) {
-        return ApiResponse.error("Failed to fetch review queue reports", 500);
+      // Step 1: Fetch all reports (same as getReports)
+      let query = this.supabaseAdmin
+        .from("reports")
+        .select(`
+          *,
+          reporter:reporter_id (id, full_name, avatar_url)
+        `)
+        .order("created_at", { ascending: false });
+
+      // Superadmin sees community, event, thread, and reply reports
+      query = query.in("report_type", ["community", "event", "thread", "reply"]);
+
+      if (options?.status && options.status !== "all") {
+        query = query.eq("status", options.status);
       }
 
-      // Extract only the review queue (reports that meet 30% threshold)
-      const reviewQueue = memberReportsResult.data.reviewQueue;
+      const { data: allReports, error: reportsError } = await query;
 
-      // Apply pagination manually since getMemberReports doesn't paginate the reviewQueue
+      if (reportsError) {
+        return ApiResponse.error("Failed to fetch reports", 500);
+      }
+
+      if (!allReports || allReports.length === 0) {
+        return ApiResponse.success<ReportsResult>({
+          reports: [],
+          total: 0,
+        });
+      }
+
+      // Step 2: Get all communities and calculate thresholds
+      const { data: communities } = await this.supabaseAdmin
+        .from("communities")
+        .select("id, name");
+
+      const communityThresholds = new Map<string, { threshold: number; name: string; memberCount: number }>();
+      
+      if (communities) {
+        for (const community of communities) {
+          const { count: memberCount } = await this.supabaseAdmin
+            .from("community_members")
+            .select("user_id", { count: "exact", head: true })
+            .eq("community_id", community.id)
+            .eq("status", "approved");
+
+          const threshold = Math.ceil((memberCount || 0) * 0.3);
+          communityThresholds.set(community.id, {
+            threshold,
+            name: community.name,
+            memberCount: memberCount || 0,
+          });
+        }
+      }
+
+      // Step 3: Group reports by target_id and report_type, count unique reporters
+      const reportGroups = new Map<string, {
+        reports: any[];
+        uniqueReporters: Set<string>;
+        communityId: string | null;
+      }>();
+
+      for (const report of allReports) {
+        const key = `${report.report_type}-${report.target_id}`;
+        
+        if (!reportGroups.has(key)) {
+          // Determine community context for this report
+          let communityId: string | null = null;
+          
+          if (report.report_type === "community") {
+            communityId = report.target_id;
+          } else if (report.report_type === "event" && report.target_id) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            const isValidUUID = uuidRegex.test(report.target_id) || report.target_id.length === 32;
+            
+            if (isValidUUID) {
+              const { data: event } = await this.supabaseAdmin
+                .from("events")
+                .select("community_id")
+                .eq("id", report.target_id)
+                .single();
+              communityId = event?.community_id || null;
+            }
+          } else if ((report.report_type === "thread" || report.report_type === "reply") && report.target_id) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            const isValidUUID = uuidRegex.test(report.target_id) || report.target_id.length === 32;
+            
+            if (isValidUUID) {
+              const { data: message } = await this.supabaseAdmin
+                .from("messages")
+                .select("community_id")
+                .eq("id", report.target_id)
+                .single();
+              communityId = message?.community_id || null;
+            }
+          }
+          
+          reportGroups.set(key, {
+            reports: [],
+            uniqueReporters: new Set(),
+            communityId,
+          });
+        }
+        
+        const group = reportGroups.get(key)!;
+        group.reports.push(report);
+        group.uniqueReporters.add(report.reporter_id);
+      }
+
+      // Step 4: Create grouped reports and filter by threshold
+      const thresholdMetGroups: any[] = [];
+
+      for (const [key, group] of reportGroups.entries()) {
+        const [reportType, ...targetIdParts] = key.split('-');
+        const targetId = targetIdParts.join('-'); // Handle UUIDs with dashes
+        const reportCount = group.uniqueReporters.size;
+        const communityInfo = group.communityId ? communityThresholds.get(group.communityId) : null;
+        const threshold = communityInfo?.threshold || 0;
+        const thresholdMet = threshold > 0 && reportCount >= threshold;
+
+        // Only include groups that meet threshold
+        if (!thresholdMet) continue;
+
+        // Get target data based on report type
+        let targetData: any = null;
+        let targetName = "Unknown";
+        let enrichedCommunityId: string | null = group.communityId;
+        
+        if (reportType === "community" && targetId) {
+          const { data: community } = await this.supabaseAdmin
+            .from("communities")
+            .select("id, name, logo_url, status")
+            .eq("id", targetId)
+            .single();
+          targetData = community;
+          targetName = community?.name || "Unknown Community";
+          enrichedCommunityId = targetId;
+        } else if (reportType === "event" && targetId) {
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const isValidUUID = uuidRegex.test(targetId) || targetId.length === 32;
+          
+          if (isValidUUID) {
+            const { data: event } = await this.supabaseAdmin
+              .from("events")
+              .select("id, title, community_id")
+              .eq("id", targetId)
+              .single();
+            targetData = event;
+            targetName = event?.title || "Unknown Event";
+            enrichedCommunityId = event?.community_id || null;
+          } else {
+            targetName = `Event (invalid ID: ${targetId})`;
+          }
+        } else if (reportType === "thread" && targetId) {
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const isValidUUID = uuidRegex.test(targetId) || targetId.length === 32;
+          
+          if (!isValidUUID) {
+            targetName = `Thread (invalid ID: ${targetId})`;
+            targetData = null;
+          } else {
+            const { data: message, error: messageError } = await this.supabaseAdmin
+              .from("messages")
+              .select("id, content, community_id")
+              .eq("id", targetId)
+              .is("parent_id", null)
+              .single();
+            
+            if (messageError) {
+              if (messageError.code === '22P02') {
+                targetName = `Thread (invalid ID format: ${targetId})`;
+              } else {
+                targetName = "Thread (error fetching)";
+              }
+            } else if (!message) {
+              targetName = "Thread (deleted or not found)";
+            } else if (message.content) {
+              targetName = message.content.length > 50 
+                ? message.content.substring(0, 50) + "..." 
+                : message.content;
+            } else {
+              targetName = "Thread (no content)";
+            }
+            
+            enrichedCommunityId = message?.community_id || null;
+            
+            let communityInfoData = null;
+            if (enrichedCommunityId) {
+              const { data: community } = await this.supabaseAdmin
+                .from("communities")
+                .select("id, name")
+                .eq("id", enrichedCommunityId)
+                .single();
+              communityInfoData = community;
+            }
+            
+            targetData = message ? {
+              ...message,
+              communities: communityInfoData
+            } : null;
+          }
+        } else if (reportType === "reply" && targetId) {
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const isValidUUID = uuidRegex.test(targetId) || targetId.length === 32;
+          
+          if (!isValidUUID) {
+            targetName = `Reply (invalid ID: ${targetId})`;
+            targetData = null;
+          } else {
+            const { data: message, error: messageError } = await this.supabaseAdmin
+              .from("messages")
+              .select("id, content, parent_id, community_id")
+              .eq("id", targetId)
+              .not("parent_id", "is", null)
+              .single();
+            
+            if (messageError) {
+              if (messageError.code === '22P02') {
+                targetName = `Reply (invalid ID format: ${targetId})`;
+              } else {
+                targetName = "Reply (error fetching)";
+              }
+            } else if (!message) {
+              targetName = "Reply (deleted or not found)";
+            } else if (message.content) {
+              targetName = message.content.length > 50 
+                ? message.content.substring(0, 50) + "..." 
+                : message.content;
+            } else {
+              targetName = "Reply (no content)";
+            }
+            
+            enrichedCommunityId = message?.community_id || null;
+            
+            let parentInfo = null;
+            let communityInfoData = null;
+            if (message?.parent_id) {
+              const { data: parent } = await this.supabaseAdmin
+                .from("messages")
+                .select("id, community_id")
+                .eq("id", message.parent_id)
+                .single();
+              parentInfo = parent;
+              if (parent?.community_id) {
+                const { data: community } = await this.supabaseAdmin
+                  .from("communities")
+                  .select("id, name")
+                  .eq("id", parent.community_id)
+                  .single();
+                communityInfoData = community;
+              }
+            } else if (enrichedCommunityId) {
+              const { data: community } = await this.supabaseAdmin
+                .from("communities")
+                .select("id, name")
+                .eq("id", enrichedCommunityId)
+                .single();
+              communityInfoData = community;
+            }
+            
+            targetData = message ? {
+              ...message,
+              parent: parentInfo ? {
+                ...parentInfo,
+                communities: communityInfoData
+              } : null
+            } : null;
+          }
+        }
+
+        // Sort reports by date (latest first)
+        const sortedReports = group.reports.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+
+        // Create ONE grouped report object
+        const groupedReport = {
+          id: sortedReports[0].id,
+          reporter_id: sortedReports[0].reporter_id,
+          reporter: sortedReports[0].reporter,
+          report_type: reportType,
+          target_id: targetId,
+          reason: sortedReports[0].reason,
+          details: sortedReports[0].details,
+          status: sortedReports[0].status,
+          created_at: sortedReports[0].created_at,
+          updated_at: sortedReports[0].updated_at,
+          // Grouped data
+          reports: sortedReports,
+          report_count: reportCount,
+          unique_reporters: reportCount,
+          threshold,
+          threshold_met: true,
+          // Target information
+          target_name: targetName,
+          community_id: enrichedCommunityId,
+          community_name: communityInfo?.name || "Unknown Community",
+          member_count: communityInfo?.memberCount || 0,
+          // Type-specific data
+          reported_community: reportType === "community" ? targetData : null,
+          reported_event: reportType === "event" ? targetData : null,
+          reported_thread: reportType === "thread" ? targetData : null,
+          reported_reply: reportType === "reply" ? targetData : null,
+        };
+
+        thresholdMetGroups.push(groupedReport);
+      }
+
+      // Step 5: Apply pagination to grouped reports
       const page: number = options?.page || 1;
       const pageSize: number = options?.pageSize || 20;
       const from: number = (page - 1) * pageSize;
       const to: number = from + pageSize;
       
-      const paginatedReports = reviewQueue.slice(from, to);
+      const paginatedGroups = thresholdMetGroups.slice(from, to);
+
+      console.log(`[AdminService Review Queue] Returning ${paginatedGroups.length} groups out of ${thresholdMetGroups.length} total`);
 
       return ApiResponse.success<ReportsResult>({
-        reports: paginatedReports as ReportData[],
-        total: reviewQueue.length,
+        reports: paginatedGroups as ReportData[],
+        total: thresholdMetGroups.length,
       });
     } catch (error) {
       console.error("Error in getReportsReviewQueue:", error);

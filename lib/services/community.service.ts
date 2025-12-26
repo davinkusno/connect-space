@@ -329,14 +329,22 @@ export class CommunityService extends BaseService {
     }
 
     // Send notification to the user
-    const { data: community } = await this.supabaseAdmin
-      .from("communities")
-      .select("name")
-      .eq("id", communityId)
-      .single();
-    
-    if (community) {
-      await notificationService.onJoinApproved(member.user_id, communityId, community.name);
+    try {
+      const { data: community } = await this.supabaseAdmin
+        .from("communities")
+        .select("name")
+        .eq("id", communityId)
+        .single();
+      
+      if (community) {
+        await notificationService.onJoinApproved(member.user_id, communityId, community.name);
+        console.log(`[CommunityService] Notification sent to user ${member.user_id} for approved join to ${community.name}`);
+      } else {
+        console.warn(`[CommunityService] Community ${communityId} not found, skipping notification`);
+      }
+    } catch (notificationError) {
+      // Log error but don't fail the approval
+      console.error(`[CommunityService] Failed to send approval notification:`, notificationError);
     }
 
     return ApiResponse.success<ApproveResult>({ message: "Request approved" });
@@ -1069,7 +1077,6 @@ export class CommunityService extends BaseService {
         .from("users")
         .update({
           onboarding_completed: true,
-          role_selected: true,
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId);

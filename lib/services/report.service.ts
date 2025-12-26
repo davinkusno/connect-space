@@ -106,6 +106,34 @@ export class ReportService extends BaseService {
       return ApiResponse.badRequest("Report reason is required");
     }
 
+    // Check if user has already reported this item
+    const { data: existingReport, error: checkError } = await this.supabaseAdmin
+      .from("reports")
+      .select("id, status, created_at")
+      .eq("reporter_id", reporterId)
+      .eq("report_type", reportType)
+      .eq("target_id", targetId)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error("Error checking existing report:", checkError);
+      return ApiResponse.error("Failed to check existing report", 500);
+    }
+
+    // If report already exists, return friendly message
+    if (existingReport) {
+      const statusMessage = existingReport.status === "resolved" 
+        ? "resolved" 
+        : existingReport.status === "dismissed"
+        ? "dismissed"
+        : "pending review";
+      
+      return ApiResponse.badRequest(
+        `You have already reported this item. Your report is currently ${statusMessage}.`
+      );
+    }
+
+    // Create new report
     const { data, error } = await this.supabaseAdmin
       .from("reports")
       .insert({
@@ -120,6 +148,12 @@ export class ReportService extends BaseService {
       .single();
 
     if (error) {
+      // Handle duplicate key error gracefully (shouldn't happen after check, but just in case)
+      if (error.code === '23505') {
+        return ApiResponse.badRequest(
+          "You have already reported this item. Please wait for admin review."
+        );
+      }
       console.error("Error creating report:", error);
       return ApiResponse.error("Failed to create report", 500);
     }

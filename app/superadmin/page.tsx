@@ -982,63 +982,67 @@ export default function SuperadminPage() {
         }
         const data = await response.json();
         
-        // Transform API response to match expected UI structure
-        const transformedReports = (data.reports || []).map((report: any) => {
-          // Determine the display name based on report type
-          let displayName = "Unknown";
+        console.log("[Frontend] Raw API response:", data);
+        console.log("[Frontend] Number of groups received:", data.reports?.length);
+        
+        // Backend already returns grouped data, just transform it for frontend use
+        const transformedReports = (data.reports || []).map((group: any) => {
+          console.log("[Frontend] Processing group:", {
+            id: group.id,
+            target_id: group.target_id,
+            report_type: group.report_type,
+            report_count: group.report_count,
+            has_reports_array: !!group.reports,
+            reports_array_length: group.reports?.length
+          });
+          
+          // Get community name based on report type
           let communityName = "";
-          let reporterInfo = {
-            name: report.reporter?.full_name || "Anonymous",
-            email: report.reporter?.email || "N/A",
-          };
-
-          if (report.reported_community?.name) {
-            displayName = report.reported_community.name;
-            communityName = report.reported_community.name;
-          } else if (report.reported_user?.full_name) {
-            displayName = report.reported_user.full_name;
-          } else if (report.reported_event?.title) {
-            displayName = report.reported_event.title;
-            // Get community name from event if available
-            if (report.reported_event?.communities?.name) {
-              communityName = report.reported_event.communities.name;
-            }
-          } else if (report.reported_thread?.content) {
-            displayName = report.reported_thread.content.substring(0, 50) + (report.reported_thread.content.length > 50 ? "..." : "");
-            // Get community name from thread
-            if (report.reported_thread?.communities?.name) {
-              communityName = report.reported_thread.communities.name;
-            }
-          } else if (report.reported_reply?.content) {
-            displayName = report.reported_reply.content.substring(0, 50) + (report.reported_reply.content.length > 50 ? "..." : "");
-            // Get community name from reply's parent thread
-            if (report.reported_reply?.parent?.communities?.name) {
-              communityName = report.reported_reply.parent.communities.name;
-            }
+          if (group.reported_community?.name) {
+            communityName = group.reported_community.name;
+          } else if (group.reported_event?.communities?.name) {
+            communityName = group.reported_event.communities.name;
+          } else if (group.reported_thread?.communities?.name) {
+            communityName = group.reported_thread.communities.name;
+          } else if (group.reported_reply?.parent?.communities?.name) {
+            communityName = group.reported_reply.parent.communities.name;
           }
 
+          // Transform individual reports for display
+          const individualReports = (group.reports || []).map((report: any) => ({
+            reportedBy: report.reporter_id,
+            reporterName: report.reporter?.full_name || "Anonymous",
+            reason: report.reason,
+            description: report.description || report.reason,
+            reportDate: report.created_at,
+            reportId: report.id,
+          }));
+
           return {
-            id: report.id,
-            communityId: report.target_id,
-            communityName: displayName,
-            actualCommunityName: communityName, // Add this to show in the UI
-            category: report.report_type,
-            reportCount: 1,
-            lastReportDate: report.created_at,
-            status: report.status,
-            communityStatus: report.status === "resolved" ? "active" : "active",
-            reports: [{
-              reportedBy: report.reporter?.id,
-              reporterName: report.reporter?.full_name || "Anonymous",
-              reason: report.reason,
-              description: report.details || report.reason,
-              reportDate: report.created_at,
-            }],
-            reporterInfo,
-            // Keep original data for reference
-            _originalReport: report,
+            id: group.id,
+            target_id: group.target_id,
+            communityId: group.target_id,
+            communityName: group.target_name || "Unknown",
+            actualCommunityName: communityName,
+            category: group.report_type,
+            reportCount: group.report_count || 1,
+            lastReportDate: group.created_at,
+            status: group.status,
+            communityStatus: group.status === "resolved" ? "active" : "active",
+            reports: individualReports,
+            reporterInfo: {
+              name: individualReports[0]?.reporterName || "Anonymous",
+              email: "N/A",
+              count: group.report_count || 1,
+              allReporters: individualReports.map((r: any) => r.reporterName).join(", "),
+            },
+            // Keep original group data for reference
+            _originalReport: group,
           };
         });
+        
+        console.log("[Frontend] Transformed reports count:", transformedReports.length);
+        console.log("[Frontend] Transformed reports:", transformedReports);
         
         setReportedCommunities(transformedReports);
       } catch (error) {
@@ -1064,6 +1068,11 @@ export default function SuperadminPage() {
         throw new Error("Failed to fetch review queue reports");
       }
       const data = await response.json();
+      
+      console.log("[Frontend Review Queue] Received groups:", data.reports?.length);
+      console.log("[Frontend Review Queue] Raw data:", data.reports);
+      
+      // Backend returns grouped data - use it directly without re-processing
       setReviewQueueReports(data.reports || []);
     } catch (error) {
       console.error("Error fetching review queue reports:", error);
@@ -1221,6 +1230,15 @@ export default function SuperadminPage() {
     reportStartIndex,
     reportEndIndex
   );
+  
+  console.log("[Frontend] Paginated communities to display:", paginatedReportedCommunities.length);
+  console.log("[Frontend] Paginated data:", paginatedReportedCommunities.map(r => ({
+    id: r.id,
+    communityName: r.communityName,
+    category: r.category,
+    reportCount: r.reportCount,
+    reportsArrayLength: r.reports?.length
+  })));
 
 
   // Filter and paginate activity logs
@@ -1277,11 +1295,7 @@ export default function SuperadminPage() {
 
       // Refresh reports if action was on a reported community
       if (action === "suspend" || action === "dismiss" || action === "resolve") {
-        const refreshResponse = await fetch("/api/admin/reports");
-        if (refreshResponse.ok) {
-          const refreshData = await refreshResponse.json();
-          setReportedCommunities(refreshData.reports || []);
-        }
+        fetchReports(); // Use the same fetch function that properly transforms data
       }
 
       // Refresh inactive communities if action was reactivate
@@ -1573,7 +1587,9 @@ export default function SuperadminPage() {
                                       {report.target_name || "Unknown"}
                                     </div>
                                     <div className="text-xs text-gray-500">
-                                      Reported by: {report.reporter?.full_name || "Anonymous"}
+                                      {report.unique_reporters === 1
+                                        ? `Reported by: ${report.reports?.[0]?.reporter?.full_name || "Anonymous"}`
+                                        : `${report.unique_reporters} unique reporters`}
                                     </div>
                                   </div>
                                 </td>
@@ -1881,7 +1897,7 @@ export default function SuperadminPage() {
                                     </div>
                                   )}
                                   <div className="text-xs text-gray-500">
-                                    Reported by: {report.reporterInfo?.name || "Anonymous"}
+                                    {report.reportCount} {report.reportCount === 1 ? 'reporter' : 'unique reporters'}
                                   </div>
                                 </div>
                                 {report.communityStatus === "suspended" && (

@@ -316,14 +316,26 @@ export class NotificationService extends BaseService {
    * Notify user when their join request is approved
    */
   public async onJoinApproved(userId: string, communityId: string, communityName: string): Promise<void> {
-    await this.create({
-      user_id: userId,
-      type: "join_approved",
-      title: "Join Request Approved",
-      content: `You are now a member of ${communityName}`,
-      reference_id: communityId,
-      reference_type: "community",
-    });
+    try {
+      const result = await this.create({
+        user_id: userId,
+        type: "join_approved",
+        title: "Join Request Approved",
+        content: `You are now a member of ${communityName}`,
+        reference_id: communityId,
+        reference_type: "community",
+      });
+      
+      if (!result.success) {
+        console.error(`[NotificationService] Failed to create join approved notification:`, result.error);
+        throw new Error(result.error?.message || "Failed to create notification");
+      }
+      
+      console.log(`[NotificationService] Join approved notification created for user ${userId}`);
+    } catch (error) {
+      console.error(`[NotificationService] Error in onJoinApproved:`, error);
+      throw error;
+    }
   }
 
   /**
