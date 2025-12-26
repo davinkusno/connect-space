@@ -28,7 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
-    AlertTriangle, ArrowLeft, Award, Bookmark, BookOpen, Calendar, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, Globe, Heart, Loader2, MapPin, Sparkles, User2, Users, Video
+    AlertTriangle, ArrowLeft, Award, Bookmark, BookOpen, Calendar, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, Globe, Heart, Loader2, Lock, MapPin, Sparkles, User2, Users, Video
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -74,6 +74,7 @@ interface Event {
     name: string;
     logo_url?: string;
   };
+  isPrivate?: boolean;
   relatedEvents: Array<{
     id: string;
     title: string;
@@ -163,6 +164,30 @@ export default function EventDetailsPage({
           setError("Event not found");
           setIsLoading(false);
           return;
+        }
+
+        // Check if event is private and user has access
+        if (eventData.is_private) {
+          if (!user) {
+            setError("This is a private event. Please log in and join the community to view it.");
+            setIsLoading(false);
+            return;
+          }
+
+          // Check if user is a member of the community
+          const { data: membership } = await supabase
+            .from("community_members")
+            .select("id")
+            .eq("community_id", eventData.community_id)
+            .eq("user_id", user.id)
+            .eq("status", "approved")
+            .maybeSingle();
+
+          if (!membership) {
+            setError("This is a private event. Please join the community to view it.");
+            setIsLoading(false);
+            return;
+          }
         }
 
         // Fetch creator profile separately
@@ -488,6 +513,7 @@ export default function EventDetailsPage({
           tags: eventData.category ? [eventData.category] : [],
           link: (eventData.link && eventData.link.trim() !== "") ? eventData.link : undefined,
           communities: eventData.communities as any,
+          isPrivate: eventData.is_private || false,
           relatedEvents: relatedEvents,
           organizerEvents: organizerEvents,
         };
@@ -891,6 +917,17 @@ export default function EventDetailsPage({
               >
                 {event.category}
               </Badge>
+              {event.isPrivate ? (
+                <Badge className="bg-amber-500/90 hover:bg-amber-600 text-white border-2 border-amber-300 flex items-center gap-1 shadow-lg">
+                  <Lock className="h-3 w-3" />
+                  Private
+                </Badge>
+              ) : (
+                <Badge className="bg-green-500/90 hover:bg-green-600 text-white border-2 border-green-300 flex items-center gap-1 shadow-lg">
+                  <Globe className="h-3 w-3" />
+                  Public
+                </Badge>
+              )}
             </div>
 
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">

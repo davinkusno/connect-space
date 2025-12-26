@@ -365,6 +365,54 @@ export class UserService extends BaseService {
 
     return data?.username || data?.email?.split("@")[0] || userId.slice(0, 8);
   }
+
+  /**
+   * Get user dashboard data (username, points) in one query
+   * Consolidates user data and points queries
+   * @param userId - The user ID
+   * @returns ServiceResult with user dashboard data
+   */
+  public async getUserDashboardData(
+    userId: string
+  ): Promise<ServiceResult<{
+    username: string;
+    full_name?: string;
+    points: number;
+  }>> {
+    try {
+      // Fetch user data and points in parallel
+      const [userResult, pointsResult] = await Promise.all([
+        this.supabaseAdmin
+          .from("users")
+          .select("username, full_name, email")
+          .eq("id", userId)
+          .single(),
+        
+        this.supabaseAdmin
+          .from("user_points")
+          .select("points_count")
+          .eq("user_id", userId)
+          .single()
+      ]);
+
+      if (userResult.error || !userResult.data) {
+        return ApiResponse.error("Failed to fetch user data", 500);
+      }
+
+      const userData = userResult.data;
+      const displayName = userData.full_name || userData.username || userData.email?.split("@")[0] || "there";
+      const points = pointsResult.data?.points_count || 0;
+
+      return ApiResponse.success({
+        username: displayName,
+        full_name: userData.full_name,
+        points,
+      });
+    } catch (error: any) {
+      console.error("Error fetching user dashboard data:", error);
+      return ApiResponse.error("Failed to fetch user dashboard data", 500);
+    }
+  }
 }
 
 // Export singleton instance

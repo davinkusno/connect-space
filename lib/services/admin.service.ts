@@ -461,6 +461,18 @@ export class AdminService extends BaseService {
     communityId: string,
     reason: string
   ): Promise<ServiceResult<void>> {
+    // Get community name before suspending
+    const { data: community, error: communityError } = await this.supabaseAdmin
+      .from("communities")
+      .select("id, name")
+      .eq("id", communityId)
+      .single();
+
+    if (communityError || !community) {
+      return ApiResponse.error("Community not found", 404);
+    }
+
+    // Suspend the community
     const { error } = await this.supabaseAdmin
       .from("communities")
       .update({
@@ -474,6 +486,35 @@ export class AdminService extends BaseService {
       return ApiResponse.error("Failed to suspend community", 500);
     }
 
+    // Get all community members (approved members only)
+    const { data: members, error: membersError } = await this.supabaseAdmin
+      .from("community_members")
+      .select("user_id")
+      .eq("community_id", communityId)
+      .eq("status", "approved");
+
+    // Notify all members about the suspension
+    if (!membersError && members && members.length > 0) {
+      const memberIds = members.map(m => m.user_id);
+      
+      try {
+        const { NotificationService } = await import("./notification.service");
+        const notificationService = NotificationService.getInstance();
+        
+        await notificationService.createBulk(
+          memberIds,
+          "community_suspended",
+          "Community Suspended",
+          `The community "${community.name}" has been suspended. Reason: ${reason}. The community is no longer visible on your home page.`,
+          communityId,
+          "community"
+        );
+      } catch (notifError) {
+        // Log error but don't fail the suspension
+        console.error("Failed to send suspension notifications:", notifError);
+      }
+    }
+
     return ApiResponse.success<void>(undefined);
   }
 
@@ -483,6 +524,18 @@ export class AdminService extends BaseService {
    * @returns ServiceResult indicating success
    */
   public async reactivateCommunity(communityId: string): Promise<ServiceResult<void>> {
+    // Get community name before reactivating
+    const { data: community, error: communityError } = await this.supabaseAdmin
+      .from("communities")
+      .select("id, name")
+      .eq("id", communityId)
+      .single();
+
+    if (communityError || !community) {
+      return ApiResponse.error("Community not found", 404);
+    }
+
+    // Reactivate the community
     const { error } = await this.supabaseAdmin
       .from("communities")
       .update({
@@ -494,6 +547,35 @@ export class AdminService extends BaseService {
 
     if (error) {
       return ApiResponse.error("Failed to reactivate community", 500);
+    }
+
+    // Get all community members (approved members only)
+    const { data: members, error: membersError } = await this.supabaseAdmin
+      .from("community_members")
+      .select("user_id")
+      .eq("community_id", communityId)
+      .eq("status", "approved");
+
+    // Notify all members about the reactivation
+    if (!membersError && members && members.length > 0) {
+      const memberIds = members.map(m => m.user_id);
+      
+      try {
+        const { NotificationService } = await import("./notification.service");
+        const notificationService = NotificationService.getInstance();
+        
+        await notificationService.createBulk(
+          memberIds,
+          "community_reactivated",
+          "Community Reactivated",
+          `The community "${community.name}" has been reactivated and is now visible on your home page again.`,
+          communityId,
+          "community"
+        );
+      } catch (notifError) {
+        // Log error but don't fail the reactivation
+        console.error("Failed to send reactivation notifications:", notifError);
+      }
     }
 
     return ApiResponse.success<void>(undefined);

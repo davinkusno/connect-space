@@ -21,7 +21,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type React from "react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface FormData {
   firstName: string;
@@ -52,6 +52,13 @@ export default function SignupPage() {
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>(
     {}
   );
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [showResendButton, setShowResendButton] = useState(false);
+  const [verificationEmailSentAt, setVerificationEmailSentAt] = useState<Date | null>(null);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const emailCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const resendCooldownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
@@ -66,7 +73,77 @@ export default function SignupPage() {
   const supabase = getSupabaseBrowser();
   const { toast } = useToast();
 
-  const validateForm = (): boolean => {
+  // Check if email exists
+  const checkEmailExists = async (email: string): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/auth/check-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+      return data.exists || false;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  // Validate email format
+  const validateEmailFormat = (email: string): boolean => {
+    // More robust email validation regex
+    // Allows: letters, numbers, dots, hyphens, underscores, plus signs before @
+    // Requires: @ symbol, domain name, and TLD (at least 2 characters)
+    const emailRegex = /^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email.trim());
+  };
+
+  // Handle email blur to validate format and check if it exists
+  const handleEmailBlur = async () => {
+    const email = formData.email.trim();
+    if (!email) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        email: "Email is required",
+      }));
+      return;
+    }
+
+    // Validate email format first
+    if (!validateEmailFormat(email)) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        email: "Please enter a valid email address (e.g., name@example.com)",
+      }));
+      return;
+    }
+
+    // Clear format error if format is valid
+    setValidationErrors((prev) => {
+      const { email: _, ...rest } = prev;
+      return rest;
+    });
+
+    // Check if email exists
+    setIsCheckingEmail(true);
+    const exists = await checkEmailExists(email);
+    setIsCheckingEmail(false);
+
+    if (exists) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        email: "This email is already registered. Please sign in instead.",
+      }));
+    }
+  };
+
+  const validateForm = async (): Promise<boolean> => {
     const errors: ValidationErrors = {};
 
     // First name validation
@@ -84,11 +161,16 @@ export default function SignupPage() {
     }
 
     // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) {
       errors.email = "Email is required";
-    } else if (!emailRegex.test(formData.email)) {
-      errors.email = "Please enter a valid email address";
+    } else if (!validateEmailFormat(formData.email)) {
+      errors.email = "Please enter a valid email address (e.g., name@example.com)";
+    } else {
+      // Check if email exists before submitting
+      const exists = await checkEmailExists(formData.email.trim());
+      if (exists) {
+        errors.email = "This email is already registered. Please sign in instead.";
+      }
     }
 
     // Password validation
@@ -118,12 +200,117 @@ export default function SignupPage() {
     return Object.keys(errors).length === 0;
   };
 
+  // Effect to show resend button after 30 seconds
+  useEffect(() => {
+    if (verificationEmailSentAt) {
+      const timer = setTimeout(() => {
+        setShowResendButton(true);
+      }, 30000); // 30 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [verificationEmailSentAt]);
+
+  // Resend verification email
+  const handleResendVerification = async () => {
+    if (!formData.email.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your email address first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsResendingEmail(true);
+    try {
+      // Call API endpoint to resend verification email
+      const response = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: formData.email.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Show more detailed error message
+        const errorMessage = data.details 
+          ? `${data.error}: ${data.details}` 
+          : data.error || "Failed to resend verification email";
+        throw new Error(errorMessage);
+      }
+
+      setVerificationEmailSentAt(new Date());
+      setShowResendButton(false);
+      
+      // Start cooldown timer (60 seconds)
+      const cooldownSeconds = 60;
+      setResendCooldown(cooldownSeconds);
+      
+      // Clear any existing interval
+      if (resendCooldownIntervalRef.current) {
+        clearInterval(resendCooldownIntervalRef.current);
+      }
+      
+      // Start countdown
+      resendCooldownIntervalRef.current = setInterval(() => {
+        setResendCooldown((prev) => {
+          if (prev <= 1) {
+            if (resendCooldownIntervalRef.current) {
+              clearInterval(resendCooldownIntervalRef.current);
+              resendCooldownIntervalRef.current = null;
+            }
+            setShowResendButton(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      // Show warning if email sending might not be configured
+      if (data.warning) {
+        toast({
+          title: "Email Configuration Warning",
+          description: data.warning,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Verification email sent!",
+          description: "Please check your inbox for the verification link.",
+          variant: "success",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Failed to resend email",
+        description: err.message || "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResendingEmail(false);
+    }
+  };
+  
+  // Cleanup cooldown interval on unmount
+  useEffect(() => {
+    return () => {
+      if (resendCooldownIntervalRef.current) {
+        clearInterval(resendCooldownIntervalRef.current);
+      }
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    if (!validateForm()) {
+    const isValid = await validateForm();
+    if (!isValid) {
       return;
     }
 
@@ -147,6 +334,7 @@ export default function SignupPage() {
       }
 
       if (data.user && !data.session) {
+        setVerificationEmailSentAt(new Date());
         setSuccess(
           "Please check your email for a verification link to complete your registration."
         );
@@ -166,14 +354,29 @@ export default function SignupPage() {
         router.push("/onboarding");
       }
     } catch (err: any) {
-      console.error("Signup error:", err);
-      setError(
-        err.message ||
-          "An error occurred during registration. Please try again."
-      );
+      // Handle specific Supabase errors
+      let errorMessage = err.message || "An error occurred during registration. Please try again.";
+      
+      if (err.message?.includes("User already registered")) {
+        errorMessage = "This email is already registered. Please sign in instead.";
+        setValidationErrors((prev) => ({
+          ...prev,
+          email: errorMessage,
+        }));
+      } else if (err.message?.includes("email address is already")) {
+        errorMessage = "This email is already registered. Please sign in instead.";
+        setValidationErrors((prev) => ({
+          ...prev,
+          email: errorMessage,
+        }));
+      } else if (err.message?.includes("confirmation email") || err.message?.includes("Error sending")) {
+        errorMessage = "Email verification failed. Please check your email configuration or try again later.";
+      }
+      
+      setError(errorMessage);
       toast({
         title: "Registration failed",
-        description: err.message || "Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -207,7 +410,6 @@ export default function SignupPage() {
         variant: "info",
       });
     } catch (err: any) {
-      console.error("Google signup error:", err);
       setError(
         err.message || "Failed to sign up with Google. Please try again."
       );
@@ -226,9 +428,34 @@ export default function SignupPage() {
     value: string | boolean
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear validation error when user starts typing
-    if (validationErrors[field]) {
-      setValidationErrors((prev) => ({ ...prev, [field]: undefined }));
+    
+    // For email field, validate format in real-time
+    if (field === "email" && typeof value === "string") {
+      const email = value.trim();
+      // Clear error if email is empty or format is valid
+      if (!email) {
+        setValidationErrors((prev) => ({ ...prev, email: undefined }));
+      } else if (validateEmailFormat(email)) {
+        // Only clear format-related errors, keep existence errors
+        const currentError = validationErrors.email;
+        if (currentError && currentError.includes("valid email")) {
+          setValidationErrors((prev) => ({ ...prev, email: undefined }));
+        }
+      } else if (email.length > 0) {
+        // Show format error only if user has typed something and format is invalid
+        // But only if they've moved away from the field or typed enough characters
+        if (email.length > 5) {
+          setValidationErrors((prev) => ({
+            ...prev,
+            email: "Please enter a valid email address (e.g., name@example.com)",
+          }));
+        }
+      }
+    } else {
+      // Clear validation error when user starts typing other fields
+      if (validationErrors[field]) {
+        setValidationErrors((prev) => ({ ...prev, [field]: undefined }));
+      }
     }
   };
 
@@ -278,7 +505,31 @@ export default function SignupPage() {
                     <Alert className="mb-4 border-green-200 bg-green-50">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <AlertDescription className="text-green-600">
-                        {success}
+                        <div className="space-y-2">
+                          <p>{success}</p>
+                          {showResendButton && (
+                            <div className="mt-3">
+                              <AnimatedButton
+                                type="button"
+                                variant="glass"
+                                onClick={handleResendVerification}
+                                disabled={isResendingEmail || resendCooldown > 0}
+                                className="text-sm h-8 px-3"
+                              >
+                                {isResendingEmail ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                                    Sending...
+                                  </div>
+                                ) : resendCooldown > 0 ? (
+                                  <span>Resend in {resendCooldown}s</span>
+                                ) : (
+                                  "Resend Verification Email"
+                                )}
+                              </AnimatedButton>
+                            </div>
+                          )}
+                        </div>
                       </AlertDescription>
                     </Alert>
                   </SmoothReveal>
@@ -353,7 +604,7 @@ export default function SignupPage() {
                         >
                           Email Address
                         </Label>
-                        <div className="group flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
+                        <div className="group relative flex h-10 items-center rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm transition-all duration-300 focus-within:border-purple-400">
                           <Mail className="mx-4 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors duration-300 group-focus-within:text-purple-600" />
                           <Input
                             id="email"
@@ -363,9 +614,15 @@ export default function SignupPage() {
                             onChange={(e) =>
                               handleInputChange("email", e.target.value)
                             }
+                            onBlur={handleEmailBlur}
                             className="h-full w-full border-0 bg-transparent p-0 pr-4 focus-visible:ring-0 focus-visible:ring-offset-0"
                             required
                           />
+                          {isCheckingEmail && (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                              <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                          )}
                         </div>
                         {validationErrors.email && (
                           <p className="text-xs text-red-600">

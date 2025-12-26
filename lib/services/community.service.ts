@@ -1732,6 +1732,205 @@ export class CommunityService extends BaseService {
 
     return ApiResponse.success({ deleted: true });
   }
+
+  /**
+   * Get user's communities for dashboard (created + joined) with all needed data
+   * Consolidates multiple queries into efficient batch operations
+   * @param userId - The user ID
+   * @returns ServiceResult with created and joined communities with counts
+   */
+  public async getUserCommunities(
+    userId: string
+  ): Promise<ServiceResult<{
+    created: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      logo_url?: string;
+      banner_url?: string;
+      created_at?: string;
+      member_count: number;
+      upcomingEvents: number;
+      isCreator: boolean;
+      isAdmin?: boolean;
+    }>;
+    joined: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      logo_url?: string;
+      banner_url?: string;
+      created_at?: string;
+      member_count: number;
+      role?: string;
+      status?: string;
+    }>;
+  }>> {
+    try {
+      const now = new Date().toISOString();
+
+      // Fetch created communities and joined communities in parallel
+      const [createdResult, memberResult] = await Promise.all([
+        // Communities created by user
+        this.supabaseAdmin
+          .from("communities")
+          .select(`
+            id,
+            name,
+            description,
+            logo_url,
+            banner_url,
+            created_at,
+            creator_id
+          `)
+          .eq("creator_id", userId)
+          .order("created_at", { ascending: false }),
+        
+        // Communities where user is a member
+        this.supabaseAdmin
+          .from("community_members")
+          .select(`
+            community_id,
+            role,
+            status,
+            communities (
+              id,
+              name,
+              description,
+              logo_url,
+              banner_url,
+              created_at,
+              creator_id
+            )
+          `)
+          .eq("user_id", userId)
+          .eq("status", "approved")
+          .order("joined_at", { ascending: false })
+      ]);
+
+      if (createdResult.error) {
+        return ApiResponse.error("Failed to fetch created communities", 500);
+      }
+
+      if (memberResult.error) {
+        return ApiResponse.error("Failed to fetch joined communities", 500);
+      }
+
+      const createdData = createdResult.data || [];
+      const memberData = memberResult.data || [];
+
+      // Get all community IDs we need to fetch counts for
+      const createdIds = createdData.map((c: any) => c.id);
+      const joinedIds = memberData
+        .filter((m: any) => m.communities && !createdIds.includes(m.communities.id))
+        .map((m: any) => m.communities.id);
+      const allCommunityIds = [...createdIds, ...joinedIds];
+
+      if (allCommunityIds.length === 0) {
+        return ApiResponse.success({
+          created: [],
+          joined: []
+        });
+      }
+
+      // Fetch all counts in parallel
+      const [eventsData, memberCountsData, creatorData] = await Promise.all([
+        // Upcoming events count per community
+        this.supabaseAdmin
+          .from("events")
+          .select("community_id")
+          .in("community_id", allCommunityIds)
+          .gte("start_time", now),
+        
+        // Member counts (only "member" role, approved, excluding creators)
+        this.supabaseAdmin
+          .from("community_members")
+          .select("community_id, status, role, user_id")
+          .in("community_id", allCommunityIds),
+        
+        // Creator IDs for each community
+        this.supabaseAdmin
+          .from("communities")
+          .select("id, creator_id")
+          .in("id", allCommunityIds)
+      ]);
+
+      // Build creator map
+      const creatorMap: Record<string, string> = {};
+      creatorData.data?.forEach((comm: any) => {
+        creatorMap[comm.id] = comm.creator_id;
+      });
+
+      // Count events per community
+      const eventCounts: Record<string, number> = {};
+      eventsData.data?.forEach((event: any) => {
+        eventCounts[event.community_id] = (eventCounts[event.community_id] || 0) + 1;
+      });
+
+      // Count members per community (excluding creators, admins, moderators)
+      const memberCounts: Record<string, number> = {};
+      memberCountsData.data?.forEach((member: any) => {
+        if (member.status === "approved" && member.role === "member") {
+          const isCreator = creatorMap[member.community_id] === member.user_id;
+          if (!isCreator) {
+            memberCounts[member.community_id] = (memberCounts[member.community_id] || 0) + 1;
+          }
+        }
+      });
+
+      // Process created communities
+      const created = createdData.map((comm: any) => ({
+        id: comm.id,
+        name: comm.name,
+        description: comm.description,
+        logo_url: comm.logo_url,
+        banner_url: comm.banner_url,
+        created_at: comm.created_at,
+        member_count: memberCounts[comm.id] || 0,
+        upcomingEvents: eventCounts[comm.id] || 0,
+        isCreator: true,
+      }));
+
+      // Process joined communities (filter out where user is creator)
+      const createdIdsSet = new Set(createdIds);
+      const joined = memberData
+        .filter((m: any) => m.communities && !createdIdsSet.has(m.communities.id))
+        .map((m: any) => ({
+          id: m.communities.id,
+          name: m.communities.name,
+          description: m.communities.description,
+          logo_url: m.communities.logo_url,
+          banner_url: m.communities.banner_url,
+          created_at: m.communities.created_at,
+          member_count: memberCounts[m.communities.id] || 0,
+          role: m.role,
+          status: m.status,
+        }));
+
+      // Separate admin communities (co-admin) from regular member communities
+      const adminComms = joined.filter((c: any) => c.role === "admin");
+      const memberComms = joined.filter((c: any) => c.role !== "admin");
+
+      // Add admin communities to created list
+      const createdWithAdmins = [
+        ...created,
+        ...adminComms.map((c: any) => ({
+          ...c,
+          isCreator: false,
+          isAdmin: true,
+          upcomingEvents: eventCounts[c.id] || 0,
+        }))
+      ];
+
+      return ApiResponse.success({
+        created: createdWithAdmins,
+        joined: memberComms,
+      });
+    } catch (error: any) {
+      console.error("Error fetching user communities:", error);
+      return ApiResponse.error("Failed to fetch user communities", 500);
+    }
+  }
 }
 
 // Export singleton instance

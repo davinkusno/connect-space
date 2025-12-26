@@ -72,6 +72,83 @@ export class AuthController extends BaseController {
       );
     }
   }
+
+  /**
+   * POST /api/auth/resend-verification
+   * Resend verification email for unverified user
+   * @param request - The incoming request with email in body
+   * @returns NextResponse indicating success or failure
+   */
+  public async resendVerification(
+    request: NextRequest
+  ): Promise<NextResponse<{ success: true; message: string; requestId?: string } | ApiErrorResponse>> {
+    try {
+      const body = await this.parseBody<{ email: string }>(request);
+      const { email } = body;
+
+      if (!email || typeof email !== "string") {
+        return this.badRequest("Email is required");
+      }
+
+      const result = await this.service.resendVerificationEmail(email);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      // Return error in format expected by frontend
+      // Frontend expects: { error: string, details?: string, code?: string }
+      const errorMessage = result.error?.message || "Failed to resend verification email";
+      const errorDetailsObj = result.error?.details as any;
+      const errorDetails = typeof errorDetailsObj === 'string' 
+        ? errorDetailsObj
+        : errorDetailsObj?.details || errorDetailsObj?.originalError || undefined;
+      const errorCode = errorDetailsObj?.code || 'UNKNOWN_ERROR';
+
+      return this.json(
+        {
+          error: errorMessage,
+          details: errorDetails,
+          code: errorCode
+        },
+        result.status
+      );
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * POST /api/auth/check-email
+   * Check if an email exists in the users table
+   * @param request - The incoming request with email in body
+   * @returns NextResponse with exists boolean
+   */
+  public async checkEmail(
+    request: NextRequest
+  ): Promise<NextResponse<{ exists: boolean } | ApiErrorResponse>> {
+    try {
+      const body = await this.parseBody<{ email: string }>(request);
+      const { email } = body;
+
+      if (!email || typeof email !== "string") {
+        return this.badRequest("Email is required");
+      }
+
+      const result = await this.service.checkEmailExists(email);
+
+      if (result.success) {
+        return this.json(result.data!, 200);
+      }
+
+      return this.error(
+        result.error?.message || "Failed to check email",
+        result.status || 500
+      );
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

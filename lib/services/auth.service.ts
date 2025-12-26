@@ -435,6 +435,165 @@ export class AuthService extends BaseService {
 
     return ApiResponse.success({ isCreator, isAdmin, isMember });
   }
+
+  /**
+   * Resend verification email for unverified user
+   * @param email - The user's email address
+   * @returns ServiceResult indicating success or failure
+   */
+  public async resendVerificationEmail(
+    email: string
+  ): Promise<ServiceResult<{ message: string; requestId?: string }>> {
+    try {
+      if (!email || typeof email !== "string") {
+        return ApiResponse.badRequest("Email is required");
+      }
+
+      // Check environment variables
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !serviceRoleKey) {
+        return ApiResponse.error("Server configuration error", 500);
+      }
+
+      // Use Admin API to get user by email
+      let user: any = null;
+      let getUserError: any = null;
+      
+      try {
+        // List all users and find by email
+        const { data: { users }, error: listError } = await this.supabaseAdmin.auth.admin.listUsers();
+        
+        if (!listError && users) {
+          user = users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+          if (!user) {
+            getUserError = { message: "User not found" };
+          }
+        } else {
+          getUserError = listError;
+        }
+      } catch (err: any) {
+        getUserError = err;
+      }
+
+      if (getUserError || !user) {
+        return ApiResponse.notFound("User not found");
+      }
+
+      // Check if user is already confirmed
+      if (user.email_confirmed_at) {
+        return ApiResponse.badRequest("Email is already verified");
+      }
+
+      const redirectUrl = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'http://localhost:3000'}/auth/callback`;
+      
+      // Try multiple methods to resend verification email
+      // Method 1: Use inviteUserByEmail (works best with SMTP configured)
+      let lastError: any = null;
+      
+      try {
+        const { data: inviteData, error: inviteError } = await this.supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+          redirectTo: redirectUrl,
+          data: user.user_metadata || {},
+        });
+
+        if (!inviteError && inviteData) {
+          return ApiResponse.success({ 
+            message: "Verification email sent successfully"
+          });
+        }
+        
+        // Check if error is because user already exists (this is OK for unverified users)
+        if (inviteError && !inviteError.message?.includes("already") && !inviteError.message?.includes("exists")) {
+          lastError = inviteError;
+        } else if (inviteError) {
+          lastError = inviteError;
+        }
+      } catch (inviteErr: any) {
+        lastError = inviteErr;
+      }
+
+      // Method 2: Generate magic link (fallback)
+      try {
+        const { data: linkData, error: linkError } = await this.supabaseAdmin.auth.admin.generateLink({
+          type: "magiclink",
+          email: email,
+          options: {
+            redirectTo: redirectUrl,
+          },
+        });
+
+        if (!linkError && linkData) {
+          return ApiResponse.success({ 
+            message: "Verification email sent successfully"
+          });
+        }
+        
+        lastError = linkError || lastError;
+      } catch (linkErr: any) {
+        lastError = linkErr;
+      }
+
+      // If both methods failed, return detailed error
+      const errorMessage = lastError?.message || "Unknown error";
+      const isEmailConfigError = errorMessage.includes("confirmation email") || 
+                                  errorMessage.includes("SMTP") ||
+                                  errorMessage.includes("email") ||
+                                  errorMessage.includes("sending") ||
+                                  errorMessage.includes("Error sending");
+
+      if (isEmailConfigError) {
+        return ApiResponse.error(
+          `SMTP/Email configuration issue: ${errorMessage}. Please verify your SMTP settings in Supabase dashboard.`,
+          500,
+          { code: "EMAIL_CONFIG_ERROR", originalError: errorMessage }
+        );
+      }
+
+      return ApiResponse.error(
+        `Failed to resend verification email: ${errorMessage}`,
+        500
+      );
+    } catch (error: any) {
+      return ApiResponse.error(
+        error.message || "Failed to resend verification email. Please check your Supabase email configuration in the dashboard.",
+        500
+      );
+    }
+  }
+
+  /**
+   * Check if an email exists in the users table
+   * @param email - The email to check
+   * @returns ServiceResult with exists boolean
+   */
+  public async checkEmailExists(email: string): Promise<ServiceResult<{ exists: boolean }>> {
+    try {
+      if (!email || typeof email !== "string") {
+        return ApiResponse.error("Email is required", 400);
+      }
+
+      const { data, error } = await this.supabaseAdmin
+        .from("users")
+        .select("id, email")
+        .eq("email", email.toLowerCase().trim())
+        .maybeSingle();
+
+      if (error) {
+        console.error("[AuthService] Error checking email:", error);
+        return ApiResponse.error("Failed to check email", 500);
+      }
+
+      return ApiResponse.success({ exists: !!data });
+    } catch (error: any) {
+      console.error("[AuthService] Error checking email:", error);
+      return ApiResponse.error(
+        error.message || "Failed to check email",
+        500
+      );
+    }
+  }
 }
 
 // Export singleton instance

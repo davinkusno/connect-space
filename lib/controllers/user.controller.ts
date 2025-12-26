@@ -253,6 +253,70 @@ export class UserController extends BaseController {
   }
 
   /**
+   * PATCH /api/user/profile
+   * Update user profile
+   * @param request - The incoming request with profile updates
+   * @returns NextResponse with updated profile
+   */
+  public async updateProfile(
+    request: NextRequest
+  ): Promise<NextResponse<any | ApiErrorResponse>> {
+    console.log("[UserController] updateProfile called");
+    try {
+      console.log("[UserController] Requiring auth...");
+      const user: User = await this.requireAuth();
+      console.log("[UserController] Auth successful, user ID:", user.id);
+      
+      console.log("[UserController] Parsing body...");
+      const body = await this.parseBody<{
+        full_name?: string;
+        username?: string;
+        interests?: string[];
+        location?: string;
+      }>(request);
+      console.log("[UserController] Body parsed:", body);
+
+      console.log("[UserController] Profile update request:", {
+        userId: user.id,
+        updates: body,
+      });
+
+      // Prepare update data
+      const updates: any = {};
+      if (body.full_name !== undefined) {
+        updates.full_name = body.full_name.trim();
+      }
+      if (body.username !== undefined) {
+        updates.username = body.username.trim();
+      }
+      if (body.interests !== undefined) {
+        updates.interests = body.interests;
+      }
+      if (body.location !== undefined) {
+        updates.location = body.location;
+      }
+
+      console.log("[UserController] Calling service.updateProfile with:", updates);
+      const result = await this.service.updateProfile(user.id, updates);
+      console.log("[UserController] Service call completed, success:", result.success);
+
+      if (!result.success) {
+        console.error("[UserController] Profile update failed:", result.error);
+        return this.error(
+          result.error?.message || "Failed to update profile",
+          result.status || 500
+        );
+      }
+
+      console.log("[UserController] Profile updated successfully");
+      return this.json(result.data, 200);
+    } catch (error: unknown) {
+      console.error("[UserController] Profile update error:", error);
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * GET /api/user/role
    * Get current user's role/type
    * @param request - The incoming request
@@ -484,6 +548,32 @@ export class UserController extends BaseController {
         success: false,
         error: "Failed to reverse geocode",
       };
+    }
+  }
+
+  /**
+   * GET /api/user/dashboard
+   * Get user dashboard data (username, points) for home page
+   * @param request - The incoming request
+   * @returns NextResponse with user dashboard data
+   */
+  public async getDashboardData(
+    request: NextRequest
+  ): Promise<NextResponse<{ username: string; full_name?: string; points: number } | ApiErrorResponse>> {
+    try {
+      const user = await this.requireAuth();
+      const result = await this.service.getUserDashboardData(user.id);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(
+        result.error?.message || "Failed to fetch dashboard data",
+        result.status
+      );
+    } catch (error: unknown) {
+      return this.handleError(error);
     }
   }
 

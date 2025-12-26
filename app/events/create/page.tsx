@@ -13,7 +13,7 @@ import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { Textarea } from "@/components/ui/textarea";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { StandardizedLocation } from "@/types/location";
-import { ArrowLeft, Calendar, Clock, ExternalLink, FileText, Globe, Loader2, Map, MapPin, RefreshCw, Sparkles, Upload, Users, Wand2, X } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, ExternalLink, FileText, Globe, Loader2, Lock, Map, MapPin, RefreshCw, Sparkles, Upload, Users, Wand2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useCallback, useEffect, useState } from "react";
@@ -39,6 +39,7 @@ export default function CreateEventPage() {
     is_online: false,
     max_attendees: "",
     image_url: "",
+    is_private: false,
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -238,6 +239,7 @@ export default function CreateEventPage() {
           location: locationPayload,
           community_id: communityId,
           max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : null,
+          is_private: formData.is_private || false,
         }),
       });
 
@@ -667,6 +669,27 @@ export default function CreateEventPage() {
                     <Globe className="h-4 w-4 text-violet-600" />
                     This is an online event
                   </Label>
+                </div>
+
+                {/* Private Event Checkbox */}
+                <div className="flex items-start space-x-3 p-4 rounded-lg border border-amber-200 bg-amber-50/50">
+                  <Checkbox
+                    id="is_private"
+                    checked={formData.is_private}
+                    onCheckedChange={(checked) => {
+                      handleInputChange("is_private", checked as boolean);
+                    }}
+                    className="border-gray-300 data-[state=checked]:bg-amber-600 data-[state=checked]:border-amber-600 mt-1"
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="is_private" className="cursor-pointer font-medium text-gray-700 flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-amber-600" />
+                      Private Event (Members Only)
+                    </Label>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Only community members can view and attend this event. Non-members will need to join the community first.
+                    </p>
+                  </div>
                 </div>
 
               {/* Location Section */}

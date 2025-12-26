@@ -117,6 +117,27 @@ export default function ProfilePage() {
           return;
         }
 
+        // Check if user has completed onboarding first
+        try {
+          const onboardingResponse = await fetch("/api/user/onboarding", {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+
+          if (onboardingResponse.ok) {
+            const onboardingData = await onboardingResponse.json();
+            if (!onboardingData.onboardingCompleted) {
+              // User hasn't completed onboarding, redirect them
+              router.push("/onboarding");
+              return;
+            }
+          }
+        } catch (onboardingError) {
+          // If onboarding check fails, continue but log it
+          console.warn("Could not verify onboarding status:", onboardingError);
+        }
+
         // Determine authentication provider
         // OAuth users have app_metadata.provider or identities array
         const provider = session.user.app_metadata?.provider || 
@@ -131,12 +152,30 @@ export default function ProfilePage() {
           .eq("id", session.user.id)
           .single();
         
-        // Store userProfile in a way that's accessible in handleSave
-        setUserProfile(userProfile);
-
+        // Handle profile error gracefully
         if (profileError) {
-          console.error("Error fetching user profile:", profileError);
+          // If user doesn't exist in users table (shouldn't happen if onboarding is complete, but handle it)
+          if (profileError.code === "PGRST116" || profileError.message?.includes("No rows")) {
+            // User record doesn't exist, redirect to onboarding
+            router.push("/onboarding");
+            return;
+          }
+          
+          // For other errors, log with more detail and continue with metadata fallback
+          const errorMessage = profileError.message || "Unknown error";
+          const errorCode = profileError.code || "UNKNOWN";
+          console.error("Error fetching user profile:", {
+            message: errorMessage,
+            code: errorCode,
+            details: profileError.details || null,
+            hint: profileError.hint || null,
+          });
+          
+          // Continue with empty userProfile - will use metadata fallback
         }
+        
+        // Store userProfile in a way that's accessible in handleSave
+        setUserProfile(userProfile || null);
 
         // Prioritize avatar_url from users table over user_metadata (to prevent Google OAuth from overriding custom avatars)
         const customAvatarUrl = userProfile?.avatar_url || null;
@@ -243,12 +282,28 @@ export default function ProfilePage() {
           }
         }
       } catch (error) {
-        console.error("Error getting user:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load profile information.",
-          variant: "destructive",
-        });
+        // Handle errors gracefully
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        const errorDetails = error instanceof Error ? {
+          message: errorMessage,
+          name: error.name,
+          stack: error.stack,
+        } : { error };
+        
+        console.error("Error getting user:", errorDetails);
+        
+        // Don't show toast if we're redirecting to onboarding
+        // Check if error is related to onboarding or if we're already on onboarding
+        const isOnboardingError = errorMessage.toLowerCase().includes("onboarding") || 
+                                  errorMessage.toLowerCase().includes("not found");
+        
+        if (!isOnboardingError) {
+          toast({
+            title: "Error",
+            description: "Failed to load profile information. Please try again.",
+            variant: "destructive",
+          });
+        }
       } finally {
         setIsLoading(false);
       }
@@ -317,10 +372,28 @@ export default function ProfilePage() {
     setSearchTimeoutId(timeoutId);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    if (isSaving) return;
     setIsSaving(true);
+    
     try {
-      // Validate form data
+      // Validate user
+      if (!user?.id) {
+        toast({
+          title: "Error",
+          description: "Session expired. Please refresh the page.",
+          variant: "destructive",
+        });
+        setIsSaving(false);
+        return;
+      }
+
+      // Validate full name
       if (!formData.fullName.trim()) {
         toast({
           title: "Validation Error",
@@ -331,75 +404,48 @@ export default function ProfilePage() {
         return;
       }
 
-      // Validate interests minimum
-      if (formData.interests.length < 3) {
+      // Get session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
         toast({
-          title: "Validation Error",
-          description: "Please add at least 3 interests.",
+          title: "Error",
+          description: "Session expired. Please refresh the page.",
           variant: "destructive",
         });
         setIsSaving(false);
         return;
       }
 
-      // Prepare user metadata with standardized location format
+      // Prepare location
       const locationData = selectedLocation
         ? toStandardizedLocation(selectedLocation)
         : undefined;
-
-      // Prepare location as JSON string for users table
       const locationString = locationData ? JSON.stringify(locationData) : null;
 
-      // Update user metadata in Supabase Auth (for backwards compatibility)
-      const { error: authError } = await supabase.auth.updateUser({
-        data: {
-          full_name: formData.fullName,
-          username: formData.username,
-          location: locationData, // NEW standardized format
-          // Keep legacy fields for backwards compatibility during migration
-          location_city: selectedLocation?.id || null,
-          location_city_name: selectedLocation?.name || null,
-          location_lat: selectedLocation?.lat || null,
-          location_lon: selectedLocation?.lon || null,
-          interests: formData.interests,
-        },
-      });
-
-      if (authError) {
-        throw authError;
-      }
-
-      // Check if username has changed before updating
-      const currentUsername = userProfile?.username || user.user_metadata?.username;
-      const usernameChanged = formData.username !== currentUsername;
-
-      // Prepare update object - only include username if it has changed
-      const updateData: any = {
-        full_name: formData.fullName,
+      // Prepare update data
+      const updateData = {
+        full_name: formData.fullName.trim(),
+        username: formData.username.trim(),
         interests: formData.interests,
         location: locationString,
       };
-      
-      // Only update username if it has actually changed
-      if (usernameChanged) {
-        updateData.username = formData.username;
-      }
 
-      // Update users table in database
-      const { error: dbError } = await supabase
-        .from("users")
-        .update(updateData)
-        .eq("id", user.id);
+      // Call API
+      const response = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
 
-      if (dbError) {
-        console.error("Error updating users table:", dbError);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to update" }));
         
-        // Check for unique constraint violation (duplicate username)
-        // PostgreSQL error code 23505 = unique_violation
-        if (dbError.code === "23505" || 
-            dbError.message?.toLowerCase().includes("duplicate") || 
-            dbError.message?.toLowerCase().includes("unique") ||
-            dbError.message?.toLowerCase().includes("already exists")) {
+        // Check for duplicate username
+        if (errorData.error?.message?.toLowerCase().includes("duplicate") || 
+            errorData.error?.message?.toLowerCase().includes("unique")) {
           toast({
             title: "Username already taken",
             description: "This username is already in use. Please choose a different username.",
@@ -409,26 +455,16 @@ export default function ProfilePage() {
           return;
         }
         
-        // If username hasn't changed, it should be allowed
-        // But if we still get an error, it might be a different issue
-        if (!usernameChanged) {
-          // Username is the same, this should be allowed
-          // The error might be from another field, so we'll show a generic error
-          throw new Error(dbError.message || "Failed to update profile in database");
-        } else {
-          throw new Error(dbError.message || "Failed to update profile in database");
-        }
+        throw new Error(errorData.error?.message || "Failed to update profile");
       }
 
-      // Update local user state
+      // Update local state
       setUser((prev) =>
         prev
           ? {
               ...prev,
               user_metadata: {
                 ...prev.user_metadata,
-                full_name: formData.fullName,
-                username: formData.username,
                 location: locationData,
                 location_city: selectedLocation?.id || undefined,
                 location_city_name: selectedLocation?.name || undefined,
@@ -440,16 +476,37 @@ export default function ProfilePage() {
           : null
       );
 
+      setUserProfile((prev: any) => ({
+        ...(prev || {}),
+        full_name: formData.fullName,
+        username: formData.username,
+        interests: formData.interests,
+        location: locationString,
+      }));
+
+      // Update auth metadata in background (non-blocking, ignore errors)
+      supabase.auth.updateUser({
+        data: {
+          location: locationData,
+          location_city: selectedLocation?.id || null,
+          location_city_name: selectedLocation?.name || null,
+          location_lat: selectedLocation?.lat || null,
+          location_lon: selectedLocation?.lon || null,
+          interests: formData.interests,
+        },
+      }).catch(() => {});
+
       toast({
         title: "Profile updated",
         description: "Your profile has been successfully updated.",
       });
+      
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating profile:", error);
       toast({
         title: "Error",
-        description: "Failed to update profile. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to update profile. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -689,6 +746,10 @@ export default function ProfilePage() {
         data: { session: newSession },
       } = await supabase.auth.refreshSession();
 
+      if (!user?.id) {
+        throw new Error("User session expired");
+      }
+
       // Also fetch from users table to get the saved avatar_url (prioritize over user_metadata)
       const { data: userProfile } = await supabase
         .from("users")
@@ -778,6 +839,10 @@ export default function ProfilePage() {
       const {
         data: { session: newSession },
       } = await supabase.auth.refreshSession();
+
+      if (!user?.id) {
+        throw new Error("User session expired");
+      }
 
       // Also fetch from users table to get the saved avatar_url (prioritize over user_metadata)
       const { data: userProfile } = await supabase
@@ -1107,7 +1172,12 @@ export default function ProfilePage() {
                       <AnimatedButton
                         variant="gradient"
                         size="sm"
-                        onClick={handleSave}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleSave(e);
+                        }}
                         disabled={isSaving}
                         className="px-6 py-2"
                       >

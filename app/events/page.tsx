@@ -639,11 +639,16 @@ export default function EventsPage() {
           />
 
           <div className="absolute top-3 left-3 flex flex-col gap-2">
-            {/* Private Badge - Only show for private events */}
-            {event.isPrivate && (
+            {/* Private/Public Badge */}
+            {event.isPrivate ? (
               <Badge className="bg-amber-500 hover:bg-amber-600 text-white border-2 border-amber-300 flex items-center gap-1 shadow-lg text-xs font-bold px-2.5 py-1">
                 <Lock className="h-3.5 w-3.5" />
-                Members Only
+                Private
+              </Badge>
+            ) : (
+              <Badge className="bg-green-500 hover:bg-green-600 text-white border-2 border-green-300 flex items-center gap-1 shadow-lg text-xs font-bold px-2.5 py-1">
+                <Globe className="h-3.5 w-3.5" />
+                Public
               </Badge>
             )}
             {/* Registration Status Badge on Image */}

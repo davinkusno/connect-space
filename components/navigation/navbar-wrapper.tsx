@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import { UnifiedNav } from "./unified-nav"
+import { MinimalNav } from "./minimal-nav"
 
 export function NavbarWrapper() {
   const pathname = usePathname()
@@ -14,5 +15,11 @@ export function NavbarWrapper() {
     return null
   }
   
+  // Show minimal navbar (only profile picture) on onboarding page
+  if (pathname === "/onboarding") {
+    return <MinimalNav />
+  }
+  
+  // Show full navbar on all other pages
   return <UnifiedNav />
 }

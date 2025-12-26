@@ -654,12 +654,6 @@ export function UnifiedNav() {
                         <p className="text-xs text-gray-500 truncate">
                           {user.email}
                         </p>
-                        <div className="flex items-center gap-1 mt-1">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-xs text-green-600 font-medium">
-                            Online
-                          </span>
-                        </div>
                       </div>
                     </div>
                   </DropdownMenuLabel>

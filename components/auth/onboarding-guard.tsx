@@ -30,13 +30,23 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     "/communities/create",
   ];
 
+  // Check if current route is a public route
+  const isPublicRoute = publicRoutes.some((route) => pathname?.startsWith(route));
+
   useEffect(() => {
+    // For public routes, immediately allow access (no async check needed)
+    if (isPublicRoute) {
+      setIsChecking(false);
+      setIsOnboardingComplete(true);
+      return;
+    }
+    
     checkOnboarding();
-  }, [pathname]);
+  }, [pathname, isPublicRoute]);
 
   const checkOnboarding = async () => {
-    // Skip check for public routes
-    if (publicRoutes.some((route) => pathname.startsWith(route))) {
+    // Skip check for public routes (shouldn't reach here, but double-check)
+    if (isPublicRoute) {
       setIsChecking(false);
       setIsOnboardingComplete(true);
       return;
@@ -64,13 +74,24 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
 
         // Check if user has completed onboarding
         if (!data.onboardingCompleted) {
+          // Redirect to onboarding if not completed
           router.push("/onboarding");
+          setIsChecking(false);
+          setIsOnboardingComplete(false);
           return;
         }
 
         setIsOnboardingComplete(true);
       } else {
-        // If API fails (e.g., migration not run yet), allow access for now
+        // If API fails, check if it's a 404 (user not found) - redirect to onboarding
+        if (response.status === 404) {
+          router.push("/onboarding");
+          setIsChecking(false);
+          setIsOnboardingComplete(false);
+          return;
+        }
+        
+        // For other errors, allow access (fail gracefully)
         console.warn(
           "Onboarding API failed, allowing access:",
           response.status

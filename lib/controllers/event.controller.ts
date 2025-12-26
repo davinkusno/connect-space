@@ -357,6 +357,7 @@ export class EventController extends BaseController {
         is_online?: boolean;
         max_attendees?: number;
         link?: string;
+        is_private?: boolean;
       }>(request);
 
       const result = await this.service.createEvent(body, user.id);
@@ -461,6 +462,32 @@ export class EventController extends BaseController {
       }
       
       return this.error(result.error?.message || "Failed to delete event", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/events/user
+   * Get user's events (interested + saved) for dashboard
+   * @param request - The incoming request
+   * @returns NextResponse with user's events
+   */
+  public async getUserEvents(
+    request: NextRequest
+  ): Promise<NextResponse<{ interested: unknown[]; saved: unknown[] } | ApiErrorResponse>> {
+    try {
+      const user = await this.requireAuth();
+      const result = await this.service.getUserEvents(user.id);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(
+        result.error?.message || "Failed to fetch user events",
+        result.status
+      );
     } catch (error: unknown) {
       return this.handleError(error);
     }

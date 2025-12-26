@@ -86,7 +86,7 @@ export class EventService extends BaseService {
    * @param eventId - The event ID to fetch
    * @returns ServiceResult containing event data or error
    */
-  public async getById(eventId: string): Promise<ServiceResult<EventData>> {
+  public async getById(eventId: string, userId?: string): Promise<ServiceResult<EventData>> {
     const { data, error } = await this.supabaseAdmin
       .from("events")
       .select("*")
@@ -95,6 +95,26 @@ export class EventService extends BaseService {
 
     if (error || !data) {
       return ApiResponse.notFound("Event");
+    }
+
+    // Check if event is private and user has access
+    if (data.is_private) {
+      if (!userId) {
+        return ApiResponse.forbidden("This is a private event. Please join the community to view it.");
+      }
+
+      // Check if user is a member of the community
+      const { data: membership } = await this.supabaseAdmin
+        .from("community_members")
+        .select("id")
+        .eq("community_id", data.community_id)
+        .eq("user_id", userId)
+        .eq("status", "approved")
+        .maybeSingle();
+
+      if (!membership) {
+        return ApiResponse.forbidden("This is a private event. Please join the community to view it.");
+      }
     }
 
     return ApiResponse.success(data as EventData);
@@ -136,7 +156,7 @@ export class EventService extends BaseService {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    // Build query
+    // Build query - we'll filter private events after fetching
     let query = this.supabaseAdmin
       .from("events")
       .select(
@@ -194,12 +214,41 @@ export class EventService extends BaseService {
     // Apply sorting
     query = query.order(sortBy, { ascending: sortOrder === "asc" });
 
-    // Apply pagination
-    const { data: events, error, count } = await query.range(from, to);
+    // Fetch all events first (we'll filter and paginate after)
+    const { data: allEvents, error, count: totalCount } = await query;
 
     if (error) {
       return ApiResponse.error(`Failed to fetch events: ${error.message}`, 500);
     }
+
+    // Filter private events based on membership
+    let filteredEvents = allEvents || [];
+    if (userId) {
+      // Get all communities the user is a member of
+      const { data: userMemberships } = await this.supabaseAdmin
+        .from("community_members")
+        .select("community_id")
+        .eq("user_id", userId)
+        .eq("status", "approved");
+
+      const userCommunityIds = new Set(userMemberships?.map(m => m.community_id) || []);
+
+      // Filter: show public events OR private events where user is a member
+      filteredEvents = filteredEvents.filter((event: any) => {
+        if (!event.is_private) {
+          return true; // Public events are always visible
+        }
+        // Private events: only show if user is a member
+        return userCommunityIds.has(event.community_id);
+      });
+    } else {
+      // No user logged in, only show public events
+      filteredEvents = filteredEvents.filter((event: any) => !event.is_private);
+    }
+
+    // Apply pagination after filtering
+    const totalFiltered = filteredEvents.length;
+    const events = filteredEvents.slice(from, to + 1);
 
     const eventIds = (events || []).map((e: { id: string }) => e.id);
     let attendeeCounts: Record<string, number> = {};
@@ -303,7 +352,7 @@ export class EventService extends BaseService {
         duration: this.calculateDuration(event.start_time, event.end_time),
         language: "English",
         certificates: false,
-        isPrivate: false,
+        isPrivate: event.is_private || false,
         community: event.community ? {
           id: event.community.id,
           name: event.community.name,
@@ -319,8 +368,8 @@ export class EventService extends BaseService {
       pagination: {
         page,
         pageSize,
-        totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
+        totalCount: totalFiltered,
+        totalPages: Math.ceil(totalFiltered / pageSize),
       },
     });
   }
@@ -916,6 +965,7 @@ export class EventService extends BaseService {
       is_online?: boolean;
       max_attendees?: number;
       link?: string;
+      is_private?: boolean;
     },
     userId: string
   ): Promise<ServiceResult<EventData>> {
@@ -994,6 +1044,7 @@ export class EventService extends BaseService {
       is_online: data.is_online || false,
       max_attendees: data.max_attendees || null,
       link: data.link || null,
+      is_private: data.is_private || false,
     };
 
     // Set category
@@ -1211,6 +1262,160 @@ export class EventService extends BaseService {
       deleted: true,
       message: "Event deleted successfully"
     });
+  }
+
+  /**
+   * Get user's events for dashboard (interested + saved) with all needed data
+   * Consolidates multiple queries into efficient batch operations
+   * @param userId - The user ID
+   * @returns ServiceResult with interested and saved events
+   */
+  public async getUserEvents(
+    userId: string
+  ): Promise<ServiceResult<{
+    interested: Array<{
+      id: string;
+      title: string;
+      description?: string;
+      start_time: string;
+      end_time?: string;
+      location?: string;
+      image_url?: string;
+      is_online?: boolean;
+      community_id: string;
+      community?: {
+        name: string;
+        logo_url?: string;
+      };
+    }>;
+    saved: Array<{
+      id: string;
+      title: string;
+      description?: string;
+      start_time: string;
+      end_time?: string;
+      location?: string;
+      image_url?: string;
+      is_online?: boolean;
+      community_id: string;
+      community?: {
+        name: string;
+        logo_url?: string;
+      };
+      saved_at: string;
+    }>;
+  }>> {
+    try {
+      const now = new Date().toISOString();
+
+      // Fetch interested and saved events in parallel
+      const [interestedResult, savedResult] = await Promise.all([
+        // Interested events (upcoming only)
+        this.supabaseAdmin
+          .from("event_attendees")
+          .select(`
+            event_id,
+            events (
+              id,
+              title,
+              description,
+              start_time,
+              end_time,
+              location,
+              image_url,
+              is_online,
+              community_id,
+              communities (
+                name,
+                logo_url
+              )
+            )
+          `)
+          .eq("user_id", userId)
+          .gte("events.start_time", now)
+          .order("events.start_time", { ascending: true }),
+        
+        // Saved events
+        this.supabaseAdmin
+          .from("saved_events")
+          .select(`
+            event_id,
+            saved_at,
+            events (
+              id,
+              title,
+              description,
+              start_time,
+              end_time,
+              location,
+              image_url,
+              is_online,
+              community_id,
+              communities (
+                name,
+                logo_url
+              )
+            )
+          `)
+          .eq("user_id", userId)
+          .order("saved_at", { ascending: false })
+      ]);
+
+      if (interestedResult.error) {
+        return ApiResponse.error("Failed to fetch interested events", 500);
+      }
+
+      if (savedResult.error) {
+        return ApiResponse.error("Failed to fetch saved events", 500);
+      }
+
+      // Process interested events
+      const interested = (interestedResult.data || [])
+        .filter((item: any) => item.events) // Filter out null events
+        .map((item: any) => ({
+          id: item.events.id,
+          title: item.events.title,
+          description: item.events.description,
+          start_time: item.events.start_time,
+          end_time: item.events.end_time,
+          location: item.events.location,
+          image_url: item.events.image_url,
+          is_online: item.events.is_online,
+          community_id: item.events.community_id,
+          community: item.events.communities ? {
+            name: item.events.communities.name,
+            logo_url: item.events.communities.logo_url,
+          } : undefined,
+        }));
+
+      // Process saved events
+      const saved = (savedResult.data || [])
+        .filter((item: any) => item.events) // Filter out null events
+        .map((item: any) => ({
+          id: item.events.id,
+          title: item.events.title,
+          description: item.events.description,
+          start_time: item.events.start_time,
+          end_time: item.events.end_time,
+          location: item.events.location,
+          image_url: item.events.image_url,
+          is_online: item.events.is_online,
+          community_id: item.events.community_id,
+          community: item.events.communities ? {
+            name: item.events.communities.name,
+            logo_url: item.events.communities.logo_url,
+          } : undefined,
+          saved_at: item.saved_at,
+        }));
+
+      return ApiResponse.success({
+        interested,
+        saved,
+      });
+    } catch (error: any) {
+      console.error("Error fetching user events:", error);
+      return ApiResponse.error("Failed to fetch user events", 500);
+    }
   }
 }
 
