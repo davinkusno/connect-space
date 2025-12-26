@@ -348,7 +348,8 @@ export class EventController extends BaseController {
       const body = await this.parseBody<{
         title: string;
         description: string;
-        category?: string;
+        category?: string; // Category name (for backward compatibility)
+        category_id?: string; // Category ID (preferred)
         location?: string;
         start_time: string;
         end_time: string;
@@ -388,7 +389,8 @@ export class EventController extends BaseController {
       const body = await this.parseBody<{
         title?: string;
         description?: string;
-        category?: string;
+        category?: string; // Category name (for backward compatibility)
+        category_id?: string; // Category ID (preferred)
         location?: string;
         start_time?: string;
         end_time?: string;

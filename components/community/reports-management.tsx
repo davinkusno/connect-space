@@ -60,8 +60,6 @@ interface Report {
   status: "pending" | "reviewing" | "resolved" | "dismissed";
   created_at: string;
   updated_at: string;
-  resolved_at: string | null;
-  review_notes: string | null;
   reporter: Reporter;
   reported_member?: ReportedMember;
   target_name?: string; // Generic name for the reported item
@@ -94,7 +92,6 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState<Report["status"]>("pending");
-  const [reviewNotes, setReviewNotes] = useState("");
   const [isBanning, setIsBanning] = useState(false);
   const [banReason, setBanReason] = useState("");
   const [showBanDialog, setShowBanDialog] = useState(false);
@@ -141,7 +138,6 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
   const openReportDetail = (report: Report) => {
     setSelectedReport(report);
     setNewStatus(report.status);
-    setReviewNotes(report.review_notes || "");
     setIsDetailOpen(true);
   };
 
@@ -158,7 +154,6 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             status: newStatus,
-            review_notes: reviewNotes.trim() || undefined,
           }),
         }
       );
@@ -665,14 +660,6 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
                   </div>
                 </div>
 
-                {selectedReport.review_notes && (
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-2">Previous Review Notes</h3>
-                    <p className="text-gray-700 p-3 bg-blue-50 rounded-lg text-sm">
-                      {selectedReport.review_notes}
-                    </p>
-                  </div>
-                )}
               </div>
 
               {/* Action Section */}
@@ -719,17 +706,6 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
                   </Select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Review Notes (Optional)
-                  </label>
-                  <Textarea
-                    placeholder="Add notes about your decision..."
-                    value={reviewNotes}
-                    onChange={(e) => setReviewNotes(e.target.value)}
-                    rows={4}
-                  />
-                </div>
 
                 {newStatus === "resolved" && (
                   <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">

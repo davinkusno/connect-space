@@ -133,7 +133,6 @@ export class UserService extends BaseService {
       user_id: userId,
       points,
       point_type: sourceToPointType[source],
-      description: reason,
     });
 
     if (!result.success) {

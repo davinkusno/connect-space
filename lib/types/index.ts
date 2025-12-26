@@ -80,7 +80,6 @@ export interface Community {
   is_private: boolean;
   created_at: string;
   updated_at?: string;
-  last_activity_date?: string;
 }
 
 export type CommunityCategory =
@@ -232,9 +231,7 @@ export interface Report {
   description?: string;
   status: ReportStatus;
   resolution?: string;
-  resolved_by?: string;
   created_at: string;
-  resolved_at?: string;
   reporter?: User;
   reported_user?: User;
   reported_community?: Community;

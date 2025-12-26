@@ -18,9 +18,7 @@ interface ReportData {
   description?: string;
   status: ReportStatus;
   resolution?: string;
-  resolved_by?: string;
   created_at: string;
-  resolved_at?: string;
 }
 
 interface ReportsResult {
@@ -245,8 +243,6 @@ export class AdminService extends BaseService {
           status,
           created_at,
           updated_at,
-          resolved_at,
-          review_notes,
           reporter_id,
           reporter:reporter_id (id, full_name, avatar_url, email)
         `)
@@ -389,6 +385,11 @@ export class AdminService extends BaseService {
 
         // Add each report with enriched data
         for (const report of group.reports) {
+          // For community reports, use targetData name; for others, use communityInfo
+          const finalCommunityName = reportType === "community" && targetData?.name
+            ? targetData.name
+            : communityInfo?.name || "Unknown Community";
+          
           const enrichedReport = {
             ...report,
             target_data: targetData,
@@ -397,7 +398,7 @@ export class AdminService extends BaseService {
             unique_reporters: reportCount,
             threshold,
             threshold_met: thresholdMet,
-            community_name: communityInfo?.name || "Unknown Community",
+            community_name: finalCommunityName,
             community_id: group.communityId,
             member_count: communityInfo?.memberCount || 0,
             communityStatus: reportType === "community" && targetData ? targetData.status : null,
@@ -590,8 +591,6 @@ export class AdminService extends BaseService {
       .update({
         status: "resolved" as ReportStatus,
         resolution,
-        resolved_by: adminId,
-        resolved_at: new Date().toISOString(),
       })
       .eq("id", reportId)
       .select()
@@ -626,8 +625,6 @@ export class AdminService extends BaseService {
       .update({
         status: "dismissed" as ReportStatus,
         resolution: reason || "Report dismissed by admin",
-        resolved_by: adminId,
-        resolved_at: new Date().toISOString(),
       })
       .eq("id", reportId)
       .select()
@@ -666,22 +663,22 @@ export class AdminService extends BaseService {
     const thresholdDate: Date = new Date();
     thresholdDate.setDate(thresholdDate.getDate() - this.INACTIVE_DAYS_THRESHOLD);
 
-    // Fetch communities with their last activity or created date
+    // Fetch communities with their created date
     const { data, error } = await this.supabaseAdmin
       .from("communities")
-      .select("id, name, creator_id, member_count, last_activity_date, created_at, status")
+      .select("id, name, creator_id, member_count, created_at, status")
       .neq("status", "suspended")
-      .order("last_activity_date", { ascending: true, nullsFirst: true });
+      .order("created_at", { ascending: true, nullsFirst: true });
 
     if (error) {
       return ApiResponse.error("Failed to fetch inactive communities", 500);
     }
 
-    // Filter and calculate days inactive
+    // Filter and calculate days inactive based on created_at
     const communities: InactiveCommunity[] = (data || [])
       .map((c) => {
-        // Use last_activity_date if available, otherwise use created_at
-        const lastActiveDate = c.last_activity_date || c.created_at;
+        // Use created_at to determine inactivity
+        const lastActiveDate = c.created_at;
         const daysInactive = lastActiveDate
           ? Math.floor((Date.now() - new Date(lastActiveDate).getTime()) / (1000 * 60 * 60 * 24))
           : 0;

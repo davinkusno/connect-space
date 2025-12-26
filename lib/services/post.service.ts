@@ -195,14 +195,6 @@ export class PostService extends BaseService {
       return ApiResponse.error("Failed to create post", 500);
     }
 
-    // Update community activity timestamp
-    await this.supabaseAdmin
-      .from("communities")
-      .update({
-        last_activity_date: new Date().toISOString(),
-        last_activity_type: "post",
-      })
-      .eq("id", input.community_id);
 
     return ApiResponse.created<PostData>(data as PostData);
   }

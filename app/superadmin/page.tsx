@@ -2328,7 +2328,22 @@ export default function SuperadminPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      {selectedReport.communityName || selectedReport.target_name || "Unknown"}
+                      {(() => {
+                        // For community reports, prioritize community name from various sources
+                        if (selectedReport.report_type === "community" || selectedReport.category === "community") {
+                          return selectedReport.reported_community?.name || 
+                                 selectedReport.target_data?.name || 
+                                 selectedReport.communityName || 
+                                 selectedReport.target_name || 
+                                 "Unknown Community";
+                        }
+                        // For other report types, use target name
+                        return selectedReport.communityName || 
+                               selectedReport.target_name || 
+                               selectedReport.reported_community?.name ||
+                               selectedReport.target_data?.name ||
+                               "Unknown";
+                      })()}
                     </h3>
                     {/* Show community context for thread/reply/event */}
                     {((selectedReport.category === "thread" || selectedReport.category === "reply" || selectedReport.category === "event") || 
@@ -2337,6 +2352,16 @@ export default function SuperadminPage() {
                       <div className="text-sm text-gray-700 mb-2 flex items-center gap-1">
                         <span className="font-medium">Community:</span>
                         <span>{selectedReport.actualCommunityName || selectedReport.community_name}</span>
+                      </div>
+                    )}
+                    {/* Show community name for community reports if not already shown in title */}
+                    {(selectedReport.report_type === "community" || selectedReport.category === "community") && 
+                     (selectedReport.community_name || selectedReport.actualCommunityName) && 
+                     !selectedReport.reported_community?.name && 
+                     !selectedReport.target_data?.name && (
+                      <div className="text-sm text-gray-700 mb-2 flex items-center gap-1">
+                        <span className="font-medium">Community:</span>
+                        <span>{selectedReport.community_name || selectedReport.actualCommunityName}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-2 mb-2">

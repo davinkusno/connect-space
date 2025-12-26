@@ -89,7 +89,10 @@ export class EventService extends BaseService {
   public async getById(eventId: string, userId?: string): Promise<ServiceResult<EventData>> {
     const { data, error } = await this.supabaseAdmin
       .from("events")
-      .select("*")
+      .select(`
+        *,
+        category:category_id(id, name)
+      `)
       .eq("id", eventId)
       .single();
 
@@ -163,7 +166,8 @@ export class EventService extends BaseService {
         `
         *,
         community:community_id(id, name, logo_url),
-        creator:creator_id(id, username, full_name, avatar_url)
+        creator:creator_id(id, username, full_name, avatar_url),
+        category:category_id(id, name)
       `,
         { count: "exact" }
       );
@@ -173,9 +177,17 @@ export class EventService extends BaseService {
       query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
     }
 
-    // Apply category filter
+    // Apply category filter - support both category_id (UUID) and category name (string)
     if (category && category !== "all") {
-      query = query.eq("category", category);
+      // Check if category is a UUID (category_id) or a string (category name)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(category);
+      if (isUUID) {
+        query = query.eq("category_id", category);
+      } else {
+        // For category name, we need to filter after fetching or use a subquery
+        // For now, we'll filter after fetching since Supabase doesn't support filtering on joined table fields easily
+        // This will be handled in post-processing
+      }
     }
 
     // Apply date range filter
@@ -223,6 +235,19 @@ export class EventService extends BaseService {
 
     // Filter private events based on membership
     let filteredEvents = allEvents || [];
+    
+    // Apply category name filter if category is provided as a name (not UUID)
+    if (category && category !== "all") {
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(category);
+      if (!isUUID) {
+        // Filter by category name (post-processing since we can't filter on joined table fields)
+        filteredEvents = filteredEvents.filter((event: any) => {
+          const eventCategoryName = (event.category as any)?.name || event.category;
+          return eventCategoryName && eventCategoryName.toLowerCase() === category.toLowerCase();
+        });
+      }
+    }
+    
     if (userId) {
       // Get all communities the user is a member of
       const { data: userMemberships } = await this.supabaseAdmin
@@ -317,8 +342,8 @@ export class EventService extends BaseService {
         id: event.id,
         title: event.title,
         description: event.description,
-        category: event.category || "General",
-        tags: event.category ? [event.category] : [],
+        category: (event.category as any)?.name || event.category || "General",
+        tags: (event.category as any)?.name ? [(event.category as any).name] : event.category ? [event.category] : [],
         date: startDate.toISOString().split("T")[0],
         time: startDate.toLocaleTimeString("en-US", {
           hour: "2-digit",
@@ -956,7 +981,8 @@ export class EventService extends BaseService {
     data: {
       title: string;
       description: string;
-      category?: string;
+      category?: string; // Category name (for backward compatibility)
+      category_id?: string; // Category ID (preferred)
       location?: string;
       start_time: string;
       end_time: string;
@@ -1047,26 +1073,45 @@ export class EventService extends BaseService {
       is_private: data.is_private || false,
     };
 
-    // Set category
-    if (data.category) {
-      insertData.category = data.category;
-    } else if (community.category_id) {
-      const { data: catData } = await this.supabaseAdmin
+    // Set category_id - support both category_id (UUID) and category name (string)
+    if (data.category_id) {
+      // Direct category_id provided
+      insertData.category_id = data.category_id;
+    } else if (data.category) {
+      // Category name provided - find or create category
+      const { data: categoryData } = await this.supabaseAdmin
         .from("categories")
-        .select("name")
-        .eq("id", community.category_id)
-        .single();
+        .select("id")
+        .ilike("name", data.category)
+        .maybeSingle();
 
-      if (catData?.name) {
-        insertData.category = catData.name;
+      if (categoryData) {
+        insertData.category_id = categoryData.id;
+      } else {
+        // Create new category
+        const { data: newCategory } = await this.supabaseAdmin
+          .from("categories")
+          .insert({ name: data.category })
+          .select("id")
+          .single();
+        
+        if (newCategory) {
+          insertData.category_id = newCategory.id;
+        }
       }
+    } else if (community.category_id) {
+      // Use community's category as fallback
+      insertData.category_id = community.category_id;
     }
 
     // Create event
     const { data: event, error: eventError } = await this.supabaseAdmin
       .from("events")
       .insert(insertData)
-      .select()
+      .select(`
+        *,
+        category:category_id(id, name)
+      `)
       .single();
 
     if (eventError || !event) {
@@ -1074,12 +1119,10 @@ export class EventService extends BaseService {
       return ApiResponse.error("Failed to create event", 500);
     }
 
-    // Update community activity
+    // Update community status to active
     await this.supabaseAdmin
       .from("communities")
       .update({
-        last_activity_date: new Date().toISOString(),
-        last_activity_type: "event",
         status: "active",
       })
       .eq("id", data.community_id);
@@ -1162,14 +1205,43 @@ export class EventService extends BaseService {
     if (data.is_public !== undefined) updateData.is_public = data.is_public;
     if (data.max_attendees !== undefined) updateData.max_attendees = data.max_attendees;
     if (data.link !== undefined) updateData.link = data.link;
-    if (data.category !== undefined) updateData.category = data.category;
+    
+    // Handle category_id or category name
+    if (data.category_id !== undefined) {
+      updateData.category_id = data.category_id;
+    } else if (data.category !== undefined) {
+      // Category name provided - find or create category
+      const { data: categoryData } = await this.supabaseAdmin
+        .from("categories")
+        .select("id")
+        .ilike("name", data.category)
+        .maybeSingle();
+
+      if (categoryData) {
+        updateData.category_id = categoryData.id;
+      } else {
+        // Create new category
+        const { data: newCategory } = await this.supabaseAdmin
+          .from("categories")
+          .insert({ name: data.category })
+          .select("id")
+          .single();
+        
+        if (newCategory) {
+          updateData.category_id = newCategory.id;
+        }
+      }
+    }
 
     // Update event
     const { data: updatedEvent, error: updateError } = await this.supabaseAdmin
       .from("events")
       .update(updateData)
       .eq("id", eventId)
-      .select()
+      .select(`
+        *,
+        category:category_id(id, name)
+      `)
       .single();
 
     if (updateError) {

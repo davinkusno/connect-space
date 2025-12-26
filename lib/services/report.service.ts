@@ -19,9 +19,7 @@ interface ReportData {
   description?: string;
   status: ReportStatus;
   resolution?: string;
-  resolved_by?: string;
   created_at: string;
-  resolved_at?: string;
 }
 
 interface CreateReportInput {
@@ -178,7 +176,6 @@ export class ReportService extends BaseService {
       .update({
         status,
         resolution,
-        resolved_at: status === "resolved" ? new Date().toISOString() : null,
       })
       .eq("id", reportId)
       .select()
@@ -238,8 +235,6 @@ export class ReportService extends BaseService {
       status: ReportStatus;
       created_at: string;
       updated_at: string;
-      resolved_at: string | null;
-      review_notes: string | null;
       reporter: {
         id: string;
         full_name: string;
@@ -312,8 +307,6 @@ export class ReportService extends BaseService {
         status,
         created_at,
         updated_at,
-        resolved_at,
-        review_notes,
         reporter_id
       `)
       .in("target_id", memberIds)
@@ -488,15 +481,13 @@ export class ReportService extends BaseService {
    * @param communityId - The community ID (for permission check)
    * @param userId - The admin/moderator user ID
    * @param status - New status
-   * @param reviewNotes - Optional review notes
    * @returns ServiceResult with updated report
    */
   public async updateReportStatus(
     reportId: string,
     communityId: string,
     userId: string,
-    status: ReportStatus,
-    reviewNotes?: string
+    status: ReportStatus
   ): Promise<ServiceResult<{ message: string }>> {
     // Verify the user is an admin or moderator
     const { data: membership, error: membershipError } = await this.supabaseAdmin
@@ -544,14 +535,8 @@ export class ReportService extends BaseService {
     // Update the report
     const updateData: any = {
       status,
-      reviewed_by: userId,
-      review_notes: reviewNotes,
       updated_at: new Date().toISOString(),
     };
-
-    if (status === "resolved" || status === "dismissed") {
-      updateData.resolved_at = new Date().toISOString();
-    }
 
     const { error: updateError } = await this.supabaseAdmin
       .from("reports")
@@ -570,8 +555,6 @@ export class ReportService extends BaseService {
         points: 1, // This will increment report_count via trigger
         point_type: "report_received",
         related_id: reportId,
-        related_type: "report",
-        description: reviewNotes || "Report upheld by community admin",
       });
     }
 

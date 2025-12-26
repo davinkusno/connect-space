@@ -962,12 +962,6 @@ export class CommunityService extends BaseService {
       return ApiResponse.badRequest(`Description must be 500 words or less. Current: ${wordCount}`);
     }
 
-    // Generate slug from name
-    const slug = input.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-
     // Find or create category
     let categoryId: string | null = null;
     const categoryName = input.categoryName || (input.interests?.[0]);
@@ -1001,7 +995,6 @@ export class CommunityService extends BaseService {
       .insert({
         name: input.name,
         description: input.description,
-        slug,
         logo_url: input.logoUrl || null,
         creator_id: userId,
         member_count: 0, // Start with 0 - creator is not counted as a member

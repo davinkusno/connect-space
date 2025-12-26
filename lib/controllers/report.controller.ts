@@ -156,7 +156,6 @@ export class ReportController extends BaseController {
       const user: User = await this.requireAuth();
       const body = await this.parseBody<{
         status: "pending" | "reviewing" | "resolved" | "dismissed";
-        review_notes?: string;
       }>(request);
 
       if (!body.status) {
@@ -167,8 +166,7 @@ export class ReportController extends BaseController {
         reportId,
         communityId,
         user.id,
-        body.status,
-        body.review_notes
+        body.status
       );
 
       if (result.success) {

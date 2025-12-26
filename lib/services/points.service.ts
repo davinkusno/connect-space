@@ -11,8 +11,6 @@ export interface PointTransaction {
   points: number;
   point_type: PointType;
   related_id?: string;
-  related_type?: "post" | "event" | "community" | "report";
-  description?: string;
   points_unlocked_at?: string; // ISO timestamp when points become usable
 }
 
@@ -78,8 +76,6 @@ export class PointsService extends BaseService {
       points: transaction.points,
       point_type: transaction.point_type,
       related_id: transaction.related_id,
-      related_type: transaction.related_type,
-      description: transaction.description,
     };
 
     // Add points_unlocked_at if provided
@@ -356,8 +352,6 @@ export class PointsService extends BaseService {
       points: this.POINT_VALUES.community_joined,
       point_type: "community_joined",
       related_id: communityId,
-      related_type: "community",
-      description: "Joined a community",
       points_unlocked_at: unlockDateISO,
     });
   }
@@ -371,8 +365,6 @@ export class PointsService extends BaseService {
       points: this.POINT_VALUES.report_received,
       point_type: "report_received",
       related_id: reportId,
-      related_type: "report",
-      description: "Received a report",
     });
   }
 }
