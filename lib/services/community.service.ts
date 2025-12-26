@@ -259,21 +259,12 @@ export class CommunityService extends BaseService {
   private async getUserPoints(userId: string): Promise<UserPointsCount> {
     const { data: pointRecords } = await this.supabaseAdmin
       .from("user_points")
-      .select("point_type")
+      .select("id")
       .eq("user_id", userId);
 
-    let activityCount: number = 0;
-    let reportCount: number = 0;
-
-    ((pointRecords || []) as { point_type?: string }[]).forEach((p) => {
-      if (p.point_type === "report_received") {
-        // Count reports separately
-        reportCount += 1;
-      } else {
-        // Count positive activities
-        activityCount += 1;
-      }
-    });
+    // All points are from joining communities (activity points)
+    const activityCount = pointRecords?.length || 0;
+    const reportCount = 0; // No report points anymore
 
     return { activity_count: activityCount, report_count: reportCount };
   }
@@ -1332,9 +1323,8 @@ export class CommunityService extends BaseService {
       // 1. Get activity points count (all points except report_received)
       const { data: userPointsData } = await this.supabaseAdmin
         .from("user_points")
-        .select("user_id, point_type")
-        .in("user_id", userIds)
-        .neq("point_type", "report_received");
+        .select("user_id")
+        .in("user_id", userIds);
 
       // Count points per user
       const userStatsMap: Record<string, { points_count: number; report_count: number; reports: any[] }> = {};

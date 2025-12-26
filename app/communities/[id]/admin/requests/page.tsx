@@ -128,12 +128,11 @@ export default function CommunityAdminRequestsPage({
         // Continue with requests even if user data fails - use fallback
       }
 
-      // Fetch user points for each user (only for positive activity points)
+      // Fetch user points for each user (all points are from joining communities)
       const { data: userPointsData } = await supabase
         .from("user_points")
-        .select("user_id, point_type")
-        .in("user_id", userIds)
-        .neq("point_type", "report_received") // Only count positive activities
+        .select("user_id")
+        .in("user_id", userIds);
 
       // Count points per user
       const userStatsMap: Record<string, { points_count: number }> = {}

@@ -10,7 +10,7 @@ export interface PointTransaction {
   user_id: string;
   points: number;
   point_type: PointType;
-  related_id?: string;
+  community_id?: string; // Community ID that awarded these points (replaces related_id)
   points_unlocked_at?: string; // ISO timestamp when points become usable
 }
 
@@ -55,18 +55,17 @@ export class PointsService extends BaseService {
   public async awardPoints(transaction: PointTransaction): Promise<ServiceResult<void>> {
     const supabase = this.supabaseAdmin;
 
-    // Check for duplicate if there's a related_id (prevent double-counting)
-    if (transaction.related_id) {
+    // Check for duplicate if there's a community_id (prevent double-counting for same community)
+    if (transaction.community_id) {
       const { data: existing } = await supabase
         .from("user_points")
         .select("id")
         .eq("user_id", transaction.user_id)
-        .eq("point_type", transaction.point_type)
-        .eq("related_id", transaction.related_id)
+        .eq("community_id", transaction.community_id)
         .limit(1);
 
       if (existing && existing.length > 0) {
-        console.log(`[PointsService] Skipping duplicate: ${transaction.point_type} for user ${transaction.user_id}`);
+        console.log(`[PointsService] Skipping duplicate: user ${transaction.user_id} already has points for community ${transaction.community_id}`);
         return ApiResponse.success(undefined); // Already awarded, skip
       }
     }
@@ -75,7 +74,7 @@ export class PointsService extends BaseService {
       user_id: transaction.user_id,
       points: transaction.points,
       point_type: transaction.point_type,
-      related_id: transaction.related_id,
+      community_id: transaction.community_id,
     };
 
     // Add points_unlocked_at if provided
@@ -103,8 +102,7 @@ export class PointsService extends BaseService {
     const { data, error } = await supabase
       .from("user_points")
       .select("points")
-      .eq("user_id", userId)
-      .eq("point_type", "community_joined");
+      .eq("user_id", userId);
 
     if (error) {
       return ApiResponse.error(`Failed to get points: ${error.message}`, 500);
@@ -122,12 +120,11 @@ export class PointsService extends BaseService {
     const supabase = this.supabaseAdmin;
     const now = new Date().toISOString();
 
-    // Get all community_joined points
+    // Get all points (all are from joining communities)
     const { data, error } = await supabase
       .from("user_points")
       .select("points, points_unlocked_at")
-      .eq("user_id", userId)
-      .eq("point_type", "community_joined");
+      .eq("user_id", userId);
 
     if (error) {
       return ApiResponse.error(`Failed to get usable points: ${error.message}`, 500);
@@ -179,7 +176,6 @@ export class PointsService extends BaseService {
       .from("user_points")
       .select("id")
       .eq("user_id", userId)
-      .eq("point_type", "community_joined")
       .gte("created_at", todayStart)
       .lte("created_at", todayEndStr)
       .limit(1);
@@ -216,7 +212,7 @@ export class PointsService extends BaseService {
     // Get detailed breakdown from user_points
     const { data: pointsData, error: pointsError } = await supabase
       .from("user_points")
-      .select("point_type, created_at")
+      .select("created_at")
       .eq("user_id", userId);
 
     if (pointsError) {
@@ -234,15 +230,15 @@ export class PointsService extends BaseService {
       activityCount = userData.activity_count || 0;
       reportCount = userData.report_count || 0;
     } else {
-      // Fallback: count from transactions
-      activityCount = points.filter((p) => p.point_type !== "report_received").length;
-      reportCount = points.filter((p) => p.point_type === "report_received").length;
+      // All points are from joining communities (activity points)
+      activityCount = points.length;
+      reportCount = 0; // No report points anymore
     }
 
-    // Calculate breakdown (only community_joined awards points now)
+    // Calculate breakdown (all points are from joining communities)
     const postsCreated = 0; // No longer awarded
     const eventsJoined = 0; // No longer awarded
-    const communitiesJoined = points.filter((p) => p.point_type === "community_joined").length;
+    const communitiesJoined = points.length; // All points are from joining communities
     const activeDays = 0; // No longer awarded
 
     const lastActivity = points.length > 0
@@ -351,7 +347,7 @@ export class PointsService extends BaseService {
       user_id: userId,
       points: this.POINT_VALUES.community_joined,
       point_type: "community_joined",
-      related_id: communityId,
+      community_id: communityId,
       points_unlocked_at: unlockDateISO,
     });
   }
@@ -360,12 +356,9 @@ export class PointsService extends BaseService {
    * Deduct points when user receives a report
    */
   public async onReportReceived(userId: string, reportId: string): Promise<ServiceResult<void>> {
-    return this.awardPoints({
-      user_id: userId,
-      points: this.POINT_VALUES.report_received,
-      point_type: "report_received",
-      related_id: reportId,
-    });
+    // Note: Report points are no longer tracked in user_points
+    // This method is kept for backward compatibility but does nothing
+    return ApiResponse.success(undefined);
   }
 }
 

@@ -424,21 +424,17 @@ export class ReportService extends BaseService {
     // Fetch points data for each user
     const { data: userPointsData } = await this.supabaseAdmin
       .from("user_points")
-      .select("user_id, point_type")
+      .select("user_id")
       .in("user_id", reportedUserIds);
 
-    // Count points and reports per user
+    // Count points per user (all points are from joining communities)
     const userStatsMap: Record<string, { points_count: number; report_count: number }> = {};
     if (userPointsData) {
       userPointsData.forEach((record: any) => {
         if (!userStatsMap[record.user_id]) {
           userStatsMap[record.user_id] = { points_count: 0, report_count: 0 };
         }
-        if (record.point_type === 'report_received') {
-          userStatsMap[record.user_id].report_count += 1;
-        } else {
-          userStatsMap[record.user_id].points_count += 1;
-        }
+        userStatsMap[record.user_id].points_count += 1;
       });
     }
 
@@ -548,15 +544,8 @@ export class ReportService extends BaseService {
       return ApiResponse.error("Failed to update report status", 500);
     }
 
-    // If resolved, add report penalty to user_points
-    if (status === "resolved" && report.status !== "resolved") {
-      await this.supabaseAdmin.from("user_points").insert({
-        user_id: report.target_id,
-        points: 1, // This will increment report_count via trigger
-        point_type: "report_received",
-        related_id: reportId,
-      });
-    }
+    // Note: Report points are no longer tracked in user_points
+    // Reports are tracked separately in the reports table
 
     return ApiResponse.success({ 
       message: `Report ${status === "resolved" ? "resolved" : status === "dismissed" ? "dismissed" : "updated"} successfully` 

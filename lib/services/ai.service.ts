@@ -191,13 +191,94 @@ export class AIService extends BaseService {
     try {
       console.log("[AIService] Sending chat request to GitHub Models API");
       
-      // Convert ChatMessage[] to format needed for aiClient
-      // Get the last user message as the prompt
+      // Get the last user message
       const userMessages = messages.filter(m => m.role === "user");
       const lastUserMessage = userMessages[userMessages.length - 1];
       
       if (!lastUserMessage) {
         return ApiResponse.error("No user message provided", 400);
+      }
+
+      // Check if user is asking about communities or events
+      const userQuery = lastUserMessage.content.toLowerCase();
+      const isCommunityQuery = userQuery.includes("communit") || userQuery.includes("find") || userQuery.includes("show") || userQuery.includes("category") || userQuery.includes("categories");
+      const isEventQuery = userQuery.includes("event");
+      
+      let contextData = "";
+      
+      // Fetch actual communities if the query is about communities
+      if (isCommunityQuery) {
+        console.log("[AIService] Community query detected, fetching real communities");
+        
+        // Extract category from query if mentioned
+        const categories = ["technology", "sports", "music", "art", "gaming", "education", "business", "health", "social", "entertainment", "other"];
+        const mentionedCategory = categories.find(cat => userQuery.includes(cat));
+        
+        // Fetch communities from database
+        const { data: communities, error } = await this.supabaseAdmin
+          .from("communities")
+          .select(`
+            id,
+            name,
+            description,
+            category:category_id(id, name),
+            member_count,
+            location
+          `)
+          .or("status.is.null,status.eq.active")
+          .order("member_count", { ascending: false })
+          .limit(10);
+        
+        if (!error && communities && communities.length > 0) {
+          // Filter by category if mentioned
+          let filteredCommunities = communities;
+          if (mentionedCategory) {
+            filteredCommunities = communities.filter((c: any) => {
+              const categoryName = c.category?.name?.toLowerCase();
+              return categoryName === mentionedCategory;
+            });
+          }
+          
+          if (filteredCommunities.length > 0) {
+            contextData = "\n\nAvailable communities in the database:\n" + 
+              filteredCommunities.map((c: any, idx: number) => 
+                `${idx + 1}. **${c.name}** (Category: ${c.category?.name || 'N/A'})${c.description ? ` - ${c.description}` : ''}${c.member_count ? ` | ${c.member_count} members` : ''}`
+              ).join("\n");
+            
+            console.log(`[AIService] Found ${filteredCommunities.length} communities to include in context`);
+          } else if (mentionedCategory) {
+            contextData = `\n\nNo communities found in the "${mentionedCategory}" category. Available communities are in other categories.`;
+          }
+        }
+      }
+      
+      // Fetch actual events if the query is about events
+      if (isEventQuery) {
+        console.log("[AIService] Event query detected, fetching real events");
+        
+        const { data: events, error } = await this.supabaseAdmin
+          .from("events")
+          .select(`
+            id,
+            title,
+            description,
+            category:category_id(id, name),
+            start_time,
+            location,
+            community:community_id(name)
+          `)
+          .gte("start_time", new Date().toISOString())
+          .order("start_time", { ascending: true })
+          .limit(10);
+        
+        if (!error && events && events.length > 0) {
+          contextData += "\n\nUpcoming events in the database:\n" + 
+            events.map((e: any, idx: number) => 
+              `${idx + 1}. **${e.title}** (${e.category?.name || 'N/A'}) - ${new Date(e.start_time).toLocaleDateString()}${e.community ? ` | Community: ${e.community.name}` : ''}${e.description ? ` | ${e.description.substring(0, 100)}...` : ''}`
+            ).join("\n");
+          
+          console.log(`[AIService] Found ${events.length} events to include in context`);
+        }
       }
 
       // Build context from previous messages
@@ -206,13 +287,16 @@ export class AIService extends BaseService {
       if (contextMessages.length > 0) {
         contextPrompt = "Previous conversation:\n" + 
           contextMessages.map(m => `${m.role}: ${m.content}`).join("\n") + 
-          "\n\nCurrent question: ";
+          "\n\n";
       }
 
-      const fullPrompt = contextPrompt + lastUserMessage.content;
+      const enhancedSystemPrompt = systemPrompt || defaultSystemPrompt + 
+        "\n\nWhen users ask about communities or events, use the provided data from the database. Always reference the actual community/event names from the data. If specific data is provided, prioritize it over general responses.";
+
+      const fullPrompt = contextPrompt + contextData + "\n\nCurrent question: " + lastUserMessage.content;
 
       const responseText = await aiClient.generateText(fullPrompt, {
-        systemPrompt: systemPrompt || defaultSystemPrompt,
+        systemPrompt: enhancedSystemPrompt,
         maxTokens: 500,
         temperature: 0.7,
       });

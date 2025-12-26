@@ -165,9 +165,9 @@ export class RecommendationService extends BaseService {
       joinedCommunities: memberships?.map((m) => m.community_id) || [],
       attendedEvents: attendances?.map((a) => a.event_id) || [],
       interactions: interactions?.map((i) => ({
-        type: i.point_type as any,
-        targetId: i.related_id,
-        targetType: "community" as const, // Default type
+        type: "join" as const, // All points are from joining communities
+        targetId: i.community_id || i.related_id, // Use community_id (fallback to related_id for migration period)
+        targetType: "community" as const,
         timestamp: new Date(i.created_at),
       })) || [],
       preferences: {

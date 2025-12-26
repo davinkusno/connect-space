@@ -237,12 +237,11 @@ export default function CommunityMembersPage({
       // Fetch activity and report counts for each member
       const statsPromises = userIds.map(async (userId: string) => {
         try {
-          // Get activity points count (all points except report_received)
+          // Get activity points count (all points are from joining communities)
           const { data: pointsData } = await supabase
             .from("user_points")
-            .select("point_type")
+            .select("id")
             .eq("user_id", userId)
-            .neq("point_type", "report_received")
           
           const activityCount = pointsData?.length || 0
           
