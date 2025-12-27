@@ -1473,13 +1473,18 @@ export class CommunityService extends BaseService {
   }>> {
     try {
       // Check if user is banned from creating communities
-      const { data: ban } = await this.supabaseAdmin
-        .from("banned_users")
-        .select("reason, created_at")
-        .eq("user_id", userId)
-        .maybeSingle();
+      const { data: userData, error: userError } = await this.supabaseAdmin
+        .from("users")
+        .select("can_create_communities")
+        .eq("id", userId)
+        .single();
 
-      if (ban) {
+      if (userError) {
+        console.error("[CommunityService] Error fetching user data:", userError);
+        return ApiResponse.error("Failed to check user permissions", 500);
+      }
+
+      if (userData && userData.can_create_communities === false) {
         return ApiResponse.success({
           canCreate: false,
           currentPoints: 0,
@@ -1487,7 +1492,8 @@ export class CommunityService extends BaseService {
           communitiesOwned: 0,
           usablePoints: 0,
           lockedPoints: 0,
-          message: `You are banned from creating communities. Reason: ${ban.reason || "Violation of platform guidelines"}`
+          isBanned: true,
+          message: "You have been banned from creating communities due to previous violations. If you believe this is an error, please contact support."
         });
       }
 

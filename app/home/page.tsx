@@ -2772,79 +2772,125 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Points Required Dialog */}
+        {/* Points Required / Banned Dialog */}
         <Dialog open={showPointsDialog} onOpenChange={setShowPointsDialog}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-amber-600" />
-                More Points Needed
+                {createPermissionData?.isBanned ? (
+                  <>
+                    <Shield className="w-5 h-5 text-red-600" />
+                    Community Creation Banned
+                  </>
+                ) : (
+                  <>
+                    <Award className="w-5 h-5 text-amber-600" />
+                    More Points Needed
+                  </>
+                )}
               </DialogTitle>
               <DialogDescription>
-                {createPermissionData?.communitiesOwned === 0 
-                  ? "You need more points to create your second community"
-                  : createPermissionData?.communitiesOwned === 1
-                  ? "You need more points to create your second community"
-                  : `You need more points to create your ${(createPermissionData?.communitiesOwned || 0) + 1}${getOrdinalSuffix((createPermissionData?.communitiesOwned || 0) + 1)} community`}
+                {createPermissionData?.isBanned 
+                  ? "You are not allowed to create new communities"
+                  : createPermissionData?.communitiesOwned === 0 
+                    ? "You need more points to create your second community"
+                    : createPermissionData?.communitiesOwned === 1
+                    ? "You need more points to create your second community"
+                    : `You need more points to create your ${(createPermissionData?.communitiesOwned || 0) + 1}${getOrdinalSuffix((createPermissionData?.communitiesOwned || 0) + 1)} community`}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Your Usable Points</span>
-                  <span className="text-2xl font-bold text-amber-600">
-                    {createPermissionData?.currentPoints || 0}
-                  </span>
+            {createPermissionData?.isBanned ? (
+              // Banned Message
+              <div className="space-y-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-800 font-medium mb-2">
+                    You have been banned from creating communities due to previous violations.
+                  </p>
+                  <p className="text-sm text-red-700">
+                    This restriction is permanent. If you believe this is an error, please contact our support team.
+                  </p>
                 </div>
-                {createPermissionData?.lockedPoints > 0 && (
-                  <div className="text-xs text-gray-500 mb-2">
-                    {createPermissionData.lockedPoints} points locked (unlock in 3 days after joining)
+
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-semibold mb-2 text-sm text-gray-900">
+                    What you can still do:
+                  </h4>
+                  <ul className="space-y-1 text-sm text-gray-600">
+                    <li className="flex items-center gap-2">
+                      <UserPlus className="w-4 h-4 text-green-500" />
+                      Join other communities
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <MessageCircle className="w-4 h-4 text-blue-500" />
+                      Participate in discussions
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-purple-500" />
+                      Attend events
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              // Points Needed Message
+              <div className="space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-600">Your Usable Points</span>
+                    <span className="text-2xl font-bold text-amber-600">
+                      {createPermissionData?.currentPoints || 0}
+                    </span>
                   </div>
-                )}
-                <Progress
-                  value={
-                    createPermissionData?.requiredPoints > 0
-                      ? (createPermissionData?.currentPoints /
-                          createPermissionData?.requiredPoints) *
-                        100
-                      : 0
-                  }
-                  className="h-2 mb-2"
-                />
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">
-                    {Math.max(0, (createPermissionData?.requiredPoints || 0) -
-                      (createPermissionData?.currentPoints || 0))}{" "}
-                    more needed
-                  </span>
-                  <span className="text-xs font-medium text-gray-700">
-                    Goal: {createPermissionData?.requiredPoints || 0}
-                  </span>
+                  {createPermissionData?.lockedPoints > 0 && (
+                    <div className="text-xs text-gray-500 mb-2">
+                      {createPermissionData.lockedPoints} points locked (unlock in 3 days after joining)
+                    </div>
+                  )}
+                  <Progress
+                    value={
+                      createPermissionData?.requiredPoints > 0
+                        ? (createPermissionData?.currentPoints /
+                            createPermissionData?.requiredPoints) *
+                          100
+                        : 0
+                    }
+                    className="h-2 mb-2"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">
+                      {Math.max(0, (createPermissionData?.requiredPoints || 0) -
+                        (createPermissionData?.currentPoints || 0))}{" "}
+                      more needed
+                    </span>
+                    <span className="text-xs font-medium text-gray-700">
+                      Goal: {createPermissionData?.requiredPoints || 0}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <h4 className="font-semibold mb-2 text-sm">
-                  How to Earn Points?
-                </h4>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li className="flex items-center gap-2">
-                    <Star className="w-4 h-4 text-green-500" />
-                    Join communities: +3 points per community
-                  </li>
-                  <li className="text-xs text-gray-500 ml-6 mt-1">
-                    • Max 3 points per day
-                    • Points are locked for 3 days after joining
-                    • Points become usable after 3 days
-                  </li>
-                </ul>
-              </div>
+                <div>
+                  <h4 className="font-semibold mb-2 text-sm">
+                    How to Earn Points?
+                  </h4>
+                  <ul className="space-y-2 text-sm text-gray-600">
+                    <li className="flex items-center gap-2">
+                      <Star className="w-4 h-4 text-green-500" />
+                      Join communities: +3 points per community
+                    </li>
+                    <li className="text-xs text-gray-500 ml-6 mt-1">
+                      • Max 3 points per day
+                      • Points are locked for 3 days after joining
+                      • Points become usable after 3 days
+                    </li>
+                  </ul>
+                </div>
 
-              <p className="text-sm text-gray-600">
-                {createPermissionData?.message}
-              </p>
-            </div>
+                <p className="text-sm text-gray-600">
+                  {createPermissionData?.message}
+                </p>
+              </div>
+            )}
 
             <DialogFooter>
               <Button
