@@ -172,8 +172,11 @@ export interface Database {
           community_id: string
           created_at: string
           updated_at: string | null
-          is_edited: boolean
           parent_id: string | null
+          media_url: string | null
+          media_type: string | null
+          media_size: number | null
+          media_mime_type: string | null
         }
         Insert: {
           id?: string
@@ -182,8 +185,11 @@ export interface Database {
           community_id: string
           created_at?: string
           updated_at?: string | null
-          is_edited?: boolean
           parent_id?: string | null
+          media_url?: string | null
+          media_type?: string | null
+          media_size?: number | null
+          media_mime_type?: string | null
         }
         Update: {
           id?: string
@@ -192,8 +198,11 @@ export interface Database {
           community_id?: string
           created_at?: string
           updated_at?: string | null
-          is_edited?: boolean
           parent_id?: string | null
+          media_url?: string | null
+          media_type?: string | null
+          media_size?: number | null
+          media_mime_type?: string | null
         }
       }
       notifications: {

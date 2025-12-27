@@ -494,7 +494,6 @@ export default function CommunityPage({
               content,
               created_at,
               updated_at,
-              is_edited,
               sender_id,
               media_url,
               media_type,
@@ -549,7 +548,6 @@ export default function CommunityPage({
                     content,
                     created_at,
                     updated_at,
-                    is_edited,
                     sender_id,
                     media_url,
                     media_type,
@@ -1176,16 +1174,19 @@ export default function CommunityPage({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
-      {/* Hero Section with Cover Image */}
+      {/* Hero Section with Profile Picture as Blurred Background */}
       <div className="relative h-72 overflow-hidden bg-gradient-to-br from-violet-600 to-blue-600">
-        {community.banner_url && (
-          <Image
-            src={community.banner_url}
-            alt={community.name}
-            fill
-            className="object-cover"
-            priority
-          />
+        {community.logo_url && (
+          <>
+            <Image
+              src={community.logo_url}
+              alt={community.name}
+              fill
+              className="object-cover blur-2xl scale-110 opacity-40"
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-600/60 to-blue-600/60" />
+          </>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
@@ -1758,14 +1759,6 @@ export default function CommunityPage({
                                                   minute: "2-digit",
                                                 })}
                                               </span>
-                                              {thread.is_edited && (
-                                                <Badge
-                                                  variant="outline"
-                                                  className="text-xs px-1.5 py-0"
-                                                >
-                                                  Edited
-                                                </Badge>
-                                              )}
                                             </div>
                                             <p className="text-gray-800 leading-relaxed whitespace-pre-wrap text-sm mb-3">
                                               {thread.content}
@@ -2026,14 +2019,6 @@ export default function CommunityPage({
                                                         }
                                                       )}
                                                     </span>
-                                                    {reply.is_edited && (
-                                                      <Badge
-                                                        variant="outline"
-                                                        className="text-xs px-1.5 py-0"
-                                                      >
-                                                        Edited
-                                                      </Badge>
-                                                    )}
                                                   </div>
                                                   <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
                                                     {reply.content}

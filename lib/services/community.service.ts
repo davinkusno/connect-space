@@ -1744,7 +1744,6 @@ export class CommunityService extends BaseService {
       name: string;
       description?: string;
       logo_url?: string;
-      banner_url?: string;
       created_at?: string;
       member_count: number;
       upcomingEvents: number;
@@ -1756,7 +1755,6 @@ export class CommunityService extends BaseService {
       name: string;
       description?: string;
       logo_url?: string;
-      banner_url?: string;
       created_at?: string;
       member_count: number;
       role?: string;
@@ -1776,7 +1774,6 @@ export class CommunityService extends BaseService {
             name,
             description,
             logo_url,
-            banner_url,
             created_at,
             creator_id,
             status
@@ -1797,7 +1794,6 @@ export class CommunityService extends BaseService {
               name,
               description,
               logo_url,
-              banner_url,
               created_at,
               creator_id,
               status

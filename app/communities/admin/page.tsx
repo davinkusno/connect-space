@@ -52,7 +52,7 @@ export default function CommunityAdminSelectorPage() {
       // Get all communities where user is creator
       const { data: createdCommunities, error: createdError } = await supabase
         .from("communities")
-        .select("id, name, description, logo_url, banner_url, location")
+        .select("id, name, description, logo_url, location")
         .eq("creator_id", user.id)
 
       // Get all communities where user is admin
@@ -71,7 +71,7 @@ export default function CommunityAdminSelectorPage() {
       const { data: adminCommunities, error: adminCommunitiesError } = adminCommunityIds.length > 0
         ? await supabase
             .from("communities")
-            .select("id, name, description, logo_url, banner_url, location")
+            .select("id, name, description, logo_url, location")
             .in("id", adminCommunityIds)
         : { data: null, error: null }
 
@@ -209,14 +209,17 @@ export default function CommunityAdminSelectorPage() {
                 onClick={() => router.push(`/communities/${community.id}/admin`)}
               >
                 <CardHeader className="p-0">
-                  <div className="relative h-32 w-full bg-gradient-to-r from-purple-400 to-blue-400">
-                    {community.banner_url && (
-                      <Image
-                        src={community.banner_url}
-                        alt={community.name}
-                        fill
-                        className="object-cover"
-                      />
+                  <div className="relative h-32 w-full overflow-hidden bg-gradient-to-r from-purple-400 to-blue-400">
+                    {community.logo_url && (
+                      <>
+                        <Image
+                          src={community.logo_url}
+                          alt={community.name}
+                          fill
+                          className="object-cover blur-xl scale-110 opacity-30"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-purple-400/50 to-blue-400/50" />
+                      </>
                     )}
                   </div>
                   <div className="px-6 pt-4 pb-2">

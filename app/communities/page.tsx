@@ -255,7 +255,6 @@ export default function DiscoverPage() {
             name
           ),
           logo_url,
-          banner_url,
           member_count,
           created_at,
           location,

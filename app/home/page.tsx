@@ -487,7 +487,6 @@ export default function DashboardPage() {
             name,
             description,
             logo_url,
-            banner_url,
             created_at,
             member_count,
             status
