@@ -197,15 +197,15 @@ export class PointsService extends BaseService {
 
   /**
    * Get user points summary (activity count and report count separately)
-   * Uses cached columns on users table for fast reads
+   * Calculates report_count from reports table (member reports + content reports)
    */
   public async getUserPointsSummary(userId: string): Promise<ServiceResult<UserPointsSummary>> {
     const supabase = this.supabaseAdmin;
 
-    // Try to get cached counts from users table first (fast)
+    // Try to get cached activity_count from users table first (fast)
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("activity_count, report_count")
+      .select("activity_count")
       .eq("id", userId)
       .single();
 
@@ -221,19 +221,81 @@ export class PointsService extends BaseService {
 
     const points = pointsData || [];
 
-    // Use cached counts if available, otherwise count from transactions
+    // Use cached activity_count if available, otherwise count from transactions
     let activityCount: number;
-    let reportCount: number;
-
-    if (!userError && userData && (userData.activity_count !== null || userData.report_count !== null)) {
-      // Use cached counts from users table
-      activityCount = userData.activity_count || 0;
-      reportCount = userData.report_count || 0;
+    if (!userError && userData && userData.activity_count !== null) {
+      activityCount = userData.activity_count;
     } else {
       // All points are from joining communities (activity points)
       activityCount = points.length;
-      reportCount = 0; // No report points anymore
     }
+
+    // Calculate report_count from reports table
+    // Count: 1) Direct member reports, 2) Thread reports (where user is creator), 
+    // 3) Reply reports (where user is creator), 4) Event reports (where user is creator)
+    
+    // 1. Direct member reports
+    const { count: memberReportsCount } = await supabase
+      .from("reports")
+      .select("id", { count: "exact", head: true })
+      .eq("report_type", "member")
+      .eq("target_id", userId);
+
+    // 2. Get all threads created by this user
+    const { data: userThreads } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("sender_id", userId)
+      .is("parent_id", null);
+
+    let threadReportsCount = 0;
+    if (userThreads && userThreads.length > 0) {
+      const threadIds = userThreads.map(t => t.id);
+      const { count } = await supabase
+        .from("reports")
+        .select("id", { count: "exact", head: true })
+        .eq("report_type", "thread")
+        .in("target_id", threadIds);
+      threadReportsCount = count || 0;
+    }
+
+    // 3. Get all replies created by this user
+    const { data: userReplies } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("sender_id", userId)
+      .not("parent_id", "is", null);
+
+    let replyReportsCount = 0;
+    if (userReplies && userReplies.length > 0) {
+      const replyIds = userReplies.map(r => r.id);
+      const { count } = await supabase
+        .from("reports")
+        .select("id", { count: "exact", head: true })
+        .eq("report_type", "reply")
+        .in("target_id", replyIds);
+      replyReportsCount = count || 0;
+    }
+
+    // 4. Get all events created by this user
+    const { data: userEvents } = await supabase
+      .from("events")
+      .select("id")
+      .eq("creator_id", userId);
+
+    let eventReportsCount = 0;
+    if (userEvents && userEvents.length > 0) {
+      const eventIds = userEvents.map(e => e.id);
+      const { count } = await supabase
+        .from("reports")
+        .select("id", { count: "exact", head: true })
+        .eq("report_type", "event")
+        .in("target_id", eventIds);
+      eventReportsCount = count || 0;
+    }
+
+    // Total report count
+    const reportCount = (memberReportsCount || 0) + threadReportsCount + replyReportsCount + eventReportsCount;
 
     // Calculate breakdown (all points are from joining communities)
     const postsCreated = 0; // No longer awarded
@@ -267,34 +329,87 @@ export class PointsService extends BaseService {
   }
 
   /**
-   * Get quick activity/report counts from cached columns (fast read)
-   * Use this when you only need the counts, not the full breakdown
+   * Get quick activity/report counts
+   * Calculates report_count from reports table for accuracy
    */
   public async getQuickCounts(userId: string): Promise<ServiceResult<{ activity_count: number; report_count: number }>> {
     const supabase = this.supabaseAdmin;
 
-    const { data, error } = await supabase
+    // Get cached activity_count from users table
+    const { data: userData } = await supabase
       .from("users")
-      .select("activity_count, report_count")
+      .select("activity_count")
       .eq("id", userId)
       .single();
 
-    if (error) {
-      // Fallback to counting if cached columns don't exist
-      return this.getUserPointsSummary(userId).then(result => {
-        if (result.success && result.data) {
-          return ApiResponse.success({
-            activity_count: result.data.activity_count,
-            report_count: result.data.report_count,
-          });
-        }
-        return ApiResponse.success({ activity_count: 0, report_count: 0 });
-      });
+    const activityCount = userData?.activity_count ?? 0;
+
+    // Calculate report_count from reports table
+    // 1. Direct member reports
+    const { count: memberReportsCount } = await supabase
+      .from("reports")
+      .select("id", { count: "exact", head: true })
+      .eq("report_type", "member")
+      .eq("target_id", userId);
+
+    // 2. Thread reports
+    const { data: userThreads } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("sender_id", userId)
+      .is("parent_id", null);
+
+    let threadReportsCount = 0;
+    if (userThreads && userThreads.length > 0) {
+      const threadIds = userThreads.map(t => t.id);
+      const { count } = await supabase
+        .from("reports")
+        .select("id", { count: "exact", head: true })
+        .eq("report_type", "thread")
+        .in("target_id", threadIds);
+      threadReportsCount = count || 0;
     }
 
+    // 3. Reply reports
+    const { data: userReplies } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("sender_id", userId)
+      .not("parent_id", "is", null);
+
+    let replyReportsCount = 0;
+    if (userReplies && userReplies.length > 0) {
+      const replyIds = userReplies.map(r => r.id);
+      const { count } = await supabase
+        .from("reports")
+        .select("id", { count: "exact", head: true })
+        .eq("report_type", "reply")
+        .in("target_id", replyIds);
+      replyReportsCount = count || 0;
+    }
+
+    // 4. Event reports
+    const { data: userEvents } = await supabase
+      .from("events")
+      .select("id")
+      .eq("creator_id", userId);
+
+    let eventReportsCount = 0;
+    if (userEvents && userEvents.length > 0) {
+      const eventIds = userEvents.map(e => e.id);
+      const { count } = await supabase
+        .from("reports")
+        .select("id", { count: "exact", head: true })
+        .eq("report_type", "event")
+        .in("target_id", eventIds);
+      eventReportsCount = count || 0;
+    }
+
+    const reportCount = (memberReportsCount || 0) + threadReportsCount + replyReportsCount + eventReportsCount;
+
     return ApiResponse.success({
-      activity_count: data?.activity_count || 0,
-      report_count: data?.report_count || 0,
+      activity_count: activityCount,
+      report_count: reportCount,
     });
   }
 

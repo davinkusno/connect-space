@@ -1131,7 +1131,8 @@ export class CommunityService extends BaseService {
         *,
         creator:creator_id(id, full_name, username, avatar_url),
         category:category_id(id, name)
-      `, { count: "exact" });
+      `, { count: "exact" })
+      .eq("status", "active"); // Only show active communities
 
     if (options?.categoryId) {
       query = query.eq("category_id", options.categoryId);
@@ -1498,7 +1499,7 @@ export class CommunityService extends BaseService {
       const lockedPoints = lockedPointsResult.success ? (lockedPointsResult.data || 0) : 0;
       const currentPoints = usablePoints; // Use usable points for community creation
       
-      // Get number of communities owned by this user (all statuses - active, suspended, archived)
+      // Get number of communities owned by this user (all statuses - active, banned, archived)
       // We count all communities the user created, regardless of status
       const { count: communitiesOwned, error: countError } = await this.supabaseAdmin
         .from("communities")
@@ -1761,7 +1762,7 @@ export class CommunityService extends BaseService {
 
       // Fetch created communities and joined communities in parallel
       const [createdResult, memberResult] = await Promise.all([
-        // Communities created by user
+        // Communities created by user (only active ones)
         this.supabaseAdmin
           .from("communities")
           .select(`
@@ -1771,30 +1772,34 @@ export class CommunityService extends BaseService {
             logo_url,
             banner_url,
             created_at,
-            creator_id
+            creator_id,
+            status
           `)
           .eq("creator_id", userId)
+          .eq("status", "active")
           .order("created_at", { ascending: false }),
         
-        // Communities where user is a member
+        // Communities where user is a member (only active ones)
         this.supabaseAdmin
           .from("community_members")
           .select(`
             community_id,
             role,
             status,
-            communities (
+            communities!inner (
               id,
               name,
               description,
               logo_url,
               banner_url,
               created_at,
-              creator_id
+              creator_id,
+              status
             )
           `)
           .eq("user_id", userId)
           .eq("status", "approved")
+          .eq("communities.status", "active")
           .order("joined_at", { ascending: false })
       ]);
 

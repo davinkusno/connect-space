@@ -7,7 +7,7 @@ export type NotificationType =
   | "community_invite" 
   | "community_update"
   | "community_deleted"
-  | "community_suspended"
+  | "community_banned"
   | "community_reactivated"
   | "join_request"
   | "join_approved"
@@ -19,7 +19,10 @@ export type NotificationType =
   | "event_interested"
   | "new_post"
   | "post_reply"
-  | "mention";
+  | "mention"
+  | "content_banned"
+  | "community_strike"
+  | "community_banned";
 
 export interface Notification {
   id: string;
@@ -61,6 +64,15 @@ export class NotificationService extends BaseService {
    * Create a notification for a user
    */
   public async create(input: CreateNotificationInput): Promise<ServiceResult<Notification>> {
+    console.log("[NotificationService] Creating notification:", {
+      user_id: input.user_id,
+      type: input.type,
+      title: input.title,
+      has_content: !!input.content,
+      reference_id: input.reference_id,
+      reference_type: input.reference_type
+    });
+
     const { data, error } = await this.supabaseAdmin
       .from("notifications")
       .insert({
@@ -76,8 +88,26 @@ export class NotificationService extends BaseService {
       .single();
 
     if (error) {
+      console.error("[NotificationService] Failed to create notification:", {
+        error: error,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        input: {
+          user_id: input.user_id,
+          type: input.type,
+          title: input.title
+        }
+      });
       return ApiResponse.error(`Failed to create notification: ${error.message}`, 500);
     }
+
+    console.log("[NotificationService] Notification created successfully:", {
+      id: data.id,
+      type: data.type,
+      user_id: data.user_id
+    });
 
     return ApiResponse.success(data);
   }
@@ -427,6 +457,103 @@ export class NotificationService extends BaseService {
       reference_id: communityId,
       reference_type: "community"
     });
+  }
+
+  /**
+   * Notify content creator when their content is banned
+   */
+  public async onContentBanned(
+    userId: string, 
+    contentType: "thread" | "event" | "reply", 
+    communityName: string, 
+    reason: string,
+    referenceId?: string
+  ): Promise<void> {
+    try {
+      const contentTypeLabel = contentType === "thread" ? "thread" : contentType === "event" ? "event" : "reply";
+      
+      const result = await this.create({
+        user_id: userId,
+        type: "content_banned",
+        title: "Content Removed",
+        content: `Your ${contentTypeLabel} in ${communityName} has been removed for violating our community guidelines. Reason: ${reason}. Your account has been restricted from posting content platform-wide. You can still read and join communities.`,
+        reference_id: referenceId,
+        reference_type: "community"
+      });
+
+      if (!result.success) {
+        console.error(`[NotificationService] Failed to create content_banned notification for user ${userId}:`, result.error);
+        throw new Error(result.error?.message || "Failed to create notification");
+      }
+      
+      console.log(`[NotificationService] Content banned notification created for user ${userId}`);
+    } catch (error) {
+      console.error(`[NotificationService] Error in onContentBanned:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Notify community admin when they receive a strike
+   */
+  public async onCommunityStrike(
+    adminId: string,
+    communityId: string,
+    communityName: string,
+    strikeCount: number,
+    reason: string
+  ): Promise<void> {
+    try {
+      const result = await this.create({
+        user_id: adminId,
+        type: "community_strike",
+        title: `Strike Warning (${strikeCount}/3)`,
+        content: `Strike Warning: Content in your community ${communityName} has violated guidelines and was removed. This is strike ${strikeCount}/3. Reason: ${reason}. Please review and improve your community moderation. 3 strikes will result in losing the ability to create new communities.`,
+        reference_id: communityId,
+        reference_type: "community"
+      });
+
+      if (!result.success) {
+        console.error(`[NotificationService] Failed to create community_strike notification for admin ${adminId}:`, result.error);
+        throw new Error(result.error?.message || "Failed to create notification");
+      }
+      
+      console.log(`[NotificationService] Community strike notification created for admin ${adminId}`);
+    } catch (error) {
+      console.error(`[NotificationService] Error in onCommunityStrike:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Notify community admin when their community is banned
+   */
+  public async onCommunityBanned(
+    adminId: string,
+    communityId: string,
+    communityName: string,
+    reason: string
+  ): Promise<void> {
+    try {
+      const result = await this.create({
+        user_id: adminId,
+        type: "community_banned",
+        title: "Community Baned",
+        content: `Your community ${communityName} has been banned due to: ${reason}. You are no longer able to create new communities on this platform. If you believe this was a mistake, please contact support.`,
+        reference_id: communityId,
+        reference_type: "community"
+      });
+
+      if (!result.success) {
+        console.error(`[NotificationService] Failed to create community_banned notification for admin ${adminId}:`, result.error);
+        throw new Error(result.error?.message || "Failed to create notification");
+      }
+      
+      console.log(`[NotificationService] Community banned notification created for admin ${adminId}`);
+    } catch (error) {
+      console.error(`[NotificationService] Error in onCommunityBanned:`, error);
+      throw error;
+    }
   }
 }
 

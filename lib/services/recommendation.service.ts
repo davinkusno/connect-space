@@ -244,7 +244,8 @@ export class RecommendationService extends BaseService {
         location,
         created_at,
         category:category_id(id, name)
-      `);
+      `)
+      .eq("status", "active"); // Only recommend active communities
 
     const { data, error } = await query;
 

@@ -581,6 +581,31 @@ export class UserController extends BaseController {
     }
   }
 
+  /**
+   * GET /api/user/reports
+   * Get all reports against the current user
+   * @param request - The incoming request
+   * @returns NextResponse with array of reports
+   */
+  public async getUserReports(
+    request: NextRequest
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      
+      const { reportService } = await import("@/lib/services");
+      const result = await reportService.getUserReports(user.id);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to get user reports", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
 }
 
 // Export singleton instance

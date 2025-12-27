@@ -65,6 +65,29 @@ export default function ProfilePage() {
   });
   const [pointsCount, setPointsCount] = useState(0);
   const [reportCount, setReportCount] = useState(0);
+  const [userReports, setUserReports] = useState<Array<{
+    id: string;
+    report_type: string;
+    reason: string;
+    details: string | null;
+    status: string;
+    created_at: string;
+    reporter: {
+      id: string;
+      full_name: string;
+      avatar_url: string | null;
+    };
+    target_content?: {
+      type: "thread" | "reply" | "event";
+      id: string;
+      preview?: string;
+    };
+  }>>([]);
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [showReports, setShowReports] = useState(false);
+  const [reportsPage, setReportsPage] = useState(1);
+  const [totalReports, setTotalReports] = useState(0);
+  const reportsPerPage = 5;
   const [selectedInterest, setSelectedInterest] = useState("");
   
   // Available categories for interests
@@ -102,8 +125,29 @@ export default function ProfilePage() {
   const [userProfile, setUserProfile] = useState<any>(null); // Store userProfile from database
 
   const router = useRouter();
-  const supabase = getSupabaseBrowser();
   const { toast } = useToast();
+  const supabase = getSupabaseBrowser();
+
+  // Report reason labels
+  const REPORT_REASON_LABELS: Record<string, string> = {
+    violence_hate_harassment: "Violence, Hate Speech, or Harassment",
+    nudity_inappropriate: "Nudity or Inappropriate Sexual Content",
+    spam_poor_quality: "Spam or Poor Quality Content",
+    fraud_scam: "Fraud or Scam",
+    copyright_violation: "Intellectual Property or Copyright Violation",
+    other: "Other",
+    // Legacy reasons
+    spam: "Spam",
+    harassment: "Harassment",
+    inappropriate_content: "Inappropriate Content",
+    misinformation: "Misinformation",
+    hate_speech: "Hate Speech",
+    violence: "Violence",
+  };
+
+  const getReportReasonLabel = (reason: string): string => {
+    return REPORT_REASON_LABELS[reason] || reason.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  };
 
   useEffect(() => {
     const getUser = async () => {
@@ -212,6 +256,26 @@ export default function ProfilePage() {
           console.error("Error fetching points:", error);
           setPointsCount(0);
           setReportCount(0);
+        }
+
+        // Fetch user reports
+        setIsLoadingReports(true);
+        try {
+          const reportsResponse = await fetch("/api/user/reports");
+          if (reportsResponse.ok) {
+            const reportsData = await reportsResponse.json();
+            setUserReports(reportsData || []);
+            setTotalReports(reportsData?.length || 0);
+          } else {
+            setUserReports([]);
+            setTotalReports(0);
+          }
+        } catch (error) {
+          console.error("Error fetching reports:", error);
+          setUserReports([]);
+          setTotalReports(0);
+        } finally {
+          setIsLoadingReports(false);
         }
         
         // Load location from users table (prioritize), then fallback to metadata
@@ -493,17 +557,21 @@ export default function ProfilePage() {
         location: locationString,
       }));
 
-      // Update auth metadata in background (non-blocking, ignore errors)
-      supabase.auth.updateUser({
-        data: {
-          location: locationData,
-          location_city: selectedLocation?.id || null,
-          location_city_name: selectedLocation?.name || null,
-          location_lat: selectedLocation?.lat || null,
-          location_lon: selectedLocation?.lon || null,
-          interests: formData.interests,
-        },
-      }).catch(() => {});
+      // Update auth metadata in background (non-blocking, fire-and-forget)
+      setTimeout(() => {
+        supabase.auth.updateUser({
+          data: {
+            location: locationData,
+            location_city: selectedLocation?.id || null,
+            location_city_name: selectedLocation?.name || null,
+            location_lat: selectedLocation?.lat || null,
+            location_lon: selectedLocation?.lon || null,
+            interests: formData.interests,
+          },
+        }).catch((err) => {
+          console.warn("Failed to update auth metadata (non-critical):", err);
+        });
+      }, 0);
 
       toast({
         title: "Profile updated",
@@ -511,6 +579,7 @@ export default function ProfilePage() {
       });
       
       setIsEditing(false);
+      setIsSaving(false);
     } catch (error) {
       console.error("Error updating profile:", error);
       toast({
@@ -518,7 +587,6 @@ export default function ProfilePage() {
         description: error instanceof Error ? error.message : "Failed to update profile. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsSaving(false);
     }
   };
@@ -1128,8 +1196,21 @@ export default function ProfilePage() {
                             Reports
                           </div>
                           <div className={`text-xl font-bold ${reportCount > 0 ? 'text-red-900' : 'text-gray-400'}`}>
-                            {reportCount}
+                            {totalReports > 0 ? totalReports : reportCount}
                           </div>
+                          {totalReports > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="mt-1 h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                setShowReports(!showReports);
+                                setReportsPage(1);
+                              }}
+                            >
+                              {showReports ? "Hide Details" : "View Details"}
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1140,6 +1221,89 @@ export default function ProfilePage() {
                     <Calendar className="h-4 w-4 text-purple-500" />
                     <span>Member since {new Date().toLocaleDateString()}</span>
                   </div>
+
+                  {/* Reports List */}
+                  {totalReports > 0 && showReports && (
+                    <div className="mt-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Reports Against You ({totalReports})
+                        </h3>
+                      </div>
+                      {isLoadingReports ? (
+                        <div className="text-center py-8 text-gray-500">Loading reports...</div>
+                      ) : userReports.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">No reports found</div>
+                      ) : (
+                        <>
+                          <div className="space-y-3">
+                            {userReports
+                              .slice((reportsPage - 1) * reportsPerPage, reportsPage * reportsPerPage)
+                              .map((report) => (
+                                <div
+                                  key={report.id}
+                                  className="p-4 bg-white border border-gray-200 rounded-lg hover:border-red-300 transition-colors"
+                                >
+                                  <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge variant="outline">
+                                      {report.report_type}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-sm text-gray-600 mb-2">
+                                    <span className="font-medium">Reason:</span> {getReportReasonLabel(report.reason)}
+                                  </div>
+                                      {report.details && (
+                                        <div className="text-sm text-gray-600 mb-2">
+                                          <span className="font-medium">Details:</span> {report.details}
+                                        </div>
+                                      )}
+                                      {report.target_content && (
+                                        <div className="text-sm text-gray-600 mb-2">
+                                          <span className="font-medium">Content:</span>{" "}
+                                          {report.target_content.preview || `(${report.target_content.type})`}
+                                        </div>
+                                      )}
+                                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <span>Reported by: {report.reporter.full_name || "Unknown"}</span>
+                                        <span>•</span>
+                                        <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                          
+                          {/* Pagination */}
+                          {totalReports > reportsPerPage && (
+                            <div className="flex items-center justify-center gap-2 pt-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setReportsPage(p => Math.max(1, p - 1))}
+                                disabled={reportsPage === 1}
+                              >
+                                Previous
+                              </Button>
+                              <span className="text-sm text-gray-600">
+                                Page {reportsPage} of {Math.ceil(totalReports / reportsPerPage)}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setReportsPage(p => Math.min(Math.ceil(totalReports / reportsPerPage), p + 1))}
+                                disabled={reportsPage >= Math.ceil(totalReports / reportsPerPage)}
+                              >
+                                Next
+                              </Button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </AnimatedCard>
             </div>

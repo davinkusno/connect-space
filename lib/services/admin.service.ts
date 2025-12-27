@@ -32,7 +32,7 @@ interface ReportsQueryOptions {
   pageSize?: number;
 }
 
-type UserAction = "warn" | "suspend" | "ban";
+type UserAction = "warn" | "ban" | "ban";
 
 // ==================== Admin Service Class ====================
 
@@ -204,7 +204,7 @@ export class AdminService extends BaseService {
             if (group.report_type === "community") {
           const { data: community } = await this.supabaseAdmin
             .from("communities")
-                .select("id, name, logo_url, status")
+                .select("id, name, logo_url, status, banned_at, ban_reason")
                 .eq("id", group.target_id)
             .single();
               
@@ -487,7 +487,7 @@ export class AdminService extends BaseService {
         } else if (reportType === "community") {
           const { data: community } = await this.supabaseAdmin
             .from("communities")
-            .select("id, name, logo_url, status")
+            .select("id, name, logo_url, status, banned_at, ban_reason")
             .eq("id", targetId)
             .single();
           targetData = community;
@@ -1135,7 +1135,7 @@ export class AdminService extends BaseService {
     const { data, error } = await this.supabaseAdmin
       .from("communities")
       .select("id, name, creator_id, member_count, created_at, status")
-      .neq("status", "suspended")
+      .neq("status", "banned")
       .order("created_at", { ascending: true, nullsFirst: true });
 
     if (error) {
@@ -1165,16 +1165,16 @@ export class AdminService extends BaseService {
   }
 
   /**
-   * Suspend a community
-   * @param communityId - The community to suspend
+   * Ban a community
+   * @param communityId - The community to ban
    * @param reason - The suspension reason
    * @returns ServiceResult indicating success
    */
-  public async suspendCommunity(
+  public async banCommunity(
     communityId: string,
     reason: string
   ): Promise<ServiceResult<void>> {
-    // Get community name before suspending
+    // Get community name before baning
     const { data: community, error: communityError } = await this.supabaseAdmin
       .from("communities")
       .select("id, name")
@@ -1185,18 +1185,18 @@ export class AdminService extends BaseService {
       return ApiResponse.error("Community not found", 404);
     }
 
-    // Suspend the community
+    // Ban the community
     const { error } = await this.supabaseAdmin
       .from("communities")
       .update({
-        status: "suspended",
-        suspension_reason: reason,
-        suspended_at: new Date().toISOString(),
+        status: "banned",
+        ban_reason: reason,
+        banned_at: new Date().toISOString(),
       })
       .eq("id", communityId);
 
     if (error) {
-      return ApiResponse.error("Failed to suspend community", 500);
+      return ApiResponse.error("Failed to ban community", 500);
     }
 
     // Get all community members (approved members only)
@@ -1216,9 +1216,9 @@ export class AdminService extends BaseService {
         
         await notificationService.createBulk(
           memberIds,
-          "community_suspended",
-          "Community Suspended",
-          `The community "${community.name}" has been suspended. Reason: ${reason}. The community is no longer visible on your home page.`,
+          "community_banned",
+          "Community Banned",
+          `The community "${community.name}" has been banned. Reason: ${reason}. The community is no longer visible on your home page.`,
           communityId,
           "community"
         );
@@ -1232,7 +1232,7 @@ export class AdminService extends BaseService {
   }
 
   /**
-   * Reactivate a suspended community
+   * Reactivate a banned community
    * @param communityId - The community to reactivate
    * @returns ServiceResult indicating success
    */
@@ -1253,8 +1253,8 @@ export class AdminService extends BaseService {
       .from("communities")
       .update({
         status: "active",
-        suspension_reason: null,
-        suspended_at: null,
+        ban_reason: null,
+        banned_at: null,
       })
       .eq("id", communityId);
 
@@ -1363,7 +1363,7 @@ export class AdminService extends BaseService {
   // ==================== Private Helper Methods ====================
 
   /**
-   * Apply action against a user (warn, suspend, ban)
+   * Apply action against a user (warn, ban, ban)
    * @param userId - The user to apply action to
    * @param action - The action to take
    * @param reportId - The report ID for reference
@@ -1383,12 +1383,12 @@ export class AdminService extends BaseService {
         });
         break;
 
-      case "suspend":
+      case "ban":
         await this.supabaseAdmin
           .from("users")
           .update({
-            status: "suspended",
-            suspended_until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            status: "banned",
+            banned_until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           })
           .eq("id", userId);
         break;
@@ -1471,6 +1471,650 @@ export class AdminService extends BaseService {
       isBanned: !!ban,
       ban: ban || undefined,
     });
+  }
+
+  /**
+   * Ban reported content and apply appropriate moderation actions
+   * @param reportId - The report ID to process
+   * @param banReason - Reason provided by superadmin
+   * @param superadminId - ID of the superadmin performing the ban
+   * @returns ServiceResult with ban details
+   */
+  public async banReportedContent(
+    reportId: string,
+    banReason: string,
+    superadminId: string
+  ): Promise<ServiceResult<{ message: string; actions: string[] }>> {
+    const actions: string[] = [];
+
+    try {
+      // Step 1: Fetch the report (without foreign key joins since target_id is polymorphic)
+      const { data: report, error: reportError } = await this.supabaseAdmin
+        .from("reports")
+        .select(`
+          id,
+          report_type,
+          target_id,
+          reporter_id,
+          reason,
+          details,
+          status,
+          created_at,
+          updated_at
+        `)
+        .eq("id", reportId)
+        .single();
+
+      if (reportError || !report) {
+        console.error("Report lookup failed:", { reportId, reportError });
+        return ApiResponse.error("Report not found", 404);
+      }
+
+      // Step 1b: Fetch related data based on report_type
+      let reportedCommunity = null;
+      let reportedThread = null;
+      let reportedEvent = null;
+      let reporter = null;
+
+      // Fetch reporter info
+      const { data: reporterData } = await this.supabaseAdmin
+        .from("users")
+        .select("id, full_name")
+        .eq("id", report.reporter_id)
+        .single();
+      reporter = reporterData;
+
+      // Fetch target data based on type
+      if (report.report_type === "community") {
+        const { data } = await this.supabaseAdmin
+          .from("communities")
+          .select("id, name, creator_id")
+          .eq("id", report.target_id)
+          .single();
+        reportedCommunity = data;
+      } else if (report.report_type === "thread") {
+        const { data } = await this.supabaseAdmin
+          .from("messages")
+          .select("id, content, sender_id, community_id")
+          .eq("id", report.target_id)
+          .is("parent_id", null)
+          .single();
+        reportedThread = data;
+      } else if (report.report_type === "reply") {
+        const { data } = await this.supabaseAdmin
+          .from("messages")
+          .select("id, content, sender_id, community_id, parent_id")
+          .eq("id", report.target_id)
+          .not("parent_id", "is", null)
+          .single();
+        reportedThread = data; // Use same field for replies
+      } else if (report.report_type === "event") {
+        const { data } = await this.supabaseAdmin
+          .from("events")
+          .select("id, title, organizer_id, community_id")
+          .eq("id", report.target_id)
+          .single();
+        reportedEvent = data;
+      }
+
+      // Reconstruct report object with related data
+      const enrichedReport = {
+        ...report,
+        reporter,
+        reported_community: reportedCommunity,
+        reported_thread: reportedThread,
+        reported_event: reportedEvent,
+      };
+
+      const reportType = enrichedReport.report_type as "community" | "thread" | "reply" | "event" | "member";
+      const targetId = enrichedReport.target_id;
+
+      console.log("[AdminService] Ban flow - Report data:", {
+        reportType,
+        targetId,
+        hasReportedCommunity: !!enrichedReport.reported_community,
+        hasReportedThread: !!enrichedReport.reported_thread,
+        hasReportedEvent: !!enrichedReport.reported_event,
+        enrichedReport: enrichedReport
+      });
+
+      // Step 2: Execute ban logic based on report type
+      if (reportType === "community") {
+        // Community Ban Flow
+        let community = enrichedReport.reported_community;
+        
+        // If reported_community is not populated, fetch it directly
+        if (!community) {
+          console.log("[AdminService] Fetching community data for:", targetId);
+          const { data: fetchedCommunity, error: fetchError } = await this.supabaseAdmin
+            .from("communities")
+            .select("id, name, logo_url, status, creator_id")
+            .eq("id", targetId)
+            .single();
+          
+          if (fetchError || !fetchedCommunity) {
+            console.error("[AdminService] Failed to fetch community:", fetchError);
+            return ApiResponse.error("Community not found", 404);
+          }
+          community = fetchedCommunity;
+        }
+        
+        if (!community) {
+          return ApiResponse.error("Community not found", 404);
+        }
+        const adminId = community.creator_id;
+
+        // 2a. Ban the community
+        const { error: banError } = await this.supabaseAdmin
+          .from("communities")
+          .update({ 
+            status: "banned",
+            banned_at: new Date().toISOString(),
+            ban_reason: banReason
+          })
+          .eq("id", targetId);
+
+        if (banError) {
+          console.error("[AdminService] Failed to ban community:", banError);
+          errors.push(`Failed to ban community: ${banError.message}`);
+          return ApiResponse.error("Failed to ban community", 500);
+        }
+        actions.push("Community banned");
+
+        // 2b. Ban admin from creating communities
+        const { error: adminBanError } = await this.supabaseAdmin
+          .from("users")
+          .update({ can_create_communities: false })
+          .eq("id", adminId);
+
+        if (adminBanError) {
+          console.error("[AdminService] Failed to ban admin from creating communities:", adminBanError);
+          errors.push(`Failed to ban admin: ${adminBanError.message}`);
+          return ApiResponse.error("Failed to ban admin from creating communities", 500);
+        }
+        actions.push("Admin banned from creating communities");
+
+        // 2c. Notify admin
+        try {
+          const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+          await notificationService.onCommunityBanned(
+            adminId,
+            targetId,
+            community.name,
+            banReason
+          );
+          actions.push("Admin notified");
+        } catch (notifyError) {
+          console.error("[AdminService] Failed to notify admin of community ban:", notifyError);
+          actions.push("Failed to notify admin (check logs)");
+        }
+
+        // 2d. Notify all members
+        console.log("[AdminService] Fetching community members for:", targetId);
+        const { data: members, error: membersError } = await this.supabaseAdmin
+          .from("community_members")
+          .select("user_id")
+          .eq("community_id", targetId)
+          .eq("status", true);
+
+        console.log("[AdminService] Community members query result:", {
+          membersCount: members?.length || 0,
+          error: membersError,
+          members: members
+        });
+
+        if (members && members.length > 0) {
+          const memberIds = members.map(m => m.user_id).filter(id => id !== adminId);
+          console.log("[AdminService] Notifying members:", {
+            totalMembers: members.length,
+            membersToNotify: memberIds.length,
+            adminId: adminId,
+            memberIds: memberIds
+          });
+          
+          if (memberIds.length > 0) {
+            try {
+              const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+              console.log("[AdminService] Calling createBulk for member notifications");
+              await notificationService.createBulk(
+                memberIds,
+                "community_banned",
+                "Community Banned",
+                `The community ${community.name} has been banned by platform administrators.`,
+                targetId,
+                "community"
+              );
+              console.log("[AdminService] Successfully notified members");
+              actions.push(`${memberIds.length} members notified`);
+            } catch (notifyError) {
+              console.error("[AdminService] Failed to notify members:", notifyError);
+              errors.push(`Failed to notify members: ${notifyError instanceof Error ? notifyError.message : "Unknown error"}`);
+            }
+          } else {
+            console.log("[AdminService] No members to notify (only admin in community)");
+            actions.push("No members to notify");
+          }
+        } else {
+          console.log("[AdminService] No members found or error:", membersError);
+          if (membersError) {
+            errors.push(`Failed to fetch members: ${membersError.message}`);
+          } else {
+            actions.push("No members found");
+          }
+        }
+
+      } else if (reportType === "thread" && enrichedReport.reported_thread) {
+        // Thread Ban Flow
+        const thread = enrichedReport.reported_thread;
+        if (!thread) {
+          return ApiResponse.error("Thread not found", 404);
+        }
+        const creatorId = thread.sender_id;
+        const communityId = thread.community_id;
+
+        // 2a. Delete all replies first (if thread has replies)
+        const { data: replies, error: repliesError } = await this.supabaseAdmin
+          .from("messages")
+          .select("id")
+          .eq("parent_id", targetId);
+        
+        if (repliesError) {
+          console.error("Error fetching replies:", repliesError);
+        } else if (replies && replies.length > 0) {
+          const { error: deleteRepliesError } = await this.supabaseAdmin
+            .from("messages")
+            .delete()
+            .eq("parent_id", targetId);
+          
+          if (deleteRepliesError) {
+            console.error("Error deleting replies:", deleteRepliesError);
+            return ApiResponse.error(`Failed to delete ${replies.length} replies: ${deleteRepliesError.message}`, 500);
+          }
+          actions.push(`Deleted ${replies.length} replies`);
+        }
+
+        // 2b. Delete the thread
+        const { error: deleteError } = await this.supabaseAdmin
+          .from("messages")
+          .delete()
+          .eq("id", targetId);
+
+        if (deleteError) {
+          console.error("Error deleting thread:", deleteError);
+          return ApiResponse.error(`Failed to delete thread: ${deleteError.message}`, 500);
+        }
+        actions.push("Thread deleted");
+
+        // 2b. Restrict creator from posting
+        const { error: restrictError } = await this.supabaseAdmin
+          .from("users")
+          .update({ can_post: false })
+          .eq("id", creatorId);
+
+        if (restrictError) {
+          return ApiResponse.error("Failed to restrict creator", 500);
+        }
+        actions.push("Creator restricted from posting");
+
+        // 2c. Get community info and admin
+        const { data: community } = await this.supabaseAdmin
+          .from("communities")
+          .select("id, name, creator_id")
+          .eq("id", communityId)
+          .single();
+
+        if (community) {
+          const adminId = community.creator_id;
+
+          // 2d. Add strike to admin and check strike count
+          let newStrikeCount = 1;
+          const { data: adminData, error: adminError } = await this.supabaseAdmin
+            .from("users")
+            .select("moderation_strikes")
+            .eq("id", adminId)
+            .single();
+
+          if (!adminError && adminData) {
+            newStrikeCount = (adminData.moderation_strikes || 0) + 1;
+            
+            const { error: strikeError } = await this.supabaseAdmin
+              .from("users")
+              .update({ moderation_strikes: newStrikeCount })
+              .eq("id", adminId);
+
+            if (!strikeError) {
+              actions.push(`Admin received strike ${newStrikeCount}/3`);
+
+              // If 3 strikes, ban from creating communities
+              if (newStrikeCount >= 3) {
+                await this.supabaseAdmin
+                  .from("users")
+                  .update({ can_create_communities: false })
+                  .eq("id", adminId);
+                actions.push("Admin banned from creating communities (3 strikes)");
+              }
+            } else {
+              console.error("[AdminService] Failed to update admin strikes:", strikeError);
+              actions.push("Failed to update admin strikes (check logs)");
+            }
+          } else {
+            console.error("[AdminService] Failed to fetch admin data:", adminError);
+            actions.push("Failed to fetch admin data (check logs)");
+          }
+
+          // 2e. Notify admin (always try to notify, even if strike update failed)
+          try {
+            console.log(`[AdminService] Attempting to notify admin ${adminId} of strike ${newStrikeCount}/3`);
+            const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+            await notificationService.onCommunityStrike(
+              adminId,
+              communityId,
+              community.name,
+              newStrikeCount,
+              banReason
+            );
+            console.log(`[AdminService] Successfully notified admin ${adminId}`);
+            actions.push("Admin notified of strike");
+          } catch (notifyError: any) {
+            console.error("[AdminService] Failed to notify admin of strike:", {
+              error: notifyError,
+              message: notifyError?.message,
+              stack: notifyError?.stack,
+              adminId,
+              communityId,
+              strikeCount: newStrikeCount
+            });
+            actions.push(`Failed to notify admin: ${notifyError?.message || "Unknown error"}`);
+          }
+
+          // 2f. Notify content creator
+          try {
+            const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+            await notificationService.onContentBanned(
+              creatorId,
+              "thread",
+              community.name,
+              banReason,
+              communityId
+            );
+            actions.push("Creator notified");
+          } catch (notifyError) {
+            console.error("[AdminService] Failed to notify content creator:", notifyError);
+            actions.push("Failed to notify creator (check logs)");
+          }
+        }
+
+      } else if (reportType === "event" && enrichedReport.reported_event) {
+        // Event Ban Flow
+        const event = enrichedReport.reported_event;
+        if (!event) {
+          return ApiResponse.error("Event not found", 404);
+        }
+        const creatorId = event.organizer_id;
+        const communityId = event.community_id;
+
+        // 2a. Delete the event
+        const { error: deleteError } = await this.supabaseAdmin
+          .from("events")
+          .delete()
+          .eq("id", targetId);
+
+        if (deleteError) {
+          return ApiResponse.error("Failed to delete event", 500);
+        }
+        actions.push("Event deleted");
+
+        // 2b. Restrict creator from posting
+        const { error: restrictError } = await this.supabaseAdmin
+          .from("users")
+          .update({ can_post: false })
+          .eq("id", creatorId);
+
+        if (restrictError) {
+          return ApiResponse.error("Failed to restrict creator", 500);
+        }
+        actions.push("Creator restricted from posting");
+
+        // 2c. Get community info and admin
+        const { data: community } = await this.supabaseAdmin
+          .from("communities")
+          .select("id, name, creator_id")
+          .eq("id", communityId)
+          .single();
+
+        if (community) {
+          const adminId = community.creator_id;
+
+          // 2d. Add strike to admin
+          const { data: adminData, error: adminError } = await this.supabaseAdmin
+            .from("users")
+            .select("moderation_strikes")
+            .eq("id", adminId)
+            .single();
+
+          let newStrikeCount = 1;
+          if (!adminError && adminData) {
+            newStrikeCount = (adminData.moderation_strikes || 0) + 1;
+            
+            const { error: strikeError } = await this.supabaseAdmin
+              .from("users")
+              .update({ moderation_strikes: newStrikeCount })
+              .eq("id", adminId);
+
+            if (!strikeError) {
+              actions.push(`Admin received strike ${newStrikeCount}/3`);
+
+              if (newStrikeCount >= 3) {
+                await this.supabaseAdmin
+                  .from("users")
+                  .update({ can_create_communities: false })
+                  .eq("id", adminId);
+                actions.push("Admin banned from creating communities (3 strikes)");
+              }
+            } else {
+              console.error("[AdminService] Failed to update admin strikes:", strikeError);
+              actions.push("Failed to update admin strikes (check logs)");
+            }
+          } else {
+            console.error("[AdminService] Failed to fetch admin data:", adminError);
+            actions.push("Failed to fetch admin data (check logs)");
+          }
+
+          // 2e. Notify admin (always try to notify, even if strike update failed)
+          try {
+            console.log(`[AdminService] Attempting to notify admin ${adminId} of strike ${newStrikeCount}/3`);
+            const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+            await notificationService.onCommunityStrike(
+              adminId,
+              communityId,
+              community.name,
+              newStrikeCount,
+              banReason
+            );
+            console.log(`[AdminService] Successfully notified admin ${adminId}`);
+            actions.push("Admin notified of strike");
+          } catch (notifyError: any) {
+            console.error("[AdminService] Failed to notify admin of strike:", {
+              error: notifyError,
+              message: notifyError?.message,
+              stack: notifyError?.stack,
+              adminId,
+              communityId,
+              strikeCount: newStrikeCount
+            });
+            actions.push(`Failed to notify admin: ${notifyError?.message || "Unknown error"}`);
+          }
+
+          // 2f. Notify content creator
+          try {
+            const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+            await notificationService.onContentBanned(
+              creatorId,
+              "event",
+              community.name,
+              banReason,
+              communityId
+            );
+            actions.push("Creator notified");
+          } catch (notifyError) {
+            console.error("[AdminService] Failed to notify event creator:", notifyError);
+            actions.push("Failed to notify creator (check logs)");
+          }
+        }
+
+      } else if (reportType === "reply") {
+        // Reply Ban Flow - similar to thread but for reply messages
+        const { data: reply } = await this.supabaseAdmin
+          .from("messages")
+          .select("id, content, sender_id, community_id")
+          .eq("id", targetId)
+          .single();
+
+        if (reply) {
+          const creatorId = reply.sender_id;
+          const communityId = reply.community_id;
+
+          // 2a. Delete the reply
+          const { error: deleteError } = await this.supabaseAdmin
+            .from("messages")
+            .delete()
+            .eq("id", targetId);
+
+          if (deleteError) {
+            return ApiResponse.error("Failed to delete reply", 500);
+          }
+          actions.push("Reply deleted");
+
+          // 2b. Restrict creator from posting
+          const { error: restrictError } = await this.supabaseAdmin
+            .from("users")
+            .update({ can_post: false })
+            .eq("id", creatorId);
+
+          if (restrictError) {
+            return ApiResponse.error("Failed to restrict creator", 500);
+          }
+          actions.push("Creator restricted from posting");
+
+          // 2c. Get community info and admin
+          const { data: community } = await this.supabaseAdmin
+            .from("communities")
+            .select("id, name, creator_id")
+            .eq("id", communityId)
+            .single();
+
+          if (community) {
+            const adminId = community.creator_id;
+
+            // 2d. Add strike to admin
+            const { data: adminData, error: adminError } = await this.supabaseAdmin
+              .from("users")
+              .select("moderation_strikes")
+              .eq("id", adminId)
+              .single();
+
+            let newStrikeCount = 1;
+            if (!adminError && adminData) {
+              newStrikeCount = (adminData.moderation_strikes || 0) + 1;
+              
+              const { error: strikeError } = await this.supabaseAdmin
+                .from("users")
+                .update({ moderation_strikes: newStrikeCount })
+                .eq("id", adminId);
+
+              if (!strikeError) {
+                actions.push(`Admin received strike ${newStrikeCount}/3`);
+
+                if (newStrikeCount >= 3) {
+                  await this.supabaseAdmin
+                    .from("users")
+                    .update({ can_create_communities: false })
+                    .eq("id", adminId);
+                  actions.push("Admin banned from creating communities (3 strikes)");
+                }
+              } else {
+                console.error("[AdminService] Failed to update admin strikes:", strikeError);
+                actions.push("Failed to update admin strikes (check logs)");
+              }
+            } else {
+              console.error("[AdminService] Failed to fetch admin data:", adminError);
+              actions.push("Failed to fetch admin data (check logs)");
+            }
+
+            // 2e. Notify admin (always try to notify, even if strike update failed)
+            try {
+              console.log(`[AdminService] Attempting to notify admin ${adminId} of strike ${newStrikeCount}/3`);
+              const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+              await notificationService.onCommunityStrike(
+                adminId,
+                communityId,
+                community.name,
+                newStrikeCount,
+                banReason
+              );
+              console.log(`[AdminService] Successfully notified admin ${adminId}`);
+              actions.push("Admin notified of strike");
+            } catch (notifyError: any) {
+              console.error("[AdminService] Failed to notify admin of strike:", {
+                error: notifyError,
+                message: notifyError?.message,
+                stack: notifyError?.stack,
+                adminId,
+                communityId,
+                strikeCount: newStrikeCount
+              });
+              actions.push(`Failed to notify admin: ${notifyError?.message || "Unknown error"}`);
+            }
+
+            // 2f. Notify content creator
+            try {
+              const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+              await notificationService.onContentBanned(
+                creatorId,
+                "reply",
+                community.name,
+                banReason,
+                communityId
+              );
+              actions.push("Creator notified");
+            } catch (notifyError) {
+              console.error("[AdminService] Failed to notify reply creator:", notifyError);
+              actions.push("Failed to notify creator (check logs)");
+            }
+          }
+        }
+      } else if (reportType === "member") {
+        // Member Report - Just mark as resolved, optionally warn user
+        // For now, we don't take action on member reports via ban button
+        // Admin should use community-level moderation for members
+        actions.push("Member report marked as resolved");
+      } else {
+        return ApiResponse.error(`Unsupported report type: ${reportType}`, 400);
+      }
+
+      // Step 3: Update report status to resolved
+      const { error: updateError } = await this.supabaseAdmin
+        .from("reports")
+        .update({ 
+          status: "resolved",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", reportId);
+
+      if (updateError) {
+        return ApiResponse.error("Failed to update report status", 500);
+      }
+      actions.push("Report marked as resolved");
+
+      return ApiResponse.success({
+        message: "Content banned successfully",
+        actions
+      });
+
+    } catch (error) {
+      console.error("Error in banReportedContent:", error);
+      return ApiResponse.error("Failed to ban content", 500);
+    }
   }
 }
 

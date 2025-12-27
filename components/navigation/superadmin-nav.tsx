@@ -68,24 +68,36 @@ export function SuperAdminNav() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const supabase = getSupabaseBrowser();
-      const { error } = await supabase.auth.signOut();
+      // Clear local state first
+      setUser(null);
 
-      if (error) throw error;
+      const supabase = getSupabaseBrowser();
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+
+      if (error) {
+        console.error("Logout error:", error);
+        // Continue anyway
+      }
+
+      // Navigate immediately
+      router.push("/auth/login");
+      
+      // Refresh in background
+      setTimeout(() => {
+        router.refresh();
+      }, 100);
 
       toast({
         title: "Logged out successfully",
         description: "You have been logged out of your account.",
       });
-
-      router.push("/auth/login");
-      router.refresh();
     } catch (error) {
       console.error("Logout error:", error);
+      // Force navigation even on error
+      router.push("/auth/login");
       toast({
-        title: "Logout failed",
-        description: "There was an error logging out. Please try again.",
-        variant: "destructive",
+        title: "Logged out",
+        description: "Session ended.",
       });
     } finally {
       setIsLoggingOut(false);

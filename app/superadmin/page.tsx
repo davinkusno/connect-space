@@ -8,6 +8,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
     Dialog,
     DialogContent, DialogDescription,
     DialogFooter, DialogHeader,
@@ -22,12 +32,13 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/loading-indicators";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Activity, AlertTriangle, Award, Ban, Bell, CalendarDays, CheckCircle2, ChevronLeft,
-    ChevronRight, Clock, Crown, Eye, ExternalLink, FileText, Filter, Flame, Gift, Heart, Medal, Megaphone, MessageSquare, RefreshCcw, RotateCcw, Search, Shield, Sparkles, Star, Target, Trash2, Trophy, Users, XCircle
+    ChevronRight, Clock, Crown, Eye, ExternalLink, FileText, Filter, Flame, Gift, Heart, Medal, Megaphone, MessageSquare, RefreshCcw, Search, Shield, Sparkles, Star, Target, Trash2, Trophy, Users, XCircle
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -623,14 +634,14 @@ const mockActivityLogs = [
   },
   {
     id: "log-003",
-    action: "suspend",
+    action: "ban",
     communityName: "Gaming Hub",
     performedBy: {
       name: "Super Admin",
       email: "admin@connectspace.com",
     },
     timestamp: "2025-11-21T16:45:00Z",
-    details: "Community suspended for inappropriate content",
+    details: "Community banned for inappropriate content",
   },
   {
     id: "log-004",
@@ -656,14 +667,14 @@ const mockActivityLogs = [
   },
   {
     id: "log-006",
-    action: "suspend",
+    action: "ban",
     communityName: "Crypto Traders",
     performedBy: {
       name: "Super Admin",
       email: "admin@connectspace.com",
     },
     timestamp: "2025-11-20T18:00:00Z",
-    details: "Community suspended for suspicious activity",
+    details: "Community banned for suspicious activity",
   },
   {
     id: "log-007",
@@ -711,14 +722,14 @@ const mockActivityLogs = [
   },
   {
     id: "log-011",
-    action: "suspend",
+    action: "ban",
     communityName: "Meme Lords",
     performedBy: {
       name: "Super Admin",
       email: "admin@connectspace.com",
     },
     timestamp: "2025-11-18T17:30:00Z",
-    details: "Community suspended for violating content guidelines",
+    details: "Community banned for violating content guidelines",
   },
   {
     id: "log-012",
@@ -981,7 +992,8 @@ export default function SuperadminPage() {
       const data = await response.json();
       
       // Backend already returns grouped data, just transform it for frontend use
-      const transformedReports = (data.reports || []).map((group: any) => {
+      const transformedReports = (data.reports || [])
+        .map((group: any) => {
         // Get community name based on report type
         let communityName = "";
         if (group.reported_community?.name) {
@@ -1055,7 +1067,7 @@ export default function SuperadminPage() {
       }
       const data = await response.json();
       
-      // Backend returns grouped data - use it directly without re-processing
+      // Backend returns grouped data - use it directly
       setReviewQueueReports(data.reports || []);
     } catch (error) {
       console.error("Error fetching review queue reports:", error);
@@ -1096,9 +1108,125 @@ export default function SuperadminPage() {
     }
   };
 
+  // Ban report handlers
+  const handleBanClick = (report: any) => {
+    setReportToBan(report);
+    setBanReason("");
+    setIsBanConfirmOpen(true);
+  };
+
+  const handleBanConfirm = async () => {
+    if (!reportToBan || !banReason.trim()) {
+      toast.error("Please provide a ban reason");
+      return;
+    }
+
+    setIsProcessingAction(true);
+    try {
+      // Debug: Log the report structure
+      console.log("reportToBan structure:", {
+        id: reportToBan.id,
+        hasReports: !!reportToBan.reports,
+        reportsLength: reportToBan.reports?.length,
+        firstReportId: reportToBan.reports?.[0]?.id,
+        firstReportReportId: reportToBan.reports?.[0]?.reportId,
+        fullReport: reportToBan
+      });
+
+      // For grouped reports, use the ID of the first individual report
+      // For single reports, use the report ID directly
+      let reportId = reportToBan.id;
+      
+      if (reportToBan.reports && reportToBan.reports.length > 0) {
+        // Try to get ID from first report in the array
+        const firstReport = reportToBan.reports[0];
+        reportId = firstReport.id || firstReport.reportId || reportToBan.id;
+      }
+
+      console.log("Using report ID:", reportId);
+
+      if (!reportId) {
+        throw new Error("Invalid report ID");
+      }
+
+      const response = await fetch(`/api/admin/reports/${reportId}/ban`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason: banReason.trim() }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Failed to ban content";
+        try {
+          const errorData = await response.json();
+          console.error("Ban API error response:", errorData);
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          // If we can't parse JSON, use status text
+          errorMessage = `Failed to ban content: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      toast.success(result.message || "Content banned successfully");
+      
+      // Close dialogs
+      setIsBanConfirmOpen(false);
+      setIsReportDetailOpen(false);
+      
+      // Refresh reports
+      await Promise.all([fetchReports(), fetchReviewQueueReports()]);
+      
+    } catch (error) {
+      console.error("Error banning content:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(errorMessage);
+    } finally {
+      setIsProcessingAction(false);
+      setReportToBan(null);
+      setBanReason("");
+    }
+  };
+
+  const handleDismissReport = async (report: any) => {
+    setIsProcessingAction(true);
+    try {
+      const response = await fetch(`/api/admin/reports/${report.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          action: "dismiss",
+          resolution: "Report dismissed without action"
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to dismiss report");
+      }
+
+      toast.success("Report dismissed");
+      setIsReportDetailOpen(false);
+      
+      // Refresh reports
+      await Promise.all([fetchReports(), fetchReviewQueueReports()]);
+      
+    } catch (error) {
+      console.error("Error dismissing report:", error);
+      toast.error("Failed to dismiss report");
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
   // Reports management state
   const [reportSearchQuery, setReportSearchQuery] = useState("");
   const [reportTypeFilter, setReportTypeFilter] = useState<"all" | "community" | "event" | "thread" | "reply" | "member">("all");
+  const [reportStatusFilter, setReportStatusFilter] = useState<"all" | "pending" | "resolved">("pending");
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [isReportDetailOpen, setIsReportDetailOpen] = useState(false);
   const [currentReportPage, setCurrentReportPage] = useState(1);
@@ -1109,11 +1237,18 @@ export default function SuperadminPage() {
   const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [processingReportId, setProcessingReportId] = useState<string | null>(null);
   
+  // Ban confirmation state
+  const [isBanConfirmOpen, setIsBanConfirmOpen] = useState(false);
+  const [banReason, setBanReason] = useState("");
+  const [reportToBan, setReportToBan] = useState<any>(null);
+  
   // Reports Review Queue state (30% threshold)
   const [reviewQueueReports, setReviewQueueReports] = useState<any[]>([]);
   const [isLoadingReviewQueue, setIsLoadingReviewQueue] = useState(false);
   const [currentReviewQueuePage, setCurrentReviewQueuePage] = useState(1);
   const [reviewQueueItemsPerPage] = useState(5);
+  const [reviewQueueTypeFilter, setReviewQueueTypeFilter] = useState<"all" | "community" | "event" | "thread" | "reply">("all");
+  const [reviewQueueStatusFilter, setReviewQueueStatusFilter] = useState<"all" | "pending" | "resolved">("pending");
 
   // Report detail dialog state
   const [reportDetailPage, setReportDetailPage] = useState(1);
@@ -1180,7 +1315,7 @@ export default function SuperadminPage() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedCommunities = filteredCommunities.slice(startIndex, endIndex);
 
-  // Filter reported communities based on search query and type
+  // Filter reported communities based on search query, type, and status
   const filteredReportedCommunities = reportedCommunities.filter(
     (report) => {
       const matchesSearch =
@@ -1194,7 +1329,11 @@ export default function SuperadminPage() {
         reportTypeFilter === "all" || 
         report.category === reportTypeFilter;
 
-      return matchesSearch && matchesType;
+      const matchesStatus =
+        reportStatusFilter === "all" ||
+        report.status === reportStatusFilter;
+
+      return matchesSearch && matchesType && matchesStatus;
     }
   );
 
@@ -1239,52 +1378,6 @@ export default function SuperadminPage() {
     setCommunityDetailTab("overview");
   };
 
-  // Handle report actions (suspend, dismiss, resolve, reactivate)
-  const handleReportAction = async (
-    communityId: string,
-    action: "suspend" | "dismiss" | "resolve" | "reactivate",
-    reportIds?: string[]
-  ) => {
-    setIsProcessingAction(true);
-    setProcessingReportId(communityId);
-    try {
-      const response = await fetch(`/api/admin/reports/${communityId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action,
-          reportIds: reportIds || [],
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to process action");
-      }
-
-      const data = await response.json();
-      toast.success(`Community ${action}ed successfully`);
-
-      // Refresh reports if action was on a reported community
-      if (action === "suspend" || action === "dismiss" || action === "resolve") {
-        fetchReports(); // Use the same fetch function that properly transforms data
-      }
-
-      // Close dialog if open
-      if (isReportDetailOpen) {
-        setIsReportDetailOpen(false);
-      }
-    } catch (error: any) {
-      console.error("Error processing report action:", error);
-      toast.error(error.message || "Failed to process action");
-    } finally {
-      setIsProcessingAction(false);
-      setProcessingReportId(null);
-    }
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("en-US", {
       month: "short",
@@ -1321,6 +1414,13 @@ export default function SuperadminPage() {
         return (
           <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white border-0">
             Pending
+          </Badge>
+        );
+      case "resolved":
+        return (
+          <Badge className="bg-green-500 hover:bg-green-600 text-white border-0 flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3" />
+            Resolved
           </Badge>
         );
       case "approved":
@@ -1373,11 +1473,11 @@ export default function SuperadminPage() {
             Rejected
           </Badge>
         );
-      case "suspend":
+      case "ban":
         return (
           <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-0 flex items-center gap-1 w-fit text-xs px-2 py-1">
             <Ban className="h-3 w-3" />
-            Suspended
+            Baned
           </Badge>
         );
       case "reactive":
@@ -1423,10 +1523,10 @@ export default function SuperadminPage() {
             Pending
           </Badge>
         );
-      case "suspended":
+      case "banned":
         return (
           <Badge className="bg-red-500 hover:bg-red-600 text-white border-0">
-            Suspended
+            Baned
           </Badge>
         );
       case "inactive":
@@ -1502,9 +1602,40 @@ export default function SuperadminPage() {
                     <AlertTriangle className="h-5 w-5 text-orange-600" />
                     Reports Review Queue (30% Threshold)
                     <Badge className="bg-orange-100 text-orange-700 border-orange-200">
-                      {reviewQueueReports.length} Reports
+                      {reviewQueueReports.filter((report) => {
+                        const typeMatch = reviewQueueTypeFilter === "all" || report.report_type === reviewQueueTypeFilter;
+                        const statusMatch = reviewQueueStatusFilter === "all" || report.status === reviewQueueStatusFilter;
+                        return typeMatch && statusMatch;
+                      }).length} Reports
                     </Badge>
                   </h4>
+                  
+                  {/* Filters - aligned to the right like All Reports */}
+                  <div className="flex items-center gap-3">
+                    <Select value={reviewQueueTypeFilter} onValueChange={(value: any) => setReviewQueueTypeFilter(value)}>
+                      <SelectTrigger className="w-[160px]">
+                        <Filter className="h-4 w-4 mr-2" />
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="community">Community</SelectItem>
+                        <SelectItem value="event">Event</SelectItem>
+                        <SelectItem value="thread">Thread</SelectItem>
+                        <SelectItem value="reply">Reply</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={reviewQueueStatusFilter} onValueChange={(value: "all" | "pending" | "resolved") => setReviewQueueStatusFilter(value)}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="resolved">Resolved</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 {isLoadingReviewQueue ? (
@@ -1513,39 +1644,52 @@ export default function SuperadminPage() {
                   </div>
                 ) : (
                   <>
-                    {reviewQueueReports.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">
-                        No reports currently meet the 30% threshold for review.
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full min-w-[1400px]">
-                          <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[25%]">
-                                Reported Item
-                              </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[12%]">
-                                Type
-                              </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[13%]">
-                                Community
-                              </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[12%]">
-                                Reports / Threshold
-                              </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[13%]">
-                                Last Report
-                              </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[25%]">
-                                Actions
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {reviewQueueReports
-                              .slice((currentReviewQueuePage - 1) * reviewQueueItemsPerPage, currentReviewQueuePage * reviewQueueItemsPerPage)
-                              .map((report) => (
+                    {(() => {
+                      // Apply filters
+                      const filtered = reviewQueueReports.filter((report) => {
+                        const typeMatch = reviewQueueTypeFilter === "all" || report.report_type === reviewQueueTypeFilter;
+                        const statusMatch = reviewQueueStatusFilter === "all" || report.status === reviewQueueStatusFilter;
+                        return typeMatch && statusMatch;
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="text-center py-8 text-gray-500">
+                            No reports match the selected filters.
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <>
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[1400px]">
+                              <thead>
+                                <tr className="border-b border-gray-200">
+                                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[25%]">
+                                    Reported Item
+                                  </th>
+                                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[12%]">
+                                    Type
+                                  </th>
+                                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[13%]">
+                                    Community
+                                  </th>
+                                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[12%]">
+                                    Reports / Threshold
+                                  </th>
+                                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[13%]">
+                                    Last Report
+                                  </th>
+                                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-[25%]">
+                                    Actions
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {filtered
+                                  .slice((currentReviewQueuePage - 1) * reviewQueueItemsPerPage, currentReviewQueuePage * reviewQueueItemsPerPage)
+                                  .map((report) => (
                               <tr
                                 key={report.id}
                                 className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
@@ -1665,21 +1809,34 @@ export default function SuperadminPage() {
                                       </Link>
                                     )}
                                     {report.report_type === "member" && report.reported_user?.id && (
-                                      <Link href={`/users/${report.reported_user.id}`} target="_blank">
-                                        <AnimatedButton
-                                          variant="glass"
-                                          size="sm"
-                                          className="text-purple-600 hover:text-purple-700 min-w-[120px] px-3"
-                                        >
-                                          <ExternalLink className="h-4 w-4 mr-1.5" />
-                                          View Item
-                                        </AnimatedButton>
-                                      </Link>
+                                      <AnimatedButton
+                                        variant="glass"
+                                        size="sm"
+                                        className="text-purple-600 hover:text-purple-700 min-w-[120px] px-3"
+                                        onClick={() => {
+                                          toast.info("User profile view not available. User ID: " + report.reported_user.id);
+                                        }}
+                                      >
+                                        <ExternalLink className="h-4 w-4 mr-1.5" />
+                                        View Item
+                                      </AnimatedButton>
+                                    )}
+                                    {report.status !== "resolved" && (
+                                      <AnimatedButton
+                                        variant="glass"
+                                        size="sm"
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[100px] px-3"
+                                        onClick={() => handleBanClick(report)}
+                                        disabled={isProcessingAction}
+                                      >
+                                        <Ban className="h-4 w-4 mr-1.5" />
+                                        Ban
+                                      </AnimatedButton>
                                     )}
                                     <AnimatedButton
                                       variant="glass"
                                       size="sm"
-                                      className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[120px] px-3"
+                                      className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 min-w-[100px] px-3"
                                       onClick={() => handleDeleteReport(report.id)}
                                       disabled={processingReportId === report.id}
                                     >
@@ -1692,85 +1849,48 @@ export default function SuperadminPage() {
                                         </>
                                       )}
                                     </AnimatedButton>
-                                    {report.report_type === "community" && report.community_id && (
-                                      <>
-                                        {report.communityStatus === "suspended" ? (
-                                          <AnimatedButton
-                                            variant="glass"
-                                            size="sm"
-                                            className="text-green-600 hover:text-green-700 hover:bg-green-50 min-w-[120px] px-3"
-                                            onClick={() => handleReportAction(report.community_id, "reactivate")}
-                                            disabled={processingReportId === report.community_id}
-                                          >
-                                            {processingReportId === report.community_id ? (
-                                              <Spinner size="sm" />
-                                            ) : (
-                                              <>
-                                                <RotateCcw className="h-4 w-4 mr-1.5" />
-                                                Reactivate
-                                              </>
-                                            )}
-                                          </AnimatedButton>
-                                        ) : (
-                                          <AnimatedButton
-                                            variant="glass"
-                                            size="sm"
-                                            className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[120px] px-3"
-                                            onClick={() => handleReportAction(report.community_id, "suspend")}
-                                            disabled={processingReportId === report.community_id}
-                                          >
-                                            {processingReportId === report.community_id ? (
-                                              <Spinner size="sm" />
-                                            ) : (
-                                              <>
-                                                <Ban className="h-4 w-4 mr-1.5" />
-                                                Suspend
-                                              </>
-                                            )}
-                                          </AnimatedButton>
-                                        )}
-                                      </>
-                                    )}
                                   </div>
                                 </td>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
 
-                    {/* Pagination for Review Queue */}
-                    {reviewQueueReports.length > reviewQueueItemsPerPage && (
-                      <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
-                        <div className="text-sm text-gray-600">
-                          Showing {(currentReviewQueuePage - 1) * reviewQueueItemsPerPage + 1} to{" "}
-                          {Math.min(currentReviewQueuePage * reviewQueueItemsPerPage, reviewQueueReports.length)}{" "}
-                          of {reviewQueueReports.length} reports
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <AnimatedButton
-                            variant="glass"
-                            size="sm"
-                            onClick={() => setCurrentReviewQueuePage((prev) => Math.max(1, prev - 1))}
-                            disabled={currentReviewQueuePage === 1}
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </AnimatedButton>
-                          <span className="text-sm text-gray-600">
-                            Page {currentReviewQueuePage} of {Math.ceil(reviewQueueReports.length / reviewQueueItemsPerPage)}
-                          </span>
-                          <AnimatedButton
-                            variant="glass"
-                            size="sm"
-                            onClick={() => setCurrentReviewQueuePage((prev) => Math.min(Math.ceil(reviewQueueReports.length / reviewQueueItemsPerPage), prev + 1))}
-                            disabled={currentReviewQueuePage >= Math.ceil(reviewQueueReports.length / reviewQueueItemsPerPage)}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </AnimatedButton>
-                        </div>
-                      </div>
-                    )}
+                          {/* Pagination for Review Queue */}
+                          {filtered.length > reviewQueueItemsPerPage && (
+                            <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                              <div className="text-sm text-gray-600">
+                                Showing {(currentReviewQueuePage - 1) * reviewQueueItemsPerPage + 1} to{" "}
+                                {Math.min(currentReviewQueuePage * reviewQueueItemsPerPage, filtered.length)}{" "}
+                                of {filtered.length} reports
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <AnimatedButton
+                                  variant="glass"
+                                  size="sm"
+                                  onClick={() => setCurrentReviewQueuePage((prev) => Math.max(1, prev - 1))}
+                                  disabled={currentReviewQueuePage === 1}
+                                >
+                                  <ChevronLeft className="h-4 w-4" />
+                                </AnimatedButton>
+                                <span className="text-sm text-gray-600">
+                                  Page {currentReviewQueuePage} of {Math.ceil(filtered.length / reviewQueueItemsPerPage) || 1}
+                                </span>
+                                <AnimatedButton
+                                  variant="glass"
+                                  size="sm"
+                                  onClick={() => setCurrentReviewQueuePage((prev) => Math.min(Math.ceil(filtered.length / reviewQueueItemsPerPage) || 1, prev + 1))}
+                                  disabled={currentReviewQueuePage >= Math.ceil(filtered.length / reviewQueueItemsPerPage)}
+                                >
+                                  <ChevronRight className="h-4 w-4" />
+                                </AnimatedButton>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </>
                 )}
               </AnimatedCard>
@@ -1798,6 +1918,16 @@ export default function SuperadminPage() {
                         <SelectItem value="event">Event</SelectItem>
                         <SelectItem value="thread">Thread</SelectItem>
                         <SelectItem value="reply">Reply</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={reportStatusFilter} onValueChange={(value: "all" | "pending" | "resolved") => setReportStatusFilter(value)}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="resolved">Resolved</SelectItem>
                       </SelectContent>
                     </Select>
                     <div className="relative">
@@ -1869,10 +1999,10 @@ export default function SuperadminPage() {
                                     {report.reportCount} {report.reportCount === 1 ? 'reporter' : 'unique reporters'}
                                   </div>
                                 </div>
-                                {report.communityStatus === "suspended" && (
+                                {report.communityStatus === "banned" && (
                                   <Badge className="bg-red-500 text-white text-xs">
                                     <Ban className="h-3 w-3 mr-1" />
-                                    Suspended
+                                    Baned
                                   </Badge>
                                 )}
                               </div>
@@ -1988,10 +2118,22 @@ export default function SuperadminPage() {
                                     </AnimatedButton>
                                   </Link>
                                 )}
+                                {report.status !== "resolved" && (
+                                  <AnimatedButton
+                                    variant="glass"
+                                    size="sm"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[100px] px-3"
+                                    onClick={() => handleBanClick(report)}
+                                    disabled={isProcessingAction}
+                                  >
+                                    <Ban className="h-4 w-4 mr-1.5" />
+                                    Ban
+                                  </AnimatedButton>
+                                )}
                                 <AnimatedButton
                                   variant="glass"
                                   size="sm"
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[160px] px-3"
+                                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 min-w-[100px] px-3"
                                   onClick={() => handleDeleteReport(report.id)}
                                   disabled={processingReportId === report.id}
                                 >
@@ -2004,45 +2146,6 @@ export default function SuperadminPage() {
                                     </>
                                   )}
                                 </AnimatedButton>
-                                {report.category === "community" && (
-                                  <>
-                                    {report.communityStatus === "suspended" ? (
-                                      <AnimatedButton
-                                        variant="glass"
-                                        size="sm"
-                                        className="text-green-600 hover:text-green-700 hover:bg-green-50 min-w-[160px] px-3"
-                                        onClick={() => handleReportAction(report.communityId, "reactivate")}
-                                        disabled={processingReportId === report.communityId}
-                                      >
-                                        {processingReportId === report.communityId ? (
-                                          <Spinner size="sm" />
-                                        ) : (
-                                          <>
-                                            <RotateCcw className="h-4 w-4 mr-1.5" />
-                                            Reactivate
-                                          </>
-                                        )}
-                                      </AnimatedButton>
-                                    ) : (
-                                      <AnimatedButton
-                                        variant="glass"
-                                        size="sm"
-                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 min-w-[160px] px-3"
-                                        onClick={() => handleReportAction(report.communityId, "suspend")}
-                                        disabled={processingReportId === report.communityId}
-                                      >
-                                        {processingReportId === report.communityId ? (
-                                          <Spinner size="sm" />
-                                        ) : (
-                                          <>
-                                            <Ban className="h-4 w-4 mr-1.5" />
-                                            Suspend
-                                          </>
-                                        )}
-                                      </AnimatedButton>
-                                    )}
-                                  </>
-                                )}
                               </div>
                             </td>
                           </tr>
@@ -2300,9 +2403,17 @@ export default function SuperadminPage() {
             <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <AlertTriangle className="h-6 w-6 text-red-600" />
               Report Details
+              {selectedReport?.status === "resolved" && (
+                <Badge className="bg-green-500 hover:bg-green-600 text-white border-0 flex items-center gap-1 ml-2">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Resolved
+                </Badge>
+              )}
             </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              View detailed information about this report
+            <DialogDescription asChild>
+              <div className="text-gray-600">
+                View detailed information about this report
+              </div>
             </DialogDescription>
           </DialogHeader>
 
@@ -2373,7 +2484,15 @@ export default function SuperadminPage() {
                       </Badge>
                     </div>
                     <div className="text-sm text-gray-600">
-                      Reported by: {selectedReport.reporterInfo?.name || selectedReport.reporter?.full_name || "Anonymous"}
+                      {selectedReport.reports && selectedReport.reports.length > 1 ? (
+                        <>
+                          Reported by: {selectedReport.unique_reporters || selectedReport.reportCount || selectedReport.report_count || selectedReport.reports.length} unique reporters
+                        </>
+                      ) : (
+                        <>
+                          Reported by: {selectedReport.reporterInfo?.name || selectedReport.reporter?.full_name || "Anonymous"}
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2493,8 +2612,25 @@ export default function SuperadminPage() {
                   </div>
 
                   {(() => {
-                  // All reports without filter
-                  const filteredReports = selectedReport.reports;
+                  // All reports - transform if needed for consistency
+                  const rawReports = selectedReport.reports || [];
+                  const filteredReports = rawReports.map((report: any) => {
+                    // Check if already transformed (has reportDate field)
+                    if (report.reportDate) {
+                      return report;
+                    }
+                    // Transform raw backend data to expected format
+                    return {
+                      ...report,
+                      reportedBy: report.reporter_id || report.reportedBy,
+                      reporterName: report.reporter?.full_name || report.reporterName || "Anonymous",
+                      reason: report.reason,
+                      description: report.details || report.description || "",
+                      reportDate: report.created_at || report.reportDate,
+                      reportId: report.id || report.reportId,
+                      report_type: report.report_type,
+                    };
+                  });
 
                   // Pagination
                   const totalPages = Math.ceil(
@@ -2689,16 +2825,131 @@ export default function SuperadminPage() {
             <AnimatedButton
               variant="glass"
               onClick={() => setIsReportDetailOpen(false)}
+              disabled={isProcessingAction}
             >
               Close
             </AnimatedButton>
-            <AnimatedButton className="bg-red-600 hover:bg-red-700 text-white">
-              <Ban className="h-4 w-4 mr-2" />
-              Suspend Community
-            </AnimatedButton>
+            {selectedReport?.status !== "resolved" && (
+              <div className="flex gap-2">
+                <AnimatedButton 
+                  variant="glass"
+                  onClick={() => handleDismissReport(selectedReport)}
+                  disabled={isProcessingAction}
+                  className="border-gray-300 hover:border-gray-400"
+                >
+                  {isProcessingAction ? "Processing..." : "Dismiss"}
+                </AnimatedButton>
+                <AnimatedButton 
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  onClick={() => handleBanClick(selectedReport)}
+                  disabled={isProcessingAction}
+                >
+                  <Ban className="h-4 w-4 mr-2" />
+                  {isProcessingAction ? "Processing..." : "Ban"}
+                </AnimatedButton>
+              </div>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Ban Confirmation Dialog */}
+      <AlertDialog open={isBanConfirmOpen} onOpenChange={setIsBanConfirmOpen}>
+        <AlertDialogContent className="bg-white border border-gray-200 shadow-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Confirm Ban Action
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <div className="text-gray-700">
+                  This action will have the following consequences:
+                </div>
+              
+              {reportToBan && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 space-y-2 text-sm">
+                  {(reportToBan.report_type === "community" || reportToBan.category === "community") && (
+                    <>
+                      <div className="font-semibold text-yellow-900">Community Ban:</div>
+                      <ul className="list-disc list-inside space-y-1 text-yellow-800">
+                        <li>Community will be banned (inaccessible)</li>
+                        <li>Admin banned from creating new communities permanently</li>
+                        <li>All members will be notified</li>
+                        <li>Admin will receive detailed notification</li>
+                      </ul>
+                    </>
+                  )}
+                  {(reportToBan.report_type === "thread" || reportToBan.category === "thread") && (
+                    <>
+                      <div className="font-semibold text-yellow-900">Thread Ban:</div>
+                      <ul className="list-disc list-inside space-y-1 text-yellow-800">
+                        <li>Thread will be permanently deleted</li>
+                        <li>Creator banned from posting platform-wide</li>
+                        <li>Community admin receives 1 strike (3 strikes = can't create communities)</li>
+                        <li>Both creator and admin will be notified</li>
+                      </ul>
+                    </>
+                  )}
+                  {(reportToBan.report_type === "event" || reportToBan.category === "event") && (
+                    <>
+                      <div className="font-semibold text-yellow-900">Event Ban:</div>
+                      <ul className="list-disc list-inside space-y-1 text-yellow-800">
+                        <li>Event will be permanently deleted</li>
+                        <li>Creator banned from posting platform-wide</li>
+                        <li>Community admin receives 1 strike (3 strikes = can't create communities)</li>
+                        <li>Both creator and admin will be notified</li>
+                      </ul>
+                    </>
+                  )}
+                  {(reportToBan.report_type === "reply" || reportToBan.category === "reply") && (
+                    <>
+                      <div className="font-semibold text-yellow-900">Reply Ban:</div>
+                      <ul className="list-disc list-inside space-y-1 text-yellow-800">
+                        <li>Reply will be permanently deleted</li>
+                        <li>Creator banned from posting platform-wide</li>
+                        <li>Community admin receives 1 strike (3 strikes = can't create communities)</li>
+                        <li>Both creator and admin will be notified</li>
+                      </ul>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Ban Reason (required) *
+                </label>
+                <Textarea
+                  value={banReason}
+                  onChange={(e) => setBanReason(e.target.value)}
+                  placeholder="Provide a detailed reason for this ban action. This will be sent to affected users."
+                  className="min-h-[100px] resize-none"
+                  rows={4}
+                  disabled={isProcessingAction}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessingAction}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleBanConfirm();
+              }}
+              disabled={isProcessingAction || !banReason.trim()}
+              className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isProcessingAction ? "Processing..." : "Confirm Ban"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* All Communities Dialog */}
       <Dialog
@@ -2711,8 +2962,8 @@ export default function SuperadminPage() {
               <Users className="h-6 w-6 text-purple-600" />
               All Communities
             </DialogTitle>
-            <DialogDescription>
-              View and manage all communities in the platform
+            <DialogDescription asChild>
+              <div>View and manage all communities in the platform</div>
             </DialogDescription>
           </DialogHeader>
 

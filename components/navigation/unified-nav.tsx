@@ -353,14 +353,26 @@ export function UnifiedNav() {
     setIsSignOutModalOpen(false);
 
     try {
-      const { error } = await supabase.auth.signOut();
+      // Clear local state first
+      setUser(null);
+      setCustomAvatarUrl(null);
+      setNotifications([]);
+
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
 
       if (error) {
-        throw error;
+        console.error("Sign out error:", error);
+        // Even if there's an error, try to navigate
       }
 
-      setUser(null);
+      // Force navigation immediately
       router.push("/");
+      
+      // Then refresh in background
+      setTimeout(() => {
+        router.refresh();
+      }, 100);
 
       toast({
         title: "Signed out successfully",
@@ -368,11 +380,13 @@ export function UnifiedNav() {
         variant: "success",
       });
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error("Error during sign out:", error);
+      // Force navigation even on error
+      router.push("/");
       toast({
-        title: "Error",
-        description: "Failed to sign out. Please try again.",
-        variant: "destructive",
+        title: "Signed out",
+        description: "You have been signed out.",
+        variant: "default",
       });
     } finally {
       setIsSigningOut(false);
@@ -443,9 +457,14 @@ export function UnifiedNav() {
         // Clear any cached data
         setUser(null);
         setCustomAvatarUrl(null);
+        // Refresh router to clear server-side state
+        router.refresh();
         // Redirect to home page, unless on reset password page
         if (pathname !== "/auth/reset-password") {
-          router.push("/");
+          // Use setTimeout to ensure router.refresh completes first
+          setTimeout(() => {
+            router.push("/");
+          }, 100);
         }
       }
     });

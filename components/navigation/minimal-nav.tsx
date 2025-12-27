@@ -68,21 +68,37 @@ export function MinimalNav() {
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      // Clear local state first
+      setUser(null);
+      setCustomAvatarUrl(null);
+
+      // Sign out with local scope to avoid session issues
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      
+      if (error) {
+        console.error("Sign out error:", error);
+        // Continue anyway
+      }
+
+      // Navigate immediately
+      router.push("/auth/login");
+      
+      // Refresh in background
+      setTimeout(() => {
+        router.refresh();
+      }, 100);
 
       toast({
         title: "Signed out",
         description: "You have been signed out successfully.",
       });
-      router.push("/auth/login");
-      router.refresh();
     } catch (error: any) {
       console.error("Sign out error:", error);
+      // Force navigation even on error
+      router.push("/auth/login");
       toast({
-        title: "Error",
-        description: error.message || "Failed to sign out. Please try again.",
-        variant: "destructive",
+        title: "Signed out",
+        description: "Session ended.",
       });
     } finally {
       setIsSigningOut(false);

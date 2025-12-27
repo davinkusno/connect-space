@@ -10,12 +10,12 @@ import { ApiErrorResponse, BaseController, ForbiddenError } from "./base.control
 interface UpdateReportBody {
   action: "resolve" | "dismiss";
   resolution: string;
-  userAction?: "warn" | "suspend" | "ban" | "none";
+  userAction?: "warn" | "ban" | "ban" | "none";
 }
 
 interface ManageCommunityBody {
   communityId: string;
-  action: "suspend" | "reactivate";
+  action: "ban" | "reactivate";
   reason?: string;
 }
 
@@ -356,7 +356,7 @@ export class AdminController extends BaseController {
 
   /**
    * POST /api/admin/inactive-communities
-   * Suspend or reactivate a community
+   * Ban or reactivate a community
    * @param request - The incoming request with action data
    * @returns NextResponse indicating success
    */
@@ -373,15 +373,15 @@ export class AdminController extends BaseController {
 
       let result: ServiceResult<void>;
       
-      if (body.action === "suspend") {
-        result = await this.service.suspendCommunity(
+      if (body.action === "ban") {
+        result = await this.service.banCommunity(
           body.communityId, 
           body.reason || "Inactivity"
         );
       } else if (body.action === "reactivate") {
         result = await this.service.reactivateCommunity(body.communityId);
       } else {
-        return this.badRequest("Invalid action. Must be 'suspend' or 'reactivate'");
+        return this.badRequest("Invalid action. Must be 'ban' or 'reactivate'");
       }
 
       if (result.success) {
@@ -417,6 +417,41 @@ export class AdminController extends BaseController {
       }
 
       return this.error(result.error?.message || "Failed to fetch community details", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * POST /api/admin/reports/[id]/ban
+   * Ban reported content and apply appropriate moderation actions
+   * @param request - The incoming request with ban reason
+   * @param reportId - The report ID to ban
+   * @returns NextResponse with ban result
+   */
+  public async banReport(
+    request: NextRequest,
+    reportId: string
+  ): Promise<NextResponse<{ message: string; actions: string[] } | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireSuperAdmin();
+      const body = await this.parseBody<{ reason: string }>(request);
+
+      if (!body.reason || typeof body.reason !== "string" || body.reason.trim().length === 0) {
+        return this.badRequest("Ban reason is required");
+      }
+
+      const result = await this.service.banReportedContent(
+        reportId,
+        body.reason.trim(),
+        user.id
+      );
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to ban content", result.status);
     } catch (error: unknown) {
       return this.handleError(error);
     }
