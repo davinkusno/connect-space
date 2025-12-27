@@ -1655,7 +1655,7 @@ export class AdminService extends BaseService {
           .from("community_members")
           .select("user_id")
           .eq("community_id", targetId)
-          .eq("status", true);
+          .eq("status", "approved");
 
         console.log("[AdminService] Community members query result:", {
           membersCount: members?.length || 0,

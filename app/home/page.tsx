@@ -478,7 +478,7 @@ export default function DashboardPage() {
 
         const supabase = getSupabaseBrowser();
 
-        // Fetch communities created by user
+        // Fetch communities created by user (only active ones)
         const { data: createdData, error: createdError } = await supabase
           .from("communities")
           .select(
@@ -489,10 +489,12 @@ export default function DashboardPage() {
             logo_url,
             banner_url,
             created_at,
-            member_count
+            member_count,
+            status
           `
           )
           .eq("creator_id", session.user.id)
+          .eq("status", "active")
           .order("created_at", { ascending: false });
 
         if (!createdError && createdData) {
@@ -552,6 +554,7 @@ export default function DashboardPage() {
 
         // Fetch communities where user is a member (but not creator)
         // Only fetch approved members (status = 'approved'), exclude pending
+        // Only fetch active communities (not banned)
         const { data: memberData, error: memberError } = await supabase
           .from("community_members")
           .select(
@@ -559,19 +562,21 @@ export default function DashboardPage() {
             community_id,
             role,
             status,
-            communities (
+            communities!inner (
               id,
               name,
               description,
               logo_url,
               banner_url,
               created_at,
-              member_count
+              member_count,
+              status
             )
           `
           )
           .eq("user_id", session.user.id)
           .eq("status", "approved")
+          .eq("communities.status", "active")
           .order("joined_at", { ascending: false });
 
         if (!memberError && memberData) {
