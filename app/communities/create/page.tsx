@@ -9,6 +9,7 @@ import { PageTransition } from "@/components/ui/page-transition"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SmoothReveal } from "@/components/ui/smooth-reveal"
 import { Textarea } from "@/components/ui/textarea"
+import { LocationPickerStandardized } from "@/components/ui/location-picker-standardized"
 import {
     ImageIcon,
     RefreshCw, Users,
@@ -19,6 +20,7 @@ import { useRouter } from "next/navigation"
 import type React from "react"
 import { useState } from "react"
 import { toast } from "sonner"
+import type { StandardizedLocation } from "@/types/location"
 
 export default function CreateCommunityPage() {
   const router = useRouter()
@@ -26,6 +28,7 @@ export default function CreateCommunityPage() {
     name: "",
     description: "",
     category: "",
+    location: null as StandardizedLocation | null,
     profileImage: null as File | null,
   })
 
@@ -60,6 +63,12 @@ export default function CreateCommunityPage() {
       return
     }
 
+    // Validate location is required
+    if (!formData.location) {
+      toast.error("Please select a location for your community")
+      return
+    }
+
     // Validate profile picture is required
     if (!formData.profileImage) {
       toast.error("Profile picture is required to create a community")
@@ -81,6 +90,7 @@ export default function CreateCommunityPage() {
       formDataToSend.append("interests", JSON.stringify([formData.category]))
       formDataToSend.append("name", formData.name)
       formDataToSend.append("description", formData.description)
+      formDataToSend.append("location", JSON.stringify(formData.location))
       
       // Profile picture is now mandatory
       if (!formData.profileImage) {
@@ -222,6 +232,21 @@ export default function CreateCommunityPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="location" className="text-gray-700">
+                    Location *
+                  </Label>
+                  <LocationPickerStandardized
+                    value={formData.location || undefined}
+                    onChange={(location) => handleInputChange("location", location)}
+                    locationType="physical"
+                    required
+                  />
+                  <p className="text-sm text-gray-500">
+                    Select the primary location for your community. This helps members find and join local groups.
+                  </p>
                 </div>
 
                 <div className="space-y-3">

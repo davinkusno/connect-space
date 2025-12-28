@@ -151,173 +151,52 @@ export default function CommunityMembersPage({
 
   const loadMembers = async (communityId: string) => {
     try {
-      const supabase = getSupabaseBrowser()
+      // Use API endpoint that includes comprehensive user stats
+      const response = await fetch(`/api/communities/${communityId}/members-stats`)
       
-      // Fetch all members from database (without status in select to avoid errors)
-      const { data: allMembersData, error: membersError } = await supabase
-        .from("community_members")
-        .select(`
-          id,
-          user_id,
-          role,
-          joined_at
-        `)
-        .eq("community_id", communityId)
-        .order("joined_at", { ascending: false })
-
-      if (membersError) {
-        console.error("Error fetching members:", membersError)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Error fetching members:", errorData)
         setMembers([])
         setTotalCount(0)
         setTotalPages(0)
         return
       }
 
-      if (!allMembersData || allMembersData.length === 0) {
-        // No members in community yet
+      const data = await response.json()
+      
+      if (!data.success || !data.members) {
+        console.error("Invalid response format:", data)
         setMembers([])
         setTotalCount(0)
         setTotalPages(0)
         return
       }
 
-      // Fetch status for each member separately
-      const memberIds = allMembersData.map((m: any) => m.id)
-      const { data: statusData, error: statusError } = await supabase
-        .from("community_members")
-        .select("id, status")
-        .in("id", memberIds)
-
-      // If status column doesn't exist, treat all as approved
-      if (statusError) {
-        console.warn("Status column may not exist, treating all members as approved:", statusError)
-      }
-
-      // Combine status with member data
-      const membersWithStatus = allMembersData.map((member: any) => {
-        const statusInfo = statusData?.find((s: any) => s.id === member.id)
-        const memberStatus = statusInfo?.status ?? null
-        return {
-          ...member,
-          status: memberStatus
-        }
-      })
-
-      // Filter for approved members only
-      const membersData = membersWithStatus.filter((member: any) => {
-        return member.status === "approved"
-      })
-
+      const membersData = data.members
+      
       if (membersData.length === 0) {
-        // No approved members yet
         setMembers([])
         setTotalCount(0)
         setTotalPages(0)
         return
       }
 
-      // Fetch user data for each member
-      const userIds = membersData.map((m: any) => m.user_id)
-      if (userIds.length === 0) {
-        setMembers([])
-        setTotalCount(0)
-        setTotalPages(0)
-        return
-      }
-
-      const { data: usersData, error: usersError } = await supabase
-        .from("users")
-        .select("id, username, full_name, avatar_url, email")
-        .in("id", userIds)
-
-      if (usersError) {
-        console.error("Error fetching user data:", usersError)
-      }
-
-      // Fetch activity and report counts for each member
-      const statsPromises = userIds.map(async (userId: string) => {
-        try {
-          // Get activity points count (all points are from joining communities)
-          const { data: pointsData } = await supabase
-            .from("user_points")
-            .select("id")
-            .eq("user_id", userId)
-          
-          const activityCount = pointsData?.length || 0
-          
-          // Get actual report count from reports table
-          // Include: direct member reports + thread reports + reply reports created by this user
-          
-          // 1. Direct member reports
-          const { count: memberReportCount } = await supabase
-            .from("reports")
-            .select("*", { count: "exact", head: true })
-            .eq("report_type", "member")
-            .eq("target_id", userId)
-          
-          // 2. Thread reports - get all thread IDs created by this user, then count reports on those threads
-          const { data: userThreads } = await supabase
-            .from("messages")
-            .select("id")
-            .eq("sender_id", userId)
-            .is("parent_id", null) // Only threads (not replies)
-          
-          let threadReportCount = 0
-          if (userThreads && userThreads.length > 0) {
-            const threadIds = userThreads.map(t => t.id)
-            const { count } = await supabase
-              .from("reports")
-              .select("*", { count: "exact", head: true })
-              .eq("report_type", "thread")
-              .in("target_id", threadIds)
-            threadReportCount = count || 0
-          }
-          
-          // 3. Reply reports - get all reply IDs created by this user, then count reports on those replies
-          const { data: userReplies } = await supabase
-            .from("messages")
-            .select("id")
-            .eq("sender_id", userId)
-            .not("parent_id", "is", null) // Only replies (have parent_id)
-          
-          let replyReportCount = 0
-          if (userReplies && userReplies.length > 0) {
-            const replyIds = userReplies.map(r => r.id)
-            const { count } = await supabase
-              .from("reports")
-              .select("*", { count: "exact", head: true })
-              .eq("report_type", "reply")
-              .in("target_id", replyIds)
-            replyReportCount = count || 0
-          }
-          
-          const totalReportCount = (memberReportCount || 0) + threadReportCount + replyReportCount
-          
-          return { userId, points_count: activityCount, report_count: totalReportCount }
-        } catch {
-          return { userId, points_count: 0, report_count: 0 }
-        }
-      })
-      const statsResults = await Promise.all(statsPromises)
-      const statsMap = new Map(statsResults.map(s => [s.userId, { points_count: s.points_count, report_count: s.report_count }]))
-
-      // Map database members to Member interface
+      // Map API response to Member interface
       const mappedMembers: Member[] = membersData.map((member: any) => {
-        const user = usersData?.find((u: any) => u.id === member.user_id)
-        const stats = statsMap.get(member.user_id) || { points_count: 0, report_count: 0 }
         return {
           id: member.id,
           user_id: member.user_id,
           role: member.role as "admin" | "member",
           joined_at: member.joined_at,
-          points_count: stats.points_count,
-          report_count: stats.report_count,
+          points_count: member.points_count || 0,
+          report_count: member.report_count || 0,
           user: {
-            id: user?.id || member.user_id,
-            username: user?.username || null,
-            full_name: user?.full_name || null,
-            avatar_url: user?.avatar_url || null,
-            email: user?.email || ""
+            id: member.user?.id || member.user_id,
+            username: member.user?.username || null,
+            full_name: member.user?.full_name || null,
+            avatar_url: member.user?.avatar_url || null,
+            email: member.user?.email || ""
           }
         }
       })

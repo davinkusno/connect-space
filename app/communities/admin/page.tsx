@@ -1,27 +1,19 @@
 "use client"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FloatingElements } from "@/components/ui/floating-elements"
-import { PageTransition } from "@/components/ui/page-transition"
-import { getSupabaseBrowser } from "@/lib/supabase/client"
-import {
-    LayoutDashboard, Loader2,
-    Plus, Users
-} from "lucide-react"
-import Image from "next/image"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Building2, Users, Calendar, MessageSquare, Shield } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface Community {
   id: string
   name: string
-  description: string | null
-  logo_url: string | null
-  banner_url: string | null
-  location: any
+  description?: string
+  logo_url?: string
+  location?: string
   member_count?: number
   role: "creator" | "admin"
 }
@@ -38,257 +30,213 @@ export default function CommunityAdminSelectorPage() {
   const loadCommunities = async () => {
     try {
       setIsLoading(true)
-      const supabase = getSupabaseBrowser()
       
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser()
+      // Use API endpoint instead of direct Supabase query
+      const response = await fetch("/api/communities/admin-list")
       
-      if (!user) {
-        console.error("User not found")
+      if (!response.ok) {
+        console.error("Failed to fetch admin communities")
         setIsLoading(false)
         return
       }
 
-      // Get all communities where user is creator
-      const { data: createdCommunities, error: createdError } = await supabase
-        .from("communities")
-        .select("id, name, description, logo_url, location")
-        .eq("creator_id", user.id)
-
-      // Get all communities where user is admin
-      const { data: adminMemberships, error: adminError } = await supabase
-          .from("community_members")
-          .select("community_id")
-          .eq("user_id", user.id)
-          .eq("role", "admin")
-        .eq("status", true) // Only approved admins
-
-      let adminCommunityIds: string[] = []
-      if (adminMemberships && !adminError) {
-        adminCommunityIds = adminMemberships.map(m => m.community_id)
+      const result = await response.json()
+      
+      if (!result.success || !result.data) {
+        console.error("Invalid response from admin-list API")
+        setIsLoading(false)
+        return
       }
 
-      const { data: adminCommunities, error: adminCommunitiesError } = adminCommunityIds.length > 0
-        ? await supabase
-            .from("communities")
-            .select("id, name, description, logo_url, location")
-            .in("id", adminCommunityIds)
-        : { data: null, error: null }
+      // Transform the data to match the Community interface
+      const transformedCommunities: Community[] = result.data.map((community: any) => ({
+        id: community.id,
+        name: community.name,
+        description: community.description || "",
+        logo_url: community.logo_url,
+        location: community.location,
+        member_count: community.member_count || 0,
+        role: community.role
+      }))
 
-      // Combine and deduplicate communities
-      const allCommunities: Community[] = []
-      const seenIds = new Set<string>()
-
-      // Add created communities
-      if (createdCommunities && !createdError) {
-        createdCommunities.forEach(comm => {
-          if (!seenIds.has(comm.id)) {
-            seenIds.add(comm.id)
-            allCommunities.push({
-              ...comm,
-              role: "creator" as const
-            })
-          }
-        })
-            }
-            
-      // Add admin communities
-      if (adminCommunities && !adminCommunitiesError) {
-        adminCommunities.forEach(comm => {
-          if (!seenIds.has(comm.id)) {
-            seenIds.add(comm.id)
-            allCommunities.push({
-              ...comm,
-              role: "admin" as const
-            })
-            }
-        })
-      }
-
-      // Get member counts for each community (only "member" role, exclude creator, admin, moderator)
-      const communityIds = allCommunities.map(c => c.id)
-      if (communityIds.length > 0) {
-        // Get creator IDs for these communities
-        const { data: communitiesData } = await supabase
-          .from("communities")
-          .select("id, creator_id")
-          .in("id", communityIds)
-        
-        const creatorMap: Record<string, string> = {}
-        communitiesData?.forEach(comm => {
-          creatorMap[comm.id] = comm.creator_id
-        })
-        
-        const { data: memberCounts } = await supabase
-          .from("community_members")
-          .select("community_id, status, role, user_id")
-          .in("community_id", communityIds)
-        
-        // Count only "member" role, exclude creator
-        const counts: Record<string, number> = {}
-        memberCounts?.forEach(member => {
-          if (member.status === "approved" && member.role === "member") {
-            const isCreator = creatorMap[member.community_id] === member.user_id
-            if (!isCreator) {
-              counts[member.community_id] = (counts[member.community_id] || 0) + 1
-            }
-          }
-        })
-
-        allCommunities.forEach(comm => {
-          comm.member_count = counts[comm.id] || 0
-        })
-      }
-
-      setCommunities(allCommunities)
+      setCommunities(transformedCommunities)
+      setIsLoading(false)
     } catch (error) {
       console.error("Error loading communities:", error)
-    } finally {
       setIsLoading(false)
     }
   }
 
+  const handleCommunityClick = (communityId: string) => {
+    router.push(`/communities/${communityId}/admin`)
+  }
+
   if (isLoading) {
     return (
-      <PageTransition>
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-4" />
-            <p className="text-gray-600">Loading communities...</p>
-                          </div>
-                        </div>
-      </PageTransition>
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="mb-8">
+          <Skeleton className="h-10 w-64 mb-2" />
+          <Skeleton className="h-6 w-96" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-64" />
+          ))}
+        </div>
+      </div>
     )
   }
 
   if (communities.length === 0) {
     return (
-      <PageTransition>
-        <FloatingElements />
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div className="text-center">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                Community Admin Dashboard
-              </h1>
-              <p className="text-gray-600 mb-8">
-                You don't have any communities to manage yet.
-              </p>
-              <Link href="/communities/create">
-                <Button size="lg" className="bg-purple-600 hover:bg-purple-700">
-                  <Plus className="w-5 h-5 mr-2" />
-                  Create Your First Community
-                </Button>
-              </Link>
-            </div>
-          </div>
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="text-center py-12">
+          <Building2 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-2xl font-semibold mb-2">No Communities Found</h2>
+          <p className="text-muted-foreground mb-6">
+            You don't have any communities to manage yet.
+          </p>
+          <Button onClick={() => router.push("/communities")}>
+            Explore Communities
+          </Button>
         </div>
-      </PageTransition>
+      </div>
     )
   }
 
   return (
-    <PageTransition>
-        <FloatingElements />
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Select Community to Manage
-            </h1>
-            <p className="text-gray-600">
-              Choose a community to access its admin dashboard
-            </p>
-                    </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {communities.map((community) => (
-              <Card
-                key={community.id}
-                className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-purple-300"
-                onClick={() => router.push(`/communities/${community.id}/admin`)}
-              >
-                <CardHeader className="p-0">
-                  <div className="relative h-32 w-full overflow-hidden bg-gradient-to-r from-purple-400 to-blue-400">
-                    {community.logo_url && (
-                      <>
-                        <Image
-                          src={community.logo_url}
-                          alt={community.name}
-                          fill
-                          className="object-cover blur-xl scale-110 opacity-30"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-r from-purple-400/50 to-blue-400/50" />
-                      </>
-                    )}
-                  </div>
-                  <div className="px-6 pt-4 pb-2">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Avatar className="h-12 w-12 border-2 border-white -mt-6">
-                        <AvatarImage src={community.logo_url || undefined} />
-                        <AvatarFallback className="bg-purple-100 text-purple-600">
-                          {community.name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                        <CardTitle className="text-lg truncate">
-                          {community.name}
-                        </CardTitle>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={cn(
-                            "text-xs px-2 py-0.5 rounded-full",
-                            community.role === "creator"
-                              ? "bg-purple-100 text-purple-700"
-                              : "bg-blue-100 text-blue-700"
-                          )}>
-                            {community.role === "creator" ? "Creator" : "Admin"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-6 pb-6">
-                  <p className="text-sm text-gray-600 line-clamp-2 mb-4">
-                    {community.description || "No description available"}
-                  </p>
-                  <div className="flex items-center justify-between text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      <span>{community.member_count || 0} members</span>
-                    </div>
-                    <Button 
-                      variant="ghost"
-                      size="sm" 
-                      className="text-purple-600 hover:text-purple-700"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        router.push(`/communities/${community.id}/admin`)
-                      }}
-                    >
-                      <LayoutDashboard className="w-4 h-4 mr-1" />
-                      Manage
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            </div>
-
-          <div className="mt-8 text-center">
-            <Link href="/communities/create">
-              <Button variant="outline" size="lg">
-                <Plus className="w-5 h-5 mr-2" />
-                Create New Community
-              </Button>
-            </Link>
-          </div>
-        </div>
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Community Management</h1>
+        <p className="text-muted-foreground">
+          Select a community to manage its settings, members, and content
+        </p>
       </div>
-    </PageTransition>
-  )
-}
 
-function cn(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(" ")
+      {/* Community Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {communities.map((community) => (
+          <Card
+            key={community.id}
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => handleCommunityClick(community.id)}
+          >
+            <CardHeader className="pb-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <CardTitle className="text-xl mb-1">{community.name}</CardTitle>
+                  <Badge
+                    variant={community.role === "creator" ? "default" : "secondary"}
+                    className="mb-2"
+                  >
+                    {community.role === "creator" ? (
+                      <>
+                        <Shield className="w-3 h-3 mr-1" />
+                        Creator
+                      </>
+                    ) : (
+                      "Admin"
+                    )}
+                  </Badge>
+                </div>
+                {community.logo_url && (
+                  <img
+                    src={community.logo_url}
+                    alt={community.name}
+                    className="w-16 h-16 rounded-lg object-cover ml-4"
+                  />
+                )}
+              </div>
+              <CardDescription className="line-clamp-2">
+                {community.description || "No description available"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Users className="w-4 h-4 mr-2" />
+                  <span>{community.member_count || 0} members</span>
+                </div>
+                {community.location && (
+                  <div className="flex items-center text-sm text-muted-foreground line-clamp-1">
+                    <Building2 className="w-4 h-4 mr-2" />
+                    <span className="truncate">
+                      {typeof community.location === "string"
+                        ? JSON.parse(community.location).city || community.location
+                        : community.location}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <Button className="w-full mt-4" variant="outline">
+                Manage Community
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Stats Summary */}
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Communities
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{communities.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              As Creator
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              {communities.filter((c) => c.role === "creator").length}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Members
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              {communities.reduce((sum, c) => sum + (c.member_count || 0), 0)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Common admin tasks</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-3">
+          <Button variant="outline" size="sm">
+            <Calendar className="w-4 h-4 mr-2" />
+            Create Event
+          </Button>
+          <Button variant="outline" size="sm">
+            <MessageSquare className="w-4 h-4 mr-2" />
+            View Discussions
+          </Button>
+          <Button variant="outline" size="sm">
+            <Users className="w-4 h-4 mr-2" />
+            Manage Members
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }

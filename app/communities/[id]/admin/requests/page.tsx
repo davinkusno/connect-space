@@ -76,200 +76,47 @@ export default function CommunityAdminRequestsPage({
   const loadJoinRequests = async (communityId: string) => {
     try {
       setIsLoading(true)
-      const supabase = getSupabaseBrowser()
       
-      // Fetch only pending join requests
-      const { data: requestsData, error: requestsError } = await supabase
-        .from("community_members")
-        .select(`
-          id,
-          user_id,
-          joined_at,
-          status
-        `)
-        .eq("community_id", communityId)
-        .eq("status", "pending")
-        .order("joined_at", { ascending: false })
+      // Use API endpoint that includes comprehensive user stats
+      const response = await fetch(`/api/communities/${communityId}/join-requests`)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Error fetching join requests:", errorData)
+        toast.error(errorData.error?.message || "Failed to load join requests")
+        setRequests([])
+        return
+      }
 
-      if (requestsError) {
-        console.error("Error fetching join requests:", requestsError)
+      const data = await response.json()
+      
+      if (!data.success || !data.requests) {
+        console.error("Invalid response format:", data)
         toast.error("Failed to load join requests")
         setRequests([])
         return
       }
 
-      if (!requestsData || requestsData.length === 0) {
+      const requestsData = data.requests
+      
+      if (requestsData.length === 0) {
         setRequests([])
         return
       }
 
-      // Fetch user data for each request
-      const userIds = requestsData.map((r: any) => r.user_id)
-      
-      if (userIds.length === 0) {
-        setRequests([])
-        return
-      }
-      
-      const { data: usersData, error: usersError } = await supabase
-        .from("users")
-        .select("id, username, full_name, avatar_url, email")
-        .in("id", userIds)
-
-      if (usersError) {
-        console.error("Error fetching users:", {
-          error: usersError,
-          message: usersError.message,
-          details: usersError.details,
-          hint: usersError.hint,
-          code: usersError.code
-        })
-        toast.error(`Failed to load user data: ${usersError.message || 'Unknown error'}`)
-        // Continue with requests even if user data fails - use fallback
-      }
-
-      // Fetch user points for each user (all points are from joining communities)
-      const { data: userPointsData } = await supabase
-        .from("user_points")
-        .select("user_id")
-        .in("user_id", userIds);
-
-      // Count points per user
-      const userStatsMap: Record<string, { points_count: number }> = {}
-      if (userPointsData) {
-        userPointsData.forEach((record: any) => {
-          if (!userStatsMap[record.user_id]) {
-            userStatsMap[record.user_id] = { points_count: 0 }
-          }
-          userStatsMap[record.user_id].points_count += 1
-        })
-      }
-
-      // Fetch actual reports for each user
-      // Include: direct member reports + thread reports + reply reports
-      
-      // 1. Direct member reports
-      const { data: memberReportsData } = await supabase
-        .from("reports")
-        .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
-        .eq("report_type", "member")
-        .in("target_id", userIds)
-        .order("created_at", { ascending: false })
-
-      // 2. Get all threads created by these users
-      const { data: userThreadsData } = await supabase
-        .from("messages")
-        .select("id, sender_id")
-        .in("sender_id", userIds)
-        .is("parent_id", null) // Only threads
-      
-      let threadReportsData: any[] = []
-      if (userThreadsData && userThreadsData.length > 0) {
-        const threadIds = userThreadsData.map(t => t.id)
-        const { data } = await supabase
-          .from("reports")
-          .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
-          .eq("report_type", "thread")
-          .in("target_id", threadIds)
-          .order("created_at", { ascending: false })
-        threadReportsData = data || []
-      }
-      
-      // 3. Get all replies created by these users
-      const { data: userRepliesData } = await supabase
-        .from("messages")
-        .select("id, sender_id")
-        .in("sender_id", userIds)
-        .not("parent_id", "is", null) // Only replies
-      
-      let replyReportsData: any[] = []
-      if (userRepliesData && userRepliesData.length > 0) {
-        const replyIds = userRepliesData.map(r => r.id)
-        const { data } = await supabase
-          .from("reports")
-          .select("id, reason, details, status, created_at, reporter_id, target_id, report_type")
-          .eq("report_type", "reply")
-          .in("target_id", replyIds)
-          .order("created_at", { ascending: false })
-        replyReportsData = data || []
-      }
-      
-      // Create mapping of thread/reply IDs to sender IDs
-      const threadSenderMap = new Map(userThreadsData?.map(t => [t.id, t.sender_id]) || [])
-      const replySenderMap = new Map(userRepliesData?.map(r => [r.id, r.sender_id]) || [])
-
-      // Group all reports by user_id
-      const reportsByUser: Record<string, UserReport[]> = {}
-      
-      // Add member reports
-      memberReportsData?.forEach((report: any) => {
-        const userId = report.target_id
-        if (!reportsByUser[userId]) {
-          reportsByUser[userId] = []
-        }
-        reportsByUser[userId].push({
-          id: report.id,
-          reason: report.reason,
-          details: report.details,
-          status: report.status,
-          created_at: report.created_at,
-          reporter_id: report.reporter_id
-        })
-      })
-      
-      // Add thread reports (map to sender)
-      threadReportsData.forEach((report: any) => {
-        const userId = threadSenderMap.get(report.target_id)
-        if (userId) {
-          if (!reportsByUser[userId]) {
-            reportsByUser[userId] = []
-          }
-          reportsByUser[userId].push({
-            id: report.id,
-            reason: report.reason,
-            details: report.details,
-            status: report.status,
-            created_at: report.created_at,
-            reporter_id: report.reporter_id
-          })
-        }
-      })
-      
-      // Add reply reports (map to sender)
-      replyReportsData.forEach((report: any) => {
-        const userId = replySenderMap.get(report.target_id)
-        if (userId) {
-          if (!reportsByUser[userId]) {
-            reportsByUser[userId] = []
-          }
-          reportsByUser[userId].push({
-            id: report.id,
-            reason: report.reason,
-            details: report.details,
-            status: report.status,
-            created_at: report.created_at,
-            reporter_id: report.reporter_id
-          })
-        }
-      })
-
-      // Map requests to JoinRequest format
+      // Map API response to JoinRequest format
       const joinRequests: JoinRequest[] = requestsData.map((request: any) => {
-        const user = usersData?.find((u: any) => u.id === request.user_id)
-        const stats = userStatsMap[request.user_id] || { points_count: 0 }
-        const userReports = reportsByUser[request.user_id] || []
-        
         return {
           id: request.id,
           userId: request.user_id,
-          userName: user?.full_name || user?.username || "Unknown User",
-          userEmail: user?.email || "",
-          userAvatar: user?.avatar_url || "/placeholder-user.jpg",
+          userName: request.user?.full_name || request.user?.username || "Unknown User",
+          userEmail: request.user?.email || "",
+          userAvatar: request.user?.avatar_url || "/placeholder-user.jpg",
           requestedAt: request.joined_at,
           status: request.status as "pending" | "approved" | "rejected",
-          points_count: stats.points_count,
-          report_count: userReports.length, // Use actual reports count from reports table
-          reports: userReports
+          points_count: request.points_count || 0,
+          report_count: request.report_count || 0,
+          reports: request.reports || []
         }
       })
 
@@ -293,18 +140,28 @@ export default function CommunityAdminRequestsPage({
     if (!communityId) return
 
     try {
-      const supabase = getSupabaseBrowser()
+      // Get all pending request IDs
+      const requestIds = requests.map(r => r.id)
       
-      // Update all pending requests to approved
-      const { error } = await supabase
-        .from("community_members")
-        .update({ status: "approved" })
-        .eq("community_id", communityId)
-        .eq("status", "pending")
+      if (requestIds.length === 0) {
+        toast.info("No pending requests to approve")
+        return
+      }
 
-      if (error) {
-        console.error("Error approving all requests:", error)
-        toast.error("Failed to approve all requests")
+      // Use bulk approve API endpoint
+      const response = await fetch("/api/communities/members/bulk-approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          requestIds,
+          communityId 
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Error approving all requests:", errorData)
+        toast.error(errorData.error?.message || "Failed to approve all requests")
         return
       }
 

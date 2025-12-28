@@ -31,7 +31,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getClientSession, getSupabaseBrowser } from "@/lib/supabase/client";
 import { isSameDay } from "date-fns";
 import {
   Award,
@@ -385,44 +384,37 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const supabase = getSupabaseBrowser();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        console.log("[Home] Fetching user home page data from API...");
+        const response = await fetch("/api/user/home");
+        
+        if (!response.ok) {
+          console.error("[Home] API error:", response.status);
+          setIsLoadingUser(false);
+          return;
+        }
 
-        if (user) {
-          console.log("[Home] Fetching user data for:", user.id);
-          const { data: userData, error } = await supabase
-            .from("users")
-            .select("username, full_name")
-            .eq("id", user.id)
-            .single();
+        const result = await response.json();
+        console.log("[Home] Dashboard API response:", result);
 
-          console.log("[Home] User data response:", { userData, error });
+        if (result.success && result.data) {
+          const { user, communities } = result.data;
+          
+          // Set user data
+          const displayName = user.full_name || user.username || "there";
+          console.log("[Home] Setting username to:", displayName);
+          setUsername(displayName);
+          setUserPoints(user.points || 0);
 
-          if (!error && userData) {
-            const displayName =
-              userData.full_name || userData.username || "there";
-            console.log("[Home] Setting username to:", displayName);
-            setUsername(displayName);
-
-            // Fetch points separately from user_points table
-            const { data: pointsData } = await supabase
-              .from("user_points")
-              .select("points_count")
-              .eq("user_id", user.id)
-              .single();
-
-            console.log("[Home] Points data:", pointsData);
-            setUserPoints(pointsData?.points_count || 0);
-          } else {
-            console.error("[Home] Error or no userData:", error);
-          }
+          // Set communities data
+          console.log("[Home] Setting communities from API:", communities);
+          setCreatedCommunities(communities.created || []);
+          setJoinedCommunities(communities.joined || []);
+          setIsLoadingCommunities(false);
         } else {
-          console.log("[Home] No user found");
+          console.error("[Home] Invalid response format:", result);
         }
       } catch (error) {
-        console.error("[Home] Error fetching user data:", error);
+        console.error("[Home] Error fetching dashboard data:", error);
       } finally {
         setIsLoadingUser(false);
       }
@@ -466,211 +458,8 @@ export default function DashboardPage() {
     checkCreatePermission();
   }, []);
 
-  useEffect(() => {
-    const fetchCommunities = async () => {
-      setIsLoadingCommunities(true);
-      try {
-        const session = await getClientSession();
-        if (!session?.user) {
-          setIsLoadingCommunities(false);
-          return;
-        }
-
-        const supabase = getSupabaseBrowser();
-
-        // Fetch communities created by user (only active ones)
-        const { data: createdData, error: createdError } = await supabase
-          .from("communities")
-          .select(
-            `
-            id,
-            name,
-            description,
-            logo_url,
-            created_at,
-            member_count,
-            status
-          `
-          )
-          .eq("creator_id", session.user.id)
-          .eq("status", "active")
-          .order("created_at", { ascending: false });
-
-        if (!createdError && createdData) {
-          // Fetch upcoming events count for each community
-          const communityIds = createdData.map((c) => c.id);
-          const now = new Date().toISOString();
-
-          const [eventsData, memberCountsData] = await Promise.all([
-            supabase
-              .from("events")
-              .select("community_id")
-              .in("community_id", communityIds)
-              .gte("start_time", now),
-            supabase
-              .from("community_members")
-              .select("community_id, status, role, user_id")
-              .in("community_id", communityIds)
-          ]);
-
-          // Count events per community
-          const eventCounts: { [key: string]: number } = {};
-          if (eventsData?.data) {
-            eventsData.data.forEach((event: any) => {
-              eventCounts[event.community_id] =
-                (eventCounts[event.community_id] || 0) + 1;
-            });
-          }
-
-          // Count approved members per community (only "member" role, exclude creator, admin, moderator)
-          const memberCounts: { [key: string]: number } = {};
-          if (memberCountsData?.data) {
-            memberCountsData.data.forEach((member: any) => {
-              // Only count "member" role, exclude admin and moderator
-              // Also exclude creator by checking if user_id matches creator_id
-              if (member.status === "approved" && member.role === "member") {
-                // Double-check: exclude creator
-                const isCreator = createdData.some((comm: any) => 
-                  comm.id === member.community_id && comm.creator_id === member.user_id
-                );
-                if (!isCreator) {
-                  memberCounts[member.community_id] =
-                    (memberCounts[member.community_id] || 0) + 1;
-                }
-              }
-            });
-          }
-
-          setCreatedCommunities(
-            createdData.map((comm) => ({
-              ...comm,
-              isCreator: true,
-              upcomingEvents: eventCounts[comm.id] || 0,
-              member_count: memberCounts[comm.id] || 0,
-            }))
-          );
-        }
-
-        // Fetch communities where user is a member (but not creator)
-        // Only fetch approved members (status = 'approved'), exclude pending
-        // Only fetch active communities (not banned)
-        const { data: memberData, error: memberError } = await supabase
-          .from("community_members")
-          .select(
-            `
-            community_id,
-            role,
-            status,
-            communities!inner (
-              id,
-              name,
-              description,
-              logo_url,
-              banner_url,
-              created_at,
-              member_count,
-              status
-            )
-          `
-          )
-          .eq("user_id", session.user.id)
-          .eq("status", "approved")
-          .eq("communities.status", "active")
-          .order("joined_at", { ascending: false });
-
-        if (!memberError && memberData) {
-          // Filter out communities where user is creator (already in createdCommunities)
-          const createdIds = new Set(createdData?.map((c) => c.id) || []);
-          const nonCreatorCommunities = memberData
-            .filter(
-              (m: any) => m.communities && !createdIds.has(m.communities.id)
-            )
-            .map((m: any) => ({
-              ...m.communities,
-              role: m.role,
-              status: m.status,
-            }));
-
-          // Get member counts for joined communities
-          const joinedCommunityIds = nonCreatorCommunities.map((c: any) => c.id);
-          let joinedMemberCounts: { [key: string]: number } = {};
-          
-          if (joinedCommunityIds.length > 0) {
-            const { data: joinedMemberCountsData } = await supabase
-              .from("community_members")
-              .select("community_id, status, role, user_id")
-              .in("community_id", joinedCommunityIds);
-            
-            // Get creator IDs for these communities to exclude them
-            const { data: joinedCommunitiesData } = await supabase
-              .from("communities")
-              .select("id, creator_id")
-              .in("id", joinedCommunityIds);
-            
-            const creatorMap: { [key: string]: string } = {};
-            joinedCommunitiesData?.forEach((comm: any) => {
-              creatorMap[comm.id] = comm.creator_id;
-            });
-            
-            if (joinedMemberCountsData) {
-              joinedMemberCountsData.forEach((member: any) => {
-                // Only count "member" role, exclude admin, moderator, and creator
-                if (member.status === "approved" && member.role === "member") {
-                  const isCreator = creatorMap[member.community_id] === member.user_id;
-                  if (!isCreator) {
-                    joinedMemberCounts[member.community_id] =
-                      (joinedMemberCounts[member.community_id] || 0) + 1;
-                  }
-                }
-              });
-            }
-          }
-
-          // Separate admin communities (co-admin) from regular member communities
-          const adminComms = nonCreatorCommunities.filter(
-            (c: any) => c.role === "admin"
-          );
-          const memberComms = nonCreatorCommunities.filter(
-            (c: any) => c.role !== "admin"
-          );
-
-          // If there are admin communities, add them to created communities
-          // Use functional update to get the current creator communities with their event counts
-          if (adminComms.length > 0) {
-            setCreatedCommunities((prev) => {
-              // Create a Set of existing IDs to avoid duplicates
-              const existingIds = new Set(prev.map((c) => c.id));
-              const newAdminComms = adminComms
-                .filter((c: any) => !existingIds.has(c.id))
-                .map((c: any) => ({
-                  ...c,
-                  isCreator: false,
-                  isAdmin: true,
-                  upcomingEvents: 0,
-                  member_count: joinedMemberCounts[c.id] || 0,
-                }));
-
-              return [...prev, ...newAdminComms];
-            });
-          }
-
-          setJoinedCommunities(
-            memberComms.map((c: any) => ({
-              ...c,
-              member_count: joinedMemberCounts[c.id] || 0,
-            }))
-          );
-        }
-      } catch (error) {
-        console.error("Error fetching communities:", error);
-      } finally {
-        setIsLoadingCommunities(false);
-      }
-    };
-
-    // Fetch communities when dashboard loads
-    fetchCommunities();
-  }, []);
+  // Communities are now fetched together with user data in the fetchUserData effect above
+  // This eliminates redundant queries and improves performance
 
   // Fetch joined/interested events function using API (bypasses RLS)
   const fetchJoinedEvents = useCallback(async () => {

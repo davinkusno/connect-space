@@ -1141,6 +1141,32 @@ export class CommunityController extends BaseController {
   }
 
   /**
+   * GET /api/communities/admin-list
+   * Get all communities where user is creator or admin
+   * @param request - The incoming request
+   * @returns NextResponse with admin communities
+   */
+  public async getAdminCommunities(
+    request: NextRequest
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const user = await this.requireAuth();
+      const result = await this.service.getAdminCommunities(user.id);
+
+      if (result.success) {
+        return this.json({ success: true, data: result.data }, result.status);
+      }
+
+      return this.error(
+        result.error?.message || "Failed to fetch admin communities",
+        result.status
+      );
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * GET /api/communities/user
    * Get user's communities (created + joined) for dashboard
    * @param request - The incoming request

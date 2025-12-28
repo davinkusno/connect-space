@@ -277,29 +277,6 @@ export class UserService extends BaseService {
   }
 
   /**
-   * Get user transactions (point history)
-   * @param userId - The user ID to fetch transactions for
-   * @returns ServiceResult containing array of transactions
-   */
-  public async getTransactions(
-    userId: string
-  ): Promise<ServiceResult<UserTransaction[]>> {
-    const { data, error } = await this.supabaseAdmin
-      .from("user_points")
-      .select("id, user_id, points, reason, source, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      return ApiResponse.error("Failed to fetch transactions", 500);
-    }
-
-    return ApiResponse.success<UserTransaction[]>(
-      (data || []) as UserTransaction[]
-    );
-  }
-
-  /**
    * Get user role/type
    * @param userId - The user ID to fetch role for
    * @returns ServiceResult containing user type
@@ -365,12 +342,12 @@ export class UserService extends BaseService {
   }
 
   /**
-   * Get user dashboard data (username, points) in one query
+   * Get user basic dashboard data (username, points) in one query
    * Consolidates user data and points queries
    * @param userId - The user ID
-   * @returns ServiceResult with user dashboard data
+   * @returns ServiceResult with user basic dashboard data
    */
-  public async getUserDashboardData(
+  private async getUserBasicData(
     userId: string
   ): Promise<ServiceResult<{
     username: string;
@@ -409,6 +386,72 @@ export class UserService extends BaseService {
     } catch (error: any) {
       console.error("Error fetching user dashboard data:", error);
       return ApiResponse.error("Failed to fetch user dashboard data", 500);
+    }
+  }
+
+  /**
+   * Get comprehensive home page data
+   * Includes user info, points, and communities (created + joined with counts)
+   * @param userId - The user ID
+   * @returns ServiceResult with complete home page data
+   */
+  public async getHomePageData(
+    userId: string
+  ): Promise<ServiceResult<{
+    user: {
+      username: string;
+      full_name?: string;
+      points: number;
+    };
+    communities: {
+      created: Array<{
+        id: string;
+        name: string;
+        description?: string;
+        logo_url?: string;
+        created_at?: string;
+        member_count: number;
+        upcomingEvents: number;
+        isCreator: boolean;
+        isAdmin?: boolean;
+      }>;
+      joined: Array<{
+        id: string;
+        name: string;
+        description?: string;
+        logo_url?: string;
+        created_at?: string;
+        member_count: number;
+        role?: string;
+        status?: string;
+      }>;
+    };
+  }>> {
+    try {
+      // Import community service
+      const { communityService } = await import("./community.service");
+
+      // Fetch user data and communities in parallel
+      const [userDataResult, communitiesResult] = await Promise.all([
+        this.getUserBasicData(userId),
+        communityService.getUserCommunities(userId)
+      ]);
+
+      if (!userDataResult.success) {
+        return ApiResponse.error("Failed to fetch user data", 500);
+      }
+
+      if (!communitiesResult.success) {
+        return ApiResponse.error("Failed to fetch communities", 500);
+      }
+
+      return ApiResponse.success({
+        user: userDataResult.data!,
+        communities: communitiesResult.data!,
+      });
+    } catch (error: any) {
+      console.error("Error fetching home page data:", error);
+      return ApiResponse.error("Failed to fetch home page data", 500);
     }
   }
 }

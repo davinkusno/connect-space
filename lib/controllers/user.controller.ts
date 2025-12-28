@@ -55,6 +55,32 @@ export class UserController extends BaseController {
   }
 
   /**
+   * GET /api/user/home
+   * Get comprehensive home page data for authenticated user
+   * @param request - The incoming request
+   * @returns NextResponse with home page data
+   */
+  public async getHomePage(
+    request: NextRequest
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      const result = await this.service.getHomePageData(user.id);
+
+      if (result.success) {
+        return this.json({ success: true, data: result.data }, result.status);
+      }
+
+      return this.error(
+        result.error?.message || "Failed to fetch home page data",
+        result.status
+      );
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * GET /api/user/points
    * Get current user's points summary
    * @param request - The incoming request
@@ -97,43 +123,6 @@ export class UserController extends BaseController {
       }
       
       return this.error(result.error?.message || "Failed to fetch points", result.status);
-    } catch (error: unknown) {
-      return this.handleError(error);
-    }
-  }
-
-  /**
-   * GET /api/user/[id]/transactions
-   * Get user's point transactions
-   * @param request - The incoming request
-   * @param userId - The user ID to fetch transactions for
-   * @returns NextResponse with transaction history
-   */
-  public async getTransactions(
-    request: NextRequest, 
-    userId: string
-  ): Promise<NextResponse<TransactionsResponse | ApiErrorResponse>> {
-    try {
-      const user: User = await this.requireAuth();
-
-      // Users can only view their own transactions
-      if (user.id !== userId) {
-        throw new ForbiddenError("Cannot view other user's transactions");
-      }
-
-      const result: ServiceResult<UserPointsSummary> = await this.service.getPoints(userId);
-
-      if (!result.success) {
-        return this.error(result.error?.message || "Failed to fetch transactions", result.status);
-      }
-
-      const data: UserPointsSummary = result.data as UserPointsSummary;
-      const response: TransactionsResponse = {
-        transactions: [],
-        total: data.activity_count || 0,
-      };
-
-      return this.json<TransactionsResponse>(response);
     } catch (error: unknown) {
       return this.handleError(error);
     }
@@ -556,20 +545,21 @@ export class UserController extends BaseController {
   }
 
   /**
-   * GET /api/user/dashboard
-   * Get user dashboard data (username, points) for home page
+   * GET /api/user/basic (DEPRECATED - use /api/user/home instead)
+   * Get user basic dashboard data (username, points) for home page
    * @param request - The incoming request
-   * @returns NextResponse with user dashboard data
+   * @returns NextResponse with user basic dashboard data
    */
   public async getDashboardData(
     request: NextRequest
   ): Promise<NextResponse<{ username: string; full_name?: string; points: number } | ApiErrorResponse>> {
     try {
       const user = await this.requireAuth();
-      const result = await this.service.getUserDashboardData(user.id);
+      // Note: Calling private method through service - this endpoint is deprecated
+      const result = await this.service.getHomePageData(user.id);
 
       if (result.success) {
-        return this.json(result.data!, result.status);
+        return this.json(result.data!.user, result.status);
       }
 
       return this.error(

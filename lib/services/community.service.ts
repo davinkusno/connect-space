@@ -1736,6 +1736,108 @@ export class CommunityService extends BaseService {
    * @param userId - The user ID
    * @returns ServiceResult with created and joined communities with counts
    */
+  /**
+   * Get all communities where user is creator or admin
+   * Used for admin panel selector page
+   */
+  public async getAdminCommunities(
+    userId: string
+  ): Promise<ServiceResult<Array<{
+    id: string;
+    name: string;
+    description?: string;
+    logo_url?: string;
+    location?: string;
+    member_count?: number;
+    role: "creator" | "admin";
+  }>>> {
+    try {
+      // Get communities where user is creator
+      const { data: createdCommunities, error: createdError } = await this.supabaseAdmin
+        .from("communities")
+        .select("id, name, description, logo_url, location")
+        .eq("creator_id", userId)
+        .eq("status", "active");
+
+      if (createdError) {
+        return ApiResponse.error("Failed to fetch created communities", 500);
+      }
+
+      // Get communities where user is admin (not creator)
+      const { data: adminMemberships, error: adminError } = await this.supabaseAdmin
+        .from("community_members")
+        .select("community_id")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .eq("status", "approved");
+
+      if (adminError) {
+        return ApiResponse.error("Failed to fetch admin memberships", 500);
+      }
+
+      const adminCommunityIds = adminMemberships?.map(m => m.community_id) || [];
+
+      // Get admin community details (exclude communities where user is creator)
+      let adminCommunities: any[] = [];
+      if (adminCommunityIds.length > 0) {
+        const createdIds = createdCommunities?.map(c => c.id) || [];
+        const nonCreatorAdminIds = adminCommunityIds.filter(id => !createdIds.includes(id));
+
+        if (nonCreatorAdminIds.length > 0) {
+          const { data, error } = await this.supabaseAdmin
+            .from("communities")
+            .select("id, name, description, logo_url, location")
+            .in("id", nonCreatorAdminIds)
+            .eq("status", "active");
+
+          if (!error && data) {
+            adminCommunities = data;
+          }
+        }
+      }
+
+      // Get member counts for all communities
+      const allCommunityIds = [
+        ...(createdCommunities?.map(c => c.id) || []),
+        ...adminCommunities.map(c => c.id)
+      ];
+
+      const memberCounts: Record<string, number> = {};
+      if (allCommunityIds.length > 0) {
+        const { data: memberCountData } = await this.supabaseAdmin
+          .from("community_members")
+          .select("community_id")
+          .in("community_id", allCommunityIds)
+          .eq("status", "approved");
+
+        if (memberCountData) {
+          memberCountData.forEach(m => {
+            memberCounts[m.community_id] = (memberCounts[m.community_id] || 0) + 1;
+          });
+        }
+      }
+
+      // Combine results
+      const result = [
+        ...(createdCommunities?.map(c => ({
+          ...c,
+          member_count: memberCounts[c.id] || 0,
+          role: "creator" as const
+        })) || []),
+        ...adminCommunities.map(c => ({
+          ...c,
+          member_count: memberCounts[c.id] || 0,
+          role: "admin" as const
+        }))
+      ];
+
+      return ApiResponse.success(result);
+    } catch (error) {
+      console.error("[CommunityService] Error fetching admin communities:", error);
+      return ApiResponse.error("Failed to fetch admin communities", 500);
+    }
+  }
+
   public async getUserCommunities(
     userId: string
   ): Promise<ServiceResult<{

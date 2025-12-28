@@ -305,38 +305,33 @@ export default function CommunityPage({
   const loadCommunityData = async () => {
     try {
       setIsLoading(true);
-      const supabase = getSupabaseBrowser();
       const session = await getClientSession();
 
-      // Fetch community data
-      const { data: communityData, error: communityError } = await supabase
-        .from("communities")
-        .select(
-          `
-          *,
-          categories (
-            id,
-            name
-          )
-        `
-        )
-        .eq("id", id)
-        .single();
-
-      console.log("Raw community data:", communityData);
-
-      if (communityError) {
-        console.error("Error fetching community:", communityError);
+      // Fetch community data from API
+      console.log("[CommunityPage] Fetching community data from API for ID:", id);
+      const response = await fetch(`/api/communities/${id}`);
+      
+      if (!response.ok) {
+        console.error("[CommunityPage] API error:", response.status);
         toast.error("Failed to load community");
         router.push("/communities");
         return;
       }
 
+      const result = await response.json();
+      console.log("[CommunityPage] API response:", result);
+
+      if (!result.success || !result.data) {
+        console.error("[CommunityPage] Invalid API response");
+        toast.error("Failed to load community");
+        router.push("/communities");
+        return;
+      }
+
+      const communityData = result.data;
+
       // Parse location if it's a string
-      if (
-        communityData.location &&
-        typeof communityData.location === "string"
-      ) {
+      if (communityData.location && typeof communityData.location === "string") {
         try {
           communityData.location = JSON.parse(communityData.location);
         } catch {
@@ -345,130 +340,80 @@ export default function CommunityPage({
         }
       }
 
-      // Set category name from relationship
-      if (communityData.categories) {
-        communityData.category =
-          (communityData.categories as any).name || communityData.category;
-      }
-
       setCommunity(communityData);
-      console.log("Community data loaded:", {
+      setMemberCount(communityData.member_count || 0);
+
+      console.log("[CommunityPage] Community data loaded:", {
         id: communityData.id,
         name: communityData.name,
-        created_at: communityData.created_at,
-        creator_id: communityData.creator_id,
+        creator_id: communityData.creator?.id,
+        member_count: communityData.member_count,
       });
-      console.log(
-        "Community created_at type:",
-        typeof communityData.created_at
-      );
-      console.log("Community created_at value:", communityData.created_at);
 
-      // Always fetch creator data separately
-      if (communityData?.creator_id) {
-        console.log("Fetching creator with ID:", communityData.creator_id);
-        const { data: creatorInfo, error: creatorError } = await supabase
-          .from("users")
-          .select("id, username, full_name, avatar_url")
-          .eq("id", communityData.creator_id)
-          .single();
-
-        console.log("Creator query result:", { creatorInfo, creatorError });
-
-        if (creatorError) {
-          console.error("Error fetching creator:", creatorError);
-          console.error("Creator ID:", communityData.creator_id);
-        } else if (creatorInfo) {
-          console.log("Creator data loaded successfully:", creatorInfo);
-          console.log("Creator full_name:", creatorInfo.full_name);
-          console.log("Creator username:", creatorInfo.username);
-          setCreatorData(creatorInfo);
-        } else {
-          console.warn(
-            "No creator data found for creator_id:",
-            communityData.creator_id
-          );
-        }
-      } else {
-        console.warn("No creator_id found in community data");
+      // Set creator data from the API response
+      if (communityData.creator) {
+        console.log("[CommunityPage] Creator data from API:", communityData.creator);
+        setCreatorData(communityData.creator);
       }
 
       if (session?.user) {
         setCurrentUser(session.user);
 
-        // Check if user is superadmin
-        const { data: userData } = await supabase
-          .from("users")
-          .select("user_type")
-          .eq("id", session.user.id)
-          .single();
+        // Fetch user type separately (for superadmin check)
+        const userResponse = await fetch("/api/user/role");
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          const isSuperAdminUser = userData?.user_type === "super_admin";
+          setIsSuperAdmin(isSuperAdminUser);
 
-        const isSuperAdminUser = userData?.user_type === "super_admin";
-        setIsSuperAdmin(isSuperAdminUser);
-
-        // Check if user is the creator
-        if (communityData.creator_id === session.user.id) {
-          setUserRole("creator");
-          setIsMember(true);
-          setMembershipStatus("approved");
-        } else if (isSuperAdminUser) {
-          // Superadmin has read-only access without being a member
-          setIsMember(false);
-          setMembershipStatus(null);
-          setUserRole(null);
-        } else {
-          // Check membership - check ALL memberships (including pending)
-          const { data: membershipData } = await supabase
-            .from("community_members")
-            .select("role, status")
-            .eq("community_id", id)
-            .eq("user_id", session.user.id)
-            .maybeSingle();
-
-          if (membershipData) {
-            // User has a row in community_members
-            const memberStatus = membershipData.status;
-            if (memberStatus === "pending") {
-              // Pending approval
-              setMembershipStatus("pending");
-              setIsMember(false); // Not a member yet, waiting for approval
-              setUserRole(null);
-            } else if (memberStatus === "approved") {
-              // Approved member
-              setIsMember(true);
-              setMembershipStatus("approved");
-              setUserRole(membershipData.role as any);
-            } else {
-              // Rejected or banned
-              setMembershipStatus(null);
-              setIsMember(false);
-              setUserRole(null);
-            }
-          } else {
-            // No membership record
-            setMembershipStatus(null);
+          // Check if user is the creator
+          if (communityData.creator_id === session.user.id) {
+            setUserRole("creator");
+            setIsMember(true);
+            setMembershipStatus("approved");
+          } else if (isSuperAdminUser) {
+            // Superadmin has read-only access without being a member
             setIsMember(false);
+            setMembershipStatus(null);
             setUserRole(null);
+          } else {
+            // Check membership from API response
+            // The API returns is_member, but we need more details about membership status
+            // Fetch membership details from the membership API
+            const membershipResponse = await fetch(`/api/communities/membership-status?ids=${id}`);
+            if (membershipResponse.ok) {
+              const membershipData = await membershipResponse.json();
+              const status = membershipData[id];
+
+              if (status === "pending") {
+                setMembershipStatus("pending");
+                setIsMember(false);
+                setUserRole(null);
+              } else if (status === "approved") {
+                setIsMember(true);
+                setMembershipStatus("approved");
+                // Fetch role from members API
+                const membersResponse = await fetch(`/api/communities/${id}/members?pageSize=1000`);
+                if (membersResponse.ok) {
+                  const membersData = await membersResponse.json();
+                  const userMembership = membersData.members?.find(
+                    (m: any) => m.user_id === session.user.id
+                  );
+                  if (userMembership) {
+                    setUserRole(userMembership.role as any);
+                  }
+                }
+              } else {
+                setMembershipStatus(null);
+                setIsMember(false);
+                setUserRole(null);
+              }
+            }
           }
         }
       }
-
-      // Get member count - only "member" role, exclude creator, admin, moderator
-      const { data: membersData } = await supabase
-        .from("community_members")
-        .select("user_id, role")
-        .eq("community_id", id)
-        .eq("status", "approved")
-        .eq("role", "member");
-
-      // Filter out creator from count
-      const memberCount = membersData?.filter(
-        (member: any) => member.user_id !== communityData.creator_id
-      ).length || 0;
-
-      setMemberCount(memberCount);
     } catch (error) {
-      console.error("Error loading community:", error);
+      console.error("[CommunityPage] Error loading community:", error);
       toast.error("Failed to load community");
     } finally {
       setIsLoading(false);
@@ -1050,20 +995,25 @@ export default function CommunityPage({
         }
       }
 
-      const supabase = getSupabaseBrowser();
-
-      const { error } = await supabase.from("messages").insert({
-        content: newPost.trim(),
-        community_id: id,
-        sender_id: currentUser.id,
-        parent_id: null,
-        media_type,
-        media_url,
-        media_size,
-        media_mime_type,
+      const response = await fetch("/api/messages/threads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: newPost.trim(),
+          community_id: id,
+          media_type,
+          media_url,
+          media_size,
+          media_mime_type,
+        }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create thread");
+      }
 
       toast.success("Thread created!");
       setNewPost("");
@@ -1083,16 +1033,23 @@ export default function CommunityPage({
 
     try {
       setIsSubmitting(true);
-      const supabase = getSupabaseBrowser();
 
-      const { error } = await supabase.from("messages").insert({
-        content: replyContent.trim(),
-        community_id: id,
-        sender_id: currentUser.id,
-        parent_id: parentId,
+      const response = await fetch("/api/messages/replies", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: replyContent.trim(),
+          community_id: id,
+          parent_id: parentId,
+        }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to post reply");
+      }
 
       toast.success("Reply posted!");
       setReplyContent("");
