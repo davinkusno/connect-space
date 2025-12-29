@@ -495,7 +495,7 @@ export class EventService extends BaseService {
 
     // Note: Event joining no longer awards points (only community joining awards points)
     // Points system was simplified to only award for community_joined
-    
+
     // Send notifications to community creator and admins
     try {
       // Get user info who is interested

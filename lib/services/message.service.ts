@@ -28,11 +28,14 @@ interface CreateReplyInput {
 }
 
 interface MessageWithSender extends MessageData {
-  sender?: {
+  users?: {
     id: string;
+    username?: string;
     full_name: string;
     avatar_url?: string;
   };
+  authorRole?: string | null;
+  isCreator?: boolean;
 }
 
 // ==================== Message Service Class ====================
@@ -162,17 +165,15 @@ export class MessageService extends BaseService {
   /**
    * Get threads for a community
    * @param communityId - The community ID
-   * @returns ServiceResult containing array of threads
+   * @returns ServiceResult containing array of threads with user data
    */
   public async getThreads(
     communityId: string
   ): Promise<ServiceResult<MessageWithSender[]>> {
-    const { data, error } = await this.supabaseAdmin
+    // Get threads
+    const { data: threads, error } = await this.supabaseAdmin
       .from("messages")
-      .select(`
-        *,
-        sender:sender_id (id, full_name, avatar_url)
-      `)
+      .select("*")
       .eq("community_id", communityId)
       .is("parent_id", null)
       .order("created_at", { ascending: false });
@@ -182,23 +183,67 @@ export class MessageService extends BaseService {
       return ApiResponse.error("Failed to get threads", 500);
     }
 
-    return ApiResponse.success<MessageWithSender[]>(data as MessageWithSender[]);
+    if (!threads || threads.length === 0) {
+      return ApiResponse.success<MessageWithSender[]>([]);
+    }
+
+    // Get community creator
+    const { data: community } = await this.supabaseAdmin
+      .from("communities")
+      .select("creator_id")
+      .eq("communityId", communityId)
+      .single();
+
+    // Get all sender IDs
+    const senderIds = [...new Set(threads.map((t: any) => t.sender_id))];
+
+    // Fetch user data for all senders
+    const { data: users } = await this.supabaseAdmin
+      .from("users")
+      .select("id, username, full_name, avatar_url")
+      .in("id", senderIds);
+
+    // Fetch roles for all senders
+    const { data: memberships } = await this.supabaseAdmin
+      .from("community_members")
+      .select("user_id, role")
+      .eq("community_id", communityId)
+      .in("user_id", senderIds);
+
+    // Create maps for quick lookup
+    const userMap: Record<string, any> = {};
+    (users || []).forEach((u: any) => {
+      userMap[u.id] = u;
+    });
+
+    const roleMap: Record<string, string> = {};
+    (memberships || []).forEach((m: any) => {
+      roleMap[m.user_id] = m.role;
+    });
+
+    // Transform threads with user data
+    const threadsWithUsers = threads.map((thread: any) => ({
+      ...thread,
+      users: userMap[thread.sender_id] || null,
+      authorRole: roleMap[thread.sender_id] || null,
+      isCreator: thread.sender_id === community?.creator_id,
+    }));
+
+    return ApiResponse.success<MessageWithSender[]>(threadsWithUsers as MessageWithSender[]);
   }
 
   /**
    * Get replies for a thread
    * @param threadId - The thread (parent message) ID
-   * @returns ServiceResult containing array of replies
+   * @returns ServiceResult containing array of replies with user data
    */
   public async getReplies(
     threadId: string
   ): Promise<ServiceResult<MessageWithSender[]>> {
-    const { data, error } = await this.supabaseAdmin
+    // Get replies
+    const { data: replies, error } = await this.supabaseAdmin
       .from("messages")
-      .select(`
-        *,
-        sender:sender_id (id, full_name, avatar_url)
-      `)
+      .select("*")
       .eq("parent_id", threadId)
       .order("created_at", { ascending: true });
 
@@ -207,7 +252,64 @@ export class MessageService extends BaseService {
       return ApiResponse.error("Failed to get replies", 500);
     }
 
-    return ApiResponse.success<MessageWithSender[]>(data as MessageWithSender[]);
+    if (!replies || replies.length === 0) {
+      return ApiResponse.success<MessageWithSender[]>([]);
+    }
+
+    // Get parent message to get community_id
+    const { data: parentMessage } = await this.supabaseAdmin
+      .from("messages")
+      .select("community_id")
+      .eq("id", threadId)
+      .single();
+
+    if (!parentMessage) {
+      return ApiResponse.notFound("Thread not found");
+    }
+
+    // Get community creator
+    const { data: community } = await this.supabaseAdmin
+      .from("communities")
+      .select("creator_id")
+      .eq("id", parentMessage.community_id)
+      .single();
+
+    // Get all sender IDs
+    const senderIds = [...new Set(replies.map((r: any) => r.sender_id))];
+
+    // Fetch user data for all senders
+    const { data: users } = await this.supabaseAdmin
+      .from("users")
+      .select("id, username, full_name, avatar_url")
+      .in("id", senderIds);
+
+    // Fetch roles for all senders
+    const { data: memberships } = await this.supabaseAdmin
+      .from("community_members")
+      .select("user_id, role")
+      .eq("community_id", parentMessage.community_id)
+      .in("user_id", senderIds);
+
+    // Create maps for quick lookup
+    const userMap: Record<string, any> = {};
+    (users || []).forEach((u: any) => {
+      userMap[u.id] = u;
+    });
+
+    const roleMap: Record<string, string> = {};
+    (memberships || []).forEach((m: any) => {
+      roleMap[m.user_id] = m.role;
+    });
+
+    // Transform replies with user data
+    const repliesWithUsers = replies.map((reply: any) => ({
+      ...reply,
+      users: userMap[reply.sender_id] || null,
+      authorRole: roleMap[reply.sender_id] || null,
+      isCreator: reply.sender_id === community?.creator_id,
+    }));
+
+    return ApiResponse.success<MessageWithSender[]>(repliesWithUsers as MessageWithSender[]);
   }
 
   /**

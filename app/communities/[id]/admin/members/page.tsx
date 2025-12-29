@@ -174,7 +174,7 @@ export default function CommunityMembersPage({
       }
 
       const membersData = data.members
-      
+
       if (membersData.length === 0) {
         setMembers([])
         setTotalCount(0)

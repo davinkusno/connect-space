@@ -2016,7 +2016,7 @@ export default function DashboardPage() {
                                       <ExternalLink className="h-3 w-3" />
                                     </Button>
                                   </a>
-                                </div>
+                            </div>
                               )}
                             </div>
                             <div className="pt-4 border-t flex items-center justify-between">

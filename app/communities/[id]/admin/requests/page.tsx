@@ -103,7 +103,7 @@ export default function CommunityAdminRequestsPage({
         setRequests([])
         return
       }
-
+      
       // Map API response to JoinRequest format
       const joinRequests: JoinRequest[] = requestsData.map((request: any) => {
         return {

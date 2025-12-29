@@ -430,138 +430,56 @@ export default function CommunityPage({
       switch (tab) {
         case "discussions":
         case "announcements": // Backward compatibility
-          // Load discussion threads from messages table (top-level messages only)
-          const { data: messagesData } = await supabase
-            .from("messages")
-            .select(
-              `
-              id,
-              content,
-              created_at,
-              updated_at,
-              sender_id,
-              media_url,
-              media_type,
-              media_size,
-              media_mime_type
-            `
-            )
-            .eq("community_id", id)
-            .is("parent_id", null)
-            .order("created_at", { ascending: false })
-            .limit(50);
+          // Load discussion threads via API
+          try {
+            const threadsResponse = await fetch(`/api/messages/threads?community_id=${id}`);
+            
+            if (!threadsResponse.ok) {
+              console.error("Failed to fetch threads:", threadsResponse.status);
+              setDiscussions([]);
+              break;
+            }
 
-          console.log("📨 Messages data from DB:", messagesData?.slice(0, 2)); // Log first 2 messages
+            const threadsData = await threadsResponse.json();
+            console.log("📨 Threads data from API:", threadsData);
 
-          if (messagesData && messagesData.length > 0) {
-            // Get all sender IDs to fetch roles in one query
-            const senderIds = [
-              ...new Set(messagesData.map((m: any) => m.sender_id)),
-            ];
+            if (threadsData && Array.isArray(threadsData) && threadsData.length > 0) {
+              // Fetch replies for each thread
+              const discussionsWithReplies = await Promise.all(
+                threadsData.map(async (thread: any) => {
+                  try {
+                    const repliesResponse = await fetch(`/api/messages/replies?thread_id=${thread.id}`);
+                    let replies = [];
+                    let replyCount = 0;
 
-            // Fetch roles for all senders
-            const { data: membershipsData } = await supabase
-              .from("community_members")
-              .select("user_id, role")
-              .eq("community_id", id)
-              .in("user_id", senderIds);
-
-            const roleMap: Record<string, string> = {};
-            (membershipsData || []).forEach((m: any) => {
-              roleMap[m.user_id] = m.role;
-            });
-
-            // Load user data for each message
-            const messagesWithUsers = await Promise.all(
-              messagesData.map(async (message) => {
-                const { data: userData } = await supabase
-                  .from("users")
-                  .select("id, username, full_name, avatar_url")
-                  .eq("id", message.sender_id)
-                  .single();
-
-                // Get author role
-                const authorRole = roleMap[message.sender_id] || null;
-                const isCreator = message.sender_id === community?.creator_id;
-
-                // Load ALL replies for each message (not just 5)
-                const { data: replies, count: replyCount } = await supabase
-                  .from("messages")
-                  .select(
-                    `
-                    id,
-                    content,
-                    created_at,
-                    updated_at,
-                    sender_id,
-                    media_url,
-                    media_type,
-                    media_size,
-                    media_mime_type
-                  `,
-                    { count: "exact" }
-                  )
-                  .eq("parent_id", message.id)
-                  .order("created_at", { ascending: true });
-
-                // Get reply sender IDs
-                const replySenderIds = [
-                  ...new Set((replies || []).map((r: any) => r.sender_id)),
-                ];
-
-                // Fetch roles for reply senders
-                const { data: replyMembershipsData } =
-                  replySenderIds.length > 0
-                    ? await supabase
-                        .from("community_members")
-                        .select("user_id, role")
-                        .eq("community_id", id)
-                        .in("user_id", replySenderIds)
-                    : { data: [] };
-
-                const replyRoleMap: Record<string, string> = {};
-                (replyMembershipsData || []).forEach((m: any) => {
-                  replyRoleMap[m.user_id] = m.role;
-                });
-
-                // Load user data for replies
-                const repliesWithUsers = await Promise.all(
-                  (replies || []).map(async (reply: any) => {
-                    const { data: replyUserData } = await supabase
-                      .from("users")
-                      .select("id, username, full_name, avatar_url")
-                      .eq("id", reply.sender_id)
-                      .single();
-
-                    const replyAuthorRole =
-                      replyRoleMap[reply.sender_id] || null;
-                    const replyIsCreator =
-                      reply.sender_id === community?.creator_id;
+                    if (repliesResponse.ok) {
+                      replies = await repliesResponse.json();
+                      replyCount = replies.length;
+                    }
 
                     return {
-                      ...reply,
-                      users: replyUserData,
-                      authorRole: replyAuthorRole,
-                      isCreator: replyIsCreator,
+                      ...thread,
+                      replies: replies || [],
+                      replyCount: replyCount,
                     };
-                  })
-                );
+                  } catch (error) {
+                    console.error(`Error fetching replies for thread ${thread.id}:`, error);
+                    return {
+                      ...thread,
+                      replies: [],
+                      replyCount: 0,
+                    };
+                  }
+                })
+              );
 
-                return {
-                  ...message,
-                  users: userData,
-                  replies: repliesWithUsers || [],
-                  replyCount: replyCount || repliesWithUsers.length,
-                  authorRole: authorRole,
-                  isCreator: isCreator,
-                };
-              })
-            );
-
-            console.log("📋 First message with users:", messagesWithUsers[0]); // Log complete first message
-
-            setDiscussions(messagesWithUsers);
-          } else {
+              console.log("📋 First discussion with replies:", discussionsWithReplies[0]);
+              setDiscussions(discussionsWithReplies);
+            } else {
+              setDiscussions([]);
+            }
+          } catch (error) {
+            console.error("Error loading discussions:", error);
             setDiscussions([]);
           }
           break;
@@ -1001,12 +919,12 @@ export default function CommunityPage({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content: newPost.trim(),
-          community_id: id,
-          media_type,
-          media_url,
-          media_size,
-          media_mime_type,
+        content: newPost.trim(),
+        community_id: id,
+        media_type,
+        media_url,
+        media_size,
+        media_mime_type,
         }),
       });
 
@@ -1040,9 +958,9 @@ export default function CommunityPage({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content: replyContent.trim(),
-          community_id: id,
-          parent_id: parentId,
+        content: replyContent.trim(),
+        community_id: id,
+        parent_id: parentId,
         }),
       });
 
@@ -1068,13 +986,17 @@ export default function CommunityPage({
     if (!deleteTarget) return;
 
     try {
-      const supabase = getSupabaseBrowser();
-      const { error } = await supabase
-        .from("messages")
-        .delete()
-        .eq("id", deleteTarget.id);
+      const response = await fetch(`/api/messages/${deleteTarget.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete message");
+      }
 
       toast.success(
         deleteTarget.type === "thread" ? "Thread deleted!" : "Reply deleted!"

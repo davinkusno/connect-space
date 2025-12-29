@@ -38,29 +38,29 @@ export class MessageController extends BaseController {
    * POST /api/messages/threads
    */
   async createThread(request: NextRequest) {
-    const user = await this.authenticateRequest(request);
-    if (!user) {
-      return this.unauthorized();
+    try {
+      const user = await this.requireAuth();
+      const body: CreateThreadBody = await request.json();
+
+      // Validate required fields
+      if (!body.content?.trim()) {
+        return this.badRequest("Content is required");
+      }
+
+      if (!body.community_id) {
+        return this.badRequest("Community ID is required");
+      }
+
+      const result = await this.service.createThread(user.id, body);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.serviceResultToResponse(result);
+    } catch (error) {
+      return this.handleError(error);
     }
-
-    const body: CreateThreadBody = await request.json();
-
-    // Validate required fields
-    if (!body.content?.trim()) {
-      return this.badRequest("Content is required");
-    }
-
-    if (!body.community_id) {
-      return this.badRequest("Community ID is required");
-    }
-
-    const result = await this.service.createThread(user.id, body);
-
-    if (result.success) {
-      return this.json(result.data!, result.status);
-    }
-
-    return this.handleServiceError(result);
   }
 
   /**
@@ -68,33 +68,33 @@ export class MessageController extends BaseController {
    * POST /api/messages/replies
    */
   async createReply(request: NextRequest) {
-    const user = await this.authenticateRequest(request);
-    if (!user) {
-      return this.unauthorized();
+    try {
+      const user = await this.requireAuth();
+      const body: CreateReplyBody = await request.json();
+
+      // Validate required fields
+      if (!body.content?.trim()) {
+        return this.badRequest("Content is required");
+      }
+
+      if (!body.community_id) {
+        return this.badRequest("Community ID is required");
+      }
+
+      if (!body.parent_id) {
+        return this.badRequest("Parent message ID is required");
+      }
+
+      const result = await this.service.createReply(user.id, body);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.serviceResultToResponse(result);
+    } catch (error) {
+      return this.handleError(error);
     }
-
-    const body: CreateReplyBody = await request.json();
-
-    // Validate required fields
-    if (!body.content?.trim()) {
-      return this.badRequest("Content is required");
-    }
-
-    if (!body.community_id) {
-      return this.badRequest("Community ID is required");
-    }
-
-    if (!body.parent_id) {
-      return this.badRequest("Parent message ID is required");
-    }
-
-    const result = await this.service.createReply(user.id, body);
-
-    if (result.success) {
-      return this.json(result.data!, result.status);
-    }
-
-    return this.handleServiceError(result);
   }
 
   /**
@@ -115,7 +115,7 @@ export class MessageController extends BaseController {
       return this.json(result.data!, result.status);
     }
 
-    return this.handleServiceError(result);
+    return this.serviceResultToResponse(result);
   }
 
   /**
@@ -136,7 +136,7 @@ export class MessageController extends BaseController {
       return this.json(result.data!, result.status);
     }
 
-    return this.handleServiceError(result);
+    return this.serviceResultToResponse(result);
   }
 
   /**
@@ -144,18 +144,18 @@ export class MessageController extends BaseController {
    * DELETE /api/messages/:id
    */
   async deleteMessage(request: NextRequest, messageId: string) {
-    const user = await this.authenticateRequest(request);
-    if (!user) {
-      return this.unauthorized();
+    try {
+      const user = await this.requireAuth();
+      const result = await this.service.deleteMessage(messageId, user.id);
+
+      if (result.success) {
+        return this.json({ success: true, message: "Message deleted" }, 200);
+      }
+
+      return this.serviceResultToResponse(result);
+    } catch (error) {
+      return this.handleError(error);
     }
-
-    const result = await this.service.deleteMessage(messageId, user.id);
-
-    if (result.success) {
-      return this.noContent();
-    }
-
-    return this.handleServiceError(result);
   }
 }
 
