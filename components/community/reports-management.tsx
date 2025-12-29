@@ -23,10 +23,12 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   AlertCircle,
   AlertTriangle,
+  Ban,
   CheckCircle,
   Eye,
   Loader2,
   ShieldAlert,
+  Trash2,
   TrendingDown,
   TrendingUp,
   UserX,
@@ -208,6 +210,104 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
       toast.error(error instanceof Error ? error.message : "Failed to ban user");
     } finally {
       setIsBanning(false);
+    }
+  };
+
+  const handleDeleteReport = async (reportId: string) => {
+    try {
+      const response = await fetch(
+        `/api/communities/${communityId}/reports/${reportId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || "Failed to delete report");
+      }
+
+      const result = await response.json();
+      toast.success(result.message || "Report deleted successfully");
+      
+      // Close detail dialog if open
+      if (selectedReport?.id === reportId) {
+        setIsDetailOpen(false);
+        setSelectedReport(null);
+      }
+      
+      loadReports(); // Reload reports
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to delete report");
+    }
+  };
+
+  const handleDismissReport = async () => {
+    if (!selectedReport) return;
+
+    try {
+      setIsUpdating(true);
+
+      const response = await fetch(
+        `/api/communities/${communityId}/reports/${selectedReport.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "dismissed",
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || "Failed to dismiss report");
+      }
+
+      const result = await response.json();
+      toast.success(result.message || "Report dismissed successfully");
+      setIsDetailOpen(false);
+      loadReports(); // Reload reports
+    } catch (error) {
+      console.error("Error dismissing report:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to dismiss report");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleResolveReport = async () => {
+    if (!selectedReport) return;
+
+    try {
+      setIsUpdating(true);
+
+      const response = await fetch(
+        `/api/communities/${communityId}/reports/${selectedReport.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "resolved",
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || "Failed to resolve report");
+      }
+
+      const result = await response.json();
+      toast.success(result.message || "Report resolved successfully");
+      setIsDetailOpen(false);
+      loadReports(); // Reload reports
+    } catch (error) {
+      console.error("Error resolving report:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to resolve report");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -423,7 +523,7 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
               <CardContent className="p-6">
                 <div className="flex items-start justify-between gap-4">
                   {/* Left: Reported Item Info */}
-                  <div className="flex items-start gap-4 flex-1">
+                  <div className="flex items-start gap-4 flex-1" onClick={() => openReportDetail(report)}>
                     {report.reported_member && (
                       <Avatar className="w-12 h-12">
                         <AvatarImage src={report.reported_member.avatar_url || undefined} />
@@ -509,8 +609,22 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
                     </div>
                   </div>
 
-                  {/* Right: Status Badge */}
-                  <div className="flex-shrink-0">{getStatusBadge(report.status)}</div>
+                  {/* Right: Status Badge and Actions */}
+                  <div className="flex flex-col items-end gap-2">
+                    {getStatusBadge(report.status)}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteReport(report.id);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -727,23 +841,47 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
           )}
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDetailOpen(false)}
-              disabled={isUpdating}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateStatus} disabled={isUpdating}>
-              {isUpdating ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                "Update Status"
-              )}
-            </Button>
+            <div className="flex items-center justify-between w-full gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={() => selectedReport && handleDeleteReport(selectedReport.id)}
+                disabled={isUpdating}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleDismissReport}
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? "Processing..." : "Dismiss"}
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={handleResolveReport}
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? "Processing..." : "Resolve"}
+                </Button>
+                {selectedReport?.report_type === "member" && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      setBanReason(selectedReport.reason || "");
+                      setShowBanDialog(true);
+                    }}
+                    disabled={isUpdating}
+                  >
+                    <Ban className="w-4 h-4 mr-2" />
+                    Ban
+                  </Button>
+                )}
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

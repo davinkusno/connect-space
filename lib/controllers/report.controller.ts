@@ -242,6 +242,40 @@ export class ReportController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * DELETE /api/communities/[communityId]/reports/[reportId]
+   * Delete a report (admin/moderator only)
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @param reportId - The report ID
+   * @returns NextResponse with success message
+   */
+  public async deleteCommunityReport(
+    request: NextRequest,
+    communityId: string,
+    reportId: string
+  ): Promise<NextResponse<{ message: string } | ApiErrorResponse>> {
+    try {
+      await this.requireAuth();
+
+      // Delete the report
+      const reportService = this.service as any;
+      const { error } = await reportService.supabaseAdmin
+        .from("reports")
+        .delete()
+        .eq("id", reportId);
+
+      if (error) {
+        console.error("Error deleting report:", error);
+        return this.error("Failed to delete report", 500);
+      }
+
+      return this.json({ message: "Report deleted successfully" }, 200);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

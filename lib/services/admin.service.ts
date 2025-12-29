@@ -99,6 +99,8 @@ export class AdminService extends BaseService {
 
   /**
    * Get all reports with filters and pagination
+   * FOR SUPERADMIN: Returns community reports, event reports, and threads/replies by ADMINS only
+   * Regular member threads/replies and member reports go to community admin
    * @param options - Query options
    * @returns ServiceResult containing paginated reports
    */
@@ -106,31 +108,98 @@ export class AdminService extends BaseService {
     options?: ReportsQueryOptions
   ): Promise<ServiceResult<ReportsResult>> {
     try {
-      // STEP 1: Fetch ALL reports (no pagination yet)
+      // STEP 1: Fetch community and event reports (admin-level reports)
     let query = this.supabaseAdmin
       .from("reports")
       .select(`
         *,
           reporter:reporter_id (id, full_name, avatar_url, email)
         `)
-        .in("report_type", ["community", "event", "thread", "reply"])
+        .in("report_type", ["community", "event"])
       .order("created_at", { ascending: false });
 
     if (options?.status && options.status !== "all") {
       query = query.eq("status", options.status);
     }
 
-      const { data: allReports, error } = await query;
+      const { data: adminReports, error } = await query;
 
     if (error) {
       return ApiResponse.error("Failed to fetch reports", 500);
     }
 
+      // STEP 2: Fetch thread and reply reports, but only those posted by admins
+      const { data: allThreadReplyReports } = await this.supabaseAdmin
+        .from("reports")
+        .select(`
+          *,
+          reporter:reporter_id (id, full_name, avatar_url, email)
+        `)
+        .in("report_type", ["thread", "reply"])
+        .order("created_at", { ascending: false });
+
+      // Filter thread/reply reports to only include admin-posted content
+      const threadReplyIds = (allThreadReplyReports || []).map(r => r.target_id);
+      
+      let adminPostedReports: any[] = [];
+      if (threadReplyIds.length > 0) {
+        // Get all messages with their community info
+        const { data: messages } = await this.supabaseAdmin
+          .from("messages")
+          .select("id, sender_id, community_id, parent_id")
+          .in("id", threadReplyIds);
+
+        if (messages && messages.length > 0) {
+          // Get community info to identify admins
+          const communityIds = [...new Set(messages.map(m => m.community_id))];
+          const { data: communities } = await this.supabaseAdmin
+            .from("communities")
+            .select("id, creator_id")
+            .in("id", communityIds);
+
+          const { data: adminMembers } = await this.supabaseAdmin
+            .from("community_members")
+            .select("user_id, community_id")
+            .in("community_id", communityIds)
+            .eq("role", "admin");
+
+          // Build admin lookup: communityId -> Set of admin user IDs
+          const communityAdmins = new Map<string, Set<string>>();
+          
+          for (const comm of communities || []) {
+            const admins = new Set<string>();
+            admins.add(comm.creator_id); // Creator is always admin
+            
+            (adminMembers || [])
+              .filter(m => m.community_id === comm.id)
+              .forEach(m => admins.add(m.user_id));
+            
+            communityAdmins.set(comm.id, admins);
+          }
+
+          // Filter reports where sender is admin in that community
+          const messageMap = new Map(messages.map(m => [m.id, m]));
+          
+          adminPostedReports = (allThreadReplyReports || []).filter(report => {
+            const message = messageMap.get(report.target_id);
+            if (!message) return false;
+            
+            const admins = communityAdmins.get(message.community_id);
+            return admins && admins.has(message.sender_id);
+          });
+
+          console.log(`[AdminService] Filtered ${adminPostedReports.length} admin-posted thread/reply reports from ${allThreadReplyReports?.length || 0} total`);
+        }
+      }
+
+      // Combine admin reports with admin-posted thread/reply reports
+      const allReports = [...(adminReports || []), ...adminPostedReports];
+
       if (!allReports || allReports.length === 0) {
         return ApiResponse.success<ReportsResult>({ reports: [], total: 0 });
       }
 
-      // STEP 2: Group reports by target_id + report_type
+      // STEP 3: Group reports by target_id + report_type
       const groupMap = new Map<string, any[]>();
 
       for (const report of allReports) {

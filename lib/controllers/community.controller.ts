@@ -951,7 +951,7 @@ export class CommunityController extends BaseController {
       const members = membersResult.data?.members || [];
 
       if (members.length === 0) {
-        return this.json({ members: [] });
+        return this.json({ success: true, members: [] });
       }
 
       // Get user IDs
@@ -984,7 +984,7 @@ export class CommunityController extends BaseController {
         };
       });
 
-      return this.json({ members: membersWithStats });
+      return this.json({ success: true, members: membersWithStats });
     } catch (error: unknown) {
       return this.handleError(error);
     }

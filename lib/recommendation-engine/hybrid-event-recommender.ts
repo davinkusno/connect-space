@@ -212,9 +212,21 @@ export class HybridEventRecommendationEngine {
       diversityWeight
     )
 
-    // Final ranking and selection
+    // Final ranking and selection with tie-breaking
+    // Sort by: score (desc) -> confidence (desc) -> eventId (asc for deterministic ordering)
     const finalRecommendations = diverseRecommendations
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => {
+        // Primary: sort by score (descending)
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        // Secondary: sort by confidence (descending) - higher confidence wins ties
+        if (b.confidence !== a.confidence) {
+          return b.confidence - a.confidence;
+        }
+        // Tertiary: sort by eventId (ascending) - deterministic ordering for equal scores/confidence
+        return a.eventId.localeCompare(b.eventId);
+      })
       .slice(0, maxRecommendations)
 
     const processingTime = Date.now() - startTime
@@ -847,7 +859,17 @@ export class HybridEventRecommendationEngine {
     const selectedCommunities = new Set<string>()
     const diverseRecommendations: EventRecommendationScore[] = []
 
-    const sortedRecs = [...recommendations].sort((a, b) => b.score - a.score)
+    // Sort by score first (with tie-breaking for consistency)
+    const sortedRecs = [...recommendations].sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      // Tie-breaker: confidence, then eventId for deterministic ordering
+      if (b.confidence !== a.confidence) {
+        return b.confidence - a.confidence;
+      }
+      return a.eventId.localeCompare(b.eventId);
+    })
 
     for (const rec of sortedRecs) {
       const event = eventMap.get(rec.eventId)

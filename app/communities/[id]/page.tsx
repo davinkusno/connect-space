@@ -1157,7 +1157,7 @@ export default function CommunityPage({
                       ? "Your Community"
                       : "Community Admin"}
                   </Button>
-                  {userRole === "creator" && (
+                  {canManage && (
                     <Link href={`/communities/${id}/admin`}>
                       <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all">
                         <Settings className="h-4 w-4 mr-2" />

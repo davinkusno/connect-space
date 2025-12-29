@@ -171,8 +171,22 @@ export class HybridRecommendationEngine {
     // Apply diversity filtering
     const diverseRecommendations = this.applyDiversityFiltering(mergedRecommendations, communities, diversityWeight)
 
-    // Final ranking and selection
-    const finalRecommendations = diverseRecommendations.sort((a, b) => b.score - a.score).slice(0, maxRecommendations)
+    // Final ranking and selection with tie-breaking
+    // Sort by: score (desc) -> confidence (desc) -> communityId (asc for deterministic ordering)
+    const finalRecommendations = diverseRecommendations
+      .sort((a, b) => {
+        // Primary: sort by score (descending)
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        // Secondary: sort by confidence (descending) - higher confidence wins ties
+        if (b.confidence !== a.confidence) {
+          return b.confidence - a.confidence;
+        }
+        // Tertiary: sort by communityId (ascending) - deterministic ordering for equal scores/confidence
+        return a.communityId.localeCompare(b.communityId);
+      })
+      .slice(0, maxRecommendations)
 
     const processingTime = Date.now() - startTime
     const diversityScore = this.calculateDiversityScore(finalRecommendations, communities)
@@ -345,8 +359,17 @@ export class HybridRecommendationEngine {
     const selectedCategories = new Set<string>()
     const diverseRecommendations: RecommendationScore[] = []
 
-    // Sort by score first
-    const sortedRecs = [...recommendations].sort((a, b) => b.score - a.score)
+    // Sort by score first (with tie-breaking for consistency)
+    const sortedRecs = [...recommendations].sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      // Tie-breaker: confidence, then communityId for deterministic ordering
+      if (b.confidence !== a.confidence) {
+        return b.confidence - a.confidence;
+      }
+      return a.communityId.localeCompare(b.communityId);
+    })
 
     for (const rec of sortedRecs) {
       const community = communityMap.get(rec.communityId)

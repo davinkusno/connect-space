@@ -82,11 +82,23 @@ export class RecommendationController extends BaseController {
         return this.error(result.error?.message || "Failed to generate recommendations", result.status);
       }
 
+      // Sort with tie-breaking: score (desc) -> confidence (desc) -> communityId (asc for deterministic ordering)
+      const sortedRecommendations = result.data.recommendations.sort((a, b) => {
+        // Primary: sort by score (descending)
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        // Secondary: sort by confidence (descending) - higher confidence wins ties
+        if (b.confidence !== a.confidence) {
+          return b.confidence - a.confidence;
+        }
+        // Tertiary: sort by communityId (ascending) - deterministic ordering for equal scores/confidence
+        return a.communityId.localeCompare(b.communityId);
+      });
+
       const response: CommunityRecommendationsResponse = {
-        recommendedCommunityIds: result.data.recommendations
-          .sort((a, b) => b.score - a.score)
-          .map((rec) => rec.communityId),
-        recommendations: result.data.recommendations.map((rec) => ({
+        recommendedCommunityIds: sortedRecommendations.map((rec) => rec.communityId),
+        recommendations: sortedRecommendations.map((rec) => ({
           communityId: rec.communityId,
           score: rec.score,
           confidence: rec.confidence,
@@ -134,11 +146,23 @@ export class RecommendationController extends BaseController {
         return this.error(result.error?.message || "Failed to generate recommendations", result.status);
       }
 
+      // Sort with tie-breaking: score (desc) -> confidence (desc) -> eventId (asc for deterministic ordering)
+      const sortedRecommendations = result.data.recommendations.sort((a, b) => {
+        // Primary: sort by score (descending)
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        // Secondary: sort by confidence (descending) - higher confidence wins ties
+        if (b.confidence !== a.confidence) {
+          return b.confidence - a.confidence;
+        }
+        // Tertiary: sort by eventId (ascending) - deterministic ordering for equal scores/confidence
+        return a.eventId.localeCompare(b.eventId);
+      });
+
       const response: EventRecommendationsResponse = {
-        recommendedEventIds: result.data.recommendations
-          .sort((a, b) => b.score - a.score)
-          .map((rec) => rec.eventId),
-        recommendations: result.data.recommendations.map((rec) => ({
+        recommendedEventIds: sortedRecommendations.map((rec) => rec.eventId),
+        recommendations: sortedRecommendations.map((rec) => ({
           eventId: rec.eventId,
           score: rec.score,
           confidence: rec.confidence,

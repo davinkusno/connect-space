@@ -13,5 +13,17 @@ export async function PATCH(
   return reportController.updateCommunityReportStatus(request, id, reportId);
 }
 
+/**
+ * DELETE /api/communities/[id]/reports/[reportId]
+ * Delete a report (admin/moderator only)
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; reportId: string }> }
+) {
+  const { id, reportId } = await params;
+  return reportController.deleteCommunityReport(request, id, reportId);
+}
+
 
 

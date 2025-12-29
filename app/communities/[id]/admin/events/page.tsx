@@ -125,11 +125,22 @@ export default function CommunityAdminEventsPage({
         return
       }
 
-      // Verify user is creator only
+      // Verify user is creator or admin
       const isCreator = communityData.creator_id === user.id
 
-      if (!isCreator) {
-        console.error("User is not the creator")
+      // Check if user is admin (co-admin)
+      const { data: membership } = await supabase
+        .from("community_members")
+        .select("role")
+        .eq("community_id", id)
+        .eq("user_id", user.id)
+        .eq("status", "approved")
+        .single()
+
+      const isAdmin = membership?.role === "admin"
+
+      if (!isCreator && !isAdmin) {
+        console.error("User is not authorized")
         setEvents([])
         return
       }
@@ -240,6 +251,14 @@ export default function CommunityAdminEventsPage({
 
       // Set only real events (no dummy events)
       setEvents(realEvents)
+      
+      // Debug: Log events data
+      console.log('Loaded events:', {
+        total: realEvents.length,
+        upcoming: realEvents.filter(e => e.status === 'upcoming').length,
+        past: realEvents.filter(e => e.status === 'past').length,
+        events: realEvents
+      })
     } catch (error) {
       console.error("Error loading events:", error)
       setEvents([])
@@ -249,6 +268,13 @@ export default function CommunityAdminEventsPage({
   const filteredEvents = useMemo(() => {
     // Filter by status
     let filtered = events.filter(event => event.status === activeTab)
+    
+    // Debug: Log filtering
+    console.log('Filtering events:', {
+      activeTab,
+      totalEvents: events.length,
+      filteredByStatus: filtered.length
+    })
 
     // Apply search filter
     if (searchQuery) {
@@ -604,7 +630,7 @@ export default function CommunityAdminEventsPage({
                   : "text-gray-600 hover:text-purple-600 hover:bg-white"
               )}
             >
-              Upcoming Events
+              Upcoming Events ({events.filter(e => e.status === 'upcoming').length})
             </Button>
             <Button
               variant={activeTab === "past" ? "default" : "ghost"}
@@ -616,7 +642,7 @@ export default function CommunityAdminEventsPage({
                   : "text-gray-600 hover:text-purple-600 hover:bg-white"
               )}
             >
-              Past Events
+              Past Events ({events.filter(e => e.status === 'past').length})
             </Button>
           </div>
 

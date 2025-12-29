@@ -207,6 +207,8 @@ export class ReportService extends BaseService {
 
   /**
    * Get community member reports with pagination and threshold filtering
+   * Returns ONLY reports for regular member content (threads, replies, member reports)
+   * Excludes admin-posted content and admin member reports (those go to superadmin)
    */
   public async getCommunityMemberReports(
     communityId: string,
@@ -217,35 +219,195 @@ export class ReportService extends BaseService {
       pageSize?: number;
     }
   ): Promise<ServiceResult<{
-    reports: Array<{
-      id: string;
-      target_id: string;
-      reason: string;
-      details: string | null;
-      status: ReportStatus;
-      created_at: string;
-      updated_at: string;
-      reporter: {
-        id: string;
-        full_name: string;
-        avatar_url: string | null;
-      };
-      reported_member: {
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-        points_count: number;
-        report_count: number;
-      };
-    }>;
+    reports: Array<any>;
     total: number;
     page: number;
     pageSize: number;
   }>> {
-    // Implementation exists in original file - keeping placeholder
-    // This method is complex and should be preserved from original
-    return ApiResponse.error("Method not fully implemented", 500);
+    try {
+      const page = options?.page || 1;
+      const pageSize = options?.pageSize || 20;
+
+      // Step 1: Get community creator and admin IDs
+      const { data: community } = await this.supabaseAdmin
+        .from("communities")
+        .select("creator_id")
+        .eq("id", communityId)
+        .single();
+
+      const { data: adminMembers } = await this.supabaseAdmin
+        .from("community_members")
+        .select("user_id")
+        .eq("community_id", communityId)
+        .eq("role", "admin");
+
+      const adminIds = new Set([
+        community?.creator_id,
+        ...(adminMembers?.map(m => m.user_id) || [])
+      ].filter(Boolean));
+
+      console.log(`[ReportService] Community ${communityId} admin IDs:`, Array.from(adminIds));
+
+      // Step 2: Get all threads and replies in this community
+      const { data: messages } = await this.supabaseAdmin
+        .from("messages")
+        .select("id, sender_id, parent_id, content")
+        .eq("community_id", communityId);
+
+      // Separate threads and replies, exclude those posted by admins
+      const regularMemberThreadIds = new Set(
+        (messages || [])
+          .filter(m => m.parent_id === null && !adminIds.has(m.sender_id))
+          .map(m => m.id)
+      );
+      
+      const regularMemberReplyIds = new Set(
+        (messages || [])
+          .filter(m => m.parent_id !== null && !adminIds.has(m.sender_id))
+          .map(m => m.id)
+      );
+
+      const messageMap = new Map((messages || []).map(m => [m.id, m]));
+
+      console.log(`[ReportService] Regular member threads: ${regularMemberThreadIds.size}, replies: ${regularMemberReplyIds.size}`);
+
+      // Step 3: Get all member reports for this community (exclude admins)
+      const { data: communityMembers } = await this.supabaseAdmin
+        .from("community_members")
+        .select("user_id")
+        .eq("community_id", communityId)
+        .eq("status", "approved");
+
+      const regularMemberIds = (communityMembers || [])
+        .map(m => m.user_id)
+        .filter(id => !adminIds.has(id));
+
+      console.log(`[ReportService] Regular members: ${regularMemberIds.length}`);
+
+      // Step 4: Fetch reports - threads, replies, and member reports
+      let allReports: any[] = [];
+
+      // Thread reports (regular members only)
+      if (regularMemberThreadIds.size > 0) {
+        const { data: threadReports } = await this.supabaseAdmin
+          .from("reports")
+          .select(`
+            id,
+            target_id,
+            report_type,
+            reason,
+            details,
+            status,
+            created_at,
+            updated_at,
+            reporter_id,
+            reporter:reporter_id (id, full_name, avatar_url)
+          `)
+          .eq("report_type", "thread")
+          .in("target_id", Array.from(regularMemberThreadIds));
+
+        if (threadReports) {
+          allReports.push(...threadReports.map(r => ({
+            ...r,
+            content_type: "thread",
+            target_content: messageMap.get(r.target_id)
+          })));
+        }
+      }
+
+      // Reply reports (regular members only)
+      if (regularMemberReplyIds.size > 0) {
+        const { data: replyReports } = await this.supabaseAdmin
+          .from("reports")
+          .select(`
+            id,
+            target_id,
+            report_type,
+            reason,
+            details,
+            status,
+            created_at,
+            updated_at,
+            reporter_id,
+            reporter:reporter_id (id, full_name, avatar_url)
+          `)
+          .eq("report_type", "reply")
+          .in("target_id", Array.from(regularMemberReplyIds));
+
+        if (replyReports) {
+          allReports.push(...replyReports.map(r => ({
+            ...r,
+            content_type: "reply",
+            target_content: messageMap.get(r.target_id)
+          })));
+        }
+      }
+
+      // Member reports (regular members only, not admins)
+      if (regularMemberIds.length > 0) {
+        const { data: memberReports } = await this.supabaseAdmin
+          .from("reports")
+          .select(`
+            id,
+            target_id,
+            report_type,
+            reason,
+            details,
+            status,
+            created_at,
+            updated_at,
+            reporter_id,
+            reporter:reporter_id (id, full_name, avatar_url)
+          `)
+          .eq("report_type", "member")
+          .in("target_id", regularMemberIds);
+
+        if (memberReports) {
+          // Get user info for reported members
+          const reportedUserIds = memberReports.map(r => r.target_id);
+          const { data: reportedUsers } = await this.supabaseAdmin
+            .from("users")
+            .select("id, full_name, email, avatar_url")
+            .in("id", reportedUserIds);
+
+          const usersMap = new Map(reportedUsers?.map(u => [u.id, u]) || []);
+
+          allReports.push(...memberReports.map(r => ({
+            ...r,
+            content_type: "member",
+            reported_member: usersMap.get(r.target_id)
+          })));
+        }
+      }
+
+      // Step 5: Filter by status if specified
+      if (options?.status && options.status !== "all") {
+        allReports = allReports.filter(r => r.status === options.status);
+      }
+
+      // Sort by created_at descending
+      allReports.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      // Step 6: Apply pagination
+      const total = allReports.length;
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedReports = allReports.slice(startIndex, endIndex);
+
+      console.log(`[ReportService] Returning ${paginatedReports.length} of ${total} reports for community ${communityId}`);
+
+      return ApiResponse.success({
+        reports: paginatedReports,
+        total,
+        page,
+        pageSize,
+      });
+    } catch (error: any) {
+      console.error("[ReportService] Error getting community member reports:", error);
+      return ApiResponse.error(`Failed to get community reports: ${error.message}`, 500);
+    }
   }
 
   /**

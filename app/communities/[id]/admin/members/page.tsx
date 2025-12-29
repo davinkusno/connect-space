@@ -72,6 +72,7 @@ export default function CommunityMembersPage({
   const [totalCount, setTotalCount] = useState(0)
   const [communityId, setCommunityId] = useState<string | null>(null)
   const [isCreator, setIsCreator] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const { toast } = useToast()
 
@@ -132,6 +133,7 @@ export default function CommunityMembersPage({
       }
 
       setIsCreator(userIsCreator)
+      setIsAdmin(userIsAdmin)
       setCurrentUserId(user.id)
 
       // Set community
@@ -465,76 +467,77 @@ export default function CommunityMembersPage({
 
                     {/* Actions */}
                     <div className="flex items-center space-x-2">
-                      {/* Only show actions if user is creator, and hide actions for creator member */}
+                      {/* Appoint as Admin - Creator only */}
                       {isCreator && community?.creator_id !== member.user_id && member.role !== "admin" && (
-                        <>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                            >
+                              <Shield className="w-4 h-4 mr-2" />
+                              Appoint as Admin
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Appoint as Admin</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to appoint{" "}
+                                <span className="font-semibold">
+                                  {member.user.full_name || member.user.username || "this member"}
+                                </span>{" "}
+                                as an admin? They will have administrative privileges for this community.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleAppointAsAdmin(member.id, member.user.full_name || member.user.username || "Member")}
+                                className="bg-blue-600 hover:bg-blue-700"
                               >
-                                <Shield className="w-4 h-4 mr-2" />
                                 Appoint as Admin
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Appoint as Admin</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to appoint{" "}
-                                  <span className="font-semibold">
-                                    {member.user.full_name || member.user.username || "this member"}
-                                  </span>{" "}
-                                  as an admin? They will have administrative privileges for this community.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleAppointAsAdmin(member.id, member.user.full_name || member.user.username || "Member")}
-                                  className="bg-blue-600 hover:bg-blue-700"
-                                >
-                                  Appoint as Admin
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                      {/* Kick - Creator OR Admin can kick regular members */}
+                      {(isCreator || isAdmin) && community?.creator_id !== member.user_id && member.role !== "admin" && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                            >
+                              <UserMinus className="w-4 h-4 mr-2" />
+                              Kick
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove Member</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to remove{" "}
+                                <span className="font-semibold">
+                                  {member.user.full_name || member.user.username || "this member"}
+                                </span>{" "}
+                                from the community? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleKickMember(member.id, member.user.full_name || member.user.username || "Member")}
+                                className="bg-red-600 hover:bg-red-700"
                               >
-                                <UserMinus className="w-4 h-4 mr-2" />
-                                Kick
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Remove Member</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to remove{" "}
-                                  <span className="font-semibold">
-                                    {member.user.full_name || member.user.username || "this member"}
-                                  </span>{" "}
-                                  from the community? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleKickMember(member.id, member.user.full_name || member.user.username || "Member")}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  Remove Member
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </>
+                                Remove Member
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       )}
                       {/* Show revert to member option for co-admins (not creator) */}
                       {isCreator && community?.creator_id !== member.user_id && member.role === "admin" && (
