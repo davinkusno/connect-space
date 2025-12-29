@@ -69,6 +69,7 @@ interface Event {
   tags: string[];
   website?: string;
   link?: string;
+  registration_link?: string;
   communities?: {
     id: string;
     name: string;
@@ -512,6 +513,7 @@ export default function EventDetailsPage({
           images: eventData.image_url ? [eventData.image_url] : [],
           tags: eventData.category ? [eventData.category] : [],
           link: (eventData.link && eventData.link.trim() !== "") ? eventData.link : undefined,
+          registration_link: (eventData.registration_link && eventData.registration_link.trim() !== "") ? eventData.registration_link : undefined,
           communities: eventData.communities as any,
           isPrivate: eventData.is_private || false,
           relatedEvents: relatedEvents,
@@ -1085,7 +1087,46 @@ export default function EventDetailsPage({
               </Card>
 
               {/* Registration Link */}
-              {event.link && event.link.trim() !== "" && (
+              {event.registration_link && event.registration_link.trim() !== "" && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Globe className="h-5 w-5 text-violet-600" />
+                      Registration Link
+                    </CardTitle>
+                    <CardDescription>
+                      Register for this event using the link below
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between p-4 bg-violet-50 rounded-lg border border-violet-200">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <ExternalLink className="h-5 w-5 text-violet-600 flex-shrink-0" />
+                        <span className="text-sm text-gray-700 truncate">
+                          {event.registration_link}
+                        </span>
+                      </div>
+                      <Link
+                        href={event.registration_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          className="bg-violet-600 hover:bg-violet-700 text-white ml-3 flex-shrink-0"
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Register Now
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Legacy Link (if exists and no registration_link) */}
+              {!event.registration_link && event.link && event.link.trim() !== "" && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">

@@ -493,9 +493,9 @@ export class EventService extends BaseService {
       return ApiResponse.error("Failed to mark as interested", 500);
     }
 
-    // Award points for joining event using pointsService
-    await pointsService.onEventJoined(userId, eventId);
-
+    // Note: Event joining no longer awards points (only community joining awards points)
+    // Points system was simplified to only award for community_joined
+    
     // Send notifications to community creator and admins
     try {
       // Get user info who is interested
@@ -769,7 +769,7 @@ export class EventService extends BaseService {
 
     const { data: eventsData, error: eventsError } = await this.supabaseAdmin
       .from("events")
-      .select("id, title, description, start_time, end_time, location, image_url, is_online, community_id")
+      .select("id, title, description, start_time, end_time, location, image_url, is_online, community_id, registration_link")
       .in("id", eventIds);
 
     if (eventsError || !eventsData?.length) {
@@ -991,6 +991,7 @@ export class EventService extends BaseService {
       is_online?: boolean;
       max_attendees?: number;
       link?: string;
+      registration_link?: string;
       is_private?: boolean;
     },
     userId: string
@@ -1070,6 +1071,7 @@ export class EventService extends BaseService {
       is_online: data.is_online || false,
       max_attendees: data.max_attendees || null,
       link: data.link || null,
+      registration_link: data.registration_link || null,
       is_private: data.is_private || false,
     };
 
@@ -1151,6 +1153,7 @@ export class EventService extends BaseService {
       is_public?: boolean;
       max_attendees?: number;
       link?: string;
+      registration_link?: string;
     },
     userId: string
   ): Promise<ServiceResult<EventData>> {
@@ -1205,6 +1208,7 @@ export class EventService extends BaseService {
     if (data.is_public !== undefined) updateData.is_public = data.is_public;
     if (data.max_attendees !== undefined) updateData.max_attendees = data.max_attendees;
     if (data.link !== undefined) updateData.link = data.link;
+    if (data.registration_link !== undefined) updateData.registration_link = data.registration_link;
     
     // Handle category_id or category name
     if (data.category_id !== undefined) {

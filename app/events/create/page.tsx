@@ -240,6 +240,7 @@ export default function CreateEventPage() {
           community_id: communityId,
           max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : null,
           is_private: formData.is_private || false,
+          registration_link: registrationLink,
         }),
       });
 

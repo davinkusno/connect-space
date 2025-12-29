@@ -44,6 +44,7 @@ import {
   Clock,
   Compass,
   Crown,
+  ExternalLink,
   MapPin,
   MessageCircle,
   Plus,
@@ -52,6 +53,7 @@ import {
   Star,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -1580,8 +1582,8 @@ export default function DashboardPage() {
                     </CardContent>
                   </Card>
 
-                  {/* Saved Events Section - Full width row below the calendar grid */}
-                  <div className="lg:col-span-3 lg:col-start-1 lg:row-start-2">
+                  {/* Saved Events Section - Left 2 columns */}
+                  <div className="lg:col-span-2 lg:col-start-1 lg:row-start-2">
                     {/* Saved Events List - Full width */}
                     <Card className="border-0 shadow-sm">
                       <CardHeader className="pb-3">
@@ -1698,7 +1700,7 @@ export default function DashboardPage() {
                             )}
                           </div>
                         ) : paginatedSavedEvents.length > 0 ? (
-                          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                             {paginatedSavedEvents.map((event) => (
                               <div
                                 key={event.id}
@@ -1706,31 +1708,27 @@ export default function DashboardPage() {
                                   setSelectedSavedEvent(event);
                                   // Keep selectedEvent from upcoming events - allow both cards to show
                                 }}
-                                className={`flex items-center justify-between gap-4 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                className={`flex items-start gap-2 p-2.5 rounded-lg border-2 cursor-pointer transition-all w-full ${
                                   selectedSavedEvent?.id === event.id
                                     ? "border-amber-500 bg-amber-50"
                                     : "border-gray-200 hover:border-amber-300 hover:bg-amber-50/50"
                                 } group`}
                               >
+                                {/* Indicator dot */}
+                                <div className="w-2 h-2 rounded-full bg-amber-600 mt-1.5 flex-shrink-0" />
+                                
                                 {/* Event Info */}
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <div className="w-2 h-2 rounded-full bg-amber-600 mt-2 flex-shrink-0" />
-                                    <h4 className="text-sm font-semibold text-gray-900 group-hover:text-amber-600 transition-colors line-clamp-1">
+                                  <div className="flex items-start gap-1.5 mb-1">
+                                    <h4 className="text-sm font-semibold text-gray-900 group-hover:text-amber-600 transition-colors line-clamp-1 flex-1 min-w-0">
                                       {event.title}
                                     </h4>
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs flex-shrink-0"
-                                    >
-                                      {event.category}
-                                    </Badge>
                                   </div>
 
-                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
-                                    <div className="flex items-center gap-1">
-                                      <CalendarIcon className="h-3 w-3" />
-                                      <span>
+                                  <div className="flex flex-col gap-0.5 text-xs text-gray-600">
+                                    <div className="flex items-center gap-1 truncate">
+                                      <CalendarIcon className="h-3 w-3 flex-shrink-0" />
+                                      <span className="truncate">
                                         {(() => {
                                           const date = new Date(
                                             event.start_time || event.date
@@ -1740,16 +1738,14 @@ export default function DashboardPage() {
                                             {
                                               month: "short",
                                               day: "numeric",
-                                              year: "numeric",
                                               timeZone: "UTC",
                                             }
                                           );
                                         })()}
                                       </span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      <span>
+                                      <span className="text-gray-400 flex-shrink-0">•</span>
+                                      <Clock className="h-3 w-3 flex-shrink-0" />
+                                      <span className="truncate">
                                         {(() => {
                                           const startTime =
                                             event.time ||
@@ -1759,53 +1755,66 @@ export default function DashboardPage() {
                                               hour: "numeric",
                                               minute: "2-digit",
                                             });
-                                          const endTime = event.end_time
-                                            ? new Date(
-                                                event.end_time
-                                              ).toLocaleTimeString("en-US", {
-                                                hour: "numeric",
-                                                minute: "2-digit",
-                                              })
-                                            : null;
-                                          return endTime
-                                            ? `${startTime} - ${endTime}`
-                                            : startTime;
+                                          return startTime;
                                         })()}
                                       </span>
                                     </div>
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="h-3 w-3" />
-                                      <span className="truncate max-w-[200px]">
+                                    <div className="flex items-center gap-1 truncate">
+                                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                                      <span className="truncate">
                                         {event.location || "Location TBD"}
                                       </span>
                                     </div>
+                                    {event.registration_link && (
+                                      <a
+                                        href={event.registration_link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex items-center gap-1 text-violet-600 hover:text-violet-700 hover:underline truncate"
+                                        title={event.registration_link}
+                                      >
+                                        <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                                        <span className="truncate text-xs font-medium">
+                                          Registration Link
+                                        </span>
+                                      </a>
+                                    )}
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs w-fit mt-0.5"
+                                    >
+                                      {event.category}
+                                    </Badge>
                                   </div>
                                 </div>
 
                                 {/* Action Buttons */}
-                                <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="flex flex-col gap-1 flex-shrink-0">
                                   <Link
                                     href={`/events/${event.id}`}
                                     onClick={(e) => e.stopPropagation()}
+                                    title="View event details"
                                   >
                                     <Button
-                                      variant="outline"
+                                      variant="ghost"
                                       size="sm"
-                                      className="border-gray-300 hover:bg-gray-50"
+                                      className="h-7 w-7 p-0 hover:bg-gray-100"
                                     >
-                                      View
+                                      <ExternalLink className="h-3.5 w-3.5 text-gray-600" />
                                     </Button>
                                   </Link>
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       toggleSaveEvent(event.id);
                                     }}
+                                    title="Remove from saved"
                                   >
-                                    Remove
+                                    <X className="h-3.5 w-3.5" />
                                   </Button>
                                 </div>
                               </div>
@@ -1986,14 +1995,43 @@ export default function DashboardPage() {
                                   <span>{selectedSavedEvent.community}</span>
                                 </div>
                               )}
+                              {selectedSavedEvent.registration_link && (
+                                <div className="flex items-center justify-between text-sm text-gray-700">
+                                  <span className="flex items-center gap-2">
+                                    <ExternalLink className="h-4 w-4 text-gray-400" />
+                                    <span className="font-medium">Registration Link</span>
+                                  </span>
+                                  <a
+                                    href={selectedSavedEvent.registration_link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      className="gap-1.5"
+                                    >
+                                      Register
+                                      <ExternalLink className="h-3 w-3" />
+                                    </Button>
+                                  </a>
+                                </div>
+                              )}
                             </div>
-                            <div className="pt-4 border-t">
+                            <div className="pt-4 border-t flex items-center justify-between">
+                              <span className="text-sm font-medium text-gray-700">View more details</span>
                               <Link
                                 href={`/events/${selectedSavedEvent.id}`}
-                                className="w-full"
+                                title="View full event details"
                               >
-                                <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white">
-                                  View Full Details
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  className="gap-2"
+                                >
+                                  View
+                                  <ExternalLink className="h-3.5 w-3.5" />
                                 </Button>
                               </Link>
                             </div>
