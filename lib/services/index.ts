@@ -11,7 +11,6 @@ export {
 } from "./base.service";
 
 // Domain services (with database tables)
-export { AdminService, adminService } from "./admin.service";
 export { AdsService, adsService } from "./ads.service";
 export {
   AuthService,

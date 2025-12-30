@@ -1,7 +1,7 @@
-import { adminController } from "@/lib/controllers";
+import { reportController } from "@/lib/controllers";
 import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
-  return adminController.getReports(request);
+  return reportController.getSuperadminReports(request);
 }
 

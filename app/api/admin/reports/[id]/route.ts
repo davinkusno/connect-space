@@ -1,4 +1,4 @@
-import { adminController } from "@/lib/controllers";
+import { reportController } from "@/lib/controllers";
 import { NextRequest } from "next/server";
 
 export async function GET(
@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return adminController.getReportById(request, id);
+  return reportController.getReportByIdForSuperadmin(request, id);
 }
 
 export async function PATCH(
@@ -14,7 +14,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return adminController.updateReport(request, id);
+  return reportController.updateReportForSuperadmin(request, id);
 }
 
 export async function DELETE(
@@ -22,5 +22,5 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return adminController.deleteReport(request, id);
+  return reportController.deleteReportForSuperadmin(request, id);
 }

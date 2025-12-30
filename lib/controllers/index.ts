@@ -13,7 +13,6 @@ export {
 } from "./base.controller";
 
 // Domain controllers
-export { AdminController, adminController } from "./admin.controller";
 export { AdsController, adsController } from "./ads.controller";
 export { AIController, aiController } from "./ai.controller";
 export { AuthController, authController } from "./auth.controller";

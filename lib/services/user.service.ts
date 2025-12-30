@@ -454,6 +454,126 @@ export class UserService extends BaseService {
       return ApiResponse.error("Failed to fetch home page data", 500);
     }
   }
+
+  // ==================== Superadmin Methods ====================
+
+  /**
+   * Check if user is a super admin
+   * @param userId - The user ID to check
+   * @returns Boolean indicating if user is super admin
+   */
+  public async isSuperAdmin(userId: string): Promise<boolean> {
+    const { data } = await this.supabaseAdmin
+      .from("users")
+      .select("user_type")
+      .eq("id", userId)
+      .single();
+
+    return data?.user_type === "super_admin";
+  }
+
+  /**
+   * Ban a user from creating communities (platform-wide ban)
+   * @param userId - The user ID to ban
+   * @param adminId - The superadmin performing the ban
+   * @param reason - The reason for the ban
+   * @param reportId - Optional report ID that led to this ban
+   * @returns ServiceResult indicating success or failure
+   */
+  public async banUserFromCreatingCommunities(
+    userId: string,
+    adminId: string,
+    reason: string,
+    reportId?: string
+  ): Promise<ServiceResult<{ message: string }>> {
+    // Check if user is already banned
+    const { data: existingBan } = await this.supabaseAdmin
+      .from("banned_users")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (existingBan) {
+      return ApiResponse.success({ message: "User is already banned from creating communities" });
+    }
+
+    // Create ban record
+    const { error: banError } = await this.supabaseAdmin
+      .from("banned_users")
+      .insert({
+        user_id: userId,
+        banned_by: adminId,
+        reason,
+        report_id: reportId || null,
+      });
+
+    if (banError) {
+      console.error("Error creating platform ban:", banError);
+      return ApiResponse.error("Failed to ban user from creating communities", 500);
+    }
+
+    return ApiResponse.success({ 
+      message: "User has been banned from creating communities" 
+    });
+  }
+
+  /**
+   * Check if a user is banned from creating communities
+   * @param userId - The user ID to check
+   * @returns ServiceResult with ban status
+   */
+  public async isUserBannedFromCreatingCommunities(
+    userId: string
+  ): Promise<ServiceResult<{ isBanned: boolean; ban?: { reason: string; created_at: string } }>> {
+    const { data: ban, error } = await this.supabaseAdmin
+      .from("banned_users")
+      .select("reason, created_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error checking platform ban status:", error);
+      return ApiResponse.error("Failed to check ban status", 500);
+    }
+
+    return ApiResponse.success({
+      isBanned: !!ban,
+      ban: ban || undefined,
+    });
+  }
+
+  /**
+   * Get admin dashboard statistics
+   * @returns ServiceResult containing dashboard stats
+   */
+  public async getAdminDashboardStats(): Promise<ServiceResult<{
+    totalUsers: number;
+    totalCommunities: number;
+    totalEvents: number;
+    pendingReports: number;
+    inactiveCommunities: number;
+  }>> {
+    const [users, communities, events, reports] = await Promise.all([
+      this.supabaseAdmin.from("users").select("id", { count: "exact", head: true }),
+      this.supabaseAdmin.from("communities").select("id", { count: "exact", head: true }),
+      this.supabaseAdmin.from("events").select("id", { count: "exact", head: true }),
+      this.supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    ]);
+
+    // Get inactive communities count
+    const { communityService } = await import("./community.service");
+    const inactive = await communityService.getInactiveCommunities();
+
+    const stats = {
+      totalUsers: users.count || 0,
+      totalCommunities: communities.count || 0,
+      totalEvents: events.count || 0,
+      pendingReports: reports.count || 0,
+      inactiveCommunities: inactive.data?.length || 0,
+    };
+
+    return ApiResponse.success(stats);
+  }
 }
 
 // Export singleton instance

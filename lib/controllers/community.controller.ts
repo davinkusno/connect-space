@@ -1191,6 +1191,106 @@ export class CommunityController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  // ==================== Superadmin Methods ====================
+
+  /**
+   * GET /api/admin/inactive-communities
+   * Get all inactive communities (superadmin only)
+   * @param request - The incoming request
+   * @returns NextResponse with array of inactive communities
+   */
+  public async getInactiveCommunities(
+    request: NextRequest
+  ): Promise<NextResponse<{ communities: any[] } | ApiErrorResponse>> {
+    try {
+      await this.requireSuperAdmin();
+      const result = await this.service.getInactiveCommunities();
+
+      if (result.success) {
+        return this.json(
+          { communities: result.data || [] }, 
+          result.status
+        );
+      }
+      
+      return this.error(result.error?.message || "Failed to fetch communities", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * POST /api/admin/inactive-communities
+   * Ban or reactivate a community (superadmin only)
+   * @param request - The incoming request with action data
+   * @returns NextResponse indicating success
+   */
+  public async manageCommunity(
+    request: NextRequest
+  ): Promise<NextResponse<{ message: string } | ApiErrorResponse>> {
+    try {
+      await this.requireSuperAdmin();
+      const body = await this.parseBody<{
+        communityId: string;
+        action: "ban" | "reactivate";
+        reason?: string;
+      }>(request);
+
+      if (!body.communityId || !body.action) {
+        return this.badRequest("Community ID and action are required");
+      }
+
+      let result: ServiceResult<void>;
+      
+      if (body.action === "ban") {
+        result = await this.service.banCommunity(
+          body.communityId, 
+          body.reason || "Inactivity"
+        );
+      } else if (body.action === "reactivate") {
+        result = await this.service.reactivateCommunity(body.communityId);
+      } else {
+        return this.badRequest("Invalid action. Must be 'ban' or 'reactivate'");
+      }
+
+      if (result.success) {
+        return this.json(
+          { message: `Community ${body.action}d successfully` },
+          result.status
+        );
+      }
+      
+      return this.error(result.error?.message || "Failed to manage community", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/admin/communities/[id]
+   * Get community details for superadmin (read-only)
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @returns NextResponse with community details
+   */
+  public async getCommunityDetailsForSuperadmin(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      await this.requireSuperAdmin();
+      const result = await this.service.getCommunityDetailsForSuperadmin(communityId);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to fetch community details", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

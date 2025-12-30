@@ -1,11 +1,11 @@
 import {
     extractPathFromUrl, generateProfileFilename
 } from "@/config/storage";
-import { adminService, storageService, StorageService, userService } from "@/lib/services";
+import { storageService, StorageService, userService } from "@/lib/services";
 import { ServiceResult } from "@/lib/services/base.service";
 import { User } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { ApiErrorResponse, BaseController, ForbiddenError } from "./base.controller";
+import { ApiErrorResponse, BaseController } from "./base.controller";
 
 // ==================== Response Types ====================
 
@@ -32,18 +32,6 @@ export class StorageController extends BaseController {
   constructor() {
     super();
     this.service = storageService;
-  }
-
-  /**
-   * Verify user is a super admin
-   */
-  private async requireSuperAdmin(): Promise<User> {
-    const user: User = await this.requireAuth();
-    const isAdmin: boolean = await adminService.isSuperAdmin(user.id);
-    if (!isAdmin) {
-      throw new ForbiddenError("Super admin access required");
-    }
-    return user;
   }
 
   /**

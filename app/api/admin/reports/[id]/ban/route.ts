@@ -1,4 +1,4 @@
-import { adminController } from "@/lib/controllers";
+import { reportController } from "@/lib/controllers";
 import { NextRequest } from "next/server";
 
 /**
@@ -13,5 +13,5 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return adminController.banReport(request, id);
+  return reportController.banReportedContent(request, id);
 }

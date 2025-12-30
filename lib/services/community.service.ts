@@ -2030,6 +2030,240 @@ export class CommunityService extends BaseService {
       return ApiResponse.error("Failed to fetch user communities", 500);
     }
   }
+
+  // ==================== Superadmin Methods ====================
+
+  /**
+   * Get inactive communities (30+ days since creation with no activity)
+   * @returns ServiceResult containing array of inactive communities
+   */
+  public async getInactiveCommunities(): Promise<ServiceResult<any[]>> {
+    const INACTIVE_DAYS_THRESHOLD = 30;
+    const thresholdDate: Date = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - INACTIVE_DAYS_THRESHOLD);
+
+    const { data, error } = await this.supabaseAdmin
+      .from("communities")
+      .select("id, name, creator_id, member_count, created_at, status")
+      .neq("status", "banned")
+      .order("created_at", { ascending: true, nullsFirst: true });
+
+    if (error) {
+      return ApiResponse.error("Failed to fetch inactive communities", 500);
+    }
+
+    // Filter and calculate days inactive based on created_at
+    const communities: any[] = (data || [])
+      .map((c) => {
+        const lastActiveDate = c.created_at;
+        const daysInactive = lastActiveDate
+          ? Math.floor((Date.now() - new Date(lastActiveDate).getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+        
+        return {
+          ...c,
+          effective_last_activity: lastActiveDate,
+          days_inactive: daysInactive,
+        };
+      })
+      .filter((c) => c.days_inactive >= INACTIVE_DAYS_THRESHOLD);
+
+    return ApiResponse.success(communities);
+  }
+
+  /**
+   * Ban a community (superadmin only)
+   * @param communityId - The community to ban
+   * @param reason - The ban reason
+   * @returns ServiceResult indicating success
+   */
+  public async banCommunity(
+    communityId: string,
+    reason: string
+  ): Promise<ServiceResult<void>> {
+    // Get community name before banning
+    const { data: community, error: communityError } = await this.supabaseAdmin
+      .from("communities")
+      .select("id, name")
+      .eq("id", communityId)
+      .single();
+
+    if (communityError || !community) {
+      return ApiResponse.error("Community not found", 404);
+    }
+
+    // Ban the community
+    const { error } = await this.supabaseAdmin
+      .from("communities")
+      .update({
+        status: "banned",
+        ban_reason: reason,
+        banned_at: new Date().toISOString(),
+      })
+      .eq("id", communityId);
+
+    if (error) {
+      return ApiResponse.error("Failed to ban community", 500);
+    }
+
+    // Get all community members (approved members only)
+    const { data: members, error: membersError } = await this.supabaseAdmin
+      .from("community_members")
+      .select("user_id")
+      .eq("community_id", communityId)
+      .eq("status", "approved");
+
+    // Notify all members about the ban
+    if (!membersError && members && members.length > 0) {
+      const memberIds = members.map(m => m.user_id);
+      
+      try {
+        const { NotificationService } = await import("./notification.service");
+        const notificationService = NotificationService.getInstance();
+        
+        await notificationService.createBulk(
+          memberIds,
+          "community_banned",
+          "Community Banned",
+          `The community "${community.name}" has been banned. Reason: ${reason}. The community is no longer visible on your home page.`,
+          communityId,
+          "community"
+        );
+      } catch (notifError) {
+        console.error("Failed to send ban notifications:", notifError);
+      }
+    }
+
+    return ApiResponse.success(undefined);
+  }
+
+  /**
+   * Reactivate a banned community (superadmin only)
+   * @param communityId - The community to reactivate
+   * @returns ServiceResult indicating success
+   */
+  public async reactivateCommunity(communityId: string): Promise<ServiceResult<void>> {
+    // Get community name before reactivating
+    const { data: community, error: communityError } = await this.supabaseAdmin
+      .from("communities")
+      .select("id, name")
+      .eq("id", communityId)
+      .single();
+
+    if (communityError || !community) {
+      return ApiResponse.error("Community not found", 404);
+    }
+
+    // Reactivate the community
+    const { error } = await this.supabaseAdmin
+      .from("communities")
+      .update({
+        status: "active",
+        ban_reason: null,
+        banned_at: null,
+      })
+      .eq("id", communityId);
+
+    if (error) {
+      return ApiResponse.error("Failed to reactivate community", 500);
+    }
+
+    // Get all community members (approved members only)
+    const { data: members, error: membersError } = await this.supabaseAdmin
+      .from("community_members")
+      .select("user_id")
+      .eq("community_id", communityId)
+      .eq("status", "approved");
+
+    // Notify all members about the reactivation
+    if (!membersError && members && members.length > 0) {
+      const memberIds = members.map(m => m.user_id);
+      
+      try {
+        const { NotificationService } = await import("./notification.service");
+        const notificationService = NotificationService.getInstance();
+        
+        await notificationService.createBulk(
+          memberIds,
+          "community_reactivated",
+          "Community Reactivated",
+          `The community "${community.name}" has been reactivated and is now visible on your home page again.`,
+          communityId,
+          "community"
+        );
+      } catch (notifError) {
+        console.error("Failed to send reactivation notifications:", notifError);
+      }
+    }
+
+    return ApiResponse.success(undefined);
+  }
+
+  /**
+   * Get community details for superadmin view (read-only with comprehensive stats)
+   * @param communityId - The community ID
+   * @returns ServiceResult containing community details with stats
+   */
+  public async getCommunityDetailsForSuperadmin(communityId: string): Promise<ServiceResult<unknown>> {
+    const { data: community, error: communityError } = await this.supabaseAdmin
+      .from("communities")
+      .select(`
+        *,
+        creator:creator_id (id, full_name, email, avatar_url)
+      `)
+      .eq("id", communityId)
+      .single();
+
+    if (communityError || !community) {
+      return ApiResponse.notFound("Community not found");
+    }
+
+    // Get member count
+    const { count: memberCount } = await this.supabaseAdmin
+      .from("community_members")
+      .select("*", { count: "exact", head: true })
+      .eq("community_id", communityId)
+      .eq("status", "approved");
+
+    // Get event count
+    const { count: eventCount } = await this.supabaseAdmin
+      .from("events")
+      .select("*", { count: "exact", head: true })
+      .eq("community_id", communityId);
+
+    // Get report count for this community
+    const { count: reportCount } = await this.supabaseAdmin
+      .from("reports")
+      .select("*", { count: "exact", head: true })
+      .eq("report_type", "community")
+      .eq("target_id", communityId);
+
+    // Get pending join requests
+    const { count: pendingRequests } = await this.supabaseAdmin
+      .from("community_members")
+      .select("*", { count: "exact", head: true })
+      .eq("community_id", communityId)
+      .eq("status", "pending");
+
+    // Get recent activity (recent messages, events, etc.)
+    const { data: recentEvents } = await this.supabaseAdmin
+      .from("events")
+      .select("id, title, start_time, created_at")
+      .eq("community_id", communityId)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    return ApiResponse.success({
+      ...community,
+      stats: {
+        memberCount: memberCount || 0,
+        eventCount: eventCount || 0,
+        reportCount: reportCount || 0,
+        pendingRequests: pendingRequests || 0,
+      },
+      recentEvents: recentEvents || [],
+    });
+  }
 }
 
 // Export singleton instance

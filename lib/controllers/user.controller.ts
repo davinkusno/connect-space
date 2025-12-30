@@ -596,6 +596,37 @@ export class UserController extends BaseController {
     }
   }
 
+  // ==================== Superadmin Methods ====================
+
+  /**
+   * GET /api/admin/dashboard/stats
+   * Get admin dashboard statistics (superadmin only)
+   * @param request - The incoming request
+   * @returns NextResponse with dashboard stats
+   */
+  public async getAdminDashboardStats(
+    request: NextRequest
+  ): Promise<NextResponse<{
+    totalUsers: number;
+    totalCommunities: number;
+    totalEvents: number;
+    pendingReports: number;
+    inactiveCommunities: number;
+  } | ApiErrorResponse>> {
+    try {
+      await this.requireSuperAdmin();
+      const result = await this.service.getAdminDashboardStats();
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to fetch dashboard stats", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
 }
 
 // Export singleton instance

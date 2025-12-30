@@ -1,4 +1,4 @@
-import { adminController } from "@/lib/controllers";
+import { reportController } from "@/lib/controllers";
 import { NextRequest } from "next/server";
 
 /**
@@ -7,6 +7,6 @@ import { NextRequest } from "next/server";
  * Returns both all reports and reports that meet the review threshold
  */
 export async function GET(request: NextRequest) {
-  return adminController.getMemberReports(request);
+  return reportController.getMemberReportsWithThreshold(request);
 }
 

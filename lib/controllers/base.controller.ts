@@ -61,6 +61,22 @@ export abstract class BaseController {
   }
 
   /**
+   * Require super admin authentication - throws if not authenticated or not super admin
+   * @returns Authenticated super admin user
+   * @throws UnauthorizedError if not authenticated
+   * @throws ForbiddenError if not super admin
+   */
+  protected async requireSuperAdmin(): Promise<User> {
+    const user: User = await this.requireAuth();
+    const { userService } = await import("@/lib/services");
+    const isSuperAdmin = await userService.isSuperAdmin(user.id);
+    if (!isSuperAdmin) {
+      throw new ForbiddenError("Super admin access required");
+    }
+    return user;
+  }
+
+  /**
    * Create JSON response with proper typing
    */
   protected json<T>(data: T, status: number = 200): NextResponse<T> {

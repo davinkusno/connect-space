@@ -84,7 +84,7 @@ interface ReportsManagementProps {
 export function ReportsManagement({ communityId }: ReportsManagementProps) {
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalReports, setTotalReports] = useState(0);
@@ -177,26 +177,46 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
     }
   };
 
-  const handleBanUser = async () => {
-    if (!selectedReport || selectedReport.report_type !== "member") return;
+  const handleBanAndTakeAction = async () => {
+    if (!selectedReport) return;
 
     try {
       setIsBanning(true);
 
-      const response = await fetch(
-        `/api/communities/${communityId}/reports/${selectedReport.id}/ban`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reason: banReason.trim() || selectedReport.reason || "Violation of community guidelines",
-          }),
-        }
-      );
+      // Different actions based on report type
+      let endpoint = "";
+      let method = "POST";
+      let body: any = {
+        reason: banReason.trim() || selectedReport.reason || "Violation of community guidelines",
+      };
+
+      switch (selectedReport.report_type) {
+        case "member":
+          // Ban the member from the community
+          endpoint = `/api/communities/${communityId}/reports/${selectedReport.id}/ban`;
+          break;
+        
+        case "thread":
+        case "reply":
+          // Delete the thread/reply content
+          endpoint = `/api/communities/${communityId}/reports/${selectedReport.id}/delete-content`;
+          break;
+        
+        default:
+          toast.error("Cannot take action on this report type");
+          setIsBanning(false);
+          return;
+      }
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error?.message || "Failed to ban user");
+        throw new Error(error.error?.message || "Failed to take action");
       }
 
       const result = await response.json();
@@ -206,8 +226,8 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
       setBanReason("");
       loadReports(); // Reload reports
     } catch (error) {
-      console.error("Error banning user:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to ban user");
+      console.error("Error taking action:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to take action");
     } finally {
       setIsBanning(false);
     }
@@ -236,27 +256,25 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
         setSelectedReport(null);
       }
       
-      loadReports(); // Reload reports
-    } catch (error) {
+      // Reload reports
+      loadReports();
+    } catch (error: any) {
       console.error("Error deleting report:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to delete report");
+      toast.error(error.message || "Failed to delete report");
     }
   };
 
-  const handleDismissReport = async () => {
-    if (!selectedReport) return;
-
+  const handleDismissReport = async (reportId: string) => {
     try {
       setIsUpdating(true);
-
+      
       const response = await fetch(
-        `/api/communities/${communityId}/reports/${selectedReport.id}`,
+        `/api/communities/${communityId}/reports/${reportId}/dismiss`,
         {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: "dismissed",
-          }),
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
       );
 
@@ -267,45 +285,16 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
 
       const result = await response.json();
       toast.success(result.message || "Report dismissed successfully");
+      
+      // Close detail dialog
       setIsDetailOpen(false);
-      loadReports(); // Reload reports
-    } catch (error) {
+      setSelectedReport(null);
+      
+      // Reload reports
+      loadReports();
+    } catch (error: any) {
       console.error("Error dismissing report:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to dismiss report");
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleResolveReport = async () => {
-    if (!selectedReport) return;
-
-    try {
-      setIsUpdating(true);
-
-      const response = await fetch(
-        `/api/communities/${communityId}/reports/${selectedReport.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: "resolved",
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || "Failed to resolve report");
-      }
-
-      const result = await response.json();
-      toast.success(result.message || "Report resolved successfully");
-      setIsDetailOpen(false);
-      loadReports(); // Reload reports
-    } catch (error) {
-      console.error("Error resolving report:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to resolve report");
+      toast.error(error.message || "Failed to dismiss report");
     } finally {
       setIsUpdating(false);
     }
@@ -485,9 +474,7 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
           <SelectContent>
             <SelectItem value="all">All Reports</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="reviewing">Reviewing</SelectItem>
             <SelectItem value="resolved">Resolved</SelectItem>
-            <SelectItem value="dismissed">Dismissed</SelectItem>
           </SelectContent>
         </Select>
 
@@ -517,13 +504,12 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
           {reports.map((report) => (
             <Card
               key={report.id}
-              className="hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => openReportDetail(report)}
+              className="hover:shadow-md transition-shadow"
             >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between gap-4">
                   {/* Left: Reported Item Info */}
-                  <div className="flex items-start gap-4 flex-1" onClick={() => openReportDetail(report)}>
+                  <div className="flex items-start gap-4 flex-1">
                     {report.reported_member && (
                       <Avatar className="w-12 h-12">
                         <AvatarImage src={report.reported_member.avatar_url || undefined} />
@@ -612,18 +598,71 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
                   {/* Right: Status Badge and Actions */}
                   <div className="flex flex-col items-end gap-2">
                     {getStatusBadge(report.status)}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteReport(report.id);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      Delete
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {/* View Item button for thread */}
+                      {report.report_type === "thread" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                          onClick={() => {
+                            // Navigate to the community page with threadId to highlight it
+                            window.open(`/communities/${communityId}?tab=discussions&threadId=${report.target_id}`, '_blank');
+                          }}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          View Item
+                        </Button>
+                      )}
+                      {/* View Item button for reply */}
+                      {report.report_type === "reply" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                          onClick={() => {
+                            // Navigate to the community page with replyId to highlight it
+                            window.open(`/communities/${communityId}?tab=discussions&replyId=${report.target_id}`, '_blank');
+                          }}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          View Item
+                        </Button>
+                      )}
+                      {/* View Item button for member */}
+                      {report.report_type === "member" && report.reported_member && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                          onClick={() => {
+                            // Navigate to members page
+                            window.open(`/communities/${communityId}/admin/members`, '_blank');
+                          }}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          View Item
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-purple-600 border-purple-200 hover:bg-purple-50 hover:text-purple-700"
+                        onClick={() => openReportDetail(report)}
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View Report
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteReport(report.id)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -776,67 +815,6 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
 
               </div>
 
-              {/* Action Section */}
-              <div className="space-y-4 border-t pt-4">
-                {/* Ban Button for Member Reports */}
-                {selectedReport.report_type === "member" && selectedReport.status !== "resolved" && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-red-900 mb-1">Ban User from Community</h4>
-                        <p className="text-sm text-red-700 mb-3">
-                          This will remove the user from the community and prevent them from joining again.
-                        </p>
-                        <Button
-                          variant="destructive"
-                          onClick={() => {
-                            setBanReason(selectedReport.reason || "");
-                            setShowBanDialog(true);
-                          }}
-                          className="w-full"
-                        >
-                          <UserX className="w-4 h-4 mr-2" />
-                          Ban User from Community
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Status
-                  </label>
-                  <Select value={newStatus} onValueChange={(value) => setNewStatus(value as Report["status"])}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="reviewing">Reviewing</SelectItem>
-                      <SelectItem value="resolved">Resolved (Action Taken)</SelectItem>
-                      <SelectItem value="dismissed">Dismissed (No Action)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-
-                {newStatus === "resolved" && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                      <div className="text-sm text-yellow-800">
-                        <p className="font-medium mb-1">Warning: Marking as Resolved</p>
-                        <p>
-                          This will add a report record to the member's profile and may
-                          affect their standing in the community. Make sure you've
-                          thoroughly reviewed the report.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
@@ -850,55 +828,54 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
                 disabled={isUpdating}
               >
                 <Trash2 className="w-4 h-4 mr-1" />
-                Delete
+                Delete Report
               </Button>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={handleDismissReport}
-                  disabled={isUpdating}
+                  onClick={() => selectedReport && handleDismissReport(selectedReport.id)}
+                  disabled={isUpdating || selectedReport?.status === "dismissed"}
                 >
-                  {isUpdating ? "Processing..." : "Dismiss"}
+                  {isUpdating ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <XCircle className="w-4 h-4 mr-2" />
+                  )}
+                  Dismiss
                 </Button>
                 <Button
-                  variant="default"
-                  onClick={handleResolveReport}
-                  disabled={isUpdating}
+                  variant="destructive"
+                  onClick={() => {
+                    setBanReason(selectedReport?.reason || "");
+                    setShowBanDialog(true);
+                  }}
+                  disabled={isUpdating || selectedReport?.status === "resolved"}
                 >
-                  {isUpdating ? "Processing..." : "Resolve"}
+                  <Ban className="w-4 h-4 mr-2" />
+                  {selectedReport?.report_type === "member" ? "Ban Member" : "Delete Content"}
                 </Button>
-                {selectedReport?.report_type === "member" && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      setBanReason(selectedReport.reason || "");
-                      setShowBanDialog(true);
-                    }}
-                    disabled={isUpdating}
-                  >
-                    <Ban className="w-4 h-4 mr-2" />
-                    Ban
-                  </Button>
-                )}
               </div>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Ban User Confirmation Dialog */}
+      {/* Ban/Delete Confirmation Dialog */}
       <Dialog open={showBanDialog} onOpenChange={setShowBanDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ban User from Community</DialogTitle>
+            <DialogTitle>
+              {selectedReport?.report_type === "member" ? "Ban Member" : "Delete Content"}
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to ban this user? They will be removed from the community
-              and will not be able to join again.
+              {selectedReport?.report_type === "member"
+                ? "Are you sure you want to ban this member? They will be removed from the community and will not be able to join again."
+                : "Are you sure you want to delete this content? This action cannot be undone."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {selectedReport?.reported_member && (
+            {selectedReport?.reported_member && selectedReport.report_type === "member" && (
               <div className="p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <Avatar className="w-12 h-12">
@@ -923,10 +900,12 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ban Reason
+                Reason
               </label>
               <Textarea
-                placeholder="Enter the reason for banning this user..."
+                placeholder={selectedReport?.report_type === "member" 
+                  ? "Enter the reason for banning this member..." 
+                  : "Enter the reason for deleting this content..."}
                 value={banReason}
                 onChange={(e) => setBanReason(e.target.value)}
                 rows={3}
@@ -939,8 +918,9 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
                 <div className="text-sm text-red-800">
                   <p className="font-medium mb-1">This action cannot be undone</p>
                   <p>
-                    The user will be immediately removed from the community and will not
-                    be able to rejoin unless you manually unban them.
+                    {selectedReport?.report_type === "member"
+                      ? "The member will be immediately removed from the community and permanently banned from rejoining."
+                      : "The content will be permanently deleted from the community."}
                   </p>
                 </div>
               </div>
@@ -960,18 +940,27 @@ export function ReportsManagement({ communityId }: ReportsManagementProps) {
             </Button>
             <Button
               variant="destructive"
-              onClick={handleBanUser}
+              onClick={handleBanAndTakeAction}
               disabled={isBanning || !banReason.trim()}
             >
               {isBanning ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Banning...
+                  Processing...
                 </>
               ) : (
                 <>
-                  <UserX className="w-4 h-4 mr-2" />
-                  Confirm Ban
+                  {selectedReport?.report_type === "member" ? (
+                    <>
+                      <UserX className="w-4 h-4 mr-2" />
+                      Confirm Ban
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Confirm Delete
+                    </>
+                  )}
                 </>
               )}
             </Button>

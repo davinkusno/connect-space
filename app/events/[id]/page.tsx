@@ -125,6 +125,8 @@ export default function EventDetailsPage({
   const [isUnsaveDialogOpen, setIsUnsaveDialogOpen] = useState(false);
   const [isRemoveInterestDialogOpen, setIsRemoveInterestDialogOpen] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [isCommunityMember, setIsCommunityMember] = useState(false);
+  const [showPrivateEventDialog, setShowPrivateEventDialog] = useState(false);
 
   // Fetch event data from Supabase
   useEffect(() => {
@@ -175,19 +177,20 @@ export default function EventDetailsPage({
             return;
           }
 
-          // Check if user is a member of the community
-          const { data: membership } = await supabase
-            .from("community_members")
-            .select("id")
-            .eq("community_id", eventData.community_id)
-            .eq("user_id", user.id)
-            .eq("status", "approved")
-            .maybeSingle();
+          // Check if user is a member of the community (for private events)
+          if (eventData.is_private && eventData.community_id && user) {
+            const { data: membership } = await supabase
+              .from("community_members")
+              .select("id")
+              .eq("community_id", eventData.community_id)
+              .eq("user_id", user.id)
+              .eq("status", "approved")
+              .maybeSingle();
 
-          if (!membership) {
-            setError("This is a private event. Please join the community to view it.");
-            setIsLoading(false);
-            return;
+            setIsCommunityMember(!!membership);
+          } else if (!eventData.is_private) {
+            // Public events - everyone can see full details
+            setIsCommunityMember(true);
           }
         }
 
@@ -607,6 +610,12 @@ export default function EventDetailsPage({
     if (!isLoggedIn) {
       // Redirect to login/register page with return URL
       router.push("/auth/login?redirect=/events/" + event.id);
+      return;
+    }
+
+    // Check if it's a private event and user is not a member
+    if (event.isPrivate && !isCommunityMember) {
+      setShowPrivateEventDialog(true);
       return;
     }
 
@@ -1086,8 +1095,8 @@ export default function EventDetailsPage({
                 </CardContent>
               </Card>
 
-              {/* Registration Link */}
-              {event.registration_link && event.registration_link.trim() !== "" && (
+              {/* Registration Link - Only show if user is a community member */}
+              {isCommunityMember && event.registration_link && event.registration_link.trim() !== "" && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -1125,8 +1134,8 @@ export default function EventDetailsPage({
                 </Card>
               )}
 
-              {/* Legacy Link (if exists and no registration_link) */}
-              {!event.registration_link && event.link && event.link.trim() !== "" && (
+              {/* Legacy Link (if exists and no registration_link) - Only show if user is a community member */}
+              {isCommunityMember && !event.registration_link && event.link && event.link.trim() !== "" && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -1159,19 +1168,42 @@ export default function EventDetailsPage({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-start gap-4">
-                    <Avatar className="h-16 w-16">
-                      <AvatarImage
-                        src={event.organizer.image || "/placeholder.svg"}
-                      />
-                      <AvatarFallback>{event.organizer.name[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">
-                        {event.organizer.name}
-                      </h3>
+                  {event.communities?.id ? (
+                    <Link 
+                      href={`/communities/${event.communities.id}`}
+                      className="flex items-start gap-4 group hover:bg-gray-50 p-3 -m-3 rounded-lg transition-colors"
+                    >
+                      <Avatar className="h-16 w-16 ring-2 ring-transparent group-hover:ring-violet-200 transition-all">
+                        <AvatarImage
+                          src={event.organizer.image || "/placeholder.svg"}
+                        />
+                        <AvatarFallback>{event.organizer.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg group-hover:text-violet-600 transition-colors">
+                          {event.organizer.name}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Click to view community
+                        </p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-violet-600 transition-colors mt-1" />
+                    </Link>
+                  ) : (
+                    <div className="flex items-start gap-4">
+                      <Avatar className="h-16 w-16">
+                        <AvatarImage
+                          src={event.organizer.image || "/placeholder.svg"}
+                        />
+                        <AvatarFallback>{event.organizer.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">
+                          {event.organizer.name}
+                        </h3>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1374,7 +1406,22 @@ export default function EventDetailsPage({
             </TabsContent>
 
             <TabsContent value="location" className="space-y-6 mt-6">
-              {event.location.isOnline ? (
+              {/* Only show location details if user is a community member */}
+              {!isCommunityMember && event.isPrivate ? (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <div className="inline-flex h-20 w-20 rounded-full bg-amber-100 items-center justify-center mb-4">
+                      <Lock className="h-10 w-10 text-amber-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      Location Details Hidden
+                    </h3>
+                    <p className="text-gray-600 max-w-md mx-auto">
+                      Location details are only visible to community members. Please join the community to see the full event details.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : event.location.isOnline ? (
                 <Card>
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -1575,6 +1622,35 @@ export default function EventDetailsPage({
             >
               Yes
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Private Event - Non-Member Dialog */}
+      <AlertDialog open={showPrivateEventDialog} onOpenChange={setShowPrivateEventDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-amber-600" />
+              Private Event
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This is a private event. You need to join the community first to express interest and access the full event details.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            {event?.communities?.id && (
+              <AlertDialogAction
+                onClick={() => {
+                  setShowPrivateEventDialog(false);
+                  router.push(`/communities/${event.communities.id}`);
+                }}
+                className="bg-violet-600 hover:bg-violet-700"
+              >
+                View Community
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
