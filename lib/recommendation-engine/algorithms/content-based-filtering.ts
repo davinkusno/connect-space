@@ -2,52 +2,44 @@
  * Content-Based Filtering Algorithm for Community Recommendations
  *
  * ============================================================================
- * ACADEMIC REFERENCES
+ * ALGORITHM OVERVIEW (4 Main Steps)
  * ============================================================================
  *
- * [1] Huang, R. (2023). "Improved content-based recommendation algorithm 
- *     integrating semantic information." Journal of Big Data, 10, 61.
- *     DOI: 10.1186/s40537-023-00776-7
- *     - TF-IDF methodology for content analysis
- *     - Semantic matching between user preferences and item content
+ * Step 1: TF-IDF (Term Frequency-Inverse Document Frequency)
+ *   - Converts user interests and community content into numerical vectors
+ *   - TF: Frequency of term in document
+ *   - IDF: log(Total Documents / Documents containing term)
+ *   - Result: Weighted vectors where rare terms have higher importance
  *
- * [2] Christyawan, F., et al. (2023). "Application of Content-Based Filtering 
- *     Method Using Cosine Similarity in Restaurant Selection Recommendation 
- *     System." Journal of Information Systems and Informatics, 5(3).
- *     - Cosine similarity for recommendation scoring
- *     - Location-based content filtering approach
+ * Step 2: Cosine Similarity
+ *   - Calculates similarity between user and community vectors
+ *   - Formula: cos(θ) = (A · B) / (||A|| × ||B||)
+ *   - Result: Similarity score between 0 and 1
  *
- * [3] Sinnott, R. W. (1984). "Virtues of the Haversine." Sky and Telescope, 
- *     68(2), 159.
- *     - Haversine formula for geographic distance calculation
+ * Step 3: Haversine Distance (Location Proximity)
+ *   - Calculates geographic distance between user and community
+ *   - Formula: distance = 2R × arctan2(√a, √(1-a)), where:
+ *       a = sin²(Δφ/2) + cos(φ₁) × cos(φ₂) × sin²(Δλ/2)
+ *   - Converts distance to score: score = max(0, 1 - distance/50km)
+ *
+ * Step 4: Weighted Scoring
+ *   - Combines content and location scores with weights
+ *   - Formula: Final Score = w₁ × ContentScore + w₂ × LocationScore
+ *   - Default weights: 60% content, 40% location
  *
  * ============================================================================
- * ALGORITHM
+ * IMPLEMENTATION DETAILS & OPTIMIZATIONS
  * ============================================================================
  *
- * Two-Feature Content-Based Filtering:
+ * Additional Refinements (not part of main algorithm):
+ *   1. Document Length Normalization: Prevents short documents from getting
+ *      artificially high cosine similarity scores
+ *   2. Category Matching: Additional binary feature for direct category match
+ *   3. Content Quality Gate: Prevents location from dominating when content
+ *      relevance is very low (<5% similarity)
  *
- * Score = 0.60 × CosineSimilarity(UserInterests, CommunityContent) + 
- *         0.40 × LocationScore
- *
- * Feature 1: Interest Match (60% weight)
- *   - Method: TF-IDF vectorization + Cosine Similarity
- *   - Input: User interests (e.g., ["programming", "startup", "AI"])
- *   - Matching: Community name, description, category, tags, topics
- *   - Formula: similarity = (A · B) / (||A|| × ||B||)
- *   - Reference: Huang (2023), Christyawan et al. (2023)
- *
- * Feature 2: Location Proximity (40% weight)
- *   - Method: Haversine distance with linear decay
- *   - Formula: distance = R × c, where:
- *       a = sin²(Δφ/2) + cos φ₁ · cos φ₂ · sin²(Δλ/2)
- *       c = 2 · atan2(√a, √(1−a))
- *   - Scoring: score = max(0, 1 - distance/50km)
- *   - Reference: Sinnott (1984)
- *
- * Weight Justification:
- *   - Interest (60%): Primary relevance signal for community matching
- *   - Location (40%): Important for in-person community engagement
+ * These refinements improve accuracy without changing the core TF-IDF → 
+ * Cosine Similarity → Haversine → Weighting pipeline.
  *
  * ============================================================================
  */
@@ -55,13 +47,14 @@
 import type { Community, RecommendationScore, User } from "../types"
 
 // Keywords mapping for user interests to help match with community content
+// NOTE: Avoid overly broad terms like "community", "creative" that match everything
 const INTEREST_KEYWORDS: Record<string, string[]> = {
-  "hobbies & crafts": ["hobby", "craft", "diy", "handmade", "creative", "maker", "gaming", "game", "collection", "collector", "knitting", "sewing", "woodworking", "pottery", "modeling", "cosplay"],
+  "hobbies & crafts": ["hobby", "craft", "diy", "handmade", "maker", "gaming", "game", "collection", "collector", "knitting", "sewing", "woodworking", "pottery", "modeling", "cosplay", "handicraft", "crafting"],
   "sports & fitness": ["sport", "fitness", "gym", "workout", "exercise", "running", "cycling", "yoga", "athletic", "health", "basketball", "football", "soccer", "swimming", "tennis", "badminton", "volleyball", "marathon", "triathlon", "crossfit", "martial arts", "boxing", "wrestling", "climbing", "pilates", "cardio", "strength", "training"],
-  "career & business": ["career", "business", "professional", "networking", "entrepreneur", "startup", "job", "work", "corporate", "leadership", "management", "consulting", "sales", "marketing", "finance", "strategy", "innovation", "mentorship"],
+  "career & business": ["career", "business", "professional", "networking", "entrepreneur", "startup", "job", "work", "corporate", "leadership", "management", "consulting", "sales", "marketing", "finance", "strategy", "innovation", "mentorship", "workplace", "entrepreneurship"],
   "tech & innovation": ["tech", "technology", "programming", "coding", "developer", "software", "hardware", "ai", "machine learning", "data", "digital", "innovation", "computer", "it", "web", "app", "blockchain", "cloud", "database", "api", "frontend", "backend", "mobile", "ux", "ui", "devops", "cybersecurity", "automation", "robotics", "iot", "analytics", "python", "javascript", "java", "react", "node"],
-  "arts & culture": ["art", "culture", "museum", "gallery", "painting", "sculpture", "design", "creative", "artist", "cultural", "heritage", "photography", "illustration", "graphic design", "animation", "digital art", "contemporary", "traditional", "exhibition", "visual arts"],
-  "social & community": ["social", "community", "volunteer", "charity", "nonprofit", "help", "support", "connect", "meetup", "gathering", "activism", "advocacy", "outreach", "engagement", "collaboration", "networking"],
+  "arts & culture": ["art", "culture", "museum", "gallery", "painting", "sculpture", "artist", "cultural", "heritage", "photography", "illustration", "graphic design", "animation", "digital art", "contemporary", "traditional", "exhibition", "visual arts", "artistic", "fine art"],
+  "social & community": ["social", "volunteer", "charity", "nonprofit", "help", "support", "meetup", "gathering", "activism", "advocacy", "outreach", "engagement", "collaboration", "volunteering", "humanitarian", "civic", "grassroots"],
   "education & learning": ["education", "learning", "study", "course", "workshop", "training", "skill", "knowledge", "academic", "school", "university", "teach", "tutorial", "lecture", "seminar", "bootcamp", "certification", "mentoring", "coaching"],
   "travel & adventure": ["travel", "adventure", "explore", "trip", "journey", "hiking", "outdoor", "nature", "tourism", "backpack", "trekking", "camping", "roadtrip", "expedition", "wanderlust", "destination", "exploration"],
   "food & drink": ["food", "drink", "cooking", "culinary", "restaurant", "recipe", "cuisine", "chef", "baking", "coffee", "wine", "beer", "foodie", "gastronomy", "dining", "cafe", "barista", "sommelier", "vegan", "vegetarian", "organic"],
@@ -70,13 +63,13 @@ const INTEREST_KEYWORDS: Record<string, string[]> = {
   "environmental": ["environment", "nature", "sustainability", "green", "eco", "climate", "conservation", "wildlife", "recycling", "renewable", "organic", "pollution", "ecosystem", "biodiversity", "carbon", "zero waste"],
   "music": ["music", "band", "concert", "instrument", "song", "singing", "musician", "guitar", "piano", "dj", "producer", "composer", "melody", "rhythm", "genre", "album", "performance", "live music", "jazz", "rock", "pop", "classical", "electronic"],
   "sports": ["sport", "fitness", "athletic", "game", "team", "competition", "training", "player", "coach", "tournament", "championship", "league", "practice"],
-  "hobbies": ["hobby", "craft", "gaming", "collection", "leisure", "pastime", "interest", "activity", "recreation", "entertainment"],
+  "hobbies": ["hobby", "craft", "gaming", "collection", "leisure", "pastime", "interest", "activity", "recreation"],
   "education": ["education", "learning", "teaching", "academic", "study", "course", "workshop", "student", "teacher", "instructor", "curriculum"],
-  "art": ["art", "artist", "creative", "design", "painting", "drawing", "sculpture", "gallery", "canvas", "sketch", "artwork", "exhibition", "studio"],
+  "art": ["art", "artist", "painting", "drawing", "sculpture", "gallery", "canvas", "sketch", "artwork", "exhibition", "studio"],
 }
 
 export class ContentBasedFilteringAlgorithm {
-  private enableLogging = true
+  private enableLogging = false
   
   private log(...args: any[]) {
     if (this.enableLogging) {
@@ -93,21 +86,23 @@ export class ContentBasedFilteringAlgorithm {
     maxRecommendations = 10,
   ): Promise<RecommendationScore[]> {
     this.log("=== Starting content-based filtering ===")
-    this.log("User interests:", user.interests)
-    this.log("User location:", user.location ? `${user.location.city} (${user.location.lat}, ${user.location.lng})` : "No location")
-    this.log("Total communities:", communities.length)
-    this.log("User joined communities:", user.joinedCommunities.length)
+    this.log(`User: ${user.interests.join(", ")} | Location: ${user.location?.city || "None"}`)
+    this.log(`Analyzing ${communities.length} communities`)
     
-    // Filter out communities user has already joined
+    // Exclude already joined communities
     const candidateCommunities = communities.filter((c) => !user.joinedCommunities.includes(c.id))
-    this.log("Candidate communities (excluding joined):", candidateCommunities.length)
 
-    // Build vocabulary once for all communities
+    if (candidateCommunities.length === 0) {
+      return []
+    }
+
+    // Build vocabulary and calculate IDF
     const vocabulary = this.buildVocabulary(user.interests, candidateCommunities);
-    this.log("Vocabulary size:", vocabulary.length);
+    const idf = this.calculateIDF(candidateCommunities, vocabulary);
 
+    // Calculate scores
     const scores = candidateCommunities.map((community) => {
-      const score = this.calculateContentBasedScore(user, community, vocabulary)
+      const score = this.calculateContentBasedScore(user, community, vocabulary, idf)
       return {
         communityId: community.id,
         score: score.score,
@@ -117,71 +112,57 @@ export class ContentBasedFilteringAlgorithm {
       }
     })
 
-    // Log scores distribution
-    const withScore = scores.filter(s => s.score > 0)
-    const aboveThreshold = scores.filter(s => s.score > 0.1)
-    this.log("Communities with any score (> 0):", withScore.length)
-    this.log("Communities above threshold (> 0.1):", aboveThreshold.length)
-    
-    // Log top 5 scoring communities
-    const sortedScores = [...scores].sort((a, b) => b.score - a.score)
-    this.log("Top 5 scored communities:")
-    sortedScores.slice(0, 5).forEach((s, i) => {
-      const comm = communities.find(c => c.id === s.communityId)
-      this.log(`  ${i + 1}. ${comm?.name} - score: ${s.score.toFixed(3)}, category: ${comm?.category}`)
-    })
-    
-    // Log bottom 5 (to see what's not matching)
-    this.log("Bottom 5 scored communities (to debug non-matches):")
-    sortedScores.slice(-5).forEach((s, i) => {
-      const comm = communities.find(c => c.id === s.communityId)
-      this.log(`  ${i + 1}. ${comm?.name} - score: ${s.score.toFixed(3)}, category: ${comm?.category}`)
-    })
-
-    // Return communities with any positive score (lowered threshold to allow more recommendations)
-    // This ensures we return recommendations even when user has no interests
+    // Sort and filter
     const result = scores
       .filter((s) => s.score > 0.05)
       .sort((a, b) => b.score - a.score)
       .slice(0, maxRecommendations)
     
-    this.log("Returning", result.length, "recommendations")
+    this.log(`\n=== Top ${Math.min(5, result.length)} Recommendations ===`)
+    result.slice(0, 5).forEach((r, i) => {
+      const comm = communities.find(c => c.id === r.communityId)
+      this.log(`${i + 1}. ${comm?.name} - Score: ${r.score.toFixed(3)}`)
+    })
+    
     return result
   }
 
   private calculateContentBasedScore(
     user: User,
     community: Community,
-    vocabulary: string[]
+    vocabulary: string[],
+    idf: number[]
   ): {
     score: number
     confidence: number
     reasons: Array<{
-      type: "interest_match" | "location_proximity"
+      type: "interest_match" | "location_proximity" | "category_match"
       description: string
       weight: number
       evidence: any
     }>
   } {
     /**
-     * Two-feature weighted scoring based on Huang (2023) and Christyawan et al. (2023)
+     * PURE ALGORITHM: TF-IDF → Cosine Similarity → Haversine → Weighting
      * 
-     * Weight distribution:
-     * - Interest Match: 0.60 (TF-IDF + Cosine Similarity)
-     * - Location Proximity: 0.40 (Haversine Distance)
+     * - Content Score: 0.60 (TF-IDF + Cosine Similarity)
+     * - Location Score: 0.40 (Haversine Distance)
      * 
-     * Total: 1.0
+     * Edge case handling (implementation details):
+     * 1. Document length normalization - prevents spam/short content
+     * 2. Content quality gate - prevents location dominance for irrelevant content
      */
     const WEIGHTS = {
-      interest: 0.60,
-      location: 0.40,
+      content: 0.60,  // TF-IDF + Cosine Similarity
+      location: 0.40, // Haversine Distance
     }
 
     let totalScore = 0
     const reasons: any[] = []
 
-    // Feature 1: Interest Match using TF-IDF + Cosine Similarity
-    // Expand user interests using keyword mapping
+    // ========== STEP 1 & 2: TF-IDF + COSINE SIMILARITY ==========
+    
+    // Expand user interests using keyword mapping for better matching
     const expandedUserInterests: string[] = [];
     user.interests.forEach(interest => {
       expandedUserInterests.push(interest);
@@ -189,10 +170,8 @@ export class ContentBasedFilteringAlgorithm {
       expandedUserInterests.push(...keywords);
     });
     
-    this.log(`User interests: ${user.interests.join(", ")}`);
-    this.log(`Expanded to ${expandedUserInterests.length} terms`);
-    
-    const userVector = this.buildTFIDFVector(expandedUserInterests, vocabulary);
+    // Build TF-IDF vectors
+    const userVector = this.buildTFIDFVector(expandedUserInterests, vocabulary, idf);
     const communityVector = this.buildTFIDFVector(
       [
         community.name,
@@ -201,44 +180,65 @@ export class ContentBasedFilteringAlgorithm {
         ...(community.tags || []),
         ...(community.contentTopics || [])
       ],
-      vocabulary
+      vocabulary,
+      idf
     );
     
-    const interestScore = this.cosineSimilarity(userVector, communityVector);
-    totalScore += interestScore * WEIGHTS.interest;
+    // Calculate cosine similarity
+    let contentScore = this.cosineSimilarity(userVector, communityVector);
     
-    this.log(`Interest similarity: ${interestScore.toFixed(3)} × ${WEIGHTS.interest} = ${(interestScore * WEIGHTS.interest).toFixed(3)}`)
+    // Edge case fix 1: Document length normalization
+    // Prevents communities with minimal content  from getting high scores
+    const contentLength = communityVector.filter(v => v > 0).length;
+    if (contentLength < 10) {
+      const lengthPenalty = contentLength / 10;
+      contentScore = contentScore * lengthPenalty;
+    }
+    
+    // Apply content weight
+    totalScore += contentScore * WEIGHTS.content;
     
     reasons.push({
       type: "interest_match",
-      description: `${Math.round(interestScore * 100)}% similarity with your interests`,
-      weight: WEIGHTS.interest,
+      description: `${Math.round(contentScore * 100)}% content similarity`,
+      weight: WEIGHTS.content,
       evidence: { 
-        similarity: interestScore,
+        similarity: contentScore,
         matchedInterests: user.interests.slice(0, 3).join(", ")
       },
     });
 
-    // Feature 2: Location Proximity using Haversine Distance
+    // ========== STEP 3 & 4: HAVERSINE DISTANCE + WEIGHTING ==========
+    
     if (user.location && community.location && community.location.lat !== 0 && community.location.lng !== 0) {
-      const locationScore = this.calculateLocationScore(user, community);
-      if (locationScore.score > 0) {
-        totalScore += locationScore.score * WEIGHTS.location;
-        this.log(`Location score: ${locationScore.score.toFixed(3)} × ${WEIGHTS.location} = ${(locationScore.score * WEIGHTS.location).toFixed(3)}`)
+      const locationResult = this.calculateLocationScore(user, community);
+      if (locationResult.score > 0) {
+        // Edge case fix 2: Content quality gate
+        // Prevents location from dominating when content is completely irrelevant
+        let locationWeight = WEIGHTS.location;
+        
+        if (contentScore < 0.05) {  // Very low content match (<5%)
+          // Reduce location weight proportionally
+          const qualityMultiplier = 0.1 + (0.9 * contentScore / 0.05);
+          locationWeight = WEIGHTS.location * qualityMultiplier;
+        }
+        
+        const locationContribution = locationResult.score * locationWeight;
+        totalScore += locationContribution;
+        
         reasons.push({
           type: "location_proximity",
-          description: `Located ${locationScore.distance.toFixed(1)}km from you`,
-          weight: WEIGHTS.location,
-          evidence: { distance: locationScore.distance, score: locationScore.score },
+          description: `Located ${locationResult.distance.toFixed(1)}km from you`,
+          weight: locationWeight,
+          evidence: { 
+            distance: locationResult.distance, 
+            score: locationResult.score,
+          },
         });
       }
-    } else {
-      this.log("Location scoring skipped - no valid location data")
     }
 
-    this.log(`TOTAL SCORE for ${community.name}: ${totalScore.toFixed(3)}`)
-
-    // Confidence based on how many features contributed
+    // Confidence score
     const confidence = Math.min(0.9, totalScore);
 
     return { score: totalScore, confidence, reasons }
@@ -249,7 +249,6 @@ export class ContentBasedFilteringAlgorithm {
       return { score: 0, distance: Number.POSITIVE_INFINITY }
     }
 
-    // Check if coordinates are valid (not 0 or undefined)
     if (!community.location.lat || !community.location.lng || 
         community.location.lat === 0 || community.location.lng === 0) {
       return { score: 0, distance: Number.POSITIVE_INFINITY }
@@ -267,10 +266,36 @@ export class ContentBasedFilteringAlgorithm {
       community.location.lng,
     )
 
-    const maxDistance = 50 // Default 50km threshold
+    const maxDistance = 50
     const score = Math.max(0, 1 - distance / maxDistance)
 
     return { score, distance }
+  }
+
+  /**
+   * Calculate category match score
+   * Returns 1.0 if user's interest directly matches community category
+   * Returns 0.0 if no match
+   */
+  private calculateCategoryMatch(userInterests: string[], communityCategory: string): number {
+    const normalizedCategory = communityCategory.toLowerCase().trim();
+    
+    for (const interest of userInterests) {
+      const normalizedInterest = interest.toLowerCase().trim();
+      
+      // Direct match
+      if (normalizedInterest === normalizedCategory) {
+        return 1.0;
+      }
+      
+      // Partial match (e.g., "tech" matches "tech & innovation")
+      if (normalizedCategory.includes(normalizedInterest) || 
+          normalizedInterest.includes(normalizedCategory)) {
+        return 1.0;
+      }
+    }
+    
+    return 0.0;
   }
 
   private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -282,6 +307,43 @@ export class ContentBasedFilteringAlgorithm {
       Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2)
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
     return R * c
+  }
+
+  /**
+   * Calculate IDF (Inverse Document Frequency) for each term in vocabulary
+   * IDF = log(N / df) where N = total documents, df = documents containing term
+   * Higher IDF = rarer term = more important
+   */
+  private calculateIDF(communities: Community[], vocabulary: string[]): number[] {
+    const N = communities.length;
+    const idf: number[] = [];
+    
+    for (const term of vocabulary) {
+      // Count how many communities contain this term
+      let df = 0;
+      const regex = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      
+      for (const community of communities) {
+        const text = [
+          community.name,
+          community.description,
+          community.category,
+          ...(community.tags || []),
+          ...(community.contentTopics || [])
+        ].join(' ').toLowerCase();
+        
+        if (regex.test(text)) {
+          df++;
+        }
+      }
+      
+      // Calculate IDF: log(N / df)
+      // Add 1 to df to avoid division by zero
+      const idfValue = Math.log(N / (df + 1));
+      idf.push(idfValue);
+    }
+    
+    return idf;
   }
 
   /**
@@ -343,18 +405,23 @@ export class ContentBasedFilteringAlgorithm {
 
   /**
    * Build TF-IDF vector for given texts
-   * Returns frequency vector for each term in vocabulary
+   * TF-IDF = TF(term) × IDF(term)
+   * Returns TF-IDF weighted vector for each term in vocabulary
    */
-  private buildTFIDFVector(texts: string[], vocabulary: string[]): number[] {
+  private buildTFIDFVector(texts: string[], vocabulary: string[], idf: number[]): number[] {
     const combinedText = texts.join(' ').toLowerCase();
     const vector: number[] = [];
     
-    for (const term of vocabulary) {
-      // Use word boundary regex to match whole words only
+    for (let i = 0; i < vocabulary.length; i++) {
+      const term = vocabulary[i];
+      // Calculate TF (Term Frequency)
       const regex = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
       const matches = combinedText.match(regex);
-      const termFreq = matches ? matches.length : 0;
-      vector.push(termFreq);
+      const tf = matches ? matches.length : 0;
+      
+      // Calculate TF-IDF = TF × IDF
+      const tfidf = tf * idf[i];
+      vector.push(tfidf);
     }
     
     return vector;

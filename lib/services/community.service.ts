@@ -10,6 +10,7 @@ import {
 import { notificationService } from "./notification.service";
 import { pointsService } from "./points.service";
 import { calculateRequiredPoints } from "@/lib/config/points.config";
+import { validateAndEnrichLocation } from "@/lib/utils/geocoding";
 
 // ==================== Community Service Types ====================
 
@@ -1280,9 +1281,40 @@ export class CommunityService extends BaseService {
       updated_at: new Date().toISOString(),
     };
 
+    // Handle location with geocoding
     if (data.location) {
-      updateData.location = data.location;
+      try {
+        // Parse the location if it's a JSON string
+        let locationInput: string | any = data.location;
+        try {
+          locationInput = JSON.parse(data.location);
+        } catch {
+          // If parsing fails, it's already a plain string or object
+        }
+
+        // Validate and enrich the location with coordinates
+        const geocodeResult = await validateAndEnrichLocation(locationInput);
+
+        if (!geocodeResult.success || !geocodeResult.data) {
+          console.warn("[CommunityService] Geocoding failed:", geocodeResult.error);
+          // Store the location anyway, but log the warning
+          updateData.location = data.location;
+        } else {
+          // Store the complete StandardizedLocation as JSON string
+          updateData.location = JSON.stringify(geocodeResult.data);
+          console.log(`[CommunityService] Geocoded location for community ${communityId}:`, {
+            city: geocodeResult.data.city,
+            lat: geocodeResult.data.lat,
+            lon: geocodeResult.data.lon,
+          });
+        }
+      } catch (error) {
+        console.error("[CommunityService] Error processing location:", error);
+        // Fallback: store as-is
+        updateData.location = data.location;
+      }
     }
+
     if (data.logoUrl) {
       updateData.logo_url = data.logoUrl;
     }
@@ -1310,7 +1342,7 @@ export class CommunityService extends BaseService {
     return ApiResponse.success({
       logo_url: data.logoUrl || null,
       banner_url: data.bannerUrl || null,
-      location: data.location || null,
+      location: typeof updateData.location === 'string' ? updateData.location : null,
     });
   }
 

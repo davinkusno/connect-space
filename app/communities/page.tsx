@@ -67,6 +67,7 @@ export default function DiscoverPage() {
   // Membership status tracking
   const [membershipStatus, setMembershipStatus] = useState<Record<string, "joined" | "pending" | "not_joined">>({});
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [recommendedCommunityIds, setRecommendedCommunityIds] = useState<string[]>([]);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
@@ -212,26 +213,30 @@ export default function DiscoverPage() {
       setCurrentUser(user);
       
       // Fetch recommended community IDs if user is logged in
-      let recommendedCommunityIds: string[] = [];
+      let recommendedIds: string[] = [];
       if (user) {
         try {
           console.log("[COMMUNITIES PAGE] Fetching recommendations for user:", user.id);
           const response = await fetch("/api/communities/recommendations");
           if (response.ok) {
             const data = await response.json();
-            recommendedCommunityIds = data.recommendedCommunityIds || [];
+            recommendedIds = data.recommendedCommunityIds || [];
+            setRecommendedCommunityIds(recommendedIds); // Store in state for sorting
             console.log("[COMMUNITIES PAGE] Received recommendations:", {
-              count: recommendedCommunityIds.length,
-              ids: recommendedCommunityIds.slice(0, 5),
+              count: recommendedIds.length,
+              ids: recommendedIds.slice(0, 5),
               metadata: data.metadata,
             });
             // Log top recommendations with scores
             if (data.recommendations && data.recommendations.length > 0) {
               console.log("[COMMUNITIES PAGE] Top 5 recommendation scores:");
               data.recommendations.slice(0, 5).forEach((rec: any, i: number) => {
-                console.log(`  ${i + 1}. ${rec.communityId}: score=${rec.score.toFixed(3)}`);
+                console.log(`  ${i + 1}. ${rec.communityId}: score=${rec.score.toFixed(3)}, confidence=${rec.confidence.toFixed(3)}`);
               });
             }
+            
+            // Log the recommendedCommunityIds order
+            console.log("[COMMUNITIES PAGE] Recommended IDs order:", recommendedIds.slice(0, 5));
           } else {
             console.error("[COMMUNITIES PAGE] Recommendations API error:", response.status);
           }
@@ -326,6 +331,12 @@ export default function DiscoverPage() {
           if (aIndex === -1) return 1;
           if (bIndex === -1) return -1;
           return aIndex - bIndex;
+        });
+        
+        console.log("[COMMUNITIES PAGE] After sorting communities - top 5:");
+        sortedCommunities.slice(0, 5).forEach((comm: any, i: number) => {
+          const recIndex = recommendedCommunityIds.indexOf(comm.id);
+          console.log(`  ${i + 1}. ${comm.name} (ID: ${comm.id}), recommendationIndex: ${recIndex}`);
         });
         
         // Process the sorted communities
@@ -647,7 +658,11 @@ export default function DiscoverPage() {
 
     // Sort to prioritize communities user hasn't joined (discovery-first approach)
     // Order: not_joined > pending > joined
+    // BUT: Preserve recommendation order within each status group
     if (currentUser) {
+      // Check if we have recommendation order
+      const hasRecommendationOrder = recommendedCommunityIds.length > 0;
+      
       filtered = [...filtered].sort((a, b) => {
         const statusA = membershipStatus[a.id] || "not_joined";
         const statusB = membershipStatus[b.id] || "not_joined";
@@ -661,13 +676,36 @@ export default function DiscoverPage() {
         const priorityDiff = priorityOrder[statusA] - priorityOrder[statusB];
         if (priorityDiff !== 0) return priorityDiff;
         
-        // Within same status, sort by member count (popularity)
-        return b.memberCount - a.memberCount;
+        // Within same status:
+        // - If we have recommendation order, use recommendation index
+        // - Otherwise, sort by member count (popularity)
+        if (hasRecommendationOrder) {
+          // Sort by recommendation index to preserve order
+          const aIndex = recommendedCommunityIds.indexOf(a.id);
+          const bIndex = recommendedCommunityIds.indexOf(b.id);
+          
+          // Handle communities not in recommendations (should be rare)
+          if (aIndex === -1 && bIndex === -1) return b.memberCount - a.memberCount;
+          if (aIndex === -1) return 1; // Non-recommended goes to end
+          if (bIndex === -1) return -1; // Non-recommended goes to end
+          
+          return aIndex - bIndex; // Sort by recommendation order
+        } else {
+          // Sort by member count (popularity)
+          return b.memberCount - a.memberCount;
+        }
+      });
+      
+      console.log("[COMMUNITIES PAGE] After filteredCommunities sort - top 5:");
+      filtered.slice(0, 5).forEach((comm: any, i: number) => {
+        const status = membershipStatus[comm.id] || "not_joined";
+        const recIndex = recommendedCommunityIds.indexOf(comm.id);
+        console.log(`  ${i + 1}. ${comm.name} (ID: ${comm.id}), status: ${status}, recIndex: ${recIndex}, memberCount: ${comm.memberCount}`);
       });
     }
 
     return filtered;
-  }, [communities, searchQuery, locationQuery, selectedCategory, membershipFilter, membershipStatus, currentUser]);
+  }, [communities, searchQuery, locationQuery, selectedCategory, membershipFilter, membershipStatus, currentUser, recommendedCommunityIds]);
 
 
   // Pagination logic

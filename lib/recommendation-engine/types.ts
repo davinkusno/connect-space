@@ -39,7 +39,7 @@ export interface RecommendationScore {
 }
 
 export interface RecommendationReason {
-  type: "interest_match" | "location_proximity"
+  type: "interest_match" | "location_proximity" | "category_match"
   description: string
   weight: number
   evidence: any

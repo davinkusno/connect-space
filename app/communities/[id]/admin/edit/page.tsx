@@ -366,8 +366,64 @@ export default function EditCommunityPage({
 
       // Only include location if user has provided city data
       if (hasLocationData && city.trim()) {
-        // Save just the city name
-        formDataToSend.append("location", city.trim());
+        // If we don't have coordinates, we need to geocode first
+        if (!locationLat || !locationLng) {
+          toast.info("Geocoding location...");
+          try {
+            const geocodeResponse = await fetch(
+              `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+                city.trim()
+              )}&limit=1&addressdetails=1&accept-language=en`,
+              {
+                headers: {
+                  "User-Agent": "ConnectSpace/1.0",
+                },
+              }
+            );
+            const geocodeData = await geocodeResponse.json();
+
+            if (geocodeData && geocodeData.length > 0) {
+              const result = geocodeData[0];
+              setLocationLat(parseFloat(result.lat));
+              setLocationLng(parseFloat(result.lon));
+
+              // Build StandardizedLocation object
+              const locationData = {
+                city: city.trim(),
+                placeId: result.place_id?.toString() || "",
+                lat: parseFloat(result.lat),
+                lon: parseFloat(result.lon),
+                displayName: result.display_name || `${city}, ${country}`,
+                fullAddress: address || result.display_name,
+                country: country.trim(),
+              };
+
+              formDataToSend.append("location", JSON.stringify(locationData));
+            } else {
+              toast.error("Could not geocode location. Please select from suggestions.");
+              setIsSaving(false);
+              return;
+            }
+          } catch (geocodeError) {
+            console.error("Geocoding error:", geocodeError);
+            toast.error("Failed to geocode location");
+            setIsSaving(false);
+            return;
+          }
+        } else {
+          // We already have coordinates, build StandardizedLocation object
+          const locationData = {
+            city: city.trim(),
+            placeId: "", // Will be populated if we have it
+            lat: locationLat,
+            lon: locationLng,
+            displayName: address || `${city}, ${country}`,
+            fullAddress: address,
+            country: country.trim(),
+          };
+
+          formDataToSend.append("location", JSON.stringify(locationData));
+        }
       }
 
       // Call API

@@ -138,6 +138,11 @@ export class CommunityController extends BaseController {
       }
 
       // Sort with tie-breaking: score (desc) -> confidence (desc) -> communityId (asc for deterministic ordering)
+      console.log("[CONTROLLER] Before sorting - top 5:");
+      result.data.recommendations.slice(0, 5).forEach((rec, i) => {
+        console.log(`  ${i + 1}. ID: ${rec.communityId}, score: ${rec.score.toFixed(3)}, confidence: ${rec.confidence.toFixed(3)}`);
+      });
+      
       const sortedRecommendations = result.data.recommendations.sort((a, b) => {
         // Primary: sort by score (descending)
         if (b.score !== a.score) {
@@ -149,6 +154,11 @@ export class CommunityController extends BaseController {
         }
         // Tertiary: sort by communityId (ascending) - deterministic ordering for equal scores/confidence
         return a.communityId.localeCompare(b.communityId);
+      });
+
+      console.log("[CONTROLLER] After sorting - top 5:");
+      sortedRecommendations.slice(0, 5).forEach((rec, i) => {
+        console.log(`  ${i + 1}. ID: ${rec.communityId}, score: ${rec.score.toFixed(3)}, confidence: ${rec.confidence.toFixed(3)}`);
       });
 
       const response: CommunityRecommendationsResponse = {
