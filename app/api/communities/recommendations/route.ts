@@ -1,4 +1,4 @@
-import { recommendationController } from "@/lib/controllers";
+import { communityController } from "@/lib/controllers";
 import { NextRequest } from "next/server";
 
 /**
@@ -7,5 +7,5 @@ import { NextRequest } from "next/server";
  * @access Private (authenticated users)
  */
 export async function GET(request: NextRequest) {
-  return recommendationController.getCommunityRecommendations(request);
+  return communityController.getRecommendations(request);
 }

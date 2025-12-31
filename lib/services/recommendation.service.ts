@@ -1,6 +1,5 @@
 import { BaseService, ServiceResult, ApiResponse } from "./base.service";
-import { HybridRecommendationEngine } from "../recommendation-engine/hybrid-recommender";
-import { HybridEventRecommendationEngine } from "../recommendation-engine/hybrid-event-recommender";
+import { ContentBasedFilteringAlgorithm } from "../recommendation-engine/algorithms/content-based-filtering";
 import type {
   User,
   Community,
@@ -15,14 +14,12 @@ import type {
 export class RecommendationService extends BaseService {
   private static instance: RecommendationService;
   
-  // Singleton instances of recommendation engines
-  private readonly communityEngine: HybridRecommendationEngine;
-  private readonly eventEngine: HybridEventRecommendationEngine;
+  // Singleton instance of content-based filtering engine
+  private readonly contentBasedEngine: ContentBasedFilteringAlgorithm;
 
   private constructor() {
     super();
-    this.communityEngine = new HybridRecommendationEngine();
-    this.eventEngine = new HybridEventRecommendationEngine();
+    this.contentBasedEngine = new ContentBasedFilteringAlgorithm();
   }
 
   public static getInstance(): RecommendationService {
@@ -46,12 +43,6 @@ export class RecommendationService extends BaseService {
         return ApiResponse.error("Failed to fetch user data", 500);
       }
 
-      // Fetch all users for collaborative filtering
-      const allUsersResult = await this.fetchAllUsers();
-      if (!allUsersResult.success || !allUsersResult.data) {
-        return ApiResponse.error("Failed to fetch users data", 500);
-      }
-
       // Fetch all communities
       const communitiesResult = await this.fetchCommunities(userId);
       if (!communitiesResult.success || !communitiesResult.data) {
@@ -61,15 +52,25 @@ export class RecommendationService extends BaseService {
         );
       }
 
-      // Generate recommendations
-      const recommendations = await this.communityEngine.generateRecommendations(
+      // Generate recommendations using content-based filtering
+      const startTime = Date.now();
+      const recommendations = await this.contentBasedEngine.generateRecommendations(
         userData.data,
-        allUsersResult.data,
         communitiesResult.data,
-        options
+        options?.maxRecommendations || 20
       );
+      const processingTime = Date.now() - startTime;
 
-      return ApiResponse.success(recommendations);
+      // Format result
+      const result: RecommendationResult = {
+        recommendations,
+        metadata: {
+          totalCommunities: communitiesResult.data.length,
+          processingTime
+        }
+      };
+
+      return ApiResponse.success(result);
     } catch (error) {
       return ApiResponse.error(`Recommendation error: ${error}`, 500);
     }
@@ -77,6 +78,7 @@ export class RecommendationService extends BaseService {
 
   /**
    * Generate event recommendations for a user
+   * Note: Events use same content-based approach as communities
    */
   public async getEventRecommendations(
     userId: string,
@@ -89,32 +91,53 @@ export class RecommendationService extends BaseService {
         return ApiResponse.error("Failed to fetch user data", 500);
       }
 
-      // Fetch all users for collaborative filtering
-      const allUsersResult = await this.fetchAllUsers();
-      if (!allUsersResult.success || !allUsersResult.data) {
-        return ApiResponse.error("Failed to fetch users data", 500);
-      }
-
       // Fetch events
       const eventsResult = await this.fetchEvents();
       if (!eventsResult.success || !eventsResult.data) {
         return ApiResponse.error("Failed to fetch events", 500);
       }
 
-      // Fetch user's community IDs
-      const communityIdsResult = await this.fetchUserCommunityIds(userId);
-      const communityIds = communityIdsResult.success && communityIdsResult.data ? communityIdsResult.data : [];
+      // For events, we can treat them like communities and use content-based filtering
+      // Convert events to community-like format for the algorithm
+      const eventAsCommunities: Community[] = eventsResult.data.map(event => ({
+        id: event.id,
+        name: event.title,
+        description: event.description,
+        category: event.category,
+        tags: event.tags || [],
+        memberCount: event.currentAttendees,
+        location: event.location,
+        createdAt: event.createdAt,
+        contentTopics: event.contentTopics || []
+      }));
 
       // Generate recommendations
-      const recommendations = await this.eventEngine.generateRecommendations(
+      const startTime = Date.now();
+      const communityRecs = await this.contentBasedEngine.generateRecommendations(
         userData.data,
-        allUsersResult.data,
-        eventsResult.data,
-        communityIds,
-        options
+        eventAsCommunities,
+        options?.maxRecommendations || 20
       );
+      const processingTime = Date.now() - startTime;
 
-      return ApiResponse.success(recommendations);
+      // Convert back to event recommendations
+      const eventRecommendations = communityRecs.map(rec => ({
+        eventId: rec.communityId,
+        score: rec.score,
+        confidence: rec.confidence,
+        method: rec.method,
+        reasons: rec.reasons as any
+      }));
+
+      const result: EventRecommendationResult = {
+        recommendations: eventRecommendations,
+        metadata: {
+          totalEvents: eventsResult.data.length,
+          processingTime
+        }
+      };
+
+      return ApiResponse.success(result);
     } catch (error) {
       return ApiResponse.error(`Recommendation error: ${error}`, 500);
     }
@@ -410,17 +433,37 @@ export class RecommendationService extends BaseService {
    * Supports both new standardized format and legacy format
    */
   private parseLocationData(location: any): { lat: number; lng: number; city: string; placeId?: string } | undefined {
+    console.log('[LOCATION-PARSE] Input:', typeof location, JSON.stringify(location)?.substring(0, 200));
+    
     if (!location) return undefined;
 
     if (typeof location === "string") {
+      // Check if it looks like JSON (starts with { or [)
+      if (!location.trim().startsWith('{') && !location.trim().startsWith('[')) {
+        console.log(`[LOCATION-PARSE] ⚠️  Plain text location (no coordinates): "${location}"`);
+        return undefined; // Plain text location, no coordinates available
+      }
+      
       try {
         const parsed = JSON.parse(location);
+        console.log('[LOCATION-PARSE] Parsed from string:', JSON.stringify(parsed));
+        
+        // Validate that we have actual coordinates (not 0)
+        const lat = parsed.lat;
+        const lng = parsed.lon || parsed.lng;
+        
+        if (!lat || !lng || lat === 0 || lng === 0) {
+          console.log(`[LOCATION-PARSE] ❌ Invalid coordinates in string: lat=${lat}, lng=${lng}`);
+          return undefined; // Don't return location if coordinates are missing or zero
+        }
+        
+        console.log(`[LOCATION-PARSE] ✅ Valid location from string: ${parsed.city} (${lat}, ${lng})`);
         
         // NEW standardized format
         if (parsed.placeId) {
           return {
-            lat: parsed.lat || 0,
-            lng: parsed.lon || parsed.lng || 0, // Support both lon and lng
+            lat,
+            lng,
             city: parsed.city || "Unknown",
             placeId: parsed.placeId,
           };
@@ -428,21 +471,35 @@ export class RecommendationService extends BaseService {
         
         // Legacy format
         return {
-          lat: parsed.lat || 0,
-          lng: parsed.lng || parsed.lon || 0, // Support both lng and lon
+          lat,
+          lng,
           city: parsed.city || "Unknown",
         };
-      } catch {
+      } catch (e) {
+        console.log('[LOCATION-PARSE] ❌ JSON parse error:', e);
         return undefined;
       }
     }
 
     if (typeof location === "object") {
+      console.log('[LOCATION-PARSE] Object location:', JSON.stringify(location));
+      
+      // Validate that we have actual coordinates (not 0)
+      const lat = location.lat;
+      const lng = location.lon || location.lng;
+      
+      if (!lat || !lng || lat === 0 || lng === 0) {
+        console.log(`[LOCATION-PARSE] ❌ Invalid coordinates in object: lat=${lat}, lng=${lng}`);
+        return undefined; // Don't return location if coordinates are missing or zero
+      }
+      
+      console.log(`[LOCATION-PARSE] ✅ Valid location from object: ${location.city} (${lat}, ${lng})`);
+      
       // NEW standardized format
       if (location.placeId) {
         return {
-          lat: location.lat || 0,
-          lng: location.lon || location.lng || 0, // Support both lon and lng
+          lat,
+          lng,
           city: location.city || "Unknown",
           placeId: location.placeId,
         };
@@ -450,12 +507,13 @@ export class RecommendationService extends BaseService {
       
       // Legacy format
       return {
-        lat: location.lat || 0,
-        lng: location.lng || location.lon || 0, // Support both lng and lon
+        lat,
+        lng,
         city: location.city || "Unknown",
       };
     }
 
+    console.log('[LOCATION-PARSE] ❌ Unknown location type');
     return undefined;
   }
 

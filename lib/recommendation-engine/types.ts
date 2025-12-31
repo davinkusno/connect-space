@@ -6,36 +6,10 @@ export interface User {
     lng: number 
     city: string
     country?: string
-    placeId?: string // NEW: OpenStreetMap place_id for precise matching
+    placeId?: string
   }
-  demographics?: {
-    age?: number
-    profession?: string
-    education?: string
-  }
-  activityLevel: "low" | "medium" | "high"
   joinedCommunities: string[]
   attendedEvents: string[]
-  interactions: UserInteraction[]
-  preferences: UserPreferences
-}
-
-export interface UserInteraction {
-  type: "view" | "like" | "comment" | "share" | "join" | "leave"
-  targetId: string
-  targetType: "community" | "event" | "post" | "user"
-  timestamp: Date
-  duration?: number
-  rating?: number
-}
-
-export interface UserPreferences {
-  preferredCategories: string[]
-  maxDistance?: number
-  communitySize?: "small" | "medium" | "large" | "any"
-  activityFrequency?: "daily" | "weekly" | "monthly" | "occasional"
-  contentTypes?: string[]
-  languagePreferences?: string[]
 }
 
 export interface Community {
@@ -45,24 +19,15 @@ export interface Community {
   category: string
   tags: string[]
   memberCount: number
-  activityLevel: "low" | "medium" | "high"
   location?: {
     lat: number
-    lng: number // Keep for backwards compatibility
+    lng: number
     city: string
-    country?: string // Make optional for migration
-    placeId?: string // NEW: OpenStreetMap place_id for precise matching
+    country?: string
+    placeId?: string
   }
   createdAt: Date
-  lastActivity: Date
-  growthRate: number
-  engagementScore: number
   contentTopics: string[]
-  memberDemographics: {
-    ageGroups: Record<string, number>
-    professions: Record<string, number>
-    locations: Record<string, number>
-  }
 }
 
 export interface RecommendationScore {
@@ -74,13 +39,7 @@ export interface RecommendationScore {
 }
 
 export interface RecommendationReason {
-  type:
-    | "interest_match"
-    | "location_proximity"
-    | "similar_users"
-    | "popularity"
-    | "activity_match"
-    | "demographic_match"
+  type: "interest_match" | "location_proximity"
   description: string
   weight: number
   evidence: any
@@ -90,21 +49,12 @@ export interface RecommendationResult {
   recommendations: RecommendationScore[]
   metadata: {
     totalCommunities: number
-    algorithmsUsed: string[]
     processingTime: number
-    diversityScore: number
   }
 }
 
 export interface RecommendationOptions {
   maxRecommendations?: number
-  includePopular?: boolean
-  diversityWeight?: number
-  algorithmWeights?: {
-    collaborative?: number
-    contentBased?: number
-    popularity?: number
-  }
 }
 
 // Event Recommendation Types
@@ -144,14 +94,7 @@ export interface EventRecommendationScore {
 }
 
 export interface EventRecommendationReason {
-  type:
-    | "interest_match"
-    | "community_member"
-    | "location_proximity"
-    | "similar_users"
-    | "popularity"
-    | "timing"
-    | "social_connection"
+  type: "interest_match" | "community_member" | "location_proximity"
   description: string
   weight: number
   evidence: any
@@ -161,23 +104,13 @@ export interface EventRecommendationResult {
   recommendations: EventRecommendationScore[]
   metadata: {
     totalEvents: number
-    algorithmsUsed: string[]
     processingTime: number
-    diversityScore: number
   }
 }
 
 export interface EventRecommendationOptions {
   maxRecommendations?: number
-  includePopular?: boolean
-  diversityWeight?: number
   dateRangeFilter?: "all" | "today" | "week" | "month"
   includeOnlineOnly?: boolean
   includeInPersonOnly?: boolean
-  algorithmWeights?: {
-    collaborative?: number
-    contentBased?: number
-    popularity?: number
-    community?: number
-  }
 }
