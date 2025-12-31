@@ -41,27 +41,12 @@ export function LoginForm() {
       if (error) {
         setError(error.message);
       } else {
-        // Get user and role, then redirect accordingly
-        const { data: { user } } = await supabase.auth.getUser();
+        // Get user info from API
+        const response = await fetch("/api/user/me");
         
-        if (user) {
-          const { data: userData } = await supabase
-            .from("users")
-            .select("user_type")
-            .eq("id", user.id)
-            .single();
-
-          const userType = userData?.user_type;
-
-          // Check if user is admin of any community
-          const { data: adminCommunities } = await supabase
-            .from("community_members")
-            .select("community_id")
-            .eq("user_id", user.id)
-            .eq("role", "admin")
-            .limit(1);
-
-          const isAdminOfAnyCommunity = adminCommunities && adminCommunities.length > 0;
+        if (response.ok) {
+          const userInfo = await response.json();
+          const userType = userInfo.user_type;
 
           // Redirect based on role
           if (userType === "super_admin") {

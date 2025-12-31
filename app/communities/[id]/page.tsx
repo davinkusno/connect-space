@@ -286,15 +286,14 @@ export default function CommunityPage({
   useEffect(() => {
     const fetchCreatorIfNeeded = async () => {
       if (community?.creator_id && !creatorData) {
-        const supabase = getSupabaseBrowser();
-        const { data: creatorInfo, error: creatorError } = await supabase
-          .from("users")
-          .select("id, username, full_name, avatar_url")
-          .eq("id", community.creator_id)
-          .single();
-
-        if (!creatorError && creatorInfo) {
-          setCreatorData(creatorInfo);
+        try {
+          const response = await fetch(`/api/user/${community.creator_id}`);
+          if (response.ok) {
+            const creatorInfo = await response.json();
+            setCreatorData(creatorInfo);
+          }
+        } catch (error) {
+          console.error("Error fetching creator:", error);
         }
       }
     };
@@ -485,38 +484,32 @@ export default function CommunityPage({
           break;
 
         case "events":
-          // Load upcoming and past events separately
-          const now = new Date().toISOString();
+          // Load upcoming and past events using API
+          try {
+            const [upcomingResponse, pastResponse] = await Promise.all([
+              fetch(`/api/communities/${id}/events?type=upcoming`),
+              fetch(`/api/communities/${id}/events?type=past`)
+            ]);
 
-          // Fetch upcoming events
-          const { data: upcomingEventsData, error: upcomingError } =
-            await supabase
-              .from("events")
-              .select("*")
-              .eq("community_id", id)
-              .gte("start_time", now)
-              .order("start_time", { ascending: true });
+            if (upcomingResponse.ok) {
+              const upcomingEventsData = await upcomingResponse.json();
+              setUpcomingEvents(upcomingEventsData || []);
+            } else {
+              console.error("Error fetching upcoming events");
+              toast.error("Failed to load upcoming events");
+            }
 
-          if (upcomingError) {
-            console.error("Error fetching upcoming events:", upcomingError);
-            toast.error("Failed to load upcoming events");
+            if (pastResponse.ok) {
+              const pastEventsData = await pastResponse.json();
+              setPastEvents(pastEventsData || []);
+            } else {
+              console.error("Error fetching past events");
+              toast.error("Failed to load past events");
+            }
+          } catch (error) {
+            console.error("Error loading events:", error);
+            toast.error("Failed to load events");
           }
-
-          // Fetch past events (all past events, not just recent)
-          const { data: pastEventsData, error: pastError } = await supabase
-            .from("events")
-            .select("*")
-            .eq("community_id", id)
-            .lt("start_time", now)
-            .order("start_time", { ascending: false });
-
-          if (pastError) {
-            console.error("Error fetching past events:", pastError);
-            toast.error("Failed to load past events");
-          }
-
-          setUpcomingEvents(upcomingEventsData || []);
-          setPastEvents(pastEventsData || []);
           break;
 
         case "members":
@@ -817,22 +810,15 @@ export default function CommunityPage({
 
     try {
       setIsJoining(true);
-      const supabase = getSupabaseBrowser();
 
-      if (!supabase) {
-        throw new Error("Failed to initialize Supabase client");
-      }
+      // Call API to leave community
+      const response = await fetch(`/api/communities/${id}/leave`, {
+        method: "POST",
+      });
 
-      // Delete from community_members table
-      const { error } = await supabase
-        .from("community_members")
-        .delete()
-        .eq("community_id", id)
-        .eq("user_id", currentUser.id);
-
-      if (error) {
-        console.error("Error leaving community:", error);
-        throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to leave community");
       }
 
       // Update local state

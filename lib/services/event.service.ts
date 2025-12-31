@@ -1318,12 +1318,6 @@ export class EventService extends BaseService {
       return ApiResponse.error("You don't have permission to delete this event", 403);
     }
 
-    // Delete related posts first (as safety measure, even if cascade is set)
-    await this.supabaseAdmin
-      .from("posts")
-      .delete()
-      .eq("event_id", eventId);
-
     // Delete event (cascade will handle related records like event_attendees)
     const { error: deleteError } = await this.supabaseAdmin
       .from("events")
@@ -1491,6 +1485,72 @@ export class EventService extends BaseService {
     } catch (error: any) {
       console.error("Error fetching user events:", error);
       return ApiResponse.error("Failed to fetch user events", 500);
+    }
+  }
+
+  /**
+   * Get events for a community
+   * @param communityId - The community ID
+   * @param options - Query options (upcoming/past)
+   * @returns ServiceResult containing events
+   */
+  public async getCommunityEvents(
+    communityId: string,
+    options?: { type?: 'upcoming' | 'past' }
+  ): Promise<ServiceResult<EventData[]>> {
+    try {
+      let query = this.supabaseAdmin
+        .from("events")
+        .select("*")
+        .eq("community_id", communityId);
+
+      const now = new Date().toISOString();
+
+      if (options?.type === 'upcoming') {
+        query = query.gte("start_time", now).order("start_time", { ascending: true });
+      } else if (options?.type === 'past') {
+        query = query.lt("start_time", now).order("start_time", { ascending: false });
+      } else {
+        query = query.order("start_time", { ascending: true });
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching community events:", error);
+        return ApiResponse.error("Failed to fetch community events");
+      }
+
+      return ApiResponse.success(data as EventData[]);
+    } catch (error: any) {
+      console.error("Error fetching community events:", error);
+      return ApiResponse.error("Failed to fetch community events", 500);
+    }
+  }
+
+  /**
+   * Get event count for a community
+   * @param communityId - The community ID
+   * @returns ServiceResult containing event count
+   */
+  public async getCommunityEventCount(
+    communityId: string
+  ): Promise<ServiceResult<{ count: number }>> {
+    try {
+      const { count, error } = await this.supabaseAdmin
+        .from("events")
+        .select("*", { count: "exact", head: true })
+        .eq("community_id", communityId);
+
+      if (error) {
+        console.error("Error fetching event count:", error);
+        return ApiResponse.error("Failed to fetch event count");
+      }
+
+      return ApiResponse.success({ count: count || 0 });
+    } catch (error: any) {
+      console.error("Error fetching event count:", error);
+      return ApiResponse.error("Failed to fetch event count", 500);
     }
   }
 }

@@ -578,6 +578,63 @@ export class EventController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * GET /api/communities/[id]/events
+   * Get events for a community
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @returns NextResponse with community events
+   */
+  public async getCommunityEvents(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<unknown[] | ApiErrorResponse>> {
+    try {
+      const { searchParams } = new URL(request.url);
+      const type = searchParams.get("type") as 'upcoming' | 'past' | null;
+
+      const result = await this.service.getCommunityEvents(communityId, { type: type || undefined });
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(
+        result.error?.message || "Failed to fetch community events",
+        result.status
+      );
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/communities/[id]/events-count
+   * Get event count for a community
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @returns NextResponse with event count
+   */
+  public async getCommunityEventCount(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<{ count: number } | ApiErrorResponse>> {
+    try {
+      const result = await this.service.getCommunityEventCount(communityId);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(
+        result.error?.message || "Failed to fetch event count",
+        result.status
+      );
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

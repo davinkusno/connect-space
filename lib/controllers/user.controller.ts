@@ -596,6 +596,76 @@ export class UserController extends BaseController {
     }
   }
 
+  /**
+   * GET /api/user/me
+   * Get current user info with admin status
+   * @param request - The incoming request
+   * @returns NextResponse with current user info
+   */
+  public async getCurrentUserInfo(
+    request: NextRequest
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      const result = await this.service.getCurrentUserInfo(user.id);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to get user info", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/user/profile
+   * Get current user profile
+   * @param request - The incoming request
+   * @returns NextResponse with user profile
+   */
+  public async getCurrentUserProfile(
+    request: NextRequest
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      const result = await this.service.getCurrentUserProfile(user.id);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to get user profile", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * GET /api/user/[id]
+   * Get user info by ID
+   * @param request - The incoming request
+   * @param userId - The user ID
+   * @returns NextResponse with user info
+   */
+  public async getUserById(
+    request: NextRequest,
+    userId: string
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      const result = await this.service.getById(userId);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to get user info", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
   // ==================== Superadmin Methods ====================
 
   /**

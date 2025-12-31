@@ -189,12 +189,18 @@ export default function ProfilePage() {
                         "email";
         setAuthProvider(provider);
 
-        // Fetch user profile data from users table (not user_metadata)
-        const { data: userProfile, error: profileError } = await supabase
-          .from("users")
-          .select("full_name, username, interests, location, avatar_url")
-          .eq("id", session.user.id)
-          .single();
+        // Fetch user profile data from API
+        const profileResponse = await fetch("/api/user/profile");
+        if (profileResponse.ok) {
+          const userProfile = await profileResponse.json();
+          setFormData({
+            fullName: userProfile.full_name || "",
+            username: userProfile.username || "",
+            interests: userProfile.interests || [],
+            location: userProfile.location || "",
+          });
+          setProfileAvatarUrl(userProfile.avatar_url || null);
+        }
         
         // Handle profile error gracefully
         if (profileError) {
@@ -828,11 +834,8 @@ export default function ProfilePage() {
       }
 
       // Also fetch from users table to get the saved avatar_url (prioritize over user_metadata)
-      const { data: userProfile } = await supabase
-        .from("users")
-        .select("avatar_url")
-        .eq("id", user.id)
-        .single();
+      const profileResponse = await fetch("/api/user/profile");
+      const userProfile = profileResponse.ok ? await profileResponse.json() : null;
 
       if (newSession?.user) {
         // Prioritize avatar_url from users table (custom avatar) over user_metadata (Google OAuth might override)
@@ -922,11 +925,8 @@ export default function ProfilePage() {
       }
 
       // Also fetch from users table to get the saved avatar_url (prioritize over user_metadata)
-      const { data: userProfile } = await supabase
-        .from("users")
-        .select("avatar_url")
-        .eq("id", user.id)
-        .single();
+      const profileResponse = await fetch("/api/user/profile");
+      const userProfile = profileResponse.ok ? await profileResponse.json() : null;
 
       if (newSession?.user) {
         // Prioritize avatar_url from users table (custom avatar) over user_metadata (Google OAuth might override)

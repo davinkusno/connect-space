@@ -1,6 +1,18 @@
 import { userController } from "@/lib/controllers";
 import { NextRequest, NextResponse } from "next/server";
 
+export async function GET(request: NextRequest) {
+  try {
+    return await userController.getCurrentUserProfile(request);
+  } catch (error) {
+    console.error("[API Route] Error in GET /api/user/profile:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(request: NextRequest) {
   console.log("[API Route] PATCH /api/user/profile called at", new Date().toISOString());
   try {

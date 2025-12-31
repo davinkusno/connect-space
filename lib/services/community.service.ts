@@ -2296,6 +2296,46 @@ export class CommunityService extends BaseService {
       recentEvents: recentEvents || [],
     });
   }
+
+  /**
+   * Leave a community
+   * @param userId - The user ID leaving the community
+   * @param communityId - The community ID
+   * @returns ServiceResult with success message
+   */
+  public async leaveCommunity(
+    userId: string,
+    communityId: string
+  ): Promise<ServiceResult<{ message: string }>> {
+    // Check if the user is the creator of the community
+    const { data: community, error: communityError } = await this.supabaseAdmin
+      .from("communities")
+      .select("creator_id")
+      .eq("id", communityId)
+      .single();
+
+    if (communityError || !community) {
+      return ApiResponse.notFound("Community");
+    }
+
+    if (community.creator_id === userId) {
+      return ApiResponse.badRequest("Community creators cannot leave their own community");
+    }
+
+    // Remove membership
+    const { error } = await this.supabaseAdmin
+      .from("community_members")
+      .delete()
+      .eq("community_id", communityId)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error leaving community:", error);
+      return ApiResponse.error(error.message || "Failed to leave community");
+    }
+
+    return ApiResponse.success({ message: "Successfully left community" });
+  }
 }
 
 // Export singleton instance

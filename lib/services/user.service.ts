@@ -574,6 +574,74 @@ export class UserService extends BaseService {
 
     return ApiResponse.success(stats);
   }
+
+  /**
+   * Get current user profile with additional info
+   * @param userId - The user ID
+   * @returns ServiceResult containing user profile with admin status
+   */
+  public async getCurrentUserInfo(userId: string): Promise<ServiceResult<{
+    id: string;
+    email: string;
+    full_name?: string;
+    avatar_url?: string;
+    user_type?: UserType;
+    bio?: string;
+    location?: string;
+    interests?: string[];
+    created_at?: string;
+    isAdmin: boolean;
+    adminCommunities: Array<{ community_id: string }>;
+  }>> {
+    // Fetch user info
+    const { data: userInfo, error } = await this.supabaseAdmin
+      .from("users")
+      .select("id, email, full_name, avatar_url, user_type, bio, location, interests, created_at")
+      .eq("id", userId)
+      .single();
+
+    if (error || !userInfo) {
+      return ApiResponse.notFound("User");
+    }
+
+    // Check if user is admin of any community
+    const { data: adminCommunities, error: adminError } = await this.supabaseAdmin
+      .from("community_members")
+      .select("community_id")
+      .eq("user_id", userId)
+      .eq("role", "admin");
+
+    if (adminError) {
+      console.error("Error checking admin status:", adminError);
+    }
+
+    const isAdmin = adminCommunities && adminCommunities.length > 0;
+
+    return ApiResponse.success({
+      ...userInfo,
+      isAdmin,
+      adminCommunities: adminCommunities || [],
+    });
+  }
+
+  /**
+   * Get current user profile (authenticated)
+   * @param userId - The user ID
+   * @returns ServiceResult containing user profile
+   */
+  public async getCurrentUserProfile(userId: string): Promise<ServiceResult<UserProfile>> {
+    const { data, error } = await this.supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error || !data) {
+      return ApiResponse.notFound("User");
+    }
+
+    return ApiResponse.success<UserProfile>(data as UserProfile);
+  }
 }
 
 // Export singleton instance

@@ -1381,6 +1381,31 @@ export class CommunityController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * POST /api/communities/[id]/leave
+   * Leave a community
+   * @param request - The incoming request
+   * @param communityId - The community ID
+   * @returns NextResponse with success message
+   */
+  public async leaveCommunity(
+    request: NextRequest,
+    communityId: string
+  ): Promise<NextResponse<{ success: boolean; message: string } | ApiErrorResponse>> {
+    try {
+      const user: User = await this.requireAuth();
+      const result = await this.service.leaveCommunity(user.id, communityId);
+
+      if (result.success) {
+        return this.json({ success: true, ...result.data! }, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to leave community", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance
