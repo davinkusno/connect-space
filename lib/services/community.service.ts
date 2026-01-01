@@ -2298,6 +2298,31 @@ export class CommunityService extends BaseService {
   }
 
   /**
+   * Check if a user can create communities (not banned)
+   * @param userId - The user ID to check
+   * @returns ServiceResult with boolean indicating if user can create
+   */
+  public async checkUserCanCreateCommunity(
+    userId: string
+  ): Promise<ServiceResult<boolean>> {
+    const { data: userData, error: userError } = await this.supabaseAdmin
+      .from("users")
+      .select("can_create_communities")
+      .eq("id", userId)
+      .single();
+
+    if (userError) {
+      return ApiResponse.error("Failed to verify user permissions", 500);
+    }
+
+    // If can_create_communities is explicitly false, user is banned
+    // If null or undefined, treat as allowed (default)
+    const canCreate = userData?.can_create_communities !== false;
+    
+    return ApiResponse.success(canCreate);
+  }
+
+  /**
    * Leave a community
    * @param userId - The user ID leaving the community
    * @param communityId - The community ID

@@ -2064,7 +2064,7 @@ export default function DashboardPage() {
                         <Link href="/communities/create">
                           <Button
                             size="sm"
-                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                            className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300"
                           >
                             <Plus className="h-4 w-4 mr-2" />
                             Create Community
@@ -2073,7 +2073,7 @@ export default function DashboardPage() {
                       ) : (
                         <Button
                           size="sm"
-                          className="bg-purple-600 hover:bg-purple-700 text-white"
+                          className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300"
                           onClick={() => setShowPointsDialog(true)}
                         >
                           <Plus className="h-4 w-4 mr-2" />
@@ -2113,7 +2113,7 @@ export default function DashboardPage() {
                           </Link>
                         ) : (
                           <Button
-                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                            className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300"
                             onClick={() => setShowPointsDialog(true)}
                           >
                             <Plus className="h-4 w-4 mr-2" />

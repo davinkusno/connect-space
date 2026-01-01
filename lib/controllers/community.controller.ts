@@ -668,18 +668,14 @@ export class CommunityController extends BaseController {
     try {
       const user: User = await this.requireAuth();
 
-      // Check if user is banned from creating communities
-      const { data: userData, error: userError } = await this.supabaseAdmin
-        .from("users")
-        .select("can_create_communities")
-        .eq("id", user.id)
-        .single();
-
-      if (userError) {
-        return this.error("Failed to verify user permissions", 500);
+      // Check if user is banned from creating communities via service
+      const banCheckResult = await this.service.checkUserCanCreateCommunity(user.id);
+      
+      if (!banCheckResult.success) {
+        return this.error(banCheckResult.error?.message || "Failed to verify user permissions", banCheckResult.status);
       }
-
-      if (userData && userData.can_create_communities === false) {
+      
+      if (!banCheckResult.data) {
         return this.error(
           "You have been banned from creating communities due to previous violations. Please contact support if you believe this is an error.",
           403,
