@@ -1565,7 +1565,7 @@ export default function DashboardPage() {
                               href={`/events/${selectedEvent.id}`}
                               className="w-full"
                             >
-                              <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white">
+                              <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
                                 View Full Details
                               </Button>
                             </Link>
@@ -2106,7 +2106,7 @@ export default function DashboardPage() {
                         </p>
                         {canCreateCommunity ? (
                           <Link href="/communities/create">
-                            <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                            <Button className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
                               <Plus className="h-4 w-4 mr-2" />
                               Create Your First Community
                             </Button>
@@ -2222,7 +2222,7 @@ export default function DashboardPage() {
                                       href={`/communities/${community.id}/admin`}
                                       className="flex-1"
                                     >
-                                      <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                                      <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
                                         Manage
                                       </Button>
                                     </Link>
@@ -2296,7 +2296,7 @@ export default function DashboardPage() {
                           Join communities to connect with like-minded people
                         </p>
                         <Link href="/communities">
-                          <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                          <Button className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
                             <Compass className="h-4 w-4 mr-2" />
                             Discover Communities
                           </Button>
@@ -2390,7 +2390,7 @@ export default function DashboardPage() {
                                           href={`/communities/${community.id}/admin`}
                                           className="flex-1"
                                         >
-                                          <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                                          <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
                                             Manage
                                           </Button>
                                         </Link>
@@ -2465,7 +2465,7 @@ export default function DashboardPage() {
                           Visit the store to get your first badge!
                         </p>
                         <Link href="/store">
-                          <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                          <Button className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
                             <Star className="h-4 w-4 mr-2" />
                             Browse Badges
                           </Button>

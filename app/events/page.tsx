@@ -751,7 +751,7 @@ export default function EventsPage() {
           {/* Action Button */}
           <div className="mt-auto">
             <Link href={`/events/${event.id}`} className="block">
-              <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+              <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300 transform hover:-translate-y-0.5">
                 View Event
               </Button>
             </Link>

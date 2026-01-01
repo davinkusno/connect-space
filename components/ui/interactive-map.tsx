@@ -423,7 +423,7 @@ export function InteractiveMap({
                       ))}
                     </div>
                     <HoverScale>
-                      <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white">
+                      <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
                         View Community
                         <ChevronRight className="h-4 w-4 ml-2" />
                       </Button>

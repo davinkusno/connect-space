@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { FloatingElements } from "@/components/ui/floating-elements";
+import { PageTransition } from "@/components/ui/page-transition";
 import { getClientSession, getSupabaseBrowser } from "@/lib/supabase/client";
 import { getMediaTypeCategory } from "@/lib/config/media-upload.config";
 import {
@@ -1038,9 +1040,11 @@ export default function CommunityPage({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
-      {/* Hero Section with Profile Picture as Blurred Background */}
-      <div className="relative h-72 overflow-hidden bg-gradient-to-br from-violet-600 to-blue-600">
+    <PageTransition>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative">
+        <FloatingElements />
+        {/* Hero Section with Profile Picture as Blurred Background */}
+        <div className="relative h-72 overflow-hidden bg-gradient-to-br from-violet-600 to-blue-600 z-10">
         {community.logo_url && (
           <>
             <Image
@@ -2919,6 +2923,7 @@ export default function CommunityPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </PageTransition>
   );
 }

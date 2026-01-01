@@ -282,7 +282,7 @@ export function MemberAchievements({ memberId, isCurrentUser = false }: MemberAc
             </div>
             {isCurrentUser && (
               <Link href="/store">
-                <Button className="bg-violet-700 hover:bg-violet-800 text-white">
+                <Button className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
                   <Gift className="h-4 w-4 mr-2" />
                   Visit Store
                 </Button>

@@ -3,6 +3,8 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { FloatingElements } from "@/components/ui/floating-elements"
+import { PageTransition } from "@/components/ui/page-transition"
 import { Building2, Users, Calendar, MessageSquare, Shield } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -73,7 +75,10 @@ export default function CommunityAdminSelectorPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <PageTransition>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative">
+          <FloatingElements />
+          <div className="container mx-auto px-4 py-8 max-w-6xl relative z-10">
         <div className="mb-8">
           <Skeleton className="h-10 w-64 mb-2" />
           <Skeleton className="h-6 w-96" />
@@ -83,13 +88,17 @@ export default function CommunityAdminSelectorPage() {
             <Skeleton key={i} className="h-64" />
           ))}
         </div>
-      </div>
+        </div>
+      </PageTransition>
     )
   }
 
   if (communities.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <PageTransition>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative">
+          <FloatingElements />
+          <div className="container mx-auto px-4 py-8 max-w-6xl relative z-10">
         <div className="text-center py-12">
           <Building2 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold mb-2">No Communities Found</h2>
@@ -100,12 +109,16 @@ export default function CommunityAdminSelectorPage() {
             Explore Communities
           </Button>
         </div>
-      </div>
+        </div>
+      </PageTransition>
     )
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <PageTransition>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative">
+        <FloatingElements />
+        <div className="container mx-auto px-4 py-8 max-w-6xl relative z-10">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Community Management</h1>
@@ -237,6 +250,8 @@ export default function CommunityAdminSelectorPage() {
           </Button>
         </CardContent>
       </Card>
-    </div>
+      </div>
+      </div>
+    </PageTransition>
   )
 }

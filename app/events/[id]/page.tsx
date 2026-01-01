@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/card";
 import { InteractiveLeafletMap } from "@/components/ui/interactive-leaflet-map";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FloatingElements } from "@/components/ui/floating-elements";
+import { PageTransition } from "@/components/ui/page-transition";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -882,9 +884,11 @@ export default function EventDetailsPage({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
-      {/* Back Button */}
-      <div className="bg-white border-b">
+    <PageTransition>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative">
+        <FloatingElements />
+        {/* Back Button */}
+        <div className="bg-white border-b relative z-10">
         <div className="max-w-6xl mx-auto px-4 py-3">
           {fromCommunityAdmin ? (
             <Link href={communityId ? `/communities/${communityId}/admin/events` : "/communities/admin"}>
@@ -1371,7 +1375,7 @@ export default function EventDetailsPage({
                                 </div>
 
                                 <Button
-                                  className="w-full bg-violet-600 hover:bg-violet-700"
+                                  className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300"
                                   asChild
                                 >
                                   <a href={`/events/${relatedEvent.id}`}>
@@ -1663,6 +1667,7 @@ export default function EventDetailsPage({
         reportTargetId={event.id}
         reportTargetName={event.title}
       />
-    </div>
+      </div>
+    </PageTransition>
   );
 }

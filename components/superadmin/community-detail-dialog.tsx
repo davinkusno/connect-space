@@ -333,7 +333,7 @@ export function CommunityDetailDialog({
                       the full community page.
                     </p>
                     <Link href={`/communities/${community.id}`} target="_blank">
-                      <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <Button className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300">
                         <ExternalLink className="w-4 h-4 mr-2" />
                         View Full Community Page
                       </Button>
