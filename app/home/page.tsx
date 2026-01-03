@@ -72,7 +72,6 @@ interface Community {
   role?: "admin" | "moderator" | "member";
   status?: "pending" | "approved" | "rejected" | "banned" | null;
   member_count?: number;
-  members?: number;
   upcomingEvents?: number;
   isCreator?: boolean;
   isAdmin?: boolean; // For co-admins who were appointed
@@ -643,7 +642,7 @@ export default function DashboardPage() {
       id: 1,
       name: "Tech Innovators",
       role: "Member",
-      members: 1247,
+      member_count: 1247,
       unreadMessages: 5,
       lastActivity: "2 hours ago",
       image: "/placeholder.svg?height=60&width=60",
@@ -660,7 +659,7 @@ export default function DashboardPage() {
       id: 2,
       name: "Outdoor Adventures",
       role: "Moderator",
-      members: 892,
+      member_count: 892,
       unreadMessages: 12,
       lastActivity: "1 hour ago",
       image: "/placeholder.svg?height=60&width=60",
@@ -677,7 +676,7 @@ export default function DashboardPage() {
       id: 3,
       name: "Creative Writers",
       role: "Admin",
-      members: 634,
+      member_count: 634,
       unreadMessages: 3,
       lastActivity: "30 minutes ago",
       image: "/placeholder.svg?height=60&width=60",
@@ -2190,10 +2189,7 @@ export default function DashboardPage() {
                                     <div className="flex items-center gap-2 text-sm text-gray-600">
                                       <Users className="h-4 w-4" />
                                       <span>
-                                        {community.member_count ||
-                                          community.members ||
-                                          0}{" "}
-                                        members
+                                        {community.member_count || 0} members
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm text-gray-600">

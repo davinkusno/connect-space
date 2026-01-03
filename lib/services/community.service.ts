@@ -766,15 +766,8 @@ export class CommunityService extends BaseService {
       return ApiResponse.forbidden("Cannot remove the community creator");
     }
 
-    // If the requester is a co-admin (not creator), they cannot remove members
-    // Only creator can remove members
-    const isRequesterCreator: boolean = await this.isCreator(
-      memberRecord.community_id,
-      adminUserId
-    );
-    if (!isRequesterCreator) {
-      return ApiResponse.forbidden("Only the community creator can remove members");
-    }
+    // Both creator and admins can remove members (but cannot remove the creator)
+    // This check was already done above when we verified isAdminOrCreator
 
     // Remove the member
     const { error: deleteError } = await this.supabaseAdmin
@@ -1602,13 +1595,12 @@ export class CommunityService extends BaseService {
 
     // Get counts in parallel
     const [memberCountResult, eventCountResult, membershipResult] = await Promise.all([
-      // Member count - only count "member" role, exclude creator, admin, moderator
+      // Member count - ALL approved members (member, admin, moderator), excluding only creator
       this.supabaseAdmin
         .from("community_members")
-        .select("user_id, role")
+        .select("user_id")
         .eq("community_id", communityId)
-        .eq("status", "approved")
-        .eq("role", "member"),
+        .eq("status", "approved"),
       
       // Event count
       this.supabaseAdmin
@@ -1998,10 +1990,10 @@ export class CommunityService extends BaseService {
         eventCounts[event.community_id] = (eventCounts[event.community_id] || 0) + 1;
       });
 
-      // Count members per community (excluding creators, admins, moderators)
+      // Count members per community (ALL approved members, excluding only creators)
       const memberCounts: Record<string, number> = {};
       memberCountsData.data?.forEach((member: any) => {
-        if (member.status === "approved" && member.role === "member") {
+        if (member.status === "approved") {
           const isCreator = creatorMap[member.community_id] === member.user_id;
           if (!isCreator) {
             memberCounts[member.community_id] = (memberCounts[member.community_id] || 0) + 1;
@@ -2360,6 +2352,112 @@ export class CommunityService extends BaseService {
     }
 
     return ApiResponse.success({ message: "Successfully left community" });
+  }
+
+  /**
+   * Get all communities with membership status for a user
+   * @param userId - The user ID (optional, for membership status)
+   * @param recommendedIds - Optional array of recommended community IDs to filter
+   * @returns ServiceResult containing communities with membership status
+   */
+  public async getCommunitiesWithMembershipStatus(
+    userId?: string,
+    recommendedIds?: string[]
+  ): Promise<ServiceResult<any>> {
+    const supabase = await this.getAuthClient();
+    
+    // Build query for communities
+    let query = supabase
+      .from("communities")
+      .select(
+        `
+        id,
+        name,
+        description,
+        category_id,
+        categories (
+          id,
+          name
+        ),
+        logo_url,
+        member_count,
+        created_at,
+        location,
+        creator_id,
+        status
+      `)
+      .or("status.is.null,status.eq.active");
+    
+    // If user is logged in and we have recommended IDs
+    if (userId && recommendedIds && recommendedIds.length > 0) {
+      // Fetch communities where user has pending requests
+      const { data: pendingMemberships } = await supabase
+        .from("community_members")
+        .select("community_id")
+        .eq("user_id", userId)
+        .eq("status", "pending");
+      
+      const pendingCommunityIds = pendingMemberships?.map((m: any) => m.community_id) || [];
+      
+      // Combine recommended IDs with pending community IDs
+      const allRelevantIds = [...new Set([...recommendedIds, ...pendingCommunityIds])];
+      
+      if (allRelevantIds.length > 0) {
+        query = query.in("id", allRelevantIds);
+      }
+    }
+    
+    // Fetch communities
+    const { data: communitiesData, error } = await query
+      .order("member_count", { ascending: false });
+    
+    if (error) {
+      return ApiResponse.error("Failed to fetch communities", 500);
+    }
+    
+    // Fetch membership status for current user
+    const membershipStatusMap: Record<string, "joined" | "pending" | "not_joined"> = {};
+    const pendingCommunityIds: string[] = [];
+    
+    // Initialize all as not_joined
+    (communitiesData || []).forEach((comm: any) => {
+      membershipStatusMap[comm.id] = "not_joined";
+    });
+    
+    if (userId) {
+      const communityIds = (communitiesData || []).map((c: any) => c.id);
+      if (communityIds.length > 0) {
+        // Check if user is creator first
+        (communitiesData || []).forEach((comm: any) => {
+          if (comm.creator_id === userId) {
+            membershipStatusMap[comm.id] = "joined";
+          }
+        });
+        
+        // Fetch membership status in a single query
+        const { data: memberships } = await supabase
+          .from("community_members")
+          .select("community_id, status")
+          .eq("user_id", userId)
+          .in("community_id", communityIds);
+
+        // Update based on memberships
+        memberships?.forEach((membership: any) => {
+          if (membership.status === "approved") {
+            membershipStatusMap[membership.community_id] = "joined";
+          } else if (membership.status === "pending") {
+            membershipStatusMap[membership.community_id] = "pending";
+            pendingCommunityIds.push(membership.community_id);
+          }
+        });
+      }
+    }
+    
+    return ApiResponse.success({
+      communities: communitiesData || [],
+      membershipStatus: membershipStatusMap,
+      pendingCommunityIds,
+    });
   }
 }
 

@@ -34,7 +34,7 @@ interface AdCarouselProps {
 export function AdCarousel({ 
   communityId, 
   autoRotateInterval = 5000,
-  adSubmissionFormUrl = process.env.NEXT_PUBLIC_AD_SUBMISSION_FORM_URL || "https://forms.gle/YOUR_FORM_ID" // Default from env or placeholder
+  adSubmissionFormUrl = "https://forms.gle/1j7A44grs6dngXx39"
 }: AdCarouselProps) {
   const [ads, setAds] = useState<Ad[]>([]);
   const [isLoading, setIsLoading] = useState(true);

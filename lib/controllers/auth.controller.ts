@@ -149,6 +149,31 @@ export class AuthController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * GET /api/auth/check-session
+   * Check if user has active session and get redirect URL
+   * @param request - The incoming request
+   * @returns NextResponse with session status and redirect URL
+   */
+  public async checkSession(
+    request: NextRequest
+  ): Promise<NextResponse<{ isAuthenticated: boolean; redirectUrl?: string } | ApiErrorResponse>> {
+    try {
+      const result = await this.service.checkSessionAndGetRedirect();
+
+      if (result.success) {
+        return this.json(result.data!, 200);
+      }
+
+      return this.error(
+        result.error?.message || "Failed to check session",
+        result.status || 500
+      );
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

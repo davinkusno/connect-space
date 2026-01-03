@@ -129,6 +129,7 @@ export default function DiscoverPage() {
                   lng: cached.lng,
                   city: cached.city,
                   country: cached.country,
+                  address: `${cached.city}, ${cached.country}`,
                 };
               }
               continue;
@@ -208,7 +209,7 @@ export default function DiscoverPage() {
     try {
       const supabase = getSupabaseBrowser();
       
-      // Get current user
+      // Get current user (Auth call - OK to keep in client)
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
       
@@ -221,101 +222,43 @@ export default function DiscoverPage() {
           if (response.ok) {
             const data = await response.json();
             recommendedIds = data.recommendedCommunityIds || [];
-            setRecommendedCommunityIds(recommendedIds); // Store in state for sorting
+            setRecommendedCommunityIds(recommendedIds);
             console.log("[COMMUNITIES PAGE] Received recommendations:", {
               count: recommendedIds.length,
               ids: recommendedIds.slice(0, 5),
               metadata: data.metadata,
             });
-            // Log top recommendations with scores
             if (data.recommendations && data.recommendations.length > 0) {
               console.log("[COMMUNITIES PAGE] Top 5 recommendation scores:");
               data.recommendations.slice(0, 5).forEach((rec: any, i: number) => {
                 console.log(`  ${i + 1}. ${rec.communityId}: score=${rec.score.toFixed(3)}, confidence=${rec.confidence.toFixed(3)}`);
               });
             }
-            
-            // Log the recommendedCommunityIds order
             console.log("[COMMUNITIES PAGE] Recommended IDs order:", recommendedIds.slice(0, 5));
           } else {
             console.error("[COMMUNITIES PAGE] Recommendations API error:", response.status);
           }
         } catch (error) {
           console.error("[COMMUNITIES PAGE] Error fetching recommendations:", error);
-          // Continue with all communities if recommendations fail
         }
       }
       
-      // Build query for communities
-      let query = supabase
-        .from("communities")
-        .select(
-          `
-          id,
-          name,
-          description,
-          category_id,
-          categories (
-            id,
-            name
-          ),
-          logo_url,
-          member_count,
-          created_at,
-          location,
-          creator_id,
-          status
-        `)
-        .or("status.is.null,status.eq.active");
+      // Fetch communities with membership status via API
+      const apiUrl = recommendedIds.length > 0
+        ? `/api/communities/list?recommendedIds=${recommendedIds.join(',')}`
+        : '/api/communities/list';
       
-      // If user is logged in, we need to include communities where they have pending requests
-      // even if they're not in recommendations
-      if (user) {
-        // Fetch communities where user has pending requests
-        const { data: pendingMemberships } = await supabase
-          .from("community_members")
-          .select("community_id")
-          .eq("user_id", user.id)
-          .eq("status", "pending");
-        
-        const pendingCommunityIds = pendingMemberships?.map((m: any) => m.community_id) || [];
-        
-        // Combine recommended IDs with pending community IDs
-        const allRelevantIds = [...new Set([...recommendedCommunityIds, ...pendingCommunityIds])];
-        
-        if (allRelevantIds.length > 0) {
-          console.log("[COMMUNITIES PAGE] Using combined filter (recommendations + pending):", allRelevantIds.length, "communities");
-          query = query.in("id", allRelevantIds);
-        } else if (recommendedCommunityIds.length === 0) {
-          // If user is logged in but has no recommendations and no pending requests, show all communities
-          console.log("[COMMUNITIES PAGE] No recommendations or pending requests, showing all communities");
-        }
-      } else {
-        // If user is not logged in, show all communities
-        console.log("[COMMUNITIES PAGE] User not logged in, showing all communities");
+      const communitiesResponse = await fetch(apiUrl);
+      if (!communitiesResponse.ok) {
+        console.error("Error fetching communities:", communitiesResponse.status);
+        toast.error("Failed to load communities");
+        return;
       }
       
-      // Apply ordering based on whether we have recommendations
-      if (user && recommendedCommunityIds.length > 0) {
-        // For recommended communities, fetch without ordering (we'll sort by recommendation order)
-        const { data: communitiesData, error } = await query;
-        
-        if (error) {
-          console.error("Error fetching communities:", error);
-          toast.error("Failed to load communities");
-          return;
-        }
-        
-        // Fetch pending community IDs for sorting
-        const { data: pendingMemberships } = await supabase
-          .from("community_members")
-          .select("community_id")
-          .eq("user_id", user.id)
-          .eq("status", "pending");
-        
-        const pendingCommunityIds = pendingMemberships?.map((m: any) => m.community_id) || [];
-        
-        // Sort communities: pending first, then by recommendation order
+      const { communities: communitiesData, membershipStatus: membershipStatusMap, pendingCommunityIds } = await communitiesResponse.json();
+      
+      // Sort communities if we have recommendations
+      if (user && recommendedIds.length > 0) {
         const sortedCommunities = (communitiesData || []).sort((a: any, b: any) => {
           const aIsPending = pendingCommunityIds.includes(a.id);
           const bIsPending = pendingCommunityIds.includes(b.id);
@@ -325,8 +268,8 @@ export default function DiscoverPage() {
           if (!aIsPending && bIsPending) return 1;
           
           // Then sort by recommendation order
-          const aIndex = recommendedCommunityIds.indexOf(a.id);
-          const bIndex = recommendedCommunityIds.indexOf(b.id);
+          const aIndex = recommendedIds.indexOf(a.id);
+          const bIndex = recommendedIds.indexOf(b.id);
           if (aIndex === -1 && bIndex === -1) return 0;
           if (aIndex === -1) return 1;
           if (bIndex === -1) return -1;
@@ -335,25 +278,15 @@ export default function DiscoverPage() {
         
         console.log("[COMMUNITIES PAGE] After sorting communities - top 5:");
         sortedCommunities.slice(0, 5).forEach((comm: any, i: number) => {
-          const recIndex = recommendedCommunityIds.indexOf(comm.id);
+          const recIndex = recommendedIds.indexOf(comm.id);
           console.log(`  ${i + 1}. ${comm.name} (ID: ${comm.id}), recommendationIndex: ${recIndex}`);
         });
         
         // Process the sorted communities
-        await processCommunitiesData(sortedCommunities, user, supabase);
+        processCommunitiesDataWithMembership(sortedCommunities, membershipStatusMap);
         return;
       } else {
-        // For non-recommended or non-logged-in users, order by member count
-        const { data: communitiesData, error } = await query
-          .order("member_count", { ascending: false });
-        
-        if (error) {
-          console.error("Error fetching communities:", error);
-          toast.error("Failed to load communities");
-          return;
-        }
-        
-        await processCommunitiesData(communitiesData, user, supabase, false);
+        processCommunitiesDataWithMembership(communitiesData, membershipStatusMap);
         return;
       }
     } catch (error) {
@@ -364,49 +297,11 @@ export default function DiscoverPage() {
     }
   };
 
-  // Helper function to process communities data
-  const processCommunitiesData = async (
+  // Helper function to process communities data with membership status
+  const processCommunitiesDataWithMembership = (
     communitiesData: any[],
-    user: any,
-    supabase: any,
-    shouldGeocode: boolean = false
+    membershipStatusMap: Record<string, "joined" | "pending" | "not_joined">
   ) => {
-    // Fetch membership status for current user in a single query
-    const membershipStatusMap: Record<string, "joined" | "pending" | "not_joined"> = {};
-    
-    // Initialize all as not_joined
-    (communitiesData || []).forEach((comm: any) => {
-      membershipStatusMap[comm.id] = "not_joined";
-    });
-    
-    if (user) {
-      const communityIds = (communitiesData || []).map((c: any) => c.id);
-      if (communityIds.length > 0) {
-        // Check if user is creator first
-        (communitiesData || []).forEach((comm: any) => {
-          if (comm.creator_id === user.id) {
-            membershipStatusMap[comm.id] = "joined";
-          }
-        });
-        
-        // Fetch membership status in a single query (no separate API call)
-        const { data: memberships } = await supabase
-          .from("community_members")
-          .select("community_id, status")
-          .eq("user_id", user.id)
-          .in("community_id", communityIds);
-
-        // Update based on memberships
-        (memberships || []).forEach((m: { community_id: string; status: string }) => {
-          if (m.status === "approved") {
-            membershipStatusMap[m.community_id] = "joined";
-          } else if (m.status === "pending") {
-            membershipStatusMap[m.community_id] = "pending";
-          }
-        });
-      }
-    }
-    
     setMembershipStatus(membershipStatusMap);
 
     // Transform database data to match Community interface
@@ -435,18 +330,11 @@ export default function DiscoverPage() {
                 lng: location.lng,
                 city: location.city || location.town || location.village || location.municipality || "",
                 country: location.country || "",
+                address: location.address || location.displayName || location.fullAddress || "",
               };
             } else if (location.city || location.town || location.village || location.municipality) {
-              // If we have city but no coordinates, try to geocode it
-              const cityName = location.city || location.town || location.village || location.municipality;
-              // We'll geocode this async after setting communities
-              parsedLocation = {
-                lat: 0,
-                lng: 0,
-                city: cityName,
-                country: location.country || "",
-                needsGeocoding: true, // Flag to indicate we need to geocode
-              } as any;
+              // If we have city but no coordinates, set undefined
+              parsedLocation = undefined;
             }
           }
 
@@ -485,130 +373,8 @@ export default function DiscoverPage() {
         }
       );
 
-    // Fetch event counts for each community
-    const communityIds = transformedCommunities.map((c) => c.id);
-    if (communityIds.length > 0) {
-      const { data: eventsData } = await supabase
-        .from("events")
-        .select("community_id")
-        .in("community_id", communityIds)
-        .gte("start_time", new Date().toISOString());
-
-      // Count events per community
-      const eventCounts: Record<string, number> = {};
-      (eventsData || []).forEach((event: any) => {
-        eventCounts[event.community_id] =
-          (eventCounts[event.community_id] || 0) + 1;
-      });
-
-      // Update event counts
-      transformedCommunities.forEach((comm) => {
-        comm.upcomingEvents = eventCounts[comm.id] || 0;
-      });
-    }
-
-    // Only geocode if explicitly requested (e.g., when in map view)
-    // Set communities first without geocoding to avoid blocking
+    // Set communities directly
     setCommunities(transformedCommunities);
-    
-    // Geocode only when requested and only for communities that need it
-    // This prevents unnecessary API calls when viewing grid/list
-    if (shouldGeocode) {
-      const communitiesToGeocode = transformedCommunities.filter(
-        (comm) => comm.location && (comm.location as any).needsGeocoding
-      );
-
-      if (communitiesToGeocode.length > 0) {
-        // Geocode sequentially with caching to avoid duplicate API calls
-        const geocodeSequentially = async () => {
-          const updatedCommunities = [...transformedCommunities];
-          
-          for (let i = 0; i < communitiesToGeocode.length; i++) {
-            const comm = communitiesToGeocode[i];
-            const cityName = comm.location?.city;
-            if (!cityName) continue;
-
-            // Check cache first
-            if (geocodeCache.current[cityName]) {
-              const cached = geocodeCache.current[cityName];
-              const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
-              if (commIndex !== -1) {
-                updatedCommunities[commIndex].location = {
-                  lat: cached.lat,
-                  lng: cached.lng,
-                  city: cached.city,
-                  country: cached.country,
-                };
-              }
-              continue;
-            }
-
-            // Add delay to respect Nominatim rate limits (1 request per second)
-            if (i > 0) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-
-            try {
-              const geocodeResponse = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&limit=1&addressdetails=1`,
-                {
-                  headers: {
-                    'User-Agent': 'ConnectSpace/1.0' // Required by Nominatim
-                  }
-                }
-              );
-
-              if (geocodeResponse.ok) {
-                const geocodeData = await geocodeResponse.json();
-                if (geocodeData && geocodeData.length > 0) {
-                  const result = geocodeData[0];
-                  const geocodedLocation = {
-                    lat: parseFloat(result.lat),
-                    lng: parseFloat(result.lon),
-                    city: comm.location?.city || result.address?.city || result.address?.town || result.address?.village || "",
-                    country: comm.location?.country || result.address?.country || "",
-                  };
-                  
-                  // Cache the result
-                  geocodeCache.current[cityName] = geocodedLocation;
-                  
-                  // Update all communities with the same city name
-                  updatedCommunities.forEach((c, idx) => {
-                    if (c.location && (c.location as any).needsGeocoding && c.location?.city === cityName) {
-                      updatedCommunities[idx].location = geocodedLocation;
-                    }
-                  });
-                } else {
-                  // Remove location if geocoding returns no results
-                  const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
-                  if (commIndex !== -1) {
-                    updatedCommunities[commIndex].location = undefined;
-                  }
-                }
-              } else {
-                const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
-                if (commIndex !== -1) {
-                  updatedCommunities[commIndex].location = undefined;
-                }
-              }
-            } catch (geocodeError) {
-              console.warn(`Geocoding failed for ${cityName}:`, geocodeError);
-              // Remove location if geocoding fails
-              const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
-              if (commIndex !== -1) {
-                updatedCommunities[commIndex].location = undefined;
-              }
-            }
-          }
-
-          // Update communities with geocoded locations
-          setCommunities(updatedCommunities);
-        };
-
-        // Run geocoding asynchronously without blocking
-        geocodeSequentially();
-      }
-    }
   };
 
   const filteredCommunities = useMemo(() => {

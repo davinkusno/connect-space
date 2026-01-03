@@ -291,12 +291,13 @@ export default function CommunityAdminPage({
           }
         }
 
-        // Get member count - only approved members
+        // Get member count - all approved members excluding creator
         const { data: allMembers, error: membersError } = await supabase
           .from("community_members")
-          .select("status")
+          .select("user_id")
           .eq("community_id", communityData.id)
-          .eq("status", "approved");
+          .eq("status", "approved")
+          .neq("user_id", communityData.creator_id);
 
         const memberCount = allMembers?.length || 0;
 

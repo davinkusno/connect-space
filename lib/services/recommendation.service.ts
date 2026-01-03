@@ -43,6 +43,8 @@ export class RecommendationService extends BaseService {
         return ApiResponse.error("Failed to fetch user data", 500);
       }
 
+      const user = userData.data;
+
       // Fetch all communities
       const communitiesResult = await this.fetchCommunities(userId);
       if (!communitiesResult.success || !communitiesResult.data) {
@@ -52,11 +54,123 @@ export class RecommendationService extends BaseService {
         );
       }
 
+      console.log('[COMMUNITY-RECS] User interests:', user.interests);
+      console.log('[COMMUNITY-RECS] User location:', user.location);
+      console.log('[COMMUNITY-RECS] Total communities fetched:', communitiesResult.data.length);
+
+      // PRE-FILTER 1: Category matching - same logic as events
+      const userInterests = user.interests.map(i => i.toLowerCase());
+      let filteredCommunities = communitiesResult.data.filter(community => {
+        // Always include if no interests set
+        if (userInterests.length === 0) return true;
+        
+        const communityCategory = community.category.toLowerCase();
+        
+        // Flexible matching: check for partial matches and individual words
+        const matches = userInterests.some(interest => {
+          // Direct substring match
+          if (communityCategory.includes(interest) || interest.includes(communityCategory)) {
+            return true;
+          }
+          
+          // Split by separators and check individual words
+          const interestWords = interest.split(/[\s&\-]+/).filter(w => w.length > 2);
+          const categoryWords = communityCategory.split(/[\s&\-]+/).filter(w => w.length > 2);
+          
+          return interestWords.some(iWord => 
+            categoryWords.some(cWord => 
+              cWord.includes(iWord) || iWord.includes(cWord)
+            )
+          );
+        });
+        
+        return matches;
+      });
+
+      console.log('[COMMUNITY-RECS] After category filter:', filteredCommunities.length, 'communities');
+
+      // PRE-FILTER 2: Location filtering - communities without location should be excluded if user has location
+      if (user.location) {
+        const beforeLocationFilter = filteredCommunities.length;
+        console.log('[COMMUNITY-RECS] User has location, filtering out communities without valid location data');
+        
+        filteredCommunities = filteredCommunities.filter(community => {
+          const hasValidLocation = community.location && 
+                                   community.location.lat && 
+                                   community.location.lng;
+          
+          if (!hasValidLocation) {
+            console.log(`[COMMUNITY-RECS] FILTERED OUT no location: "${community.name}"`);
+          }
+          
+          return hasValidLocation;
+        });
+        
+        console.log('[COMMUNITY-RECS] After location filter:', filteredCommunities.length, 'communities (was', beforeLocationFilter, ')');
+      } else {
+        console.log('[COMMUNITY-RECS] User has no location set, keeping all communities regardless of location');
+      }
+
+      // PRE-FILTER 3: Content quality filter
+      const beforeQualityFilter = filteredCommunities.length;
+      filteredCommunities = filteredCommunities.filter(community => {
+        const descLength = (community.description || '').trim().length;
+        const nameLength = (community.name || '').trim().length;
+        
+        // Minimum quality thresholds
+        const hasMinimumDescription = descLength >= 50; // At least 50 characters
+        const hasValidName = nameLength >= 5; // At least 5 characters
+        
+        // Calculate content richness
+        // Note: If user has location, all communities at this stage already have valid location (filtered in step 2)
+        const hasLocation = community.location && community.location.lat && community.location.lng;
+        const hasCategory = community.category && community.category !== 'general';
+        const hasMembers = community.memberCount && community.memberCount > 0;
+        
+        // For users WITH location: require desc + name (location already guaranteed)
+        // For users WITHOUT location: require desc + name + at least 2 of 3 quality indicators
+        let meetsQualityThreshold: boolean;
+        
+        if (user.location) {
+          // Location already filtered, just need good content
+          meetsQualityThreshold = hasMinimumDescription && hasValidName;
+        } else {
+          // No user location, so require 2 of 3 quality indicators
+          const qualityCount = [hasLocation, hasCategory, hasMembers].filter(Boolean).length;
+          meetsQualityThreshold = hasMinimumDescription && hasValidName && qualityCount >= 2;
+        }
+        
+        if (!meetsQualityThreshold) {
+          const qualityCount = [hasLocation, hasCategory, hasMembers].filter(Boolean).length;
+          console.log(`[COMMUNITY-RECS] FILTERED OUT low quality: "${community.name}" (desc: ${descLength} chars, quality: ${qualityCount}/3)`);
+        }
+        
+        return meetsQualityThreshold;
+      });
+      
+      console.log('[COMMUNITY-RECS] After quality filter:', filteredCommunities.length, 'communities (was', beforeQualityFilter, ')');
+
+      // Enrich descriptions for better TF-IDF scoring
+      const enrichedCommunities: Community[] = filteredCommunities.map(community => {
+        const enrichedDescription = [
+          community.name,
+          community.description,
+          community.category,
+          community.location?.city || '',
+          ...(community.tags || [])
+        ].filter(Boolean).join(' ');
+        
+        return {
+          ...community,
+          description: enrichedDescription,
+        };
+      });
+
       // Generate recommendations using content-based filtering
       const startTime = Date.now();
       const recommendations = await this.contentBasedEngine.generateRecommendations(
-        userData.data,
-        communitiesResult.data,
+        user,
+        enrichedCommunities,
         options?.maxRecommendations || 20
       );
       const processingTime = Date.now() - startTime;
@@ -187,18 +301,6 @@ export class RecommendationService extends BaseService {
       location: profile.location ? this.parseLocationData(profile.location) : undefined,
       joinedCommunities: memberships?.map((m) => m.community_id) || [],
       attendedEvents: attendances?.map((a) => a.event_id) || [],
-      interactions: interactions?.map((i) => ({
-        type: "join" as const, // All points are from joining communities
-        targetId: i.community_id || i.related_id, // Use community_id (fallback to related_id for migration period)
-        targetType: "community" as const,
-        timestamp: new Date(i.created_at),
-      })) || [],
-      preferences: {
-        preferredCategories: profile.interests || [],
-        communitySize: "any",
-        maxDistance: 50,
-      },
-      activityLevel: "medium",
     };
 
     return ApiResponse.success(user);

@@ -1711,7 +1711,6 @@ export default function CommunityPage({
                                               {isMember &&
                                                 currentUser &&
                                                 !isSuperAdmin &&
-                                                !isOwner &&
                                                 thread.sender_id !==
                                                   currentUser.id && (
                                                   <Button

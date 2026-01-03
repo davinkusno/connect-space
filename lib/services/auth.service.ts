@@ -208,6 +208,42 @@ export class AuthService extends BaseService {
   }
 
   /**
+   * Check if user has active session (for login page redirect)
+   */
+  public async checkSessionAndGetRedirect(): Promise<ServiceResult<{ isAuthenticated: boolean; redirectUrl?: string }>> {
+    const supabase = await this.getAuthClient();
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      return ApiResponse.success({ isAuthenticated: false });
+    }
+
+    // User is authenticated, get their status
+    const statusResult = await this.getUserStatus(session.user.id);
+    
+    if (!statusResult.success || !statusResult.data) {
+      return ApiResponse.success({ isAuthenticated: true, redirectUrl: "/" });
+    }
+
+    // Determine redirect
+    const redirect = this.determineRedirect(statusResult.data);
+    const paths: Record<RedirectDestination, string> = {
+      superadmin: "/superadmin",
+      home: "/home",
+      onboarding: "/onboarding",
+      "create-community": "/communities/create",
+      root: "/",
+      login: "/auth/login",
+    };
+
+    return ApiResponse.success({ 
+      isAuthenticated: true, 
+      redirectUrl: paths[redirect.destination] 
+    });
+  }
+
+  /**
    * Get user status for redirect determination
    */
   public async getUserStatus(userId: string): Promise<ServiceResult<UserStatus>> {

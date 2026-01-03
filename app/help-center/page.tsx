@@ -220,14 +220,10 @@ export default function HelpCenterPage() {
             onValueChange={setActiveTab}
             className="space-y-8"
           >
-            <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:grid-cols-2">
+            <TabsList className="grid w-full grid-cols-1 lg:w-auto lg:grid-cols-1">
               <TabsTrigger value="faq" className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />
                 FAQ
-              </TabsTrigger>
-              <TabsTrigger value="contact" className="flex items-center gap-2">
-                <MessageCircle className="h-4 w-4" />
-                Contact Us
               </TabsTrigger>
             </TabsList>
 
@@ -307,70 +303,6 @@ export default function HelpCenterPage() {
                   </p>
                 </div>
               )}
-            </TabsContent>
-
-            {/* Contact Tab */}
-            <TabsContent value="contact" className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {contactMethods.map((method, index) => (
-                  <Card
-                    key={index}
-                    className="group hover:shadow-lg transition-all duration-300"
-                  >
-                    <CardContent className="p-6 text-center">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                        <div className="text-blue-600">{method.icon}</div>
-                      </div>
-                      <h3 className="font-semibold text-gray-900 mb-2">
-                        {method.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 mb-4">
-                        {method.description}
-                      </p>
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-                          <Clock className="h-3 w-3" />
-                          {method.availability}
-                        </div>
-                        <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-                          <Zap className="h-3 w-3" />
-                          {method.responseTime}
-                        </div>
-                      </div>
-                      <Button className="w-full" variant="outline">
-                        {method.action}
-                        <ChevronRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Mail className="h-5 w-5" />
-                    Send us a Message
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input placeholder="Your name" />
-                      <Input placeholder="Your email" type="email" />
-                    </div>
-                    <Input placeholder="Subject" />
-                    <textarea
-                      placeholder="Describe your issue or question..."
-                      className="w-full p-3 border border-gray-300 rounded-lg resize-none h-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <Button className="w-full">
-                      Send Message
-                      <Mail className="h-4 w-4 ml-2" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
 
           </Tabs>

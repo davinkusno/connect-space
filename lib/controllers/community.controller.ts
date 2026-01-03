@@ -1402,6 +1402,48 @@ export class CommunityController extends BaseController {
       return this.handleError(error);
     }
   }
+
+  /**
+   * GET /api/communities/list
+   * Get all communities with membership status
+   * @param request - The incoming request
+   * @returns NextResponse with communities and membership status
+   */
+  public async getCommunitiesWithMembershipStatus(
+    request: NextRequest
+  ): Promise<NextResponse<any | ApiErrorResponse>> {
+    try {
+      // Get user (optional - if not authenticated, will return communities without membership status)
+      let userId: string | undefined;
+      try {
+        const user = await this.getAuthUser();
+        userId = user?.id;
+      } catch {
+        // User not authenticated, continue without user ID
+      }
+
+      // Get query parameters
+      const { searchParams } = new URL(request.url);
+      const recommendedIdsParam = searchParams.get('recommendedIds');
+      const recommendedIds = recommendedIdsParam ? recommendedIdsParam.split(',') : undefined;
+
+      const result = await this.service.getCommunitiesWithMembershipStatus(
+        userId,
+        recommendedIds
+      );
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(
+        result.error?.message || "Failed to fetch communities",
+        result.status
+      );
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
 }
 
 // Export singleton instance
