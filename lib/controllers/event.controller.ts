@@ -128,6 +128,39 @@ export class EventController extends BaseController {
   }
 
   /**
+   * GET /api/events/[id]
+   * Get event details with community and creator info
+   * @param request - The incoming request
+   * @param eventId - The event ID
+   * @returns NextResponse with event details
+   */
+  public async getEventById(
+    request: NextRequest,
+    eventId: string
+  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
+    try {
+      // Try to get current user (optional - for checking membership)
+      let userId: string | undefined;
+      try {
+        const user = await this.getOptionalAuth();
+        userId = user?.id;
+      } catch {
+        // No auth - continue without user-specific data
+      }
+
+      const result = await this.service.getEventById(eventId, userId);
+
+      if (result.success) {
+        return this.json(result.data!, result.status);
+      }
+
+      return this.error(result.error?.message || "Event not found", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * GET /api/events
    * Get events with filtering, pagination, and user status
    * @param request - The incoming request with query params

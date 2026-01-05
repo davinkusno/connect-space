@@ -53,17 +53,14 @@ function EventCount({ communityId }: { communityId?: string }) {
       }
 
       try {
-        const supabase = getSupabaseBrowser();
-        const { count, error } = await supabase
-          .from("events")
-          .select("*", { count: "exact", head: true })
-          .eq("community_id", communityId);
-
-        if (error) {
-          console.error("Error fetching event count:", error);
+        const response = await fetch(`/api/communities/${communityId}/events-count`);
+        
+        if (!response.ok) {
+          console.error("Error fetching event count:", response.status);
           setEventCount(0);
         } else {
-          setEventCount(count || 0);
+          const data = await response.json();
+          setEventCount(data.count || 0);
         }
       } catch (error) {
         console.error("Error loading event count:", error);
@@ -204,44 +201,15 @@ export default function CommunityAdminPage({
         return;
       }
 
-      // Get community by ID from params with category relationship
-      let { data: communityData, error: communityError } = await supabase
-        .from("communities")
-        .select(
-          `
-          *,
-          categories (
-            id,
-            name
-          )
-        `
-        )
-        .eq("id", id)
-        .single();
-
-      // Verify user has permission (creator or admin)
-      if (communityData) {
-        const isCreator = communityData.creator_id === user.id;
-
-        // Check if user is admin in community_members
-        const { data: memberData } = await supabase
-          .from("community_members")
-          .select("role")
-          .eq("community_id", id)
-          .eq("user_id", user.id)
-          .eq("status", "approved")
-          .single();
-
-        const isAdmin = memberData?.role === "admin";
-
-        if (!isCreator && !isAdmin) {
-          toast.error(
-            "Only community creators and admins can access this page"
-          );
-          setIsLoading(false);
-          return;
-        }
+      // Get community data via API - this includes permission checks
+      const communityResponse = await fetch(`/api/communities/${id}`);
+      if (!communityResponse.ok) {
+        const errorData = await communityResponse.json();
+        throw new Error(errorData.error || "Failed to load community");
       }
+      
+      const responseData = await communityResponse.json();
+      const communityData = responseData.data || responseData;
 
       // If we have real community data, use it directly
       if (communityData) {
@@ -291,39 +259,11 @@ export default function CommunityAdminPage({
           }
         }
 
-        // Get member count - all approved members excluding creator
-        const { data: allMembers, error: membersError } = await supabase
-          .from("community_members")
-          .select("user_id")
-          .eq("community_id", communityData.id)
-          .eq("status", "approved")
-          .neq("user_id", communityData.creator_id);
+        // Member count is already provided by the API
+        const memberCount = communityData.memberCount || 0;
 
-        const memberCount = allMembers?.length || 0;
-
-        // Get admin email from community_members
-        // First, get admin user_id from community_members
-        let adminEmail = "";
-        const { data: adminMember } = await supabase
-          .from("community_members")
-          .select("user_id")
-          .eq("community_id", communityData.id)
-          .eq("role", "admin")
-          .limit(1)
-          .maybeSingle();
-
-        // Then, get email from users table
-        if (adminMember && adminMember.user_id) {
-          const { data: userData } = await supabase
-            .from("users")
-            .select("email")
-            .eq("id", adminMember.user_id)
-            .maybeSingle();
-
-          if (userData && userData.email) {
-            adminEmail = userData.email;
-          }
-        }
+        // Get admin email - for now use creator email if available
+        let adminEmail = communityData.creator?.email || "";
 
         // Get category from categories relationship or fallback to category field
         let categoryValue = "";
@@ -409,260 +349,40 @@ export default function CommunityAdminPage({
 
   const loadJoinRequests = async (communityId: string) => {
     try {
-      const supabase = getSupabaseBrowser();
-
-      if (!supabase) {
-        console.error("Supabase client not initialized");
+      // Fetch join requests via API - includes all user stats and reports
+      const response = await fetch(`/api/communities/${communityId}/join-requests`);
+      
+      if (!response.ok) {
+        console.error("Error fetching join requests:", response.status);
         setRecentJoinRequests([]);
         return;
       }
-
-      // Fetch all members from community_members table for this community
-      // First, fetch without status to avoid cache issues
-      const { data: joinRequestsData, error: joinRequestsError } =
-        await supabase
-          .from("community_members")
-          .select(
-            `
-          id,
-          user_id,
-          joined_at
-        `
-          )
-          .eq("community_id", communityId)
-          .order("joined_at", { ascending: false });
-
-      if (joinRequestsError) {
-        console.error("Error fetching join requests:", joinRequestsError);
+      
+      const data = await response.json();
+      
+      if (!data.joinRequests || data.joinRequests.length === 0) {
         setRecentJoinRequests([]);
         return;
       }
-
-      if (!joinRequestsData || joinRequestsData.length === 0) {
-        setRecentJoinRequests([]);
-        return;
-      }
-
-      // Fetch status separately for each member to avoid cache issues
-      const memberIds = joinRequestsData.map((r: any) => r.id);
-      const { data: statusData, error: statusError } = await supabase
-        .from("community_members")
-        .select("id, status")
-        .in("id", memberIds);
-
-      // Combine status with member data
-      const membersWithStatus = joinRequestsData.map((member: any) => {
-        const statusInfo = statusData?.find((s: any) => s.id === member.id);
-        const memberStatus = statusInfo?.status ?? null;
-        return {
-          ...member,
-          status: memberStatus,
-        };
-      });
-
-      // Filter for pending requests only (status = 'pending')
-      const pendingRequests = membersWithStatus.filter((req: any) => {
-        return req.status === "pending";
-      });
-
-      if (pendingRequests.length === 0) {
-        setRecentJoinRequests([]);
-        return;
-      }
-
-      // Fetch user data for each join request
-      const userIds = pendingRequests.map((r: any) => r.user_id);
-      if (userIds.length === 0) {
-        setRecentJoinRequests([]);
-        return;
-      }
-
-      const { data: usersData, error: usersError } = await supabase
-        .from("users")
-        .select("id, username, full_name, avatar_url, email")
-        .in("id", userIds);
-
-      if (usersError) {
-        console.error(
-          "Error fetching user data for join requests:",
-          usersError
-        );
-        setRecentJoinRequests([]);
-        return;
-      }
-
-      // Fetch user points for each user (all points are from joining communities)
-      const { data: userPointsData } = await supabase
-        .from("user_points")
-        .select("user_id")
-        .in("user_id", userIds);
-
-      // Count points per user
-      const userStatsMap: Record<string, { points_count: number }> = {};
-      if (userPointsData) {
-        userPointsData.forEach((record: any) => {
-          if (!userStatsMap[record.user_id]) {
-            userStatsMap[record.user_id] = { points_count: 0 };
-          }
-          userStatsMap[record.user_id].points_count += 1;
-        });
-      }
-
-      // Fetch actual reports for each user
-      // Include: direct member reports + thread reports + reply reports
-
-      // 1. Direct member reports
-      const { data: memberReportsData } = await supabase
-        .from("reports")
-        .select(
-          "id, reason, details, status, created_at, reporter_id, target_id, report_type"
-        )
-        .eq("report_type", "member")
-        .in("target_id", userIds)
-        .order("created_at", { ascending: false });
-
-      // 2. Get all threads created by these users
-      const { data: userThreadsData } = await supabase
-        .from("messages")
-        .select("id, sender_id")
-        .in("sender_id", userIds)
-        .is("parent_id", null); // Only threads
-
-      let threadReportsData: any[] = [];
-      if (userThreadsData && userThreadsData.length > 0) {
-        const threadIds = userThreadsData.map((t) => t.id);
-        const { data } = await supabase
-          .from("reports")
-          .select(
-            "id, reason, details, status, created_at, reporter_id, target_id, report_type"
-          )
-          .eq("report_type", "thread")
-          .in("target_id", threadIds)
-          .order("created_at", { ascending: false });
-        threadReportsData = data || [];
-      }
-
-      // 3. Get all replies created by these users
-      const { data: userRepliesData } = await supabase
-        .from("messages")
-        .select("id, sender_id")
-        .in("sender_id", userIds)
-        .not("parent_id", "is", null); // Only replies
-
-      let replyReportsData: any[] = [];
-      if (userRepliesData && userRepliesData.length > 0) {
-        const replyIds = userRepliesData.map((r) => r.id);
-        const { data } = await supabase
-          .from("reports")
-          .select(
-            "id, reason, details, status, created_at, reporter_id, target_id, report_type"
-          )
-          .eq("report_type", "reply")
-          .in("target_id", replyIds)
-          .order("created_at", { ascending: false });
-        replyReportsData = data || [];
-      }
-
-      // Create mapping of thread/reply IDs to sender IDs
-      const threadSenderMap = new Map(
-        userThreadsData?.map((t) => [t.id, t.sender_id]) || []
-      );
-      const replySenderMap = new Map(
-        userRepliesData?.map((r) => [r.id, r.sender_id]) || []
-      );
-
-      // Group all reports by user_id
-      const reportsByUser: Record<string, UserReport[]> = {};
-
-      // Add member reports
-      memberReportsData?.forEach((report: any) => {
-        const userId = report.target_id;
-        if (!reportsByUser[userId]) {
-          reportsByUser[userId] = [];
-        }
-        reportsByUser[userId].push({
-          id: report.id,
-          reason: report.reason,
-          details: report.details,
-          status: report.status,
-          created_at: report.created_at,
-          reporter_id: report.reporter_id,
-        });
-      });
-
-      // Add thread reports (map to sender)
-      threadReportsData.forEach((report: any) => {
-        const userId = threadSenderMap.get(report.target_id);
-        if (userId) {
-          if (!reportsByUser[userId]) {
-            reportsByUser[userId] = [];
-          }
-          reportsByUser[userId].push({
-            id: report.id,
-            reason: report.reason,
-            details: report.details,
-            status: report.status,
-            created_at: report.created_at,
-            reporter_id: report.reporter_id,
-          });
-        }
-      });
-
-      // Add reply reports (map to sender)
-      replyReportsData.forEach((report: any) => {
-        const userId = replySenderMap.get(report.target_id);
-        if (userId) {
-          if (!reportsByUser[userId]) {
-            reportsByUser[userId] = [];
-          }
-          reportsByUser[userId].push({
-            id: report.id,
-            reason: report.reason,
-            details: report.details,
-            status: report.status,
-            created_at: report.created_at,
-            reporter_id: report.reporter_id,
-          });
-        }
-      });
-
-      // Map to JoinRequest format
-      const joinRequestsWithUsers: (JoinRequest | null)[] = pendingRequests.map(
-        (request: any) => {
-          const userData = usersData?.find(
-            (u: any) => u.id === request.user_id
-          );
-
-          if (!userData) {
-            return null;
-          }
-
-          const stats = userStatsMap[request.user_id] || { points_count: 0 };
-          const userReports = reportsByUser[request.user_id] || [];
-
-          return {
-            id: request.id,
-            userId: request.user_id,
-            userName: userData.full_name || userData.username || "Unknown",
-            userEmail: userData.email || "",
-            userAvatar: userData.avatar_url || "/placeholder-user.jpg",
-            requestedAt: request.joined_at,
-            status: "pending", // String: 'pending'
-            message: undefined,
-            points_count: stats.points_count,
-            report_count: userReports.length, // Use actual reports count from reports table
-            reports: userReports,
-          } as JoinRequest;
-        }
-      );
-
-      // Filter out null values
-      const validRequests = joinRequestsWithUsers.filter(
-        (req): req is JoinRequest => req !== null
-      );
-      setRecentJoinRequests(validRequests);
+      
+      // Transform API response to component format
+      const transformedRequests: JoinRequest[] = data.joinRequests.map((req: any) => ({
+        id: req.id,
+        userId: req.userId,
+        userName: req.userName,
+        userEmail: req.userEmail,
+        userAvatar: req.userAvatar,
+        requestedAt: req.requestedAt,
+        status: req.status,
+        message: req.message,
+        points_count: req.points_count || 0,
+        report_count: req.report_count || 0,
+        reports: req.reports || []
+      }));
+      
+      setRecentJoinRequests(transformedRequests);
     } catch (error) {
-      console.error("Error loading join requests:", error);
+      console.error("Failed to load join requests:", error);
       setRecentJoinRequests([]);
     }
   };
@@ -774,19 +494,18 @@ export default function CommunityAdminPage({
       // Reload join requests to ensure UI is in sync with database
       await loadJoinRequests(community.id);
 
-      // Reload community data to get updated member count from database
-      // This ensures memberCount only counts approved members (status = 'approved')
-      const supabase = getSupabaseBrowser();
-      const { data: allMembers } = await supabase
-        .from("community_members")
-        .select("status")
-        .eq("community_id", community.id)
-        .eq("status", "approved");
-
-      // Update member count in state (only counts approved members)
-      setCommunity((prev) =>
-        prev ? { ...prev, memberCount: allMembers?.length || 0 } : null
-      );
+      // Reload community data to get updated member count via API
+      try {
+        const statsResponse = await fetch(`/api/communities/${community.id}/members-stats`);
+        if (statsResponse.ok) {
+          const stats = await statsResponse.json();
+          setCommunity((prev) =>
+            prev ? { ...prev, memberCount: stats.memberCount || 0 } : null
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching member stats:", error);
+      }
 
       toast.success("Request approved successfully");
     } catch (error: any) {
@@ -880,18 +599,19 @@ export default function CommunityAdminPage({
         return;
       }
 
-      // Reload community data to get updated member count from database
+      // Reload community data to get updated member count via API
       if (community) {
-        const { data: allMembers } = await supabase
-          .from("community_members")
-          .select("status")
-          .eq("community_id", community.id)
-          .eq("status", "approved"); // String: 'approved'
-
-        // Update member count in state (only counts approved members)
-        setCommunity((prev) =>
-          prev ? { ...prev, memberCount: allMembers?.length || 0 } : null
-        );
+        try {
+          const statsResponse = await fetch(`/api/communities/${community.id}/members-stats`);
+          if (statsResponse.ok) {
+            const stats = await statsResponse.json();
+            setCommunity((prev) =>
+              prev ? { ...prev, memberCount: stats.memberCount || 0 } : null
+            );
+          }
+        } catch (error) {
+          console.error("Error fetching member stats:", error);
+        }
       }
 
       // Remove all approved requests from UI

@@ -82,19 +82,16 @@ export default function EditCommunityPage({
           return;
         }
 
-        // Get community by ID from params
-        const { data: communityData, error: communityError } = await supabase
-          .from("communities")
-          .select("*")
-          .eq("id", communityIdFromParams)
-          .single();
-
-        if (communityError || !communityData) {
-          console.error("Community not found:", communityError);
+        // Get community by ID from API
+        const response = await fetch(`/api/communities/${communityIdFromParams}`);
+        if (!response.ok) {
+          console.error("Community not found");
           toast.error("Community not found or you don't have access");
           setIsLoading(false);
           return;
         }
+
+        const communityData = await response.json();
 
         // Verify user is creator only
         const isCreator = communityData.creator_id === user.id;

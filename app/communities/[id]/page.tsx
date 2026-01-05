@@ -515,60 +515,41 @@ export default function CommunityPage({
           break;
 
         case "members":
-          // Load ALL members from community_members table - only approved members (status = 'approved')
-          // This includes admin, member, and moderator roles
-          // Creator is also in community_members table with role "admin"
-          // Use specific foreign key relationship to avoid ambiguity
-          const { data: membersData, error: membersError } = await supabase
-            .from("community_members")
-            .select(
-              `
-              user_id,
-              role,
-              joined_at,
-              status,
-              users!community_members_user_id_fkey (
-                id,
-                username,
-                full_name,
-                avatar_url
-              )
-            `
-            )
-            .eq("community_id", id)
-            .eq("status", "approved")
-            .order("joined_at", { ascending: false });
+          // Load ALL members via API - only approved members
+          try {
+            const response = await fetch(`/api/communities/${id}/members`);
+            if (!response.ok) {
+              console.error("Error fetching members:", response.status);
+              setMembers([]);
+              break;
+            }
 
-          if (membersError) {
-            console.error("Error fetching members:", membersError);
-            setMembers([]);
-            break;
-          }
+            const membersData = await response.json();
+            
+            if (!membersData || !Array.isArray(membersData)) {
+              console.error("Invalid members data:", membersData);
+              setMembers([]);
+              break;
+            }
 
-          // Filter for approved members only (status = 'approved')
-          const approvedMembers = (membersData || []).filter((m: any) => {
-            return m.status === "approved";
-          });
+            console.log("Approved members:", membersData.length, membersData);
 
-          console.log(
-            "Approved members:",
-            approvedMembers?.length,
-            approvedMembers
-          );
-
-          // Map members and ensure creator is treated as admin with Creator badge
-          const formattedMembers = approvedMembers.map((member: any) => {
-            // If this member is the creator, treat them as admin
-            const isCreator = member.user_id === community.creator_id;
-            return {
-              ...member,
+            // Map members and ensure creator is treated as admin with Creator badge
+            const formattedMembers = membersData.map((member: any) => {
+              // If this member is the creator, treat them as admin
+              const isCreator = member.user_id === community.creator_id;
+              return {
+                ...member,
               role: isCreator ? "admin" : member.role,
               isCreator: isCreator,
             };
           });
 
-          // Set all members - creator is already in the list with role "admin"
           setMembers(formattedMembers);
+          } catch (error) {
+            console.error("Error loading members:", error);
+            setMembers([]);
+          }
           break;
 
         default:
@@ -602,153 +583,70 @@ export default function CommunityPage({
 
     try {
       setIsJoining(true);
-      const supabase = getSupabaseBrowser();
 
-      if (!supabase) {
-        throw new Error("Failed to initialize Supabase client");
+      // Join community - use API endpoint which handles all the logic
+      const response = await fetch("/api/communities/members/join", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          community_id: id,
+        }),
+      });
+
+      console.log("Join community raw response:", {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+      });
+
+      let result;
+      try {
+        result = await response.json();
+      } catch (parseError) {
+        console.error("Failed to parse response as JSON:", parseError);
+        throw new Error("Server returned invalid response");
       }
 
-      // Ensure user exists in users table before joining
-      const { data: existingUser, error: userCheckError } = await supabase
-        .from("users")
-        .select("id")
-        .eq("id", currentUser.id)
-        .maybeSingle();
+      console.log("Join community response:", {
+        ok: response.ok,
+        status: response.status,
+        result: result,
+      });
 
-      if (userCheckError && userCheckError.code !== "PGRST116") {
-        throw new Error("Failed to verify user account");
-      }
+      if (!response.ok) {
+        const errorMessage =
+          result.error?.message ||
+          result.error ||
+          result.message ||
+          "Failed to join community";
+        const errorStr =
+          typeof errorMessage === "string"
+            ? errorMessage
+            : JSON.stringify(errorMessage);
 
-      // If user doesn't exist in users table, create it
-      if (!existingUser) {
-        const { error: createUserError } = await supabase.from("users").insert({
-          id: currentUser.id,
-          email: currentUser.email || "",
-          username:
-            currentUser.user_metadata?.username ||
-            currentUser.email?.split("@")[0] ||
-            null,
-          full_name:
-            currentUser.user_metadata?.full_name ||
-            currentUser.user_metadata?.name ||
-            null,
-          avatar_url:
-            currentUser.user_metadata?.avatar_url ||
-            currentUser.user_metadata?.picture ||
-            null,
-        });
+        console.error("Join community error:", errorStr);
 
-        if (createUserError) {
-          console.error("Error creating user record:", createUserError);
-          // Continue anyway - might be a duplicate key error
+        if (errorStr.includes("already") || errorStr.includes("pending")) {
+          toast.info(errorStr);
+          setIsJoining(false);
+          return;
         }
+        throw new Error(errorStr);
       }
 
-      // This function is only for joining, leaving is handled separately
-      if (isMember) {
-        // Should not reach here - leave is handled by handleLeaveCommunity
-        return;
+      if (result.member) {
+        // Update membership status to pending
+        setMembershipStatus("pending");
+        setIsMember(false);
+        setUserRole(null);
+        // Show dialog
+        setShowPendingDialog(true);
+        loadTabData(activeTab); // Reload tab data
       } else {
-        // Join community
-        // Check if already a member (without selecting status to avoid cache issues)
-        const { data: existingMember, error: checkError } = await supabase
-          .from("community_members")
-          .select("id")
-          .eq("community_id", id)
-          .eq("user_id", currentUser.id)
-          .maybeSingle();
-
-        if (checkError) {
-          console.error("Error checking existing member:", checkError);
-          // Continue anyway - might be a schema issue
-        }
-
-        if (existingMember) {
-          // If member exists, check status separately to avoid cache issues
-          const { data: memberStatus } = await supabase
-            .from("community_members")
-            .select("status")
-            .eq("id", existingMember.id)
-            .maybeSingle();
-
-          const statusValue = memberStatus?.status;
-          if (statusValue === "pending") {
-            toast.info("Your join request is pending approval");
-            setIsJoining(false);
-            return;
-          } else {
-            toast.info("You are already a member of this community");
-            setIsMember(true);
-            setUserRole("member");
-            setIsJoining(false);
-            return;
-          }
-        }
-
-        // Join community - use API endpoint to ensure status is set correctly
-        const response = await fetch("/api/communities/members/join", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            community_id: id,
-          }),
-        });
-
-        console.log("Join community raw response:", {
-          ok: response.ok,
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-        });
-
-        let result;
-        try {
-          result = await response.json();
-        } catch (parseError) {
-          console.error("Failed to parse response as JSON:", parseError);
-          throw new Error("Server returned invalid response");
-        }
-
-        console.log("Join community response:", {
-          ok: response.ok,
-          status: response.status,
-          result: result,
-        });
-
-        if (!response.ok) {
-          const errorMessage =
-            result.error?.message ||
-            result.error ||
-            result.message ||
-            "Failed to join community";
-          const errorStr =
-            typeof errorMessage === "string"
-              ? errorMessage
-              : JSON.stringify(errorMessage);
-
-          console.error("Join community error:", errorStr);
-
-          if (errorStr.includes("already") || errorStr.includes("pending")) {
-            toast.info(errorStr);
-            setIsJoining(false);
-            return;
-          }
-          throw new Error(errorStr);
-        }
-
-        if (result.member) {
-          // Update membership status to pending
-          setMembershipStatus("pending");
-          setIsMember(false);
-          setUserRole(null);
-          // Show dialog
-          setShowPendingDialog(true);
-          loadTabData(activeTab); // Reload tab data
-        } else {
-          throw new Error("Failed to create join request. Please try again.");
-        }
+        throw new Error("Failed to create join request. Please try again.");
       }
     } catch (error: any) {
       console.error("Error joining/leaving community:", error);

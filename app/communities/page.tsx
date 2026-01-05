@@ -209,7 +209,7 @@ export default function DiscoverPage() {
     try {
       const supabase = getSupabaseBrowser();
       
-      // Get current user (Auth call - OK to keep in client)
+      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
       

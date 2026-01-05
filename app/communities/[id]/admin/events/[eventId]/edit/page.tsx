@@ -210,29 +210,35 @@ export default function EditEventPage({
           return
         }
 
-        // Fetch real event data
-        const { data: eventRecord, error: eventError } = await supabase
-          .from("events")
-          .select("*")
-          .eq("id", eventId)
-          .single()
-
-        if (eventError || !eventRecord) {
-          console.error("Event not found:", eventError)
+        // Fetch event data from API
+        const eventResponse = await fetch(`/api/events/${eventId}`)
+        if (!eventResponse.ok) {
+          console.error("Event not found")
           toast.error("Event not found")
           setIsLoadingEvent(false)
           return
         }
 
-        // Get community name
-        const { data: communityData } = await supabase
-          .from("communities")
-          .select("name")
-          .eq("id", eventRecord.community_id)
-          .single()
+        const eventApiData = await eventResponse.json()
+        const eventRecord = eventApiData.event
 
-        if (communityData) {
-          setCommunityName(communityData.name || "Community")
+        if (!eventRecord) {
+          console.error("Event not found")
+          toast.error("Event not found")
+          setIsLoadingEvent(false)
+          return
+        }
+
+        // Get community name from event data
+        if (eventRecord.communities?.name) {
+          setCommunityName(eventRecord.communities.name)
+        } else {
+          // Fallback: fetch from API
+          const communityResponse = await fetch(`/api/communities/${eventRecord.community_id}`)
+          if (communityResponse.ok) {
+            const communityData = await communityResponse.json()
+            setCommunityName(communityData.name || "Community")
+          }
         }
 
         // Parse location
@@ -808,7 +814,7 @@ export default function EditEventPage({
   return (
     <PageTransition>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative overflow-hidden">
-        <FloatingElements variant="default" density="low" />
+        <FloatingElements />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {/* Header */}
           <SmoothReveal delay={100} direction="up">

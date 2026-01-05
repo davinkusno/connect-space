@@ -416,6 +416,109 @@ export class EventService extends BaseService {
   }
 
   /**
+   * Get event by ID with community and creator info
+   * @param eventId - The event ID
+   * @param userId - Optional user ID for checking membership
+   * @returns ServiceResult containing event details
+   */
+  public async getEventById(
+    eventId: string,
+    userId?: string
+  ): Promise<ServiceResult<unknown>> {
+    try {
+      // Fetch event with community and creator info
+      const { data: eventData, error: eventError } = await this.supabaseAdmin
+        .from("events")
+        .select(`
+          *,
+          communities (
+            id,
+            name,
+            logo_url,
+            creator_id
+          )
+        `)
+        .eq("id", eventId)
+        .single();
+
+      if (eventError || !eventData) {
+        return ApiResponse.error("Event not found", 404);
+      }
+
+      // Fetch creator profile
+      let creator = null;
+      if (eventData.creator_id) {
+        const { data: creatorData } = await this.supabaseAdmin
+          .from("profiles")
+          .select("id, full_name, username, avatar_url")
+          .eq("id", eventData.creator_id)
+          .single();
+        
+        if (creatorData) {
+          creator = creatorData;
+        }
+      }
+
+      // Check if user is a community member (for private events)
+      let isCommunityMember = false;
+      let isAdmin = false;
+      if (userId && eventData.community_id) {
+        const { data: membership } = await this.supabaseAdmin
+          .from("community_members")
+          .select("id, role")
+          .eq("community_id", eventData.community_id)
+          .eq("user_id", userId)
+          .eq("status", "approved")
+          .maybeSingle();
+
+        isCommunityMember = !!membership;
+        isAdmin = membership?.role === "admin" || (eventData.communities as any)?.creator_id === userId;
+      }
+
+      // Fetch related events from the same community
+      let relatedEvents: any[] = [];
+      if (eventData.community_id) {
+        const { data: relatedData } = await this.supabaseAdmin
+          .from("events")
+          .select("id, title, start_time, image_url, category_id")
+          .eq("community_id", eventData.community_id)
+          .neq("id", eventId)
+          .gte("start_time", new Date().toISOString())
+          .order("start_time", { ascending: true })
+          .limit(5);
+        
+        relatedEvents = relatedData || [];
+      }
+
+      // Fetch other events by the same organizer
+      let organizerEvents: any[] = [];
+      if (eventData.creator_id) {
+        const { data: organizerData } = await this.supabaseAdmin
+          .from("events")
+          .select("id, title, start_time, image_url, category_id, max_attendees")
+          .eq("creator_id", eventData.creator_id)
+          .neq("id", eventId)
+          .gte("start_time", new Date().toISOString())
+          .order("start_time", { ascending: true })
+          .limit(3);
+        
+        organizerEvents = organizerData || [];
+      }
+
+      return ApiResponse.success({
+        event: eventData,
+        creator,
+        isCommunityMember,
+        isAdmin,
+        relatedEvents,
+        organizerEvents,
+      });
+    } catch (error: any) {
+      return ApiResponse.error(`Failed to fetch event: ${error.message}`, 500);
+    }
+  }
+
+  /**
    * Mark interest in an event
    * @param eventId - The event ID to show interest in
    * @param userId - The user ID showing interest

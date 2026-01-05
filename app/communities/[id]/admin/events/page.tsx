@@ -112,32 +112,27 @@ export default function CommunityAdminEventsPage({
         return
       }
 
-      // Get community by ID from params
-      const { data: communityData, error: communityError } = await supabase
-        .from("communities")
-        .select("id, name, creator_id")
-        .eq("id", id)
-        .single()
-
-      if (communityError || !communityData) {
-        console.error("Community not found:", communityError)
+      // Get community data from API
+      const communityResponse = await fetch(`/api/communities/${id}`)
+      if (!communityResponse.ok) {
+        console.error("Community not found")
         setEvents([])
         return
       }
 
+      const communityData = await communityResponse.json()
+
       // Verify user is creator or admin
       const isCreator = communityData.creator_id === user.id
 
-      // Check if user is admin (co-admin)
-      const { data: membership } = await supabase
-        .from("community_members")
-        .select("role")
-        .eq("community_id", id)
-        .eq("user_id", user.id)
-        .eq("status", "approved")
-        .single()
-
-      const isAdmin = membership?.role === "admin"
+      // Check if user is admin
+      const membershipResponse = await fetch(`/api/communities/${id}/members?userId=${user.id}`)
+      let isAdmin = false
+      if (membershipResponse.ok) {
+        const membersData = await membershipResponse.json()
+        const userMembership = membersData.find((m: any) => m.user_id === user.id)
+        isAdmin = userMembership?.role === "admin"
+      }
 
       if (!isCreator && !isAdmin) {
         console.error("User is not authorized")
@@ -148,34 +143,39 @@ export default function CommunityAdminEventsPage({
       setCommunityId(id)
       setCommunityName(communityData.name || "Community")
 
-      // Fetch real events from database
-      const { data: eventsData, error: eventsError } = await supabase
-        .from("events")
-        .select("*")
-        .eq("community_id", communityData.id)
-        .order("start_time", { ascending: true })
-
-      if (eventsError) {
-        console.error("Error fetching events:", eventsError)
+      // Fetch events from API
+      const eventsResponse = await fetch(`/api/communities/${id}/events`)
+      if (!eventsResponse.ok) {
+        console.error("Error fetching events")
         setEvents([])
         return
       }
 
-      // Fetch attendee counts for all events
+      const eventsData = await eventsResponse.json()
+
+      // Fetch attendee counts for all events using API
       const eventIds = (eventsData || []).map((e: any) => e.id)
       let attendeeCounts: Record<string, number> = {}
       
       if (eventIds.length > 0) {
-        const { data: attendeesData } = await supabase
-          .from("event_attendees")
-          .select("event_id")
-          .in("event_id", eventIds)
+        // Fetch counts in parallel for all events
+        const attendeeCountPromises = eventIds.map(async (eventId: string) => {
+          try {
+            const response = await fetch(`/api/events/${eventId}/attendees-count`)
+            if (response.ok) {
+              const data = await response.json()
+              return { eventId, count: data.count || 0 }
+            }
+          } catch (error) {
+            console.error(`Error fetching attendee count for event ${eventId}:`, error)
+          }
+          return { eventId, count: 0 }
+        })
         
-        if (attendeesData) {
-          attendeesData.forEach((a: any) => {
-            attendeeCounts[a.event_id] = (attendeeCounts[a.event_id] || 0) + 1
-          })
-        }
+        const counts = await Promise.all(attendeeCountPromises)
+        counts.forEach(({ eventId, count }) => {
+          attendeeCounts[eventId] = count
+        })
       }
 
       // Convert database events to Event interface format

@@ -191,37 +191,13 @@ export default function ProfilePage() {
 
         // Fetch user profile data from API
         const profileResponse = await fetch("/api/user/profile");
-        if (profileResponse.ok) {
-          const userProfile = await profileResponse.json();
-          setFormData({
-            fullName: userProfile.full_name || "",
-            username: userProfile.username || "",
-            interests: userProfile.interests || [],
-            location: userProfile.location || "",
-          });
-          setProfileAvatarUrl(userProfile.avatar_url || null);
-        }
+        let userProfile: any = null;
         
-        // Handle profile error gracefully
-        if (profileError) {
-          // If user doesn't exist in users table (shouldn't happen if onboarding is complete, but handle it)
-          if (profileError.code === "PGRST116" || profileError.message?.includes("No rows")) {
-            // User record doesn't exist, redirect to onboarding
-            router.push("/onboarding");
-            return;
-          }
-          
-          // For other errors, log with more detail and continue with metadata fallback
-          const errorMessage = profileError.message || "Unknown error";
-          const errorCode = profileError.code || "UNKNOWN";
-          console.error("Error fetching user profile:", {
-            message: errorMessage,
-            code: errorCode,
-            details: profileError.details || null,
-            hint: profileError.hint || null,
-          });
-          
-          // Continue with empty userProfile - will use metadata fallback
+        if (profileResponse.ok) {
+          userProfile = await profileResponse.json();
+        } else {
+          console.error("Error fetching profile:", profileResponse.status);
+          // Continue with metadata fallback
         }
         
         // Store userProfile in a way that's accessible in handleSave
@@ -600,84 +576,92 @@ export default function ProfilePage() {
   const handleCancel = () => {
     setIsEditing(false);
     setSelectedInterest("");
-    // Reset form data to original values - fetch from users table
+    // Reset form data to original values - fetch from API
     if (user) {
       const resetFormData = async () => {
-        const { data: userProfile } = await supabase
-          .from("users")
-          .select("full_name, username, interests, location")
-          .eq("id", user.id)
-          .single();
+        try {
+          const profileResponse = await fetch("/api/user/profile");
+          const userProfile = profileResponse.ok ? await profileResponse.json() : null;
 
-        const metadata = user.user_metadata || {};
-        setFormData({
-          fullName: userProfile?.full_name || metadata.full_name || metadata.name || "",
-          username: userProfile?.username || metadata.username || user.email?.split("@")[0] || "",
-          interests: userProfile?.interests || metadata.interests || [],
-        });
-        
-        // Reset location from users table
-        let locationReset = false;
-        if (userProfile?.location) {
-          try {
-            let locationData;
-            if (typeof userProfile.location === 'string') {
-              // Try to parse as JSON, if it fails, treat as plain string
-              try {
-                locationData = JSON.parse(userProfile.location);
-              } catch (e) {
-                // If parsing fails, it's likely a plain string (legacy data)
-                // Create a simple location object from the string
-                locationData = {
-                  city: userProfile.location,
-                  displayName: userProfile.location,
-                };
+          const metadata = user.user_metadata || {};
+          setFormData({
+            fullName: userProfile?.full_name || metadata.full_name || metadata.name || "",
+            username: userProfile?.username || metadata.username || user.email?.split("@")[0] || "",
+            interests: userProfile?.interests || metadata.interests || [],
+          });
+          
+          // Reset location from users table
+          let locationReset = false;
+          if (userProfile?.location) {
+            try {
+              let locationData;
+              if (typeof userProfile.location === 'string') {
+                // Try to parse as JSON, if it fails, treat as plain string
+                try {
+                  locationData = JSON.parse(userProfile.location);
+                } catch (e) {
+                  // If parsing fails, it's likely a plain string (legacy data)
+                  // Create a simple location object from the string
+                  locationData = {
+                    city: userProfile.location,
+                    displayName: userProfile.location,
+                  };
+                }
+              } else {
+                locationData = userProfile.location;
               }
-            } else {
-              locationData = userProfile.location;
+              
+              if (locationData && locationData.city) {
+                setLocationQuery(locationData.city);
+                setSelectedLocation({
+                  id: locationData.placeId || locationData.city,
+                  name: locationData.city,
+                  display_name: locationData.displayName || locationData.fullAddress || locationData.city,
+                  lat: locationData.lat?.toString() || "0",
+                  lon: locationData.lon?.toString() || "0",
+                });
+                locationReset = true;
+              }
+            } catch (e) {
+              console.error("Error parsing location:", e);
             }
-            
-            if (locationData && locationData.city) {
-              setLocationQuery(locationData.city);
+          }
+          
+          // Fallback to metadata
+          if (!locationReset) {
+            if (metadata.location) {
+              const loc = metadata.location as UserLocationData;
+              setLocationQuery(loc.city);
               setSelectedLocation({
-                id: locationData.placeId || locationData.city,
-                name: locationData.city,
-                display_name: locationData.displayName || locationData.fullAddress || locationData.city,
-                lat: locationData.lat?.toString() || "0",
-                lon: locationData.lon?.toString() || "0",
+                id: loc.placeId,
+                name: loc.city,
+                display_name: loc.displayName,
+                lat: loc.lat.toString(),
+                lon: loc.lon.toString(),
               });
-              locationReset = true;
+            } else if (metadata.location_city) {
+              setLocationQuery(metadata.location_city_name || "");
+              setSelectedLocation({
+                id: metadata.location_city,
+                name: metadata.location_city_name || "",
+                display_name: metadata.location_city_name || "",
+                lat: metadata.location_lat || "0",
+                lon: metadata.location_lon || "0",
+              });
+            } else {
+              setLocationQuery("");
+              setSelectedLocation(null);
             }
-          } catch (e) {
-            console.error("Error parsing location:", e);
           }
-        }
-        
-        // Fallback to metadata
-        if (!locationReset) {
-          if (metadata.location) {
-            const loc = metadata.location as UserLocationData;
-            setLocationQuery(loc.city);
-            setSelectedLocation({
-              id: loc.placeId,
-              name: loc.city,
-              display_name: loc.displayName,
-              lat: loc.lat.toString(),
-              lon: loc.lon.toString(),
-            });
-          } else if (metadata.location_city) {
-            setLocationQuery(metadata.location_city_name || "");
-            setSelectedLocation({
-              id: metadata.location_city,
-              name: metadata.location_city_name || "",
-              display_name: metadata.location_city_name || "",
-              lat: metadata.location_lat || "0",
-              lon: metadata.location_lon || "0",
-            });
-          } else {
-            setLocationQuery("");
-            setSelectedLocation(null);
-          }
+        } catch (error) {
+          console.error("Error fetching profile data:", error);
+          // Continue with metadata fallback
+          const metadata = user.user_metadata || {};
+          setFormData({
+            fullName: metadata.full_name || metadata.name || "",
+            username: metadata.username || user.email?.split("@")[0] || "",
+            interests: metadata.interests || [],
+          });
         }
       };
       

@@ -130,7 +130,7 @@ export default function EventDetailsPage({
   const [isCommunityMember, setIsCommunityMember] = useState(false);
   const [showPrivateEventDialog, setShowPrivateEventDialog] = useState(false);
 
-  // Fetch event data from Supabase
+  // Fetch event data from API
   useEffect(() => {
     const fetchEvent = async () => {
       if (!id) return;
@@ -143,28 +143,18 @@ export default function EventDetailsPage({
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
         
-        // Fetch event with community and creator info
-        const { data: eventData, error: eventError } = await supabase
-          .from("events")
-          .select(`
-            *,
-            communities (
-              id,
-              name,
-              logo_url,
-              creator_id
-            )
-          `)
-          .eq("id", id)
-          .single();
-        
-        if (eventError) {
-          console.error("Error fetching event:", eventError);
+        // Fetch event details from API
+        const response = await fetch(`/api/events/${id}`);
+        if (!response.ok) {
           setError("Event not found");
           setIsLoading(false);
           return;
         }
 
+        const data = await response.json();
+        const eventData = data.event;
+        const creatorData = data.creator;
+        
         if (!eventData) {
           setError("Event not found");
           setIsLoading(false);
@@ -179,69 +169,21 @@ export default function EventDetailsPage({
             return;
           }
 
-          // Check if user is a member of the community (for private events)
-          if (eventData.is_private && eventData.community_id && user) {
-            const { data: membership } = await supabase
-              .from("community_members")
-              .select("id")
-              .eq("community_id", eventData.community_id)
-              .eq("user_id", user.id)
-              .eq("status", "approved")
-              .maybeSingle();
-
-            setIsCommunityMember(!!membership);
-          } else if (!eventData.is_private) {
-            // Public events - everyone can see full details
-            setIsCommunityMember(true);
-          }
+          setIsCommunityMember(data.isCommunityMember || false);
+        } else {
+          // Public events - everyone can see full details
+          setIsCommunityMember(true);
         }
 
-        // Fetch creator profile separately
-        let creatorData: any = null;
-        if (eventData.creator_id) {
-          const { data: creator, error: creatorError } = await supabase
-            .from("profiles")
-            .select("id, full_name, username, avatar_url")
-            .eq("id", eventData.creator_id)
-            .single();
-          
-          if (!creatorError && creator) {
-            creatorData = creator;
-          }
-        }
-
-        // Fetch additional data in parallel
-        const [attendeesCountResponse, relatedEventsResult, organizerEventsResult] = await Promise.all([
-          // Get registered attendee count from API (bypasses RLS)
-          fetch(`/api/events/${id}/attendees-count`).then(res => res.json()),
-          
-          // Get related events from the same community
-          eventData.community_id
-            ? supabase
-                .from("events")
-                .select("id, title, start_time, image_url, category")
-                .eq("community_id", eventData.community_id)
-                .neq("id", id)
-                .gte("start_time", new Date().toISOString())
-                .order("start_time", { ascending: true })
-                .limit(5)
-            : Promise.resolve({ data: [], error: null }),
-          
-          // Get other events by the same organizer
-          supabase
-            .from("events")
-            .select("id, title, start_time, image_url, category, max_attendees")
-            .eq("creator_id", eventData.creator_id)
-            .neq("id", id)
-            .gte("start_time", new Date().toISOString())
-            .order("start_time", { ascending: true })
-            .limit(3)
-        ]);
+        // Get attendee count from API
+        const attendeesCountResponse = await fetch(`/api/events/${id}/attendees-count`).then(res => res.json());
+        const relatedEventsResult = { data: data.relatedEvents || [] };
+        const organizerEventsResult = { data: data.organizerEvents || [] };
 
         const registeredCount = attendeesCountResponse.count || 0;
         console.log("[Event Detail] Attendees count from API:", registeredCount);
 
-        // Check if current user is interested in this event using API (bypasses RLS)
+        // Check if current user is interested in this event using API
         if (user) {
           console.log("[Event Detail] Checking interest status for user:", user.id, "event:", id);
           
@@ -250,69 +192,25 @@ export default function EventDetailsPage({
             const interestData = await interestResponse.json();
             console.log("[Event Detail] Interest API response:", interestData);
             
-            if (interestData.isInterested) {
-              console.log("[Event Detail] User is interested, setting isRegistered to true");
-              setIsRegistered(true);
-            } else {
-              console.log("[Event Detail] User is not interested");
-              setIsRegistered(false);
-            }
+            setIsRegistered(interestData.isInterested || false);
           } catch (rsvpError) {
             console.error("[Event Detail] Error checking RSVP via API:", rsvpError);
-            // Fallback to direct query
-            const { data: userRsvp, error: rsvpCheckError } = await supabase
-            .from("event_attendees")
-            .select("id")
-            .eq("event_id", id)
-            .eq("user_id", user.id)
-            .maybeSingle();
-          
-            console.log("[Event Detail] Fallback RSVP check:", userRsvp, rsvpCheckError);
-            
-            if (userRsvp && (userRsvp.status === "going" || userRsvp.status === "maybe")) {
-            setIsRegistered(true);
-            } else {
-              setIsRegistered(false);
-            }
+            setIsRegistered(false);
           }
 
-          // Check if event is saved
-          const { data: savedData, error: savedError } = await supabase
-            .from("saved_events")
-            .select("id")
-            .eq("event_id", id)
-            .eq("user_id", user.id)
-            .maybeSingle();
-          
-          if (savedError) {
+          // Check if event is saved using API
+          try {
+            const savedResponse = await fetch(`/api/events/${id}/save`);
+            const savedData = await savedResponse.json();
+            setIsSaved(savedData.saved || false);
+          } catch (savedError) {
             console.error("Error checking save status:", savedError);
-          } else if (savedData) {
-            setIsSaved(true);
+            setIsSaved(false);
           }
         }
 
         // Check if user is admin/creator of the community
-        if (user && eventData.communities) {
-          const community = eventData.communities as any;
-          
-          // Check if user is creator
-          if (community.creator_id === user.id) {
-            setIsAdmin(true);
-          } else {
-            // Check if user is admin
-            const { data: membership } = await supabase
-              .from("community_members")
-              .select("role")
-              .eq("community_id", community.id)
-              .eq("user_id", user.id)
-              .eq("role", "admin")
-              .maybeSingle();
-            
-            if (membership) {
-              setIsAdmin(true);
-            }
-          }
-        }
+        setIsAdmin(data.isAdmin || false);
 
         const relatedEvents = (relatedEventsResult.data || []).map((e: any) => ({
           id: e.id,
@@ -324,19 +222,28 @@ export default function EventDetailsPage({
           price: 0, // Default to free
         }));
 
-        // Fetch attendee counts for organizer events
+        // Fetch attendee counts for organizer events using API
         const organizerEventIds = organizerEventsResult.data?.map((e: any) => e.id) || [];
         let organizerEventAttendees: Record<string, number> = {};
         
         if (organizerEventIds.length > 0) {
-          const { data: attendeeData } = await supabase
-            .from("event_attendees")
-            .select("event_id")
-            .in("event_id", organizerEventIds);
+          // Fetch counts in parallel for all organizer events
+          const attendeeCountPromises = organizerEventIds.map(async (eventId: string) => {
+            try {
+              const response = await fetch(`/api/events/${eventId}/attendees-count`);
+              if (response.ok) {
+                const data = await response.json();
+                return { eventId, count: data.count || 0 };
+              }
+            } catch (error) {
+              console.error(`Error fetching attendee count for event ${eventId}:`, error);
+            }
+            return { eventId, count: 0 };
+          });
           
-          // Count attendees per event
-          attendeeData?.forEach((a: any) => {
-            organizerEventAttendees[a.event_id] = (organizerEventAttendees[a.event_id] || 0) + 1;
+          const counts = await Promise.all(attendeeCountPromises);
+          counts.forEach(({ eventId, count }) => {
+            organizerEventAttendees[eventId] = count;
           });
         }
 
@@ -417,7 +324,7 @@ export default function EventDetailsPage({
               parsedLocation.address = locationString;
               
               // Try to extract city from address (simple parsing)
-              const parts = locationString.split(',').map(p => p.trim());
+              const parts = locationString.split(',').map((p: string) => p.trim());
               if (parts.length > 1) {
                 // Look for city in the address parts (usually near the end)
                 // Common pattern: ..., City, Province, Country
@@ -501,7 +408,7 @@ export default function EventDetailsPage({
             hour: "2-digit",
             minute: "2-digit",
               })
-            : undefined,
+            : "",
           location: parsedLocation,
           organizer: {
             name: (eventData.communities as any)?.name || "Unknown Community",
@@ -663,33 +570,23 @@ export default function EventDetailsPage({
       // Dispatch custom event to refresh home page interested events
       window.dispatchEvent(new CustomEvent("eventInterested"));
       
-      // Verify RSVP was saved by re-checking the database
-      const supabase = getSupabaseBrowser();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // Wait a moment for database to commit, then verify
-        setTimeout(async () => {
-          const { data: userRsvp, error: rsvpCheckError } = await supabase
-            .from("event_attendees")
-            .select("id")
-            .eq("event_id", event.id)
-            .eq("user_id", user.id)
-            .maybeSingle(); // Check for any status, not just "going" or "maybe"
-          
-          if (rsvpCheckError && rsvpCheckError.code !== "PGRST116") {
-            console.error("Error verifying RSVP:", rsvpCheckError);
-          } else if (userRsvp) {
-            console.log("RSVP verified in database:", userRsvp);
-            // Only set to true if status is "going" or "maybe"
-            if (userRsvp.status === "going" || userRsvp.status === "maybe") {
+      // Verify RSVP was saved by re-checking via API
+      setTimeout(async () => {
+        try {
+          const verifyResponse = await fetch(`/api/events/${event.id}/interested`);
+          if (verifyResponse.ok) {
+            const verifyData = await verifyResponse.json();
+            if (verifyData.isInterested) {
+              console.log("RSVP verified via API");
               setIsRegistered(true);
+            } else {
+              console.warn("RSVP not found in verification check");
             }
-          } else {
-            console.warn("RSVP not found in database after creation");
-            // Don't reset the state, keep it as true since the API said it succeeded
           }
-        }, 300);
-      }
+        } catch (error) {
+          console.error("Error verifying RSVP:", error);
+        }
+      }, 300);
     } catch (error: any) {
       console.error("Error adding interest:", error);
       alert(error.message || "Failed to update RSVP");
@@ -1648,7 +1545,7 @@ export default function EventDetailsPage({
               <AlertDialogAction
                 onClick={() => {
                   setShowPrivateEventDialog(false);
-                  router.push(`/communities/${event.communities.id}`);
+                  router.push(`/communities/${event.communities?.id}`);
                 }}
                 className="bg-violet-600 hover:bg-violet-700"
               >

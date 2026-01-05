@@ -100,31 +100,26 @@ export default function CommunityMembersPage({
         return
       }
 
-      // Get community by ID
-      const { data: communityData, error: communityError } = await supabase
-        .from("communities")
-        .select("id, name, logo_url, creator_id")
-        .eq("id", id)
-        .single()
-
-      if (communityError || !communityData) {
-        console.error("Community not found:", communityError)
+      // Get community data from API
+      const communityResponse = await fetch(`/api/communities/${id}`)
+      if (!communityResponse.ok) {
+        console.error("Community not found")
         return
       }
+
+      const communityData = await communityResponse.json()
 
       // Check if user is creator or admin
       const userIsCreator = communityData.creator_id === user.id
 
-      // Check if user is admin (co-admin)
-      const { data: membership } = await supabase
-        .from("community_members")
-        .select("role")
-        .eq("community_id", id)
-        .eq("user_id", user.id)
-        .eq("status", "approved")
-        .single()
-
-      const userIsAdmin = membership?.role === "admin"
+      // Check if user is admin
+      const membershipResponse = await fetch(`/api/communities/${id}/members?userId=${user.id}`)
+      let userIsAdmin = false
+      if (membershipResponse.ok) {
+        const membersData = await membershipResponse.json()
+        const userMembership = membersData.find((m: any) => m.user_id === user.id)
+        userIsAdmin = userMembership?.role === "admin"
+      }
       
       if (!userIsCreator && !userIsAdmin) {
         console.error("User is not authorized")

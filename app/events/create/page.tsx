@@ -71,19 +71,15 @@ export default function CreateEventPage() {
     }
 
     try {
-      const supabase = getSupabaseBrowser();
-      const { data: communityData, error } = await supabase
-        .from("communities")
-        .select("id, name, logo_url")
-        .eq("id", communityId)
-        .single();
-
-      if (error || !communityData) {
+      // Fetch community data from API
+      const response = await fetch(`/api/communities/${communityId}`);
+      if (!response.ok) {
         toast.error("Community not found");
         router.push("/communities");
         return;
       }
 
+      const communityData = await response.json();
       setCommunity(communityData);
     } catch (error) {
       console.error("Error loading community:", error);
@@ -661,7 +657,7 @@ export default function CreateEventPage() {
                       if (isOnline) {
                         handleInputChange("location", "");
                         setUseMapPicker(false);
-                        setLocationData({ address: "", city: "", lat: null, lng: null });
+                        setLocationData(null);
                       }
                     }}
                     className="border-gray-300 data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600"
