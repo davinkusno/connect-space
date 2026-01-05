@@ -950,8 +950,7 @@ export class CommunityController extends BaseController {
 
       // Get pending join requests
       const requestsResult = await this.service.getPendingRequests(
-        communityId,
-        user.id
+        communityId
       );
       if (!requestsResult.success) {
         return this.error(
@@ -963,7 +962,7 @@ export class CommunityController extends BaseController {
       const requests = requestsResult.data || [];
 
       if (requests.length === 0) {
-        return this.json({ requests: [] });
+        return this.json({ joinRequests: [] });
       }
 
       // Get user IDs
@@ -982,22 +981,31 @@ export class CommunityController extends BaseController {
 
       const userStats = statsResult.data || {};
 
-      // Combine requests with stats
+      // Combine requests with stats and transform to match frontend expectations
       const requestsWithStats = requests.map((request: any) => {
         const stats = userStats[request.user_id] || {
           points_count: 0,
           report_count: 0,
           reports: [],
         };
+        
+        // Transform to match frontend expectations
         return {
-          ...request,
+          id: request.id,
+          userId: request.user_id,
+          userName: request.user?.full_name || request.user?.username || "Unknown",
+          userEmail: request.user?.email || "",
+          userAvatar: request.user?.avatar_url || "",
+          requestedAt: request.joined_at,
+          status: request.status,
+          message: "", // No message field in current schema
           points_count: stats.points_count,
           report_count: stats.report_count,
-          reports: stats.reports,
+          reports: stats.reports || [],
         };
       });
 
-      return this.json({ requests: requestsWithStats });
+      return this.json({ joinRequests: requestsWithStats });
     } catch (error: unknown) {
       return this.handleError(error);
     }

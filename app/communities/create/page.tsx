@@ -132,6 +132,15 @@ export default function CreateCommunityPage() {
           errorMessage = data.message;
         }
         
+        // Handle specific error cases with appropriate UI feedback
+        if (errorMessage.includes("points") || errorMessage.includes("usable points")) {
+          toast.error(errorMessage, {
+            duration: 6000,
+            description: "You can earn points by joining communities, attending events, and being active."
+          });
+          return;
+        }
+        
         throw new Error(errorMessage);
       }
 
@@ -159,6 +168,12 @@ export default function CreateCommunityPage() {
         errorMessage = error;
       } else if (error?.message) {
         errorMessage = error.message;
+      }
+      
+      // Don't show error toast if we already handled it above (points error)
+      if (errorMessage.includes("points") || errorMessage.includes("usable points")) {
+        // Already handled with specific toast
+        return;
       }
       
       toast.error(errorMessage)

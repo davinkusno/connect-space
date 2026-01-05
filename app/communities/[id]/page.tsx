@@ -524,18 +524,19 @@ export default function CommunityPage({
               break;
             }
 
-            const membersData = await response.json();
+            const data = await response.json();
             
-            if (!membersData || !Array.isArray(membersData)) {
-              console.error("Invalid members data:", membersData);
+            // API returns { members: [], total, page, pageSize }
+            if (!data || !data.members || !Array.isArray(data.members)) {
+              console.error("Invalid members data:", data);
               setMembers([]);
               break;
             }
 
-            console.log("Approved members:", membersData.length, membersData);
+            console.log("Approved members:", data.members.length, data.members);
 
             // Map members and ensure creator is treated as admin with Creator badge
-            const formattedMembers = membersData.map((member: any) => {
+            const formattedMembers = data.members.map((member: any) => {
               // If this member is the creator, treat them as admin
               const isCreator = member.user_id === community.creator_id;
               return {
@@ -629,11 +630,13 @@ export default function CommunityPage({
 
         console.error("Join community error:", errorStr);
 
+        // Handle specific error cases with appropriate UI feedback
         if (errorStr.includes("already") || errorStr.includes("pending")) {
           toast.info(errorStr);
           setIsJoining(false);
           return;
         }
+        
         throw new Error(errorStr);
       }
 
@@ -652,7 +655,13 @@ export default function CommunityPage({
       console.error("Error joining/leaving community:", error);
       const errorMessage =
         error?.message || error?.toString() || "An unknown error occurred";
-      console.error("Full error details:", error);
+
+      // Don't show error toast if we already handled it above
+      if (errorMessage.includes("already") || 
+          errorMessage.includes("pending")) {
+        // Already handled with specific toast
+        return;
+      }
 
       if (error?.code === "23503") {
         toast.error("User account issue. Please try logging out and back in.");
@@ -2416,12 +2425,12 @@ export default function CommunityPage({
                                             <div className="flex items-center gap-4">
                                               <Avatar className="h-12 w-12">
                                                 <AvatarImage
-                                                  src={member.users?.avatar_url}
+                                                  src={member.user?.avatar_url}
                                                 />
                                                 <AvatarFallback className="bg-gradient-to-br from-violet-500 to-blue-600 text-white">
                                                   {(
-                                                    member.users?.username ||
-                                                    member.users?.full_name ||
+                                                    member.user?.username ||
+                                                    member.user?.full_name ||
                                                     "U"
                                                   ).charAt(0)}
                                                 </AvatarFallback>
@@ -2429,8 +2438,8 @@ export default function CommunityPage({
                                               <div>
                                                 <div className="flex items-center gap-2">
                                                   <h4 className="font-semibold text-gray-900">
-                                                    {member.users?.full_name ||
-                                                      member.users?.username ||
+                                                    {member.user?.full_name ||
+                                                      member.user?.username ||
                                                       "Unknown"}
                                                   </h4>
                                                   {member.isCreator && (
@@ -2493,8 +2502,8 @@ export default function CommunityPage({
                                                       member.user_id
                                                     );
                                                     setReportTargetName(
-                                                      member.users?.full_name ||
-                                                        member.users
+                                                      member.user?.full_name ||
+                                                        member.user
                                                           ?.username ||
                                                         "Member"
                                                     );

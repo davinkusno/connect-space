@@ -92,29 +92,29 @@ export default function CommunityAdminRequestsPage({
 
       const data = await response.json()
       
-      if (!data.success || !data.requests) {
+      if (!data.joinRequests) {
         console.error("Invalid response format:", data)
         toast.error("Failed to load join requests")
         setRequests([])
         return
       }
 
-      const requestsData = data.requests
+      const requestsData = data.joinRequests
       
       if (requestsData.length === 0) {
         setRequests([])
         return
       }
       
-      // Map API response to JoinRequest format
+      // API response already has the correct format
       const joinRequests: JoinRequest[] = requestsData.map((request: any) => {
         return {
           id: request.id,
-          userId: request.user_id,
-          userName: request.user?.full_name || request.user?.username || "Unknown User",
-          userEmail: request.user?.email || "",
-          userAvatar: request.user?.avatar_url || "/placeholder-user.jpg",
-          requestedAt: request.joined_at,
+          userId: request.userId,
+          userName: request.userName,
+          userEmail: request.userEmail,
+          userAvatar: request.userAvatar,
+          requestedAt: request.requestedAt,
           status: request.status as "pending" | "approved" | "rejected",
           points_count: request.points_count || 0,
           report_count: request.report_count || 0,

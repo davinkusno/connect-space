@@ -543,31 +543,6 @@ export class CommunityService extends BaseService {
       });
     }
 
-    // Check if user is joining second+ community (requires 50 usable points)
-    const { data: existingMemberships } = await this.supabaseAdmin
-      .from("community_members")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("status", "approved")
-      .limit(1);
-
-    const isFirstCommunity = !existingMemberships || existingMemberships.length === 0;
-
-    if (!isFirstCommunity) {
-      // User is joining second+ community, check for 50 usable points
-      const usablePointsResult = await pointsService.getUsablePoints(userId);
-      if (!usablePointsResult.success) {
-        return ApiResponse.error("Failed to check points", 500);
-      }
-
-      const usablePoints = usablePointsResult.data || 0;
-      if (usablePoints < 50) {
-        return ApiResponse.badRequest(
-          `You need at least 50 usable points to join additional communities. You currently have ${usablePoints} usable points.`
-        );
-      }
-    }
-
     // Insert with status = 'pending' (awaiting approval)
     const { data: insertData, error: insertError } = await this.supabaseAdmin
       .from("community_members")
@@ -1101,7 +1076,35 @@ export class CommunityService extends BaseService {
       return ApiResponse.notFound("Community");
     }
 
-    return ApiResponse.success<CommunityData>(data as CommunityData);
+    // Calculate actual member count (approved members, excluding non-creator admins)
+    const { data: approvedMembers } = await this.supabaseAdmin
+      .from("community_members")
+      .select("user_id, role")
+      .eq("community_id", communityId)
+      .eq("status", "approved");
+
+    // Count members: exclude admins who are not the creator
+    let actualMemberCount = 0;
+    approvedMembers?.forEach((m: any) => {
+      // Exclude admins who are not the creator
+      if (m.role === "admin" && m.user_id !== data.creator_id) {
+        return; // Skip this admin
+      }
+      actualMemberCount++;
+    });
+    
+    // Check if creator is in the approved members list
+    const creatorIsInMembers = approvedMembers?.some((m: any) => m.user_id === data.creator_id);
+    
+    // If creator is not in members table, add them to the count
+    if (!creatorIsInMembers && data.creator_id) {
+      actualMemberCount += 1;
+    }
+
+    return ApiResponse.success<CommunityData>({
+      ...data,
+      member_count: actualMemberCount,
+    } as CommunityData);
   }
 
   /**
@@ -2380,7 +2383,6 @@ export class CommunityService extends BaseService {
           name
         ),
         logo_url,
-        member_count,
         created_at,
         location,
         creator_id,
@@ -2408,27 +2410,69 @@ export class CommunityService extends BaseService {
     }
     
     // Fetch communities
-    const { data: communitiesData, error } = await query
-      .order("member_count", { ascending: false });
+    const { data: communitiesData, error } = await query;
     
     if (error) {
       return ApiResponse.error("Failed to fetch communities", 500);
     }
+    
+    // Calculate actual member counts for each community
+    const communityIds = (communitiesData || []).map((c: any) => c.id);
+    const memberCountMap: Record<string, number> = {};
+    
+    if (communityIds.length > 0) {
+      // Get actual count of approved members for each community with role
+      const { data: memberCounts } = await supabase
+        .from("community_members")
+        .select("community_id, user_id, role")
+        .eq("status", "approved")
+        .in("community_id", communityIds);
+      
+      // Count members per community, excluding non-creator admins
+      memberCounts?.forEach((m: any) => {
+        // Get the community to check if this user is the creator
+        const comm = communitiesData?.find((c: any) => c.id === m.community_id);
+        
+        // Exclude admins who are not the creator
+        if (m.role === "admin" && m.user_id !== comm?.creator_id) {
+          return; // Skip this admin
+        }
+        
+        memberCountMap[m.community_id] = (memberCountMap[m.community_id] || 0) + 1;
+      });
+      
+      // Check if creator is already counted as a member for each community
+      communitiesData?.forEach((comm: any) => {
+        const creatorIsInMembers = memberCounts?.some(
+          (m: any) => m.community_id === comm.id && m.user_id === comm.creator_id
+        );
+        
+        // If creator is not in members table, add them to the count
+        if (!creatorIsInMembers && comm.creator_id) {
+          memberCountMap[comm.id] = (memberCountMap[comm.id] || 0) + 1;
+        }
+      });
+    }
+    
+    // Attach member_count to each community
+    const communitiesWithCount = (communitiesData || []).map((comm: any) => ({
+      ...comm,
+      member_count: memberCountMap[comm.id] || 0,
+    }));
     
     // Fetch membership status for current user
     const membershipStatusMap: Record<string, "joined" | "pending" | "not_joined"> = {};
     const pendingCommunityIds: string[] = [];
     
     // Initialize all as not_joined
-    (communitiesData || []).forEach((comm: any) => {
+    communitiesWithCount.forEach((comm: any) => {
       membershipStatusMap[comm.id] = "not_joined";
     });
     
     if (userId) {
-      const communityIds = (communitiesData || []).map((c: any) => c.id);
       if (communityIds.length > 0) {
         // Check if user is creator first
-        (communitiesData || []).forEach((comm: any) => {
+        communitiesWithCount.forEach((comm: any) => {
           if (comm.creator_id === userId) {
             membershipStatusMap[comm.id] = "joined";
           }
@@ -2453,8 +2497,13 @@ export class CommunityService extends BaseService {
       }
     }
     
+    // Sort by member count
+    const sortedCommunities = communitiesWithCount.sort((a: any, b: any) => {
+      return (b.member_count || 0) - (a.member_count || 0);
+    });
+    
     return ApiResponse.success({
-      communities: communitiesData || [],
+      communities: sortedCommunities,
       membershipStatus: membershipStatusMap,
       pendingCommunityIds,
     });

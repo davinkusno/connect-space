@@ -129,8 +129,8 @@ export default function CommunityAdminEventsPage({
       const membershipResponse = await fetch(`/api/communities/${id}/members?userId=${user.id}`)
       let isAdmin = false
       if (membershipResponse.ok) {
-        const membersData = await membershipResponse.json()
-        const userMembership = membersData.find((m: any) => m.user_id === user.id)
+        const data = await membershipResponse.json()
+        const userMembership = data.members?.find((m: any) => m.user_id === user.id)
         isAdmin = userMembership?.role === "admin"
       }
 
