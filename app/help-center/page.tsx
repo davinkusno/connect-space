@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-    BookOpen, Calendar, ChevronRight, Clock, CreditCard, HelpCircle, Mail, MessageCircle, Search, Settings, User,
+    BookOpen, Calendar, ChevronRight, Clock, HelpCircle, Mail, MessageCircle, Search, Settings, User,
     Users, Zap
 } from "lucide-react";
 import { useState } from "react";
@@ -33,12 +33,6 @@ const faqData = [
         answer:
           "Browse communities on the Discover page, click on a community you're interested in, and hit the 'Join Community' button. Some communities may require approval.",
       },
-      {
-        question:
-          "What's the difference between public and private communities?",
-        answer:
-          "Public communities are open to everyone and visible in search results. Private communities require an invitation or approval to join and are not publicly listed.",
-      },
     ],
   },
   {
@@ -54,11 +48,6 @@ const faqData = [
         question: "How do I change my password?",
         answer:
           "Go to Settings > Account Security > Change Password. You'll need to enter your current password and create a new one.",
-      },
-      {
-        question: "Can I delete my account?",
-        answer:
-          "Yes, you can delete your account by going to Settings > Account > Delete Account. This action is permanent and cannot be undone.",
       },
     ],
   },
@@ -90,7 +79,7 @@ const faqData = [
       {
         question: "How do I create an event?",
         answer:
-          "Go to the Events page and click 'Create Event'. Fill in the event details, set the date and time, and choose whether it's public or private.",
+          "To create an event, you need to be a community admin first. Create or join a community as an admin, then go to the Events page and click 'Create Event'. Fill in the event details, set the date and time, and choose your community.",
       },
       {
         question: "Can I attend events virtually?",
@@ -98,9 +87,9 @@ const faqData = [
           "Yes! Many events support virtual attendance. Look for the video camera icon next to events that offer online participation.",
       },
       {
-        question: "How do I get event reminders?",
+        question: "How do I RSVP or show interest in an event?",
         answer:
-          "Enable notifications in your account settings. You'll receive email and in-app reminders for events you're interested in.",
+          "Click on an event you're interested in and click the 'Interested' button. You'll be added to the list of attendees and can track the event details.",
       },
     ],
   },
@@ -122,27 +111,6 @@ const faqData = [
         question: "How do I enable notifications?",
         answer:
           "Click the bell icon in the top right corner, then go to Notification Settings. You can customize which notifications you want to receive.",
-      },
-    ],
-  },
-  {
-    category: "Billing & Premium",
-    icon: <CreditCard className="h-5 w-5" />,
-    questions: [
-      {
-        question: "Is ConnectSpace free to use?",
-        answer:
-          "Yes! ConnectSpace offers a free tier with access to most features. Premium features are available with our Pro subscription.",
-      },
-      {
-        question: "What's included in the Pro subscription?",
-        answer:
-          "Pro features include advanced analytics, priority support, custom branding, unlimited events, and exclusive community tools.",
-      },
-      {
-        question: "How do I cancel my subscription?",
-        answer:
-          "Go to Settings > Billing > Manage Subscription and click 'Cancel Subscription'. You'll retain access until the end of your billing period.",
       },
     ],
   },
