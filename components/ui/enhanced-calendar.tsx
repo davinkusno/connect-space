@@ -337,10 +337,9 @@ export function EnhancedCalendar({ onDateSelect, selectedDate: externalSelectedD
           return false;
         }
         
-        // Compare dates (ignore time) - normalize both to start of day
-        const eventDateOnly = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
-        const targetDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-        const result = eventDateOnly.getTime() === targetDateOnly.getTime();
+        // Compare dates (ignore time) using date-fns isSameDay
+        // This properly handles timezone issues and time components
+        const result = isSameDay(eventDate, date);
         
         // Debug logging for matching dates
         if (result) {

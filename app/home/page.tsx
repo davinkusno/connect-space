@@ -104,7 +104,7 @@ export default function DashboardPage() {
   const [isLoadingCommunities, setIsLoadingCommunities] = useState(true);
   const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [selectedSavedEvent, setSelectedSavedEvent] = useState<any | null>(
     null
@@ -489,7 +489,7 @@ export default function DashboardPage() {
         return;
       }
 
-      // Filter to only upcoming events and map to calendar format
+      // Filter events - show events that haven't ended yet (keep until end of day)
       const now = new Date();
       const upcomingEvents = eventsData
         .filter((event: any) => {
@@ -497,14 +497,18 @@ export default function DashboardPage() {
             console.log("[Dashboard] Skipping event - no start_time:", event);
             return false;
           }
+          
+          // Create end of day for the event's start date
           const eventStart = new Date(event.start_time);
-          const isUpcoming = eventStart >= now;
+          const eventEndOfDay = new Date(eventStart);
+          eventEndOfDay.setHours(23, 59, 59, 999);
+          
+          // Show event if it's today or in the future (keep until end of day)
+          const isVisible = eventEndOfDay >= now;
           console.log(
-            `[Dashboard] Event "${
-              event.title
-            }": ${eventStart.toISOString()} >= ${now.toISOString()}? ${isUpcoming}`
+            `[Dashboard] Event "${event.title}": start=${eventStart.toISOString()}, EOD=${eventEndOfDay.toISOString()}, now=${now.toISOString()}, visible=${isVisible}`
           );
-          return isUpcoming;
+          return isVisible;
         })
         .map((event: any) => {
           const startTime = event.start_time;

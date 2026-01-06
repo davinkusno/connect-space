@@ -37,6 +37,40 @@ export class NotificationController extends BaseController {
   }
 
   /**
+   * POST /api/notifications
+   * Create a notification for the authenticated user
+   */
+  public async createNotification(request: NextRequest): Promise<NextResponse> {
+    try {
+      const user = await this.requireAuth();
+      const body = await this.parseBody<{
+        type: string;
+        title: string;
+        content: string;
+        reference_id?: string;
+        reference_type?: "event" | "community" | "post" | "message";
+      }>(request);
+
+      const result = await this.service.create({
+        user_id: user.id,
+        type: body.type as any,
+        title: body.title,
+        content: body.content,
+        reference_id: body.reference_id,
+        reference_type: body.reference_type,
+      });
+
+      if (result.success) {
+        return this.json(result.data, result.status);
+      }
+
+      return this.error(result.error?.message || "Failed to create notification", result.status);
+    } catch (error: unknown) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * PATCH /api/notifications/[id]/read
    * Mark a notification as read
    */

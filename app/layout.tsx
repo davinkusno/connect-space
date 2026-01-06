@@ -1,5 +1,6 @@
 import { OnboardingGuard } from "@/components/auth/onboarding-guard";
 import { NavbarWrapper } from "@/components/navigation/navbar-wrapper";
+import { EventReminderChecker } from "@/components/reminders/event-reminder-checker";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
@@ -25,6 +26,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <OnboardingGuard>
+          <EventReminderChecker />
           <NavbarWrapper />
           <main className="min-h-screen">{children}</main>
           <Toaster />
