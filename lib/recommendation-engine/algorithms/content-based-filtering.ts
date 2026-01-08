@@ -46,22 +46,217 @@
 
 import type { Community, RecommendationScore, User } from "../types"
 
-// Keywords mapping for user interests to help match with community content
-// NOTE: Avoid overly broad terms like "community", "creative" that match everything
+/**
+ * Keywords mapping for user interests to help match with community content
+ * 
+ * Based on Google Cloud Natural Language API Content Categories v2
+ * Reference: https://cloud.google.com/natural-language/docs/categories
+ * 
+ * Each category is mapped to relevant terms extracted from Google's hierarchical
+ * taxonomy, adapted for community matching context. This ensures our categorization
+ * aligns with industry-standard content classification used by major platforms.
+ * 
+ * NOTE: Avoid overly broad terms like "community", "creative" that match everything
+ */
 const INTEREST_KEYWORDS: Record<string, string[]> = {
-  "hobbies & crafts": ["hobby", "craft", "diy", "handmade", "maker", "gaming", "game", "collection", "collector", "knitting", "sewing", "woodworking", "pottery", "modeling", "cosplay", "handicraft", "crafting"],
-  "sports & fitness": ["sport", "fitness", "gym", "workout", "exercise", "running", "cycling", "yoga", "athletic", "health", "basketball", "football", "soccer", "swimming", "tennis", "badminton", "volleyball", "marathon", "triathlon", "crossfit", "martial arts", "boxing", "wrestling", "climbing", "pilates", "cardio", "strength", "training"],
-  "career & business": ["career", "business", "professional", "networking", "entrepreneur", "startup", "job", "work", "corporate", "leadership", "management", "consulting", "sales", "marketing", "finance", "strategy", "innovation", "mentorship", "workplace", "entrepreneurship"],
-  "tech & innovation": ["tech", "technology", "programming", "coding", "developer", "software", "hardware", "ai", "machine learning", "data", "digital", "innovation", "computer", "it", "web", "app", "blockchain", "cloud", "database", "api", "frontend", "backend", "mobile", "ux", "ui", "devops", "cybersecurity", "automation", "robotics", "iot", "analytics", "python", "javascript", "java", "react", "node"],
-  "arts & culture": ["art", "culture", "museum", "gallery", "painting", "sculpture", "artist", "cultural", "heritage", "photography", "illustration", "graphic design", "animation", "digital art", "contemporary", "traditional", "exhibition", "visual arts", "artistic", "fine art"],
-  "social & community": ["social", "volunteer", "charity", "nonprofit", "help", "support", "meetup", "gathering", "activism", "advocacy", "outreach", "engagement", "collaboration", "volunteering", "humanitarian", "civic", "grassroots"],
-  "education & learning": ["education", "learning", "study", "course", "workshop", "training", "skill", "knowledge", "academic", "school", "university", "teach", "tutorial", "lecture", "seminar", "bootcamp", "certification", "mentoring", "coaching"],
-  "travel & adventure": ["travel", "adventure", "explore", "trip", "journey", "hiking", "outdoor", "nature", "tourism", "backpack", "trekking", "camping", "roadtrip", "expedition", "wanderlust", "destination", "exploration"],
-  "food & drink": ["food", "drink", "cooking", "culinary", "restaurant", "recipe", "cuisine", "chef", "baking", "coffee", "wine", "beer", "foodie", "gastronomy", "dining", "cafe", "barista", "sommelier", "vegan", "vegetarian", "organic"],
-  "entertainment": ["entertainment", "movie", "film", "music", "concert", "show", "theater", "performance", "fun", "party", "event", "comedy", "drama", "festival", "nightlife", "venue", "stage", "screening"],
-  // Database category mappings
-  "environmental": ["environment", "nature", "sustainability", "green", "eco", "climate", "conservation", "wildlife", "recycling", "renewable", "organic", "pollution", "ecosystem", "biodiversity", "carbon", "zero waste"],
-  "music": ["music", "band", "concert", "instrument", "song", "singing", "musician", "guitar", "piano", "dj", "producer", "composer", "melody", "rhythm", "genre", "album", "performance", "live music", "jazz", "rock", "pop", "classical", "electronic"],
+  // Based on: /Computers & Electronics, /Science/Computer Science, /Science/Engineering & Technology
+  "tech & innovation": [
+    "tech", "technology", "computer", "electronics", "digital", "innovation",
+    // Programming & Development
+    "programming", "coding", "developer", "software", "engineering", "web", "app", "mobile",
+    "frontend", "backend", "fullstack", "api", "database", "devops",
+    // Languages & Frameworks
+    "python", "javascript", "java", "typescript", "react", "node", "angular", "vue",
+    // Emerging Tech
+    "ai", "artificial intelligence", "machine learning", "ml", "data science", "analytics",
+    "blockchain", "cryptocurrency", "cloud", "aws", "azure", "gcp",
+    // Specializations
+    "cybersecurity", "iot", "robotics", "automation", "ux", "ui", "design",
+    "network", "hardware", "embedded", "quantum"
+  ],
+
+  // Based on: /Sports, /Health/Fitness
+  "sports & fitness": [
+    "sport", "fitness", "health", "athletic", "exercise", "workout", "training",
+    // Fitness Activities
+    "gym", "running", "cycling", "yoga", "pilates", "crossfit", "aerobics",
+    "cardio", "strength", "weightlifting", "bodybuilding", "calisthenics",
+    // Team Sports (from Google: /Sports/Team Sports)
+    "football", "soccer", "basketball", "baseball", "volleyball", "hockey",
+    "rugby", "cricket", "american football",
+    // Individual Sports (from Google: /Sports/Individual Sports)
+    "tennis", "badminton", "golf", "swimming", "track", "field", "gymnastics",
+    "cycling", "skateboarding", "skating",
+    // Combat Sports (from Google: /Sports/Combat Sports)
+    "martial arts", "boxing", "wrestling", "mma", "karate", "judo", "taekwondo",
+    // Other
+    "marathon", "triathlon", "climbing", "hiking", "outdoor"
+  ],
+
+  // Based on: /Arts & Entertainment, /Reference/Humanities/History, /Reference/Humanities/Philosophy
+  "arts & culture": [
+    "art", "culture", "arts", "entertainment", "creative", "cultural",
+    // Visual Arts (from Google: /Arts & Entertainment/Visual Art & Design)
+    "painting", "drawing", "sculpture", "gallery", "museum", "exhibition",
+    "photography", "illustration", "graphic design", "digital art", "fine art",
+    // Performing Arts
+    "theater", "theatre", "performance", "dance", "ballet", "opera",
+    // Art Forms
+    "contemporary", "modern", "traditional", "abstract", "installation",
+    "ceramic", "pottery", "calligraphy", "printmaking",
+    // Cultural
+    "heritage", "history", "philosophy", "literature", "poetry", "humanities",
+    "artistic", "canvas", "sketch", "artwork", "studio", "artist"
+  ],
+
+  // Based on: /Business & Industrial, /Jobs & Education/Jobs
+  "career & business": [
+    "career", "business", "professional", "work", "job", "employment",
+    // Business Types (from Google: /Business & Industrial)
+    "entrepreneur", "entrepreneurship", "startup", "enterprise", "corporate",
+    "small business", "e-commerce", "retail", "wholesale",
+    // Business Functions
+    "management", "leadership", "strategy", "consulting", "operations",
+    "sales", "marketing", "advertising", "finance", "accounting", "hr",
+    "human resources", "legal", "administration",
+    // Networking & Development
+    "networking", "mentorship", "coaching", "career development",
+    "professional development", "workplace", "office", "remote work",
+    // Industries
+    "industry", "commerce", "trade", "investment", "stock"
+  ],
+
+  // Based on: /Food & Drink
+  "food & drink": [
+    "food", "drink", "culinary", "cuisine", "dining", "eating",
+    // Cooking (from Google: /Food & Drink/Cooking & Recipes)
+    "cooking", "recipe", "baking", "chef", "kitchen", "meal", "dish",
+    // Restaurants & Dining (from Google: /Food & Drink/Restaurants)
+    "restaurant", "cafe", "coffee", "tea", "bar", "pub", "bistro",
+    // Beverages (from Google: /Food & Drink/Beverages)
+    "wine", "beer", "cocktail", "spirits", "juice", "barista", "sommelier",
+    // Food Types & Diets
+    "vegan", "vegetarian", "organic", "healthy", "nutrition",
+    // Food Culture
+    "foodie", "gastronomy", "gourmet", "street food", "food truck",
+    "catering", "tasting", "menu"
+  ],
+
+  // Based on: /Jobs & Education/Education, /Reference/General Reference
+  "education & learning": [
+    "education", "learning", "study", "academic", "knowledge", "skill",
+    // Educational Institutions
+    "school", "university", "college", "academy", "institute",
+    // Teaching & Training (from Google: /Jobs & Education/Education)
+    "teaching", "teacher", "instructor", "professor", "tutor", "mentor",
+    "training", "coaching", "mentoring", "tutoring",
+    // Learning Formats
+    "course", "class", "workshop", "seminar", "lecture", "bootcamp",
+    "tutorial", "lesson", "webinar", "online learning", "e-learning",
+    // Academic
+    "certification", "degree", "diploma", "scholarship", "research",
+    "curriculum", "student", "pedagogy", "educational"
+  ],
+
+  // Based on: /Travel, /Travel/Tourist Destinations
+  "travel & adventure": [
+    "travel", "adventure", "tourism", "journey", "trip", "vacation",
+    // Travel Types (from Google: /Travel)
+    "explore", "exploration", "wanderlust", "backpack", "backpacking",
+    "expedition", "tour", "cruise", "roadtrip", "road trip",
+    // Destinations (from Google: /Travel/Tourist Destinations)
+    "destination", "beach", "island", "mountain", "resort", "landmark",
+    // Adventure Activities (from Google: /Sports/Extreme Sports)
+    "hiking", "trekking", "camping", "outdoor", "nature", "wilderness",
+    "climbing", "mountaineering", "safari", "diving", "rafting",
+    // Travel Planning
+    "hotel", "accommodation", "flight", "itinerary", "guide"
+  ],
+
+  // Based on: /Hobbies & Leisure, /Games
+  "hobbies & crafts": [
+    "hobby", "hobbies", "leisure", "pastime", "recreation", "activity",
+    // Crafts (from Google: /Hobbies & Leisure/Crafts)
+    "craft", "crafts", "diy", "handmade", "handicraft", "handcraft",
+    "knitting", "sewing", "crochet", "embroidery", "quilting",
+    "woodworking", "carpentry", "pottery", "ceramics", "jewelry",
+    "scrapbooking", "origami", "calligraphy", "candle making",
+    // Making & Building
+    "maker", "making", "building", "modeling", "model", "miniature",
+    // Gaming (from Google: /Games)
+    "gaming", "game", "board game", "card game", "puzzle", "rpg",
+    // Collecting
+    "collection", "collecting", "collector", "antique", "memorabilia",
+    // Costuming
+    "cosplay", "costume", "prop"
+  ],
+
+  // Based on: /People & Society/Social Issues & Advocacy
+  "social & community": [
+    "social", "community", "society", "people", "civic", "public",
+    // Volunteering & Charity (from Google: /People & Society/Social Issues & Advocacy/Charity & Philanthropy)
+    "volunteer", "volunteering", "charity", "philanthropy", "nonprofit",
+    "ngo", "donation", "fundraising", "humanitarian",
+    // Advocacy & Activism (from Google: /People & Society/Social Issues & Advocacy)
+    "advocacy", "activism", "activist", "campaign", "awareness",
+    "social justice", "human rights", "civil rights",
+    // Community Engagement
+    "engagement", "outreach", "collaboration", "cooperative",
+    "grassroots", "neighborhood", "local", "meetup", "gathering",
+    // Support Services
+    "help", "support", "aid", "assistance", "welfare", "service"
+  ],
+
+  // Based on: /Arts & Entertainment (Movies, TV, Music, Events)
+  "entertainment": [
+    "entertainment", "fun", "leisure", "recreation",
+    // Movies & TV (from Google: /Arts & Entertainment/Movies, /Arts & Entertainment/TV Shows & Programs)
+    "movie", "film", "cinema", "screening", "tv", "television", "series", "show",
+    // Music & Concerts (from Google: /Arts & Entertainment/Music & Audio)
+    "music", "concert", "festival", "live music", "gig", "performance",
+    // Theater & Performance (from Google: /Arts & Entertainment/Performing Arts)
+    "theater", "theatre", "stage", "drama", "comedy", "musical", "play",
+    // Events (from Google: /Arts & Entertainment/Events & Listings)
+    "event", "party", "celebration", "nightlife", "club", "venue",
+    // Entertainment Types
+    "comedy", "standup", "magic", "circus", "variety"
+  ],
+
+  // Based on: /People & Society/Social Issues & Advocacy/Green Living & Environmental Issues, /Science/Ecology & Environment
+  "environmental": [
+    "environment", "environmental", "ecology", "nature", "natural",
+    // Climate & Sustainability (from Google: /Science/Ecology & Environment/Climate Change & Global Warming)
+    "climate", "climate change", "global warming", "sustainability",
+    "sustainable", "green", "eco", "ecological",
+    // Conservation (from Google: /People & Society/Social Issues & Advocacy/Green Living & Environmental Issues)
+    "conservation", "preserve", "protection", "wildlife", "biodiversity",
+    "ecosystem", "habitat", "endangered",
+    // Green Practices
+    "recycling", "renewable", "solar", "wind", "clean energy",
+    "zero waste", "composting", "organic", "pollution", "carbon",
+    "footprint", "emission"
+  ],
+
+  // Based on: /Arts & Entertainment/Music & Audio
+  "music": [
+    "music", "musical", "audio", "sound",
+    // Music Creation (from Google: /Arts & Entertainment/Music & Audio/Music Education & Instruction)
+    "musician", "artist", "band", "singer", "singing", "vocalist",
+    "composer", "songwriter", "producer", "dj", "beatmaker",
+    // Instruments
+    "instrument", "guitar", "piano", "keyboard", "drum", "bass",
+    "violin", "saxophone", "trumpet", "synthesizer",
+    // Music Theory & Elements
+    "melody", "harmony", "rhythm", "beat", "chord", "note", "tempo",
+    // Music Industry
+    "album", "song", "track", "recording", "studio", "label",
+    "concert", "gig", "performance", "live", "tour",
+    // Genres (from Google: /Arts & Entertainment/Music & Audio subcategories)
+    "genre", "rock", "pop", "jazz", "blues", "classical", "electronic",
+    "hip hop", "rap", "country", "folk", "metal", "indie", "alternative"
+  ],
+
+  // Backward compatibility - database category mappings
   "sports": ["sport", "fitness", "athletic", "game", "team", "competition", "training", "player", "coach", "tournament", "championship", "league", "practice"],
   "hobbies": ["hobby", "craft", "gaming", "collection", "leisure", "pastime", "interest", "activity", "recreation"],
   "education": ["education", "learning", "teaching", "academic", "study", "course", "workshop", "student", "teacher", "instructor", "curriculum"],

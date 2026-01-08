@@ -1873,11 +1873,19 @@ export class ReportService extends BaseService {
           .single();
         reportedThread = data;
       } else if (report.report_type === "event") {
-        const { data } = await this.supabaseAdmin
+        const { data, error } = await this.supabaseAdmin
           .from("events")
           .select("id, title, organizer_id, community_id")
           .eq("id", report.target_id)
           .single();
+        
+        console.log("[ReportService] Event fetch result:", {
+          targetId: report.target_id,
+          data,
+          error,
+          hasData: !!data
+        });
+        
         reportedEvent = data;
       }
 
@@ -1891,6 +1899,15 @@ export class ReportService extends BaseService {
 
       const reportType = enrichedReport.report_type as "community" | "thread" | "reply" | "event" | "member";
       const targetId = enrichedReport.target_id;
+
+      console.log("[ReportService] Ban report details:", {
+        reportType,
+        targetId,
+        hasReportedCommunity: !!enrichedReport.reported_community,
+        hasReportedThread: !!enrichedReport.reported_thread,
+        hasReportedEvent: !!enrichedReport.reported_event,
+        reportedEvent: enrichedReport.reported_event
+      });
 
       // Step 2: Execute ban logic based on report type
       if (reportType === "community") {
@@ -2123,112 +2140,313 @@ export class ReportService extends BaseService {
           }
         }
 
-      } else if (reportType === "event" && enrichedReport.reported_event) {
+      } else if (reportType === "event") {
+        console.log("[ReportService] Processing event ban, enrichedReport.reported_event:", enrichedReport.reported_event);
+        
         const event = enrichedReport.reported_event;
         if (!event) {
-          return ApiResponse.error("Event not found", 404);
-        }
-        const creatorId = event.organizer_id;
-        const communityId = event.community_id;
-
-        const { error: deleteError } = await this.supabaseAdmin
-          .from("events")
-          .delete()
-          .eq("id", targetId);
-
-        if (deleteError) {
-          return ApiResponse.error("Failed to delete event", 500);
-        }
-        actions.push("Event deleted");
-
-        const { error: restrictError } = await this.supabaseAdmin
-          .from("users")
-          .update({ can_post: false })
-          .eq("id", creatorId);
-
-        if (restrictError) {
-          return ApiResponse.error("Failed to restrict creator", 500);
-        }
-        actions.push("Creator restricted from posting");
-
-        const { data: community } = await this.supabaseAdmin
-          .from("communities")
-          .select("id, name, creator_id")
-          .eq("id", communityId)
-          .single();
-
-        if (community) {
-          const adminId = community.creator_id;
-
-          const { data: adminData, error: adminError } = await this.supabaseAdmin
-            .from("users")
-            .select("moderation_strikes")
-            .eq("id", adminId)
+          console.error("[ReportService] Event not found in enriched report, attempting to fetch directly");
+          // Try to fetch event directly
+          const { data: fetchedEvent, error: fetchError } = await this.supabaseAdmin
+            .from("events")
+            .select("id, title, organizer_id, community_id")
+            .eq("id", targetId)
             .single();
+          
+          if (fetchError || !fetchedEvent) {
+            console.error("[ReportService] Failed to fetch event:", fetchError);
+            return ApiResponse.error("Event not found", 404);
+          }
+          
+          // Use the fetched event
+          const event = fetchedEvent;
+          const creatorId = event.organizer_id;
+          const communityId = event.community_id;
 
-          let newStrikeCount = 1;
-          if (!adminError && adminData) {
-            newStrikeCount = (adminData.moderation_strikes || 0) + 1;
-            
-            const { error: strikeError } = await this.supabaseAdmin
-              .from("users")
-              .update({ moderation_strikes: newStrikeCount })
-              .eq("id", adminId);
+          console.log("[ReportService] Banning event (fetched directly):", { 
+            eventId: targetId, 
+            creatorId, 
+            communityId,
+            hasCreatorId: !!creatorId,
+            hasCommunityId: !!communityId
+          });
 
-            if (!strikeError) {
-              actions.push(`Admin received strike ${newStrikeCount}/3`);
+          // Validate required fields
+          if (!creatorId) {
+            console.error("[ReportService] Event has no organizer_id");
+            return ApiResponse.error("Event has no organizer, cannot ban", 400);
+          }
 
-              if (newStrikeCount >= 3) {
-                await this.supabaseAdmin
+          const { error: deleteError } = await this.supabaseAdmin
+            .from("events")
+            .delete()
+            .eq("id", targetId);
+
+          if (deleteError) {
+            console.error("[ReportService] Failed to delete event:", deleteError);
+            return ApiResponse.error("Failed to delete event", 500);
+          }
+          actions.push("Event deleted");
+
+          const { error: restrictError } = await this.supabaseAdmin
+            .from("users")
+            .update({ can_post: false })
+            .eq("id", creatorId);
+
+          if (restrictError) {
+            console.error("[ReportService] Failed to restrict event creator:", restrictError);
+            return ApiResponse.error("Failed to restrict creator", 500);
+          }
+          actions.push("Creator restricted from posting");
+
+          // Only process community-related actions if event belongs to a community
+          if (communityId) {
+            const { data: community, error: communityError } = await this.supabaseAdmin
+              .from("communities")
+              .select("id, name, creator_id")
+              .eq("id", communityId)
+              .single();
+
+            if (communityError) {
+              console.error("[ReportService] Failed to fetch community:", communityError);
+              actions.push("Warning: Could not fetch community for admin strikes");
+            } else if (community) {
+              const adminId = community.creator_id;
+
+              const { data: adminData, error: adminError } = await this.supabaseAdmin
+                .from("users")
+                .select("moderation_strikes")
+                .eq("id", adminId)
+                .single();
+
+              let newStrikeCount = 1;
+              if (!adminError && adminData) {
+                newStrikeCount = (adminData.moderation_strikes || 0) + 1;
+                
+                const { error: strikeError } = await this.supabaseAdmin
                   .from("users")
-                  .update({ can_create_communities: false })
+                  .update({ moderation_strikes: newStrikeCount })
                   .eq("id", adminId);
-                actions.push("Admin banned from creating communities (3 strikes)");
+
+                if (!strikeError) {
+                  actions.push(`Admin received strike ${newStrikeCount}/3`);
+
+                  if (newStrikeCount >= 3) {
+                    await this.supabaseAdmin
+                      .from("users")
+                      .update({ can_create_communities: false })
+                      .eq("id", adminId);
+                    actions.push("Admin banned from creating communities (3 strikes)");
+                  }
+                } else {
+                  console.error("[ReportService] Failed to update admin strikes:", strikeError);
+                  actions.push("Failed to update admin strikes (check logs)");
+                }
+              } else {
+                console.error("[ReportService] Failed to fetch admin data:", adminError);
+                actions.push("Failed to fetch admin data (check logs)");
               }
-            } else {
-              console.error("[ReportService] Failed to update admin strikes:", strikeError);
-              actions.push("Failed to update admin strikes (check logs)");
+
+              try {
+                const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+                await notificationService.onCommunityStrike(
+                  adminId,
+                  communityId,
+                  community.name,
+                  newStrikeCount,
+                  banReason
+                );
+                actions.push("Admin notified of strike");
+              } catch (notifyError: any) {
+                console.error("[ReportService] Failed to notify admin of strike:", {
+                  error: notifyError,
+                  message: notifyError?.message,
+                  stack: notifyError?.stack,
+                  adminId,
+                  communityId,
+                  strikeCount: newStrikeCount
+                });
+                actions.push(`Failed to notify admin: ${notifyError?.message || "Unknown error"}`);
+              }
+
+              try {
+                const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+                await notificationService.onContentBanned(
+                  creatorId,
+                  "event",
+                  community.name,
+                  banReason,
+                  communityId
+                );
+                actions.push("Creator notified");
+              } catch (notifyError) {
+                console.error("[ReportService] Failed to notify event creator:", notifyError);
+                actions.push("Failed to notify creator (check logs)");
+              }
             }
           } else {
-            console.error("[ReportService] Failed to fetch admin data:", adminError);
-            actions.push("Failed to fetch admin data (check logs)");
+            // Event doesn't belong to a community - just notify the creator
+            console.log("[ReportService] Event has no community, skipping admin strikes");
+            actions.push("Event has no community (standalone event)");
+            
+            try {
+              const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+              await notificationService.onContentBanned(
+                creatorId,
+                "event",
+                "Platform",
+                banReason
+              );
+              actions.push("Creator notified");
+            } catch (notifyError) {
+              console.error("[ReportService] Failed to notify event creator:", notifyError);
+              actions.push("Failed to notify creator (check logs)");
+            }
+          }
+        } else {
+          // Event was found in enriched report
+          const creatorId = event.organizer_id;
+          const communityId = event.community_id;
+
+          console.log("[ReportService] Banning event:", { 
+            eventId: targetId, 
+            creatorId, 
+            communityId,
+            hasCreatorId: !!creatorId,
+            hasCommunityId: !!communityId
+          });
+
+          // Validate required fields
+          if (!creatorId) {
+            console.error("[ReportService] Event has no organizer_id");
+            return ApiResponse.error("Event has no organizer, cannot ban", 400);
           }
 
-          try {
-            const notificationService = (await import("./notification.service")).NotificationService.getInstance();
-            await notificationService.onCommunityStrike(
-              adminId,
-              communityId,
-              community.name,
-              newStrikeCount,
-              banReason
-            );
-            actions.push("Admin notified of strike");
-          } catch (notifyError: any) {
-            console.error("[ReportService] Failed to notify admin of strike:", {
-              error: notifyError,
-              message: notifyError?.message,
-              stack: notifyError?.stack,
-              adminId,
-              communityId,
-              strikeCount: newStrikeCount
-            });
-            actions.push(`Failed to notify admin: ${notifyError?.message || "Unknown error"}`);
-          }
+          const { error: deleteError} = await this.supabaseAdmin
+            .from("events")
+            .delete()
+            .eq("id", targetId);
 
-          try {
-            const notificationService = (await import("./notification.service")).NotificationService.getInstance();
-            await notificationService.onContentBanned(
-              creatorId,
-              "event",
-              community.name,
-              banReason,
-              communityId
-            );
-            actions.push("Creator notified");
-          } catch (notifyError) {
-            console.error("[ReportService] Failed to notify event creator:", notifyError);
-            actions.push("Failed to notify creator (check logs)");
+          if (deleteError) {
+            console.error("[ReportService] Failed to delete event:", deleteError);
+            return ApiResponse.error("Failed to delete event", 500);
+          }
+          actions.push("Event deleted");
+
+          const { error: restrictError } = await this.supabaseAdmin
+            .from("users")
+            .update({ can_post: false })
+            .eq("id", creatorId);
+
+          if (restrictError) {
+            console.error("[ReportService] Failed to restrict event creator:", restrictError);
+            return ApiResponse.error("Failed to restrict creator", 500);
+          }
+          actions.push("Creator restricted from posting");
+
+          // Only process community-related actions if event belongs to a community
+          if (communityId) {
+            const { data: community, error: communityError } = await this.supabaseAdmin
+              .from("communities")
+              .select("id, name, creator_id")
+              .eq("id", communityId)
+              .single();
+
+            if (communityError) {
+              console.error("[ReportService] Failed to fetch community:", communityError);
+              actions.push("Warning: Could not fetch community for admin strikes");
+            } else if (community) {
+              const adminId = community.creator_id;
+
+              const { data: adminData, error: adminError } = await this.supabaseAdmin
+                .from("users")
+                .select("moderation_strikes")
+                .eq("id", adminId)
+                .single();
+
+              let newStrikeCount = 1;
+              if (!adminError && adminData) {
+                newStrikeCount = (adminData.moderation_strikes || 0) + 1;
+                
+                const { error: strikeError } = await this.supabaseAdmin
+                  .from("users")
+                  .update({ moderation_strikes: newStrikeCount })
+                  .eq("id", adminId);
+
+                if (!strikeError) {
+                  actions.push(`Admin received strike ${newStrikeCount}/3`);
+
+                  if (newStrikeCount >= 3) {
+                    await this.supabaseAdmin
+                      .from("users")
+                      .update({ can_create_communities: false })
+                      .eq("id", adminId);
+                    actions.push("Admin banned from creating communities (3 strikes)");
+                  }
+                } else {
+                  console.error("[ReportService] Failed to update admin strikes:", strikeError);
+                  actions.push("Failed to update admin strikes (check logs)");
+                }
+              } else {
+                console.error("[ReportService] Failed to fetch admin data:", adminError);
+                actions.push("Failed to fetch admin data (check logs)");
+              }
+
+              try {
+                const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+                await notificationService.onCommunityStrike(
+                  adminId,
+                  communityId,
+                  community.name,
+                  newStrikeCount,
+                  banReason
+                );
+                actions.push("Admin notified of strike");
+              } catch (notifyError: any) {
+                console.error("[ReportService] Failed to notify admin of strike:", {
+                  error: notifyError,
+                  message: notifyError?.message,
+                  stack: notifyError?.stack,
+                  adminId,
+                  communityId,
+                  strikeCount: newStrikeCount
+                });
+                actions.push(`Failed to notify admin: ${notifyError?.message || "Unknown error"}`);
+              }
+
+              try {
+                const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+                await notificationService.onContentBanned(
+                  creatorId,
+                  "event",
+                  community.name,
+                  banReason,
+                  communityId
+                );
+                actions.push("Creator notified");
+              } catch (notifyError) {
+                console.error("[ReportService] Failed to notify event creator:", notifyError);
+                actions.push("Failed to notify creator (check logs)");
+              }
+            }
+          } else {
+            // Event doesn't belong to a community - just notify the creator
+            console.log("[ReportService] Event has no community, skipping admin strikes");
+            actions.push("Event has no community (standalone event)");
+            
+            try {
+              const notificationService = (await import("./notification.service")).NotificationService.getInstance();
+              await notificationService.onContentBanned(
+                creatorId,
+                "event",
+                "Platform",
+                banReason
+              );
+              actions.push("Creator notified");
+            } catch (notifyError) {
+              console.error("[ReportService] Failed to notify event creator:", notifyError);
+              actions.push("Failed to notify creator (check logs)");
+            }
           }
         }
 
