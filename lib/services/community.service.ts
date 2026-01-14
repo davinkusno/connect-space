@@ -1598,10 +1598,10 @@ export class CommunityService extends BaseService {
 
     // Get counts in parallel
     const [memberCountResult, eventCountResult, membershipResult] = await Promise.all([
-      // Member count - ALL approved members (member, admin, moderator), excluding only creator
+      // Member count - ONLY pure members with role "member", excluding creators, admins, and moderators
       this.supabaseAdmin
         .from("community_members")
-        .select("user_id")
+        .select("user_id, role")
         .eq("community_id", communityId)
         .eq("status", "approved"),
       
@@ -1623,11 +1623,11 @@ export class CommunityService extends BaseService {
         : Promise.resolve({ data: null, error: null })
     ]);
 
-    // Filter out creator from member count
+    // Count only pure members (excluding creators, admins, and moderators)
     let memberCount = 0;
     if (memberCountResult.data) {
       memberCount = memberCountResult.data.filter(
-        (member: any) => member.user_id !== community.creator_id
+        (member: any) => member.user_id !== community.creator_id && member.role === "member"
       ).length;
     }
 
@@ -1829,17 +1829,34 @@ export class CommunityService extends BaseService {
         ...adminCommunities.map(c => c.id)
       ];
 
+      // First, get creator IDs for filtering
+      const creatorMap: Record<string, string> = {};
+      if (allCommunityIds.length > 0) {
+        const { data: communityCreators } = await this.supabaseAdmin
+          .from("communities")
+          .select("id, creator_id")
+          .in("id", allCommunityIds);
+        
+        communityCreators?.forEach((c: any) => {
+          creatorMap[c.id] = c.creator_id;
+        });
+      }
+
       const memberCounts: Record<string, number> = {};
       if (allCommunityIds.length > 0) {
         const { data: memberCountData } = await this.supabaseAdmin
           .from("community_members")
-          .select("community_id")
+          .select("community_id, user_id, role")
           .in("community_id", allCommunityIds)
           .eq("status", "approved");
 
         if (memberCountData) {
           memberCountData.forEach(m => {
-            memberCounts[m.community_id] = (memberCounts[m.community_id] || 0) + 1;
+            // Only count pure members (excluding creators, admins, and moderators)
+            const isCreator = creatorMap[m.community_id] === m.user_id;
+            if (!isCreator && m.role === "member") {
+              memberCounts[m.community_id] = (memberCounts[m.community_id] || 0) + 1;
+            }
           });
         }
       }
@@ -1993,12 +2010,13 @@ export class CommunityService extends BaseService {
         eventCounts[event.community_id] = (eventCounts[event.community_id] || 0) + 1;
       });
 
-      // Count members per community (ALL approved members, excluding only creators)
+      // Count members per community (ONLY pure members with role "member", excluding creators, admins, and moderators)
       const memberCounts: Record<string, number> = {};
       memberCountsData.data?.forEach((member: any) => {
         if (member.status === "approved") {
           const isCreator = creatorMap[member.community_id] === member.user_id;
-          if (!isCreator) {
+          // Only count pure members (excluding creators, admins, and moderators)
+          if (!isCreator && member.role === "member") {
             memberCounts[member.community_id] = (memberCounts[member.community_id] || 0) + 1;
           }
         }
@@ -2428,28 +2446,19 @@ export class CommunityService extends BaseService {
         .eq("status", "approved")
         .in("community_id", communityIds);
       
-      // Count members per community, excluding non-creator admins
+      // Count ONLY pure members per community (excluding creators, admins, and moderators)
       memberCounts?.forEach((m: any) => {
         // Get the community to check if this user is the creator
         const comm = communitiesData?.find((c: any) => c.id === m.community_id);
         
-        // Exclude admins who are not the creator
-        if (m.role === "admin" && m.user_id !== comm?.creator_id) {
-          return; // Skip this admin
+        // Skip creators, admins, and moderators - only count pure members
+        if (m.user_id === comm?.creator_id || m.role === "admin" || m.role === "moderator") {
+          return; // Skip this user
         }
         
-        memberCountMap[m.community_id] = (memberCountMap[m.community_id] || 0) + 1;
-      });
-      
-      // Check if creator is already counted as a member for each community
-      communitiesData?.forEach((comm: any) => {
-        const creatorIsInMembers = memberCounts?.some(
-          (m: any) => m.community_id === comm.id && m.user_id === comm.creator_id
-        );
-        
-        // If creator is not in members table, add them to the count
-        if (!creatorIsInMembers && comm.creator_id) {
-          memberCountMap[comm.id] = (memberCountMap[comm.id] || 0) + 1;
+        // Only count members with "member" role
+        if (m.role === "member") {
+          memberCountMap[m.community_id] = (memberCountMap[m.community_id] || 0) + 1;
         }
       });
     }

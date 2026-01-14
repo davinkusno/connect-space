@@ -93,6 +93,7 @@ interface Event {
 export default function EventsPage() {
   const router = useRouter();
   const [events, setEvents] = useState<Event[]>([]);
+  const [recommendedEventIds, setRecommendedEventIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -130,6 +131,32 @@ export default function EventsPage() {
       setError(null);
 
       try {
+        // Get current user first
+        const { getSupabaseBrowser } = await import("@/lib/supabase/client");
+        const supabase = getSupabaseBrowser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        setCurrentUser(user);
+
+        // Fetch recommended event IDs if user is logged in
+        let recommendedIds: string[] = [];
+        if (user) {
+          try {
+            const recResponse = await fetch("/api/events/recommendations");
+            if (recResponse.ok) {
+              const recData = await recResponse.json();
+              recommendedIds = recData.recommendedEventIds || [];
+              setRecommendedEventIds(recommendedIds);
+              console.log(`[EVENTS] Got ${recommendedIds.length} recommendations`);
+            } else {
+              console.error("[EVENTS] Recommendations API error:", recResponse.status);
+            }
+          } catch (recError) {
+            console.error("[EVENTS] Error fetching recommendations:", recError);
+          }
+        }
+
         // Fetch all events without filters - filtering is done client-side
         // This ensures registrationStatus contains ALL interested events
         const params = new URLSearchParams({
@@ -148,7 +175,28 @@ export default function EventsPage() {
         }
 
         const data = await response.json();
-        const eventsData = data.events || [];
+        let eventsData = data.events || [];
+
+        // Sort by recommendations if we have them
+        if (user && recommendedIds.length > 0) {
+          eventsData = eventsData.sort((a: Event, b: Event) => {
+            const aIndex = recommendedIds.indexOf(String(a.id));
+            const bIndex = recommendedIds.indexOf(String(b.id));
+            
+            // Events in recommendations come first, sorted by recommendation order
+            if (aIndex !== -1 && bIndex !== -1) {
+              return aIndex - bIndex; // Both recommended, sort by score
+            }
+            if (aIndex !== -1) return -1; // a is recommended, comes first
+            if (bIndex !== -1) return 1;  // b is recommended, comes first
+            
+            // Both not recommended, maintain original order (by start_time)
+            return 0;
+          });
+          
+          console.log(`[EVENTS] Sorted ${eventsData.length} events by recommendations`);
+        }
+
         setEvents(eventsData);
         setTotalPages(data.pagination?.totalPages || 1);
 
@@ -170,14 +218,6 @@ export default function EventsPage() {
 
         setRegistrationStatus(registrationMap);
         setSavedEvents(savedEventIds);
-
-        // Still need current user for other operations
-        const { getSupabaseBrowser } = await import("@/lib/supabase/client");
-        const supabase = getSupabaseBrowser();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        setCurrentUser(user);
       } catch (err: any) {
         console.error("Error fetching events:", err);
         setError(err.message || "Failed to load events");

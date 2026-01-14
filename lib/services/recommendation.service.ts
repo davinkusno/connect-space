@@ -70,6 +70,7 @@ export class RecommendationService extends BaseService {
         const matches = userInterests.some(interest => {
           // Direct substring match
           if (communityCategory.includes(interest) || interest.includes(communityCategory)) {
+            console.log(`[CATEGORY-MATCH] ✓ "${community.name}" - Direct match: interest="${interest}" in category="${communityCategory}"`);
             return true;
           }
           
@@ -77,12 +78,22 @@ export class RecommendationService extends BaseService {
           const interestWords = interest.split(/[\s&\-]+/).filter(w => w.length > 2);
           const categoryWords = communityCategory.split(/[\s&\-]+/).filter(w => w.length > 2);
           
-          return interestWords.some(iWord => 
-            categoryWords.some(cWord => 
-              cWord.includes(iWord) || iWord.includes(cWord)
-            )
+          const wordMatch = interestWords.some(iWord => 
+            categoryWords.some(cWord => {
+              const matches = cWord.includes(iWord) || iWord.includes(cWord);
+              if (matches) {
+                console.log(`[CATEGORY-MATCH] ✓ "${community.name}" - Word match: "${iWord}" <-> "${cWord}" (interest="${interest}", category="${communityCategory}")`);
+              }
+              return matches;
+            })
           );
+          
+          return wordMatch;
         });
+        
+        if (!matches) {
+          console.log(`[CATEGORY-MATCH] ✗ "${community.name}" - No match: category="${communityCategory}" vs interests=[${userInterests.join(', ')}]`);
+        }
         
         return matches;
       });
@@ -211,9 +222,94 @@ export class RecommendationService extends BaseService {
         return ApiResponse.error("Failed to fetch events", 500);
       }
 
+      console.log('[EVENT-RECS] User interests:', userData.data.interests);
+      console.log('[EVENT-RECS] Total events fetched:', eventsResult.data.length);
+
+      // PRE-FILTER 1: Category matching - same logic as communities
+      const userInterests = userData.data.interests.map(i => i.toLowerCase());
+      let filteredEvents = eventsResult.data.filter(event => {
+        // Always include if no interests set
+        if (userInterests.length === 0) return true;
+        
+        const eventCategory = event.category.toLowerCase();
+        
+        // Flexible matching: check for partial matches and individual words
+        const matches = userInterests.some(interest => {
+          // Direct substring match
+          if (eventCategory.includes(interest) || interest.includes(eventCategory)) {
+            console.log(`[EVENT-CATEGORY-MATCH] ✓ "${event.title}" - Direct match: interest="${interest}" in category="${eventCategory}"`);
+            return true;
+          }
+          
+          // Split by separators and check individual words
+          const interestWords = interest.split(/[\s&\-]+/).filter(w => w.length > 2);
+          const categoryWords = eventCategory.split(/[\s&\-]+/).filter(w => w.length > 2);
+          
+          const wordMatch = interestWords.some(iWord => 
+            categoryWords.some(cWord => {
+              const matches = cWord.includes(iWord) || iWord.includes(cWord);
+              if (matches) {
+                console.log(`[EVENT-CATEGORY-MATCH] ✓ "${event.title}" - Word match: "${iWord}" <-> "${cWord}" (interest="${interest}", category="${eventCategory}")`);
+              }
+              return matches;
+            })
+          );
+          
+          return wordMatch;
+        });
+        
+        if (!matches) {
+          console.log(`[EVENT-CATEGORY-MATCH] ✗ "${event.title}" - No match: category="${eventCategory}" vs interests=[${userInterests.join(', ')}]`);
+        }
+        
+        return matches;
+      });
+
+      console.log('[EVENT-RECS] After category filter:', filteredEvents.length, 'events');
+
+      // PRE-FILTER 2: Content quality filter
+      const beforeQualityFilter = filteredEvents.length;
+      filteredEvents = filteredEvents.filter(event => {
+        const descLength = (event.description || '').trim().length;
+        const titleLength = (event.title || '').trim().length;
+        
+        // Minimum quality thresholds
+        const hasMinimumDescription = descLength >= 30; // At least 30 characters (less strict than communities)
+        const hasValidTitle = titleLength >= 5; // At least 5 characters
+        
+        // Calculate content richness
+        const hasLocation = event.location && event.location.lat && event.location.lng;
+        const hasCategory = event.category && event.category !== 'general';
+        const hasAttendees = event.currentAttendees && event.currentAttendees > 0;
+        
+        // Require title + description + at least 1 quality indicator
+        const qualityCount = [hasLocation, hasCategory, hasAttendees].filter(Boolean).length;
+        const meetsQualityThreshold = hasMinimumDescription && hasValidTitle && qualityCount >= 1;
+        
+        if (!meetsQualityThreshold) {
+          console.log(`[EVENT-RECS] FILTERED OUT low quality: "${event.title}" (desc: ${descLength} chars, quality: ${qualityCount}/3)`);
+        }
+        
+        return meetsQualityThreshold;
+      });
+      
+      console.log('[EVENT-RECS] After quality filter:', filteredEvents.length, 'events (was', beforeQualityFilter, ')');
+
+      // Enrich descriptions for better TF-IDF scoring
+      const enrichedEvents = filteredEvents.map(event => ({
+        ...event,
+        description: [
+          event.title,
+          event.description,
+          event.category,
+          event.location?.city || '',
+          ...(event.tags || [])
+        ].filter(Boolean).join(' ')
+      }));
+
       // For events, we can treat them like communities and use content-based filtering
       // Convert events to community-like format for the algorithm
-      const eventAsCommunities: Community[] = eventsResult.data.map(event => ({
+      const eventAsCommunities: Community[] = enrichedEvents.map(event => ({
         id: event.id,
         name: event.title,
         description: event.description,
@@ -253,6 +349,8 @@ export class RecommendationService extends BaseService {
 
       return ApiResponse.success(result);
     } catch (error) {
+      console.error('[EVENT-RECS] Error generating recommendations:', error);
+      console.error('[EVENT-RECS] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       return ApiResponse.error(`Recommendation error: ${error}`, 500);
     }
   }
@@ -462,15 +560,18 @@ export class RecommendationService extends BaseService {
         max_attendees,
         is_online,
         community_id,
-        created_by,
+        creator_id,
         created_at,
-        communities!inner(name)
+        community:community_id(name)
       `)
       .gte("start_time", new Date().toISOString());
 
     if (error) {
-      return ApiResponse.error("Failed to fetch events", 500);
+      console.error('[FETCH-EVENTS] Database error:', error);
+      return ApiResponse.error(`Failed to fetch events: ${error.message}`, 500);
     }
+
+    console.log('[FETCH-EVENTS] Fetched', data?.length || 0, 'events');
 
     // Get attendee counts
     const eventIds = data?.map((e) => e.id) || [];
@@ -494,8 +595,8 @@ export class RecommendationService extends BaseService {
         tags: [],
         contentTopics: [],
         communityId: e.community_id,
-        communityName: (e.communities as any)?.name || "",
-        creatorId: e.created_by || "", // Add creatorId
+        communityName: (e.community as any)?.name || "",
+        creatorId: e.creator_id || "",
         startTime: new Date(e.start_time),
         endTime: e.end_time ? new Date(e.end_time) : null,
         location: location,
@@ -535,8 +636,7 @@ export class RecommendationService extends BaseService {
    * Supports both new standardized format and legacy format
    */
   private parseLocationData(location: any): { lat: number; lng: number; city: string; placeId?: string } | undefined {
-    console.log('[LOCATION-PARSE] Input:', typeof location, JSON.stringify(location)?.substring(0, 200));
-    
+
     if (!location) return undefined;
 
     if (typeof location === "string") {
@@ -548,7 +648,6 @@ export class RecommendationService extends BaseService {
       
       try {
         const parsed = JSON.parse(location);
-        console.log('[LOCATION-PARSE] Parsed from string:', JSON.stringify(parsed));
         
         // Validate that we have actual coordinates (not 0)
         const lat = parsed.lat;
@@ -558,9 +657,7 @@ export class RecommendationService extends BaseService {
           console.log(`[LOCATION-PARSE] ❌ Invalid coordinates in string: lat=${lat}, lng=${lng}`);
           return undefined; // Don't return location if coordinates are missing or zero
         }
-        
-        console.log(`[LOCATION-PARSE] ✅ Valid location from string: ${parsed.city} (${lat}, ${lng})`);
-        
+
         // NEW standardized format
         if (parsed.placeId) {
           return {
@@ -584,7 +681,6 @@ export class RecommendationService extends BaseService {
     }
 
     if (typeof location === "object") {
-      console.log('[LOCATION-PARSE] Object location:', JSON.stringify(location));
       
       // Validate that we have actual coordinates (not 0)
       const lat = location.lat;
@@ -595,7 +691,6 @@ export class RecommendationService extends BaseService {
         return undefined; // Don't return location if coordinates are missing or zero
       }
       
-      console.log(`[LOCATION-PARSE] ✅ Valid location from object: ${location.city} (${lat}, ${lng})`);
       
       // NEW standardized format
       if (location.placeId) {

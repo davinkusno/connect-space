@@ -308,16 +308,46 @@ export class ContentBasedFilteringAlgorithm {
     })
 
     // Sort and filter
-    const result = scores
-      .filter((s) => s.score > 0.05)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, maxRecommendations)
+    const allScores = scores.sort((a, b) => b.score - a.score);
     
-    this.log(`\n=== Top ${Math.min(5, result.length)} Recommendations ===`)
-    result.slice(0, 5).forEach((r, i) => {
-      const comm = communities.find(c => c.id === r.communityId)
-      this.log(`${i + 1}. ${comm?.name} - Score: ${r.score.toFixed(3)}`)
+    // Log ALL communities with detailed scoring breakdown
+    this.log(`\n${'='.repeat(100)}`)
+    this.log(`ALL COMMUNITIES RANKED BY SCORE (Total: ${allScores.length})`)
+    this.log(`${'='.repeat(100)}`)
+    
+    allScores.forEach((s, i) => {
+      const comm = communities.find(c => c.id === s.communityId)
+      
+      this.log(`\n${i + 1}. ${comm?.name}`)
+      this.log(`   Category: ${comm?.category}`)
+      this.log(`   Final Score: ${s.score.toFixed(4)} (${(s.score * 100).toFixed(2)}%)`)
+      this.log(`   Confidence: ${s.confidence.toFixed(4)}`)
+      
+      // Show detailed reasons breakdown
+      s.reasons.forEach((reason: any) => {
+        if (reason.type === 'interest_match') {
+          this.log(`   - Content Similarity: ${(reason.evidence.similarity * 100).toFixed(2)}% (weight: ${(reason.weight * 100).toFixed(0)}%)`)
+          this.log(`     Matched interests: ${reason.evidence.matchedInterests}`)
+        } else if (reason.type === 'location_proximity') {
+          this.log(`   - Location: ${reason.evidence.distance.toFixed(1)}km away, score: ${(reason.evidence.score * 100).toFixed(2)}% (weight: ${(reason.weight * 100).toFixed(0)}%)`)
+        }
+      })
+      
+      // Show description preview
+      const descPreview = (comm?.description || '').substring(0, 100).replace(/\n/g, ' ')
+      this.log(`   Description: "${descPreview}${descPreview.length >= 100 ? '...' : ''}"`)
     })
+    
+    this.log(`\n${'='.repeat(100)}`)
+    this.log(`SUMMARY`)
+    this.log(`${'='.repeat(100)}`)
+    this.log(`Total communities analyzed: ${candidateCommunities.length}`)
+    this.log(`All communities included (no threshold filtering)`)
+    this.log(`Showing top ${Math.min(maxRecommendations, allScores.length)} by relevance score`)
+    
+    const result = allScores
+      // No threshold filter - show all communities ranked by relevance
+      .slice(0, maxRecommendations)
     
     return result
   }
@@ -461,7 +491,7 @@ export class ContentBasedFilteringAlgorithm {
       community.location.lng,
     )
 
-    const maxDistance = 50
+    const maxDistance = 200  // Increased from 50km to 200km to include nearby cities
     const score = Math.max(0, 1 - distance / maxDistance)
 
     return { score, distance }
