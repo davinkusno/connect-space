@@ -140,36 +140,47 @@ export default function EventsPage() {
         } = await supabase.auth.getUser();
         setCurrentUser(user);
 
-        // Fetch recommended event IDs if user is logged in
-        let recommendedIds: string[] = [];
-        if (user) {
-          try {
-            const recResponse = await fetch("/api/events/recommendations");
-            if (recResponse.ok) {
-              const recData = await recResponse.json();
-              recommendedIds = recData.recommendedEventIds || [];
-              setRecommendedEventIds(recommendedIds);
-              console.log(`[EVENTS] Got ${recommendedIds.length} recommendations`);
-            } else {
-              console.error("[EVENTS] Recommendations API error:", recResponse.status);
-            }
-          } catch (recError) {
-            console.error("[EVENTS] Error fetching recommendations:", recError);
-          }
-        }
-
-        // Fetch all events without filters - filtering is done client-side
-        // This ensures registrationStatus contains ALL interested events
+        // Fetch recommended event IDs and events in parallel for better performance
         const params = new URLSearchParams({
           page: "1",
-          pageSize: "1000", // Fetch all events
-          dateRange: "all", // Get all events, client-side will filter by date
+          pageSize: "50", // Balanced: enough events to show, but not too heavy
+          dateRange: "all",
           sortBy: "start_time",
           sortOrder: "asc",
         });
 
-        const response = await fetch(`/api/events?${params.toString()}`);
+        // Make both API calls in parallel instead of sequential
+        const fetchPromises = [
+          fetch(`/api/events?${params.toString()}`)
+        ];
+        
+        if (user) {
+          fetchPromises.unshift(fetch("/api/events/recommendations"));
+        }
+        
+        const responses = await Promise.allSettled(fetchPromises);
+        const eventsResponse = user ? responses[1] : responses[0];
+        const recResponse = user ? responses[0] : { status: 'fulfilled' as const, value: { ok: false } };
 
+        // Process recommendations
+        let recommendedIds: string[] = [];
+        if (user && recResponse.status === 'fulfilled' && recResponse.value.ok) {
+          try {
+            const recData = await recResponse.value.json();
+            recommendedIds = recData.recommendedEventIds || [];
+            setRecommendedEventIds(recommendedIds);
+            console.log(`[EVENTS] Got ${recommendedIds.length} recommendations`);
+          } catch (recError) {
+            console.error("[EVENTS] Error parsing recommendations:", recError);
+          }
+        }
+
+        // Process events
+        if (eventsResponse.status === 'rejected') {
+          throw new Error(eventsResponse.reason?.message || "Failed to fetch events");
+        }
+
+        const response = eventsResponse.value;
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || "Failed to fetch events");
@@ -177,19 +188,28 @@ export default function EventsPage() {
 
         const data = await response.json();
         let eventsData = data.events || [];
+        
+        console.log(`[EVENTS] Fetched ${eventsData.length} events from API`);
 
-        // Sort by recommendations if we have them
+        // Sort by recommendations if we have them (optimized with index map for O(1) lookups)
         if (user && recommendedIds.length > 0) {
+          // Create an index map for O(1) lookup instead of O(n) indexOf
+          // Using object instead of Map to avoid conflict with lucide-react Map icon
+          const recommendationIndexMap: Record<string, number> = {};
+          recommendedIds.forEach((id, index) => {
+            recommendationIndexMap[id] = index;
+          });
+          
           eventsData = eventsData.sort((a: Event, b: Event) => {
-            const aIndex = recommendedIds.indexOf(String(a.id));
-            const bIndex = recommendedIds.indexOf(String(b.id));
+            const aIndex = recommendationIndexMap[String(a.id)];
+            const bIndex = recommendationIndexMap[String(b.id)];
             
             // Events in recommendations come first, sorted by recommendation order
-            if (aIndex !== -1 && bIndex !== -1) {
+            if (aIndex !== undefined && bIndex !== undefined) {
               return aIndex - bIndex; // Both recommended, sort by score
             }
-            if (aIndex !== -1) return -1; // a is recommended, comes first
-            if (bIndex !== -1) return 1;  // b is recommended, comes first
+            if (aIndex !== undefined) return -1; // a is recommended, comes first
+            if (bIndex !== undefined) return 1;  // b is recommended, comes first
             
             // Both not recommended, maintain original order (by start_time)
             return 0;
@@ -198,8 +218,10 @@ export default function EventsPage() {
           console.log(`[EVENTS] Sorted ${eventsData.length} events by recommendations`);
         }
 
+        console.log(`[EVENTS] Setting ${eventsData.length} events to state`);
         setEvents(eventsData);
         setTotalPages(data.pagination?.totalPages || 1);
+        console.log(`[EVENTS] Total pages: ${data.pagination?.totalPages || 1}`);
 
         // Extract user-specific status directly from the events response
         // (API now includes isInterested and isSaved for each event)

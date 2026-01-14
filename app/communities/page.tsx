@@ -213,73 +213,67 @@ export default function DiscoverPage() {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
       
-      // Fetch recommended community IDs if user is logged in
+      // Fetch recommended community IDs and communities in parallel for better performance
+      const apiUrl = '/api/communities/list';
+      
+      const [recResponse, communitiesResponse] = await Promise.allSettled([
+        user ? fetch("/api/communities/recommendations") : Promise.resolve({ ok: false }),
+        fetch(apiUrl)
+      ]);
+
+      // Process recommendations
       let recommendedIds: string[] = [];
-      if (user) {
+      if (user && recResponse.status === 'fulfilled' && recResponse.value.ok) {
         try {
-          console.log("[COMMUNITIES PAGE] Fetching recommendations for user:", user.id);
-          const response = await fetch("/api/communities/recommendations");
-          if (response.ok) {
-            const data = await response.json();
-            recommendedIds = data.recommendedCommunityIds || [];
-            setRecommendedCommunityIds(recommendedIds);
-            console.log("[COMMUNITIES PAGE] Received recommendations:", {
-              count: recommendedIds.length,
-              ids: recommendedIds.slice(0, 5),
-              metadata: data.metadata,
-            });
-            if (data.recommendations && data.recommendations.length > 0) {
-              console.log("[COMMUNITIES PAGE] Top 5 recommendation scores:");
-              data.recommendations.slice(0, 5).forEach((rec: any, i: number) => {
-                console.log(`  ${i + 1}. ${rec.communityId}: score=${rec.score.toFixed(3)}, confidence=${rec.confidence.toFixed(3)}`);
-              });
-            }
-            console.log("[COMMUNITIES PAGE] Recommended IDs order:", recommendedIds.slice(0, 5));
-          } else {
-            console.error("[COMMUNITIES PAGE] Recommendations API error:", response.status);
-          }
+          const data = await recResponse.value.json();
+          recommendedIds = data.recommendedCommunityIds || [];
+          setRecommendedCommunityIds(recommendedIds);
+          console.log(`[COMMUNITIES] Got ${recommendedIds.length} recommendations`);
         } catch (error) {
-          console.error("[COMMUNITIES PAGE] Error fetching recommendations:", error);
+          console.error("[COMMUNITIES] Error parsing recommendations:", error);
         }
       }
       
-      // Fetch communities with membership status via API
-      const apiUrl = recommendedIds.length > 0
-        ? `/api/communities/list?recommendedIds=${recommendedIds.join(',')}`
-        : '/api/communities/list';
-      
-      const communitiesResponse = await fetch(apiUrl);
-      if (!communitiesResponse.ok) {
-        console.error("Error fetching communities:", communitiesResponse.status);
+      // Process communities
+      if (communitiesResponse.status === 'rejected') {
+        console.error("Error fetching communities:", communitiesResponse.reason);
+        toast.error("Failed to load communities");
+        return;
+      }
+
+      const response = communitiesResponse.value;
+      if (!response.ok) {
+        console.error("Error fetching communities:", response.status);
         toast.error("Failed to load communities");
         return;
       }
       
-      const { communities: communitiesData, membershipStatus: membershipStatusMap, pendingCommunityIds } = await communitiesResponse.json();
+      const { communities: communitiesData, membershipStatus: membershipStatusMap, pendingCommunityIds } = await response.json();
       
-      // Sort communities if we have recommendations
+      // Sort communities if we have recommendations (optimized with index map for O(1) lookups)
       if (user && recommendedIds.length > 0) {
+        // Create index maps for O(1) lookup instead of O(n) indexOf/includes
+        const recommendationIndexMap: Record<string, number> = {};
+        recommendedIds.forEach((id, index) => {
+          recommendationIndexMap[id] = index;
+        });
+        const pendingSet = new Set(pendingCommunityIds || []);
+        
         const sortedCommunities = (communitiesData || []).sort((a: any, b: any) => {
-          const aIsPending = pendingCommunityIds.includes(a.id);
-          const bIsPending = pendingCommunityIds.includes(b.id);
+          const aIsPending = pendingSet.has(a.id);
+          const bIsPending = pendingSet.has(b.id);
           
           // Pending requests come first
           if (aIsPending && !bIsPending) return -1;
           if (!aIsPending && bIsPending) return 1;
           
           // Then sort by recommendation order
-          const aIndex = recommendedIds.indexOf(a.id);
-          const bIndex = recommendedIds.indexOf(b.id);
-          if (aIndex === -1 && bIndex === -1) return 0;
-          if (aIndex === -1) return 1;
-          if (bIndex === -1) return -1;
+          const aIndex = recommendationIndexMap[a.id];
+          const bIndex = recommendationIndexMap[b.id];
+          if (aIndex === undefined && bIndex === undefined) return 0;
+          if (aIndex === undefined) return 1;
+          if (bIndex === undefined) return -1;
           return aIndex - bIndex;
-        });
-        
-        console.log("[COMMUNITIES PAGE] After sorting communities - top 5:");
-        sortedCommunities.slice(0, 5).forEach((comm: any, i: number) => {
-          const recIndex = recommendedIds.indexOf(comm.id);
-          console.log(`  ${i + 1}. ${comm.name} (ID: ${comm.id}), recommendationIndex: ${recIndex}`);
         });
         
         // Process the sorted communities
