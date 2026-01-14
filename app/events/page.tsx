@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SmoothReveal } from "@/components/ui/smooth-reveal";
 import { StaggerContainer } from "@/components/ui/stagger-container";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -1067,45 +1068,100 @@ export default function EventsPage() {
                   </div>
                 </div>
 
-                <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                  {paginatedEvents.map((event, index) => (
-                    <div key={event.id} className="stagger-item">
-                      <EnhancedEventCard event={event} />
-                    </div>
-                  ))}
-                </StaggerContainer>
+                {isLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <Card key={i} className="overflow-hidden">
+                        <Skeleton className="h-48 w-full" />
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-3">
+                            <Skeleton className="h-5 w-24" />
+                            <Skeleton className="h-4 w-16" />
+                          </div>
+                          <Skeleton className="h-6 w-full mb-2" />
+                          <Skeleton className="h-4 w-full mb-1" />
+                          <Skeleton className="h-4 w-3/4 mb-4" />
+                          <div className="flex gap-2 mb-4">
+                            <Skeleton className="h-5 w-16" />
+                            <Skeleton className="h-5 w-20" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-9 w-28" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                      {paginatedEvents.map((event, index) => (
+                        <div key={event.id} className="stagger-item">
+                          <EnhancedEventCard event={event} />
+                        </div>
+                      ))}
+                    </StaggerContainer>
 
-                {/* Pagination Controls */}
-                {calculatedTotalPages > 1 && <EventPaginationControls />}
+                    {/* Pagination Controls */}
+                    {calculatedTotalPages > 1 && <EventPaginationControls />}
 
-                {filteredEvents.length === 0 && (
-                  <SmoothReveal>
-                    <Card className="text-center py-16 border-dashed border-2 border-gray-200">
-                      <CardContent>
-                        <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                          No events found
-                        </h3>
-                        <p className="text-gray-600 mb-6">
-                          Try adjusting your search criteria or filters to find
-                          more events
-                        </p>
-                        <Button
-                          onClick={clearFilters}
-                          className="bg-gradient-to-r from-purple-500 to-blue-500"
-                        >
-                          <Filter className="h-4 w-4 mr-2" />
-                          Clear All Filters
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </SmoothReveal>
+                    {filteredEvents.length === 0 && (
+                      <SmoothReveal>
+                        <Card className="text-center py-16 border-dashed border-2 border-gray-200">
+                          <CardContent>
+                            <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                              No events found
+                            </h3>
+                            <p className="text-gray-600 mb-6">
+                              Try adjusting your search criteria or filters to find
+                              more events
+                            </p>
+                            <Button
+                              onClick={clearFilters}
+                              className="bg-gradient-to-r from-purple-500 to-blue-500"
+                            >
+                              <Filter className="h-4 w-4 mr-2" />
+                              Clear All Filters
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </SmoothReveal>
+                    )}
+                  </>
                 )}
               </TabsContent>
 
               {/* Interested Event Tab */}
               <TabsContent value="interested" className="space-y-6">
-                {(() => {
+                {isLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <Card key={i} className="overflow-hidden">
+                        <Skeleton className="h-48 w-full" />
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-3">
+                            <Skeleton className="h-5 w-24" />
+                            <Skeleton className="h-4 w-16" />
+                          </div>
+                          <Skeleton className="h-6 w-full mb-2" />
+                          <Skeleton className="h-4 w-full mb-1" />
+                          <Skeleton className="h-4 w-3/4 mb-4" />
+                          <div className="flex gap-2 mb-4">
+                            <Skeleton className="h-5 w-16" />
+                            <Skeleton className="h-5 w-20" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-9 w-28" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  (() => {
                   const interestedEvents = filteredEvents.filter(
                     (event) => registrationStatus[event.id]
                   );
@@ -1169,12 +1225,39 @@ export default function EventsPage() {
                       </Card>
                     </SmoothReveal>
                   );
-                })()}
+                })()
+                )}
               </TabsContent>
 
               {/* Online Events Tab */}
               <TabsContent value="online" className="space-y-6">
-                {(() => {
+                {isLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <Card key={i} className="overflow-hidden">
+                        <Skeleton className="h-48 w-full" />
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-3">
+                            <Skeleton className="h-5 w-24" />
+                            <Skeleton className="h-4 w-16" />
+                          </div>
+                          <Skeleton className="h-6 w-full mb-2" />
+                          <Skeleton className="h-4 w-full mb-1" />
+                          <Skeleton className="h-4 w-3/4 mb-4" />
+                          <div className="flex gap-2 mb-4">
+                            <Skeleton className="h-5 w-16" />
+                            <Skeleton className="h-5 w-20" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-9 w-28" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  (() => {
                   const onlineEvents = filteredEvents.filter(
                     (e) => e.location.isOnline
                   );
@@ -1237,7 +1320,8 @@ export default function EventsPage() {
                       </Card>
                     </SmoothReveal>
                   );
-                })()}
+                })()
+                )}
               </TabsContent>
 
               {/* Events on Map Tab */}
