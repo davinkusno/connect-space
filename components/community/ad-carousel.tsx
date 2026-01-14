@@ -39,6 +39,7 @@ export function AdCarousel({
   const [ads, setAds] = useState<Ad[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [api, setApi] = useState<CarouselApi>();
+  const [trackedAds, setTrackedAds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -49,17 +50,6 @@ export function AdCarousel({
 
         if (data.ads && data.ads.length > 0) {
           setAds(data.ads);
-
-          // Track views for all ads
-          data.ads.forEach((ad: Ad) => {
-            if (ad.id) {
-              fetch(`/api/ads/${ad.id}/track`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ type: "view" }),
-              }).catch(console.error);
-            }
-          });
         }
       } catch (error) {
         console.error("[AdCarousel] Error fetching ads:", error);
@@ -70,6 +60,37 @@ export function AdCarousel({
 
     fetchAds();
   }, [communityId]);
+
+  // Track view for currently visible ad
+  useEffect(() => {
+    if (!api || ads.length === 0) return;
+
+    const trackCurrentAd = () => {
+      const currentIndex = api.selectedScrollSnap();
+      const currentAd = ads[currentIndex];
+      
+      // Only track if this ad hasn't been tracked yet
+      if (currentAd?.id && !trackedAds.has(currentAd.id)) {
+        fetch(`/api/ads/${currentAd.id}/track`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "view" }),
+        }).catch(console.error);
+        
+        setTrackedAds(prev => new Set(prev).add(currentAd.id));
+      }
+    };
+
+    // Track initial ad
+    trackCurrentAd();
+
+    // Track when carousel slides change
+    api.on("select", trackCurrentAd);
+
+    return () => {
+      api.off("select", trackCurrentAd);
+    };
+  }, [api, ads, trackedAds]);
 
   // Auto-rotate carousel
   useEffect(() => {

@@ -30,7 +30,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface UserType {
   id: string;
@@ -81,12 +81,25 @@ export function UnifiedNav() {
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  
+  // Refs to prevent duplicate fetches
+  const avatarCacheRef = useRef<{ userId: string; avatarUrl: string | null } | null>(null);
+  const notificationsFetchedRef = useRef<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
-  // Fetch notifications from database
+  // Fetch notifications from database - only once per user
   useEffect(() => {
     const fetchNotifications = async () => {
-      if (!user) {
+      const userId = currentUserIdRef.current;
+      
+      if (!userId) {
         setNotifications([]);
+        notificationsFetchedRef.current = null;
+        return;
+      }
+
+      // Only fetch if not already fetched for this user
+      if (notificationsFetchedRef.current === userId) {
         return;
       }
 
@@ -165,6 +178,7 @@ export function UnifiedNav() {
         });
 
         setNotifications(transformedNotifications);
+        notificationsFetchedRef.current = userId;
       } catch (error) {
         console.error("Error fetching notifications:", error);
       } finally {
@@ -175,7 +189,8 @@ export function UnifiedNav() {
     fetchNotifications();
 
     // Set up real-time subscription for new notifications
-    if (user) {
+    const userId = currentUserIdRef.current;
+    if (userId) {
       const supabase = getSupabaseBrowser();
       const channel = supabase
         .channel("notifications")
@@ -185,10 +200,11 @@ export function UnifiedNav() {
             event: "INSERT",
             schema: "public",
             table: "notifications",
-            filter: `user_id=eq.${user.id}`,
+            filter: `user_id=eq.${userId}`,
           },
           (payload) => {
             // Reload notifications when new one is added
+            notificationsFetchedRef.current = null; // Reset to allow refetch
             fetchNotifications();
           }
         )
@@ -198,7 +214,7 @@ export function UnifiedNav() {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
+  }, [currentUserIdRef.current]); // Only depend on user ID ref
 
   // Format notification timestamp
   const formatNotificationTime = (dateString: string): string => {
@@ -393,8 +409,13 @@ export function UnifiedNav() {
     }
   };
 
-  // Helper function to fetch custom avatar from users table
+  // Helper function to fetch custom avatar from users table with caching
   const fetchCustomAvatar = async (userId: string) => {
+    // Return cached avatar if available for this user
+    if (avatarCacheRef.current?.userId === userId) {
+      return avatarCacheRef.current.avatarUrl;
+    }
+
     try {
       const { data: userProfile } = await supabase
         .from("users")
@@ -402,7 +423,10 @@ export function UnifiedNav() {
         .eq("id", userId)
         .single();
       
-      return userProfile?.avatar_url || null;
+      const avatarUrl = userProfile?.avatar_url || null;
+      // Cache the result
+      avatarCacheRef.current = { userId, avatarUrl };
+      return avatarUrl;
     } catch (error) {
       console.error("Error fetching custom avatar:", error);
       return null;
@@ -417,18 +441,23 @@ export function UnifiedNav() {
         } = await supabase.auth.getSession();
         
         if (session?.user) {
+          currentUserIdRef.current = session.user.id;
           setUser(session.user);
-          // Fetch custom avatar from users table
+          // Fetch custom avatar from users table (cached)
           const customAvatar = await fetchCustomAvatar(session.user.id);
           setCustomAvatarUrl(customAvatar);
         } else {
+          currentUserIdRef.current = null;
           setUser(null);
           setCustomAvatarUrl(null);
+          avatarCacheRef.current = null;
         }
       } catch (error) {
         console.error("Error getting session:", error);
+        currentUserIdRef.current = null;
         setUser(null);
         setCustomAvatarUrl(null);
+        avatarCacheRef.current = null;
       } finally {
         setIsLoading(false);
       }
@@ -442,21 +471,33 @@ export function UnifiedNav() {
       console.log("Auth state changed:", event, session?.user?.email);
 
       if (session?.user) {
+        // Only update if user actually changed
+        const userChanged = currentUserIdRef.current !== session.user.id;
+        currentUserIdRef.current = session.user.id;
         setUser(session.user);
-        // Fetch custom avatar from users table
-        const customAvatar = await fetchCustomAvatar(session.user.id);
-        setCustomAvatarUrl(customAvatar);
+        
+        // Only fetch avatar if user changed
+        if (userChanged) {
+          const customAvatar = await fetchCustomAvatar(session.user.id);
+          setCustomAvatarUrl(customAvatar);
+        }
       } else {
+        currentUserIdRef.current = null;
         setUser(null);
         setCustomAvatarUrl(null);
+        avatarCacheRef.current = null;
+        notificationsFetchedRef.current = null;
       }
       
       setIsLoading(false);
 
       if (event === "SIGNED_OUT") {
         // Clear any cached data
+        currentUserIdRef.current = null;
         setUser(null);
         setCustomAvatarUrl(null);
+        avatarCacheRef.current = null;
+        notificationsFetchedRef.current = null;
         // Refresh router to clear server-side state
         router.refresh();
         // Redirect to home page, unless on reset password page
@@ -470,17 +511,19 @@ export function UnifiedNav() {
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase.auth, router, pathname]);
+  }, []); // Empty dependency array - only run once
 
   // Refresh avatar when returning from profile page
   useEffect(() => {
-    if (user?.id && pathname !== "/profile") {
-      // Refresh custom avatar when navigating away from profile (in case it was updated)
-      fetchCustomAvatar(user.id).then((avatar) => {
-        setCustomAvatarUrl(avatar);
-      });
+    const userId = currentUserIdRef.current;
+    
+    if (userId && pathname === "/profile") {
+      // Clear cache when on profile page so it refetches after update
+      avatarCacheRef.current = null;
     }
-  }, [pathname, user?.id]);
+    // Note: We don't need to refetch when navigating away from profile
+    // The cache will be cleared on profile page, and next render will fetch fresh data
+  }, [pathname]);
 
   const handleProfileNavigation = () => {
     if (!user) {

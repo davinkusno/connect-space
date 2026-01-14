@@ -149,42 +149,37 @@ export default function EventsPage() {
           sortOrder: "asc",
         });
 
-        // Make both API calls in parallel instead of sequential
-        const fetchPromises = [
-          fetch(`/api/events?${params.toString()}`)
-        ];
+        // Fetch events first (always needed), then recommendations in parallel if user exists
+        const eventsPromise = fetch(`/api/events?${params.toString()}`);
+        const recPromise = user ? fetch("/api/events/recommendations") : null;
         
-        if (user) {
-          fetchPromises.unshift(fetch("/api/events/recommendations"));
-        }
+        // Wait for events (critical), recommendations can be optional
+        const eventsResponse = await eventsPromise;
         
-        const responses = await Promise.allSettled(fetchPromises);
-        const eventsResponse = user ? responses[1] : responses[0];
-        const recResponse = user ? responses[0] : { status: 'fulfilled' as const, value: { ok: false } };
-
-        // Process recommendations
+        // Process recommendations in background if available
         let recommendedIds: string[] = [];
-        if (user && recResponse.status === 'fulfilled' && recResponse.value.ok) {
+        if (recPromise) {
           try {
-            const recData = await recResponse.value.json();
-            recommendedIds = recData.recommendedEventIds || [];
-            setRecommendedEventIds(recommendedIds);
-            console.log(`[EVENTS] Got ${recommendedIds.length} recommendations`);
+            const recResponse = await recPromise;
+            if (recResponse.ok) {
+              const recData = await recResponse.json();
+              recommendedIds = recData.recommendedEventIds || [];
+              setRecommendedEventIds(recommendedIds);
+              console.log(`[EVENTS] Got ${recommendedIds.length} recommendations`);
+            }
           } catch (recError) {
-            console.error("[EVENTS] Error parsing recommendations:", recError);
+            console.error("[EVENTS] Error fetching recommendations:", recError);
+            // Don't fail the whole page if recommendations fail
           }
         }
 
         // Process events
-        if (eventsResponse.status === 'rejected') {
-          throw new Error(eventsResponse.reason?.message || "Failed to fetch events");
-        }
-
-        const response = eventsResponse.value;
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
+        if (!eventsResponse.ok) {
+          const errorData = await eventsResponse.json().catch(() => ({}));
           throw new Error(errorData.error || "Failed to fetch events");
         }
+        
+        const response = eventsResponse;
 
         const data = await response.json();
         let eventsData = data.events || [];

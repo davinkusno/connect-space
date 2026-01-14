@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Ad {
   id: string;
@@ -26,6 +26,7 @@ interface AdDisplayProps {
 export function AdDisplay({ communityId, className = "" }: AdDisplayProps) {
   const [ad, setAd] = useState<Ad | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const trackedAdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const fetchAd = async () => {
@@ -40,13 +41,14 @@ export function AdDisplay({ communityId, className = "" }: AdDisplayProps) {
           const randomAd = data.ads[Math.floor(Math.random() * data.ads.length)];
           setAd(randomAd);
 
-          // Track view
-          if (randomAd.id) {
+          // Track view only if not already tracked
+          if (randomAd.id && trackedAdRef.current !== randomAd.id) {
             fetch(`/api/ads/${randomAd.id}/track`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ type: "view" }),
             }).catch(console.error);
+            trackedAdRef.current = randomAd.id;
           }
         }
       } catch (error) {
