@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface Event {
-  id: number;
+  id: string | number;
   title: string;
   description: string;
   date: string;
@@ -28,7 +28,7 @@ interface Event {
   };
   category: string;
   attendees: number;
-  maxAttendees: number;
+  maxAttendees: number | null;
   organizer: string;
   image: string;
   tags: string[];
@@ -342,8 +342,8 @@ export function LeafletEventsMap({
         button.style.backgroundColor = color;
         button.textContent = 'View Details';
         button.onclick = () => {
-          if (window.selectEvent) {
-            window.selectEvent(event.id);
+          if ((window as any).selectEvent) {
+            (window as any).selectEvent(event.id);
           }
         };
         
@@ -572,7 +572,7 @@ export function LeafletEventsMap({
   // Global function for popup buttons
   useEffect(() => {
     if (typeof window !== "undefined") {
-      (window as any).selectEvent = (eventId: number) => {
+      (window as any).selectEvent = (eventId: string | number) => {
         const event = events.find((e) => e.id === eventId);
         if (event && onEventSelect) {
           onEventSelect(event);

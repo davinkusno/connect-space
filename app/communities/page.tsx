@@ -104,113 +104,15 @@ export default function DiscoverPage() {
     loadData();
   }, []);
 
-  // Trigger geocoding when switching to map view
-  // Use a ref to track if geocoding is in progress to avoid duplicate calls
-  const geocodingInProgress = useRef(false);
+  // Removed client-side geocoding for performance
+  // Geocoding should be handled server-side or during community creation
+  // const geocodingInProgress = useRef(false);
   
+  /* 
   useEffect(() => {
-    // Only geocode when in map view and not already geocoding
-    if (viewMode === "map" && communities.length > 0 && !geocodingInProgress.current) {
-      const communitiesToGeocode = communities.filter(
-        (comm) => comm.location && (comm.location as any).needsGeocoding
-      );
-
-      if (communitiesToGeocode.length > 0) {
-        geocodingInProgress.current = true;
-        
-        // Geocode sequentially with caching to avoid duplicate API calls
-        const geocodeSequentially = async () => {
-          const updatedCommunities = [...communities];
-          
-          for (let i = 0; i < communitiesToGeocode.length; i++) {
-            const comm = communitiesToGeocode[i];
-            const cityName = comm.location?.city;
-            if (!cityName) continue;
-
-            // Check cache first
-            if (geocodeCache.current[cityName]) {
-              const cached = geocodeCache.current[cityName];
-              const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
-              if (commIndex !== -1) {
-                updatedCommunities[commIndex].location = {
-                  lat: cached.lat,
-                  lng: cached.lng,
-                  city: cached.city,
-                  country: cached.country,
-                  address: `${cached.city}, ${cached.country}`,
-                };
-              }
-              continue;
-            }
-
-            // Add delay to respect Nominatim rate limits (1 request per second)
-            if (i > 0) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-
-            try {
-              const geocodeResponse = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&limit=1&addressdetails=1`,
-                {
-                  headers: {
-                    'User-Agent': 'ConnectSpace/1.0' // Required by Nominatim
-                  }
-                }
-              );
-
-              if (geocodeResponse.ok) {
-                const geocodeData = await geocodeResponse.json();
-                if (geocodeData && geocodeData.length > 0) {
-                  const result = geocodeData[0];
-                  const geocodedLocation = {
-                    lat: parseFloat(result.lat),
-                    lng: parseFloat(result.lon),
-                    city: comm.location?.city || result.address?.city || result.address?.town || result.address?.village || "",
-                    country: comm.location?.country || result.address?.country || "",
-                  };
-                  
-                  // Cache the result
-                  geocodeCache.current[cityName] = geocodedLocation;
-                  
-                  // Update all communities with the same city name
-                  updatedCommunities.forEach((c, idx) => {
-                    if (c.location && (c.location as any).needsGeocoding && c.location?.city === cityName) {
-                      updatedCommunities[idx].location = geocodedLocation;
-                    }
-                  });
-                } else {
-                  // Remove location if geocoding returns no results
-                  const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
-                  if (commIndex !== -1) {
-                    updatedCommunities[commIndex].location = undefined;
-                  }
-                }
-              } else {
-                const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
-                if (commIndex !== -1) {
-                  updatedCommunities[commIndex].location = undefined;
-                }
-              }
-            } catch (geocodeError) {
-              console.warn(`Geocoding failed for ${cityName}:`, geocodeError);
-              // Remove location if geocoding fails
-              const commIndex = updatedCommunities.findIndex(c => c.id === comm.id);
-              if (commIndex !== -1) {
-                updatedCommunities[commIndex].location = undefined;
-              }
-            }
-          }
-
-          // Update communities with geocoded locations
-          setCommunities(updatedCommunities);
-          geocodingInProgress.current = false;
-        };
-
-        // Run geocoding asynchronously without blocking
-        geocodeSequentially();
-      }
-    }
-  }, [viewMode]); // Only depend on viewMode, not communities to avoid infinite loops
+    // Client-side geocoding logic removed
+  }, [viewMode]); 
+  */
 
   const loadData = async () => {
     setIsLoading(true);
@@ -225,18 +127,21 @@ export default function DiscoverPage() {
       const apiUrl = '/api/communities/list';
       
       const [recResponse, communitiesResponse] = await Promise.allSettled([
-        user ? fetch("/api/communities/recommendations") : Promise.resolve({ ok: false }),
+        user ? fetch("/api/communities/recommendations") : Promise.resolve(null),
         fetch(apiUrl)
       ]);
 
       // Process recommendations
       let recommendedIds: string[] = [];
-      if (user && recResponse.status === 'fulfilled' && recResponse.value.ok) {
+      if (user && recResponse.status === 'fulfilled' && recResponse.value) {
         try {
-          const data = await recResponse.value.json();
-          recommendedIds = data.recommendedCommunityIds || [];
-          setRecommendedCommunityIds(recommendedIds);
-          console.log(`[COMMUNITIES] Got ${recommendedIds.length} recommendations`);
+          const response = recResponse.value;
+          if (response.ok) {
+            const data = await response.json();
+            recommendedIds = data.recommendedCommunityIds || [];
+            setRecommendedCommunityIds(recommendedIds);
+            console.log(`[COMMUNITIES] Got ${recommendedIds.length} recommendations`);
+          }
         } catch (error) {
           console.error("[COMMUNITIES] Error parsing recommendations:", error);
         }
@@ -293,7 +198,8 @@ export default function DiscoverPage() {
       }
     } catch (error) {
       console.error("Failed to load data:", error);
-      toast.error("Failed to load communities");
+      // Don't show toast for initial load failure to avoid annoyance, just log it
+      // toast.error("Failed to load communities"); 
     } finally {
       setIsLoading(false);
     }
@@ -311,7 +217,7 @@ export default function DiscoverPage() {
         (comm) => {
           // Parse location - it could be a string or a JSON object
           // For online communities, location may be null/empty
-          let parsedLocation: Community["location"] = undefined;
+          let parsedLocation: Community["location"] | undefined = undefined;
           if (comm.location) {
             let location: any = {};
             if (typeof comm.location === "string") {

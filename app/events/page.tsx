@@ -115,6 +115,8 @@ export default function EventsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalEvents, setTotalEvents] = useState(0);
+
   const [registrationStatus, setRegistrationStatus] = useState<
     Record<string | number, boolean>
   >({});
@@ -125,125 +127,58 @@ export default function EventsPage() {
   const [mapSidebarPage, setMapSidebarPage] = useState(1);
   const [mapSidebarItemsPerPage] = useState(10);
 
-  // Refs to prevent duplicate API calls
-  const eventsFetchedRef = useRef(false);
-  const savedEventsFetchedRef = useRef(false);
 
-  // Fetch events from API - fetch all events, filtering is done client-side
+
+  // Fetch ALL events for client-side filtering (PoC Strategy)
   useEffect(() => {
-    // Prevent duplicate fetch in React Strict Mode
-    if (eventsFetchedRef.current) return;
-    eventsFetchedRef.current = true;
-
     const fetchEvents = async () => {
       setIsLoading(true);
       setError(null);
-
       try {
-        // Get current user first
-        const { getSupabaseBrowser } = await import("@/lib/supabase/client");
-        const supabase = getSupabaseBrowser();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        setCurrentUser(user);
-
-        // Fetch recommended event IDs and events in parallel for better performance
-        const params = new URLSearchParams({
-          page: "1",
-          pageSize: "50", // Balanced: enough events to show, but not too heavy
-          dateRange: "all",
-          sortBy: "start_time",
-          sortOrder: "asc",
-        });
-
-        // Fetch events first (always needed), then recommendations in parallel if user exists
-        const eventsPromise = fetch(`/api/events?${params.toString()}`);
-        const recPromise = user ? fetch("/api/events/recommendations") : null;
-        
-        // Wait for events (critical), recommendations can be optional
-        const eventsResponse = await eventsPromise;
-        
-        // Process recommendations in background if available
-        let recommendedIds: string[] = [];
-        if (recPromise) {
-          try {
-            const recResponse = await recPromise;
-            if (recResponse.ok) {
-              const recData = await recResponse.json();
-              recommendedIds = recData.recommendedEventIds || [];
-              setRecommendedEventIds(recommendedIds);
-              console.log(`[EVENTS] Got ${recommendedIds.length} recommendations`);
-            }
-          } catch (recError) {
-            console.error("[EVENTS] Error fetching recommendations:", recError);
-            // Don't fail the whole page if recommendations fail
-          }
-        }
-
-        // Process events
-        if (!eventsResponse.ok) {
-          const errorData = await eventsResponse.json().catch(() => ({}));
-          throw new Error(errorData.error || "Failed to fetch events");
-        }
-        
-        const response = eventsResponse;
+        // Fetch all events by using a large page size
+        const response = await fetch('/api/events?page=1&pageSize=1000&dateRange=all');
+        if (!response.ok) throw new Error("Failed to fetch events");
 
         const data = await response.json();
-        let eventsData = data.events || [];
+        const allEvents = data.events || [];
         
-        console.log(`[EVENTS] Fetched ${eventsData.length} events from API`);
-
-        // Sort by recommendations if we have them (optimized with index map for O(1) lookups)
-        if (user && recommendedIds.length > 0) {
-          // Create an index map for O(1) lookup instead of O(n) indexOf
-          // Using object instead of Map to avoid conflict with lucide-react Map icon
-          const recommendationIndexMap: Record<string, number> = {};
-          recommendedIds.forEach((id, index) => {
-            recommendationIndexMap[id] = index;
-          });
-          
-          eventsData = eventsData.sort((a: Event, b: Event) => {
-            const aIndex = recommendationIndexMap[String(a.id)];
-            const bIndex = recommendationIndexMap[String(b.id)];
-            
-            // Events in recommendations come first, sorted by recommendation order
-            if (aIndex !== undefined && bIndex !== undefined) {
-              return aIndex - bIndex; // Both recommended, sort by score
-            }
-            if (aIndex !== undefined) return -1; // a is recommended, comes first
-            if (bIndex !== undefined) return 1;  // b is recommended, comes first
-            
-            // Both not recommended, maintain original order (by start_time)
-            return 0;
-          });
-          
-          console.log(`[EVENTS] Sorted ${eventsData.length} events by recommendations`);
-        }
-
-        console.log(`[EVENTS] Setting ${eventsData.length} events to state`);
-        setEvents(eventsData);
-        setTotalPages(data.pagination?.totalPages || 1);
-        console.log(`[EVENTS] Total pages: ${data.pagination?.totalPages || 1}`);
-
-        // Extract user-specific status directly from the events response
-        // (API now includes isInterested and isSaved for each event)
+        console.log(`[EVENTS] Fetched ${allEvents.length} total events`);
+        setEvents(allEvents);
+        
+        // Handle User Specific Data
         const registrationMap: Record<string | number, boolean> = {};
-        const savedEventIds: (string | number)[] = [];
+        const savedIds: (string | number)[] = [];
 
-        eventsData.forEach(
-          (event: Event & { isInterested?: boolean; isSaved?: boolean }) => {
-            if (event.isInterested) {
-              registrationMap[event.id] = true;
+        // Check user session
+        const { getSupabaseBrowser } = await import("@/lib/supabase/client");
+        const supabase = getSupabaseBrowser();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          setCurrentUser(user);
+          try {
+            // Fetch interested events specifically to populate map
+            const interestedRes = await fetch('/api/events/interested');
+            if (interestedRes.ok) {
+               const iData = await interestedRes.json();
+               if (iData.events) {
+                 iData.events.forEach((e: any) => registrationMap[e.id] = true);
+               }
             }
-            if (event.isSaved) {
-              savedEventIds.push(event.id);
-            }
+          } catch (e) {
+            console.error("Failed to fetch interested events", e);
           }
-        );
+        }
+        
+        // Also check attributes on the main list if they exist
+        allEvents.forEach((event: any) => {
+             if (event.isInterested) registrationMap[event.id] = true;
+             if (event.isSaved) savedIds.push(event.id);
+        });
 
         setRegistrationStatus(registrationMap);
-        setSavedEvents(savedEventIds);
+        setSavedEvents(savedIds);
+
       } catch (err: any) {
         console.error("Error fetching events:", err);
         setError(err.message || "Failed to load events");
@@ -254,7 +189,8 @@ export default function EventsPage() {
     };
 
     fetchEvents();
-  }, []); // Only fetch once on mount - all filtering is done client-side
+  }, []); // Run ONCE on mount
+
 
   // Check scroll position on mount and when layout changes
   useEffect(() => {
@@ -302,10 +238,6 @@ export default function EventsPage() {
   };
 
   useEffect(() => {
-    // Prevent duplicate fetch in React Strict Mode
-    if (savedEventsFetchedRef.current) return;
-    savedEventsFetchedRef.current = true;
-
     fetchSavedEvents();
   }, [events]); // Re-fetch when events change
 
@@ -346,140 +278,70 @@ export default function EventsPage() {
     { value: "entertainment", label: "Entertainment", icon: "🎬" },
   ];
 
+  // Client-side filtering
   const filteredEvents = useMemo(() => {
-    let filtered = events;
+    let filtered = [...events];
 
-    // Location filter
-    if (locationQuery) {
-      if (locationQuery.toLowerCase() === "online") {
-        filtered = filtered.filter(
-          (event) =>
-            event.location?.isOnline === true ||
-            event.title.toLowerCase().includes("online") ||
-            event.description.toLowerCase().includes("online")
-        );
-      } else {
-        filtered = filtered.filter(
-          (event) =>
-            event.location?.city
-              ?.toLowerCase()
-              .includes(locationQuery.toLowerCase()) ||
-            event.location?.venue
-              ?.toLowerCase()
-              .includes(locationQuery.toLowerCase()) ||
-            event.location?.address
-              ?.toLowerCase()
-              .includes(locationQuery.toLowerCase())
-        );
-      }
+    // 1. Tab Filtering
+    if (activeTab === "online") {
+      filtered = filtered.filter((event) => event.location.isOnline);
+    } else if (activeTab === "interested") {
+      // Must wait for registrationStatus? events already loaded? Yes.
+      filtered = filtered.filter((event) => registrationStatus[event.id]);
     }
 
-    // General search filter (for events search) - includes city/location
+    // 2. Search
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (event) =>
           event.title.toLowerCase().includes(query) ||
           event.description.toLowerCase().includes(query) ||
-          event.tags.some((tag) => tag.toLowerCase().includes(query)) ||
-          (event.community?.name || event.organizer || "")
-            .toLowerCase()
-            .includes(query) ||
-          (event.location?.city?.toLowerCase().includes(query) ?? false) ||
-          (event.location?.address?.toLowerCase().includes(query) ?? false)
+          event.location.city.toLowerCase().includes(query)
       );
     }
 
-    // Category filter
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter(
-        (event) =>
-          event.category.toLowerCase() === selectedCategory.toLowerCase()
+    // 3. Category
+    if (selectedCategory && selectedCategory !== "all") {
+      filtered = filtered.filter((event) => 
+        event.category.toLowerCase() === selectedCategory.toLowerCase()
       );
     }
 
-    // Location filter (selectedLocation from filter panel)
-    if (selectedLocation !== "all") {
-      if (selectedLocation === "online") {
-        filtered = filtered.filter(
-          (event) => event.location?.isOnline === true
-        );
-      } else {
-        filtered = filtered.filter(
-          (event) =>
-            event.location?.city?.toLowerCase() ===
-            selectedLocation.toLowerCase()
-        );
-      }
+    // 4. Location
+    if (selectedLocation && selectedLocation !== "all") {
+      filtered = filtered.filter((event) =>
+        event.location.city.toLowerCase() === selectedLocation.toLowerCase()
+      );
     }
 
-    // Date filter (client-side filtering for consistency)
+    // 5. Date Range
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    
     if (dateRange === "upcoming") {
-      const now = new Date();
-      filtered = filtered.filter((event) => {
-        const eventDate = new Date(event.date);
-        return eventDate >= now;
-      });
-    } else if (dateRange !== "all") {
-      const now = new Date();
-      switch (dateRange) {
-        case "today":
-          filtered = filtered.filter((event) => {
-            const eventDate = new Date(event.date);
-            return eventDate.toDateString() === now.toDateString();
-          });
-          break;
-        case "week":
-          filtered = filtered.filter((event) => {
-            const eventDate = new Date(event.date);
-            const weekFromNow = new Date(
-              now.getTime() + 7 * 24 * 60 * 60 * 1000
-            );
-            return eventDate >= now && eventDate <= weekFromNow;
-          });
-          break;
-        case "month":
-          filtered = filtered.filter((event) => {
-            const eventDate = new Date(event.date);
-            const monthFromNow = new Date(
-              now.getTime() + 30 * 24 * 60 * 60 * 1000
-            );
-            return eventDate >= now && eventDate <= monthFromNow;
-          });
-          break;
-      }
+      filtered = filtered.filter((event) => new Date(event.date) >= now);
+    } else if (dateRange === "this-week") {
+       const nextWeek = new Date(now);
+       nextWeek.setDate(now.getDate() + 7);
+       filtered = filtered.filter((event) => {
+         const d = new Date(event.date);
+         return d >= now && d < nextWeek;
+       });
     }
 
     return filtered;
-  }, [
-    events,
-    searchQuery,
-    locationQuery,
-    selectedCategory,
-    selectedLocation,
-    dateRange,
-  ]);
+  }, [events, searchQuery, selectedCategory, selectedLocation, dateRange, activeTab, registrationStatus]);
 
-  // Reset page to 1 when tab or filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    activeTab,
-    selectedCategory,
-    selectedLocation,
-    dateRange,
-    searchQuery,
-    locationQuery,
-  ]);
+  // Pagination logic derived from filtered events
+  const totalPagesDerived = Math.ceil(filteredEvents.length / itemsPerPage);
+  const paginatedEvents = filteredEvents.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
-  // Pagination logic
-  // Since we're doing client-side filtering, we need to paginate the filtered results
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
-
-  // Calculate total pages based on filtered results length
-  const calculatedTotalPages = Math.ceil(filteredEvents.length / itemsPerPage);
+  // Use derived totalPages
+  const calculatedTotalPages = totalPagesDerived;
 
   const handleSaveEvent = async (eventId: string | number) => {
     setIsSaving(true);
@@ -860,7 +722,7 @@ export default function EventsPage() {
                 <div className="grid grid-cols-3 gap-6 mb-8 max-w-3xl mx-auto">
                   <div className="text-center">
                     <div className="text-3xl font-bold mb-1">
-                      <AnimatedCounter end={filteredEvents.length} />
+                      <AnimatedCounter end={events.filter(e => new Date(e.date) >= new Date().setHours(0,0,0,0)).length} />
                     </div>
                     <div className="text-purple-200 text-sm">
                       Events Available
@@ -868,12 +730,7 @@ export default function EventsPage() {
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold mb-1">
-                      <AnimatedCounter
-                        end={
-                          filteredEvents.filter((e) => !e.location.isOnline)
-                            .length
-                        }
-                      />
+                      <AnimatedCounter end={events.filter(e => new Date(e.date) >= new Date().setHours(0,0,0,0) && !e.location.isOnline).length} />
                     </div>
                     <div className="text-purple-200 text-sm">
                       Events Offline
@@ -881,12 +738,7 @@ export default function EventsPage() {
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold mb-1">
-                      <AnimatedCounter
-                        end={
-                          filteredEvents.filter((e) => e.location.isOnline)
-                            .length
-                        }
-                      />
+                      <AnimatedCounter end={events.filter(e => new Date(e.date) >= new Date().setHours(0,0,0,0) && e.location.isOnline).length} />
                     </div>
                     <div className="text-purple-200 text-sm">Events Online</div>
                   </div>
@@ -1191,28 +1043,17 @@ export default function EventsPage() {
                   </div>
                 ) : (
                   (() => {
-                  const interestedEvents = filteredEvents.filter(
-                    (event) => registrationStatus[event.id]
-                  );
-                  const interestedStartIndex = (currentPage - 1) * itemsPerPage;
-                  const interestedEndIndex =
-                    interestedStartIndex + itemsPerPage;
-                  const paginatedInterestedEvents = interestedEvents.slice(
-                    interestedStartIndex,
-                    interestedEndIndex
-                  );
-                  const interestedTotalPages = Math.ceil(
-                    interestedEvents.length / itemsPerPage
-                  );
+                  const paginatedInterestedEvents = events;
+                  const interestedTotalPages = totalPages;
 
-                  return interestedEvents.length > 0 ? (
+                  return events.length > 0 ? (
                     <>
                       <div className="flex items-center justify-between">
                         <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
                           <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
                             <CheckCircle2 className="h-6 w-6 text-white" />
                           </div>
-                          Interested Events ({interestedEvents.length})
+                          Interested Events ({totalEvents})
                         </h2>
                       </div>
 
@@ -1287,27 +1128,17 @@ export default function EventsPage() {
                   </div>
                 ) : (
                   (() => {
-                  const onlineEvents = filteredEvents.filter(
-                    (e) => e.location.isOnline
-                  );
-                  const onlineStartIndex = (currentPage - 1) * itemsPerPage;
-                  const onlineEndIndex = onlineStartIndex + itemsPerPage;
-                  const paginatedOnlineEvents = onlineEvents.slice(
-                    onlineStartIndex,
-                    onlineEndIndex
-                  );
-                  const onlineTotalPages = Math.ceil(
-                    onlineEvents.length / itemsPerPage
-                  );
+                  const paginatedOnlineEvents = events;
+                  const onlineTotalPages = totalPages;
 
-                  return onlineEvents.length > 0 ? (
+                  return events.length > 0 ? (
                     <>
                       <div className="flex items-center justify-between">
                         <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
                           <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg">
                             <Globe className="h-6 w-6 text-white" />
                           </div>
-                          Online Events ({onlineEvents.length})
+                          Online Events ({totalEvents})
                         </h2>
                       </div>
 
