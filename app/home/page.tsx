@@ -58,7 +58,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // Import new enhanced components
 
@@ -128,6 +128,12 @@ export default function DashboardPage() {
   const [savedEventsTimeFilter, setSavedEventsTimeFilter] = useState("all"); // all, today, this-week, this-month, upcoming
   const savedEventsPerPage = 5;
 
+  // Refs to prevent duplicate API calls in React Strict Mode
+  const userDataFetchedRef = useRef(false);
+  const savedEventsFetchedRef = useRef(false);
+  const joinedEventsFetchedRef = useRef(false);
+  const createPermissionFetchedRef = useRef(false);
+
   // Fetch saved events from database
   useEffect(() => {
     console.log("[Dashboard] useEffect triggered, activeTab:", activeTab);
@@ -136,6 +142,13 @@ export default function DashboardPage() {
       console.log("[Dashboard] Not events tab, skipping saved events fetch");
       return;
     }
+
+    // Prevent duplicate fetch in React Strict Mode
+    if (savedEventsFetchedRef.current) {
+      console.log("[Dashboard] Saved events already fetched, skipping");
+      return;
+    }
+    savedEventsFetchedRef.current = true;
 
     const fetchSavedEvents = async () => {
       console.log("[Dashboard] fetchSavedEvents called");
@@ -383,6 +396,10 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    // Prevent duplicate fetch in React Strict Mode
+    if (userDataFetchedRef.current) return;
+    userDataFetchedRef.current = true;
+
     const fetchUserData = async () => {
       try {
         console.log("[Home] Fetching user home page data from API...");
@@ -439,6 +456,10 @@ export default function DashboardPage() {
 
   // Check community creation permission
   useEffect(() => {
+    // Prevent duplicate fetch in React Strict Mode
+    if (createPermissionFetchedRef.current) return;
+    createPermissionFetchedRef.current = true;
+
     const checkCreatePermission = async () => {
       try {
         const response = await fetch(
@@ -577,6 +598,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (activeTab === "home" || activeTab === "events") {
+      // Prevent duplicate fetch in React Strict Mode
+      if (joinedEventsFetchedRef.current) return;
+      joinedEventsFetchedRef.current = true;
+
       console.log("[Dashboard] Fetching joined events...");
       fetchJoinedEvents();
     }

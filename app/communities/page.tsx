@@ -66,7 +66,11 @@ export default function DiscoverPage() {
   
   // Membership status tracking
   const [membershipStatus, setMembershipStatus] = useState<Record<string, "joined" | "pending" | "not_joined">>({});
+  const [showFilters, setShowFilters] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Refs to prevent duplicate API calls
+  const communitiesFetchedRef = useRef(false);
   const [recommendedCommunityIds, setRecommendedCommunityIds] = useState<string[]>([]);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -93,6 +97,10 @@ export default function DiscoverPage() {
   ];
 
   useEffect(() => {
+    // Prevent duplicate fetch in React Strict Mode
+    if (communitiesFetchedRef.current) return;
+    communitiesFetchedRef.current = true;
+
     loadData();
   }, []);
 

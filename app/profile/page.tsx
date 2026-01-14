@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Standardized location data stored in user_metadata
 interface UserLocationData {
@@ -84,6 +84,11 @@ export default function ProfilePage() {
     };
   }>>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [isLoadingBadges, setIsLoadingBadges] = useState(false);
+
+  // Refs to prevent duplicate API calls
+  const userDataFetchedRef = useRef(false);
+  const badgesFetchedRef = useRef(false);
   const [showReports, setShowReports] = useState(false);
   const [reportsPage, setReportsPage] = useState(1);
   const [totalReports, setTotalReports] = useState(0);
@@ -150,7 +155,11 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
-    const getUser = async () => {
+    // Prevent duplicate fetch in React Strict Mode
+    if (userDataFetchedRef.current) return;
+    userDataFetchedRef.current = true;
+
+    const fetchUserData = async () => {
       try {
         const {
           data: { session },
@@ -355,7 +364,7 @@ export default function ProfilePage() {
       }
     };
 
-    getUser();
+    fetchUserData();
   }, [supabase.auth, router, toast]);
 
   const searchCities = async (query: string) => {

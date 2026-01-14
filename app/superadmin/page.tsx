@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getReportReasonLabel } from "@/lib/utils/report-utils";
 
@@ -972,6 +972,10 @@ export default function SuperadminPage() {
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState("reports");
 
+  // Refs to prevent duplicate API calls
+  const reportsFetchedRef = useRef(false);
+  const badgesFetchedRef = useRef(false);
+
   // Sync active tab with pathname
   useEffect(() => {
     if (pathname === "/superadmin") {
@@ -1052,6 +1056,10 @@ export default function SuperadminPage() {
   // Load reports when tab is active
   useEffect(() => {
     if (activeTab === "reports") {
+      // Prevent duplicate fetch in React Strict Mode
+      if (reportsFetchedRef.current) return;
+      reportsFetchedRef.current = true;
+
       fetchReports();
       fetchReviewQueueReports();
     }

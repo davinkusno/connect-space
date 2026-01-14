@@ -27,8 +27,13 @@ export function AdDisplay({ communityId, className = "" }: AdDisplayProps) {
   const [ad, setAd] = useState<Ad | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const trackedAdRef = useRef<string | null>(null);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate fetch in React Strict Mode
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    
     const fetchAd = async () => {
       try {
         const response = await fetch(

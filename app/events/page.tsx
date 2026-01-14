@@ -125,8 +125,16 @@ export default function EventsPage() {
   const [mapSidebarPage, setMapSidebarPage] = useState(1);
   const [mapSidebarItemsPerPage] = useState(10);
 
+  // Refs to prevent duplicate API calls
+  const eventsFetchedRef = useRef(false);
+  const savedEventsFetchedRef = useRef(false);
+
   // Fetch events from API - fetch all events, filtering is done client-side
   useEffect(() => {
+    // Prevent duplicate fetch in React Strict Mode
+    if (eventsFetchedRef.current) return;
+    eventsFetchedRef.current = true;
+
     const fetchEvents = async () => {
       setIsLoading(true);
       setError(null);
@@ -294,6 +302,10 @@ export default function EventsPage() {
   };
 
   useEffect(() => {
+    // Prevent duplicate fetch in React Strict Mode
+    if (savedEventsFetchedRef.current) return;
+    savedEventsFetchedRef.current = true;
+
     fetchSavedEvents();
   }, [events]); // Re-fetch when events change
 

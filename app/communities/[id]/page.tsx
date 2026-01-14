@@ -40,7 +40,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 // import { FloatingChat } from "@/components/chat/floating-chat"; // Component not found
 import {
@@ -187,8 +187,16 @@ export default function CommunityPage({
   const [highlightedThreadId, setHighlightedThreadId] = useState<string | null>(null);
   const [highlightedReplyId, setHighlightedReplyId] = useState<string | null>(null);
 
+  // Refs to prevent duplicate API calls
+  const communityDataLoadedRef = useRef(false);
+  const creatorDataLoadedRef = useRef<string | null>(null);
+
   // Load community data from database
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode
+    if (communityDataLoadedRef.current) return;
+    communityDataLoadedRef.current = true;
+    
     loadCommunityData();
   }, [id]);
 
@@ -205,22 +213,12 @@ export default function CommunityPage({
     router.push(`/communities/${id}?${params.toString()}`, { scroll: false });
   };
 
-  // Update active tab when URL parameter changes
-  useEffect(() => {
-    const tabParam = searchParams.get("tab");
-    // Map old "announcements" to "discussions" for backward compatibility
-    const normalizedTab = tabParam === "announcements" ? "discussions" : tabParam;
-    if (normalizedTab && normalizedTab !== activeTab) {
-      setActiveTab(normalizedTab);
-    }
-  }, [searchParams, activeTab]);
-
   // Load tab-specific data when tab changes
   useEffect(() => {
     if (community) {
       loadTabData(activeTab);
     }
-  }, [activeTab, community, creatorData]);
+  }, [activeTab, community]); // Removed creatorData dependency to prevent duplicate calls
 
   // Handle threadId and replyId from URL params for reported content
   useEffect(() => {
@@ -288,6 +286,10 @@ export default function CommunityPage({
   useEffect(() => {
     const fetchCreatorIfNeeded = async () => {
       if (community?.creator_id && !creatorData) {
+        // Prevent duplicate calls for same creator
+        if (creatorDataLoadedRef.current === community.creator_id) return;
+        creatorDataLoadedRef.current = community.creator_id;
+        
         try {
           const response = await fetch(`/api/user/${community.creator_id}`);
           if (response.ok) {
@@ -393,17 +395,8 @@ export default function CommunityPage({
               } else if (status === "approved") {
                 setIsMember(true);
                 setMembershipStatus("approved");
-                // Fetch role from members API
-                const membersResponse = await fetch(`/api/communities/${id}/members?pageSize=1000`);
-                if (membersResponse.ok) {
-                  const membersData = await membersResponse.json();
-                  const userMembership = membersData.members?.find(
-                    (m: any) => m.user_id === session.user.id
-                  );
-                  if (userMembership) {
-                    setUserRole(userMembership.role as any);
-                  }
-                }
+                // Set default member role - role can be enhanced in membership-status API later
+                setUserRole("member");
               } else {
                 setMembershipStatus(null);
                 setIsMember(false);
@@ -445,37 +438,16 @@ export default function CommunityPage({
             console.log("📨 Threads data from API:", threadsData);
 
             if (threadsData && Array.isArray(threadsData) && threadsData.length > 0) {
-              // Fetch replies for each thread
-              const discussionsWithReplies = await Promise.all(
-                threadsData.map(async (thread: any) => {
-                  try {
-                    const repliesResponse = await fetch(`/api/messages/replies?thread_id=${thread.id}`);
-                    let replies = [];
-                    let replyCount = 0;
+              // Set threads without fetching all replies (major performance improvement)
+              // Replies will be visible when user expands a thread
+              const discussionsWithoutReplies = threadsData.map((thread: any) => ({
+                ...thread,
+                replies: [], // Don't fetch all replies upfront
+                replyCount: 0, // Will be updated when user views replies
+              }));
 
-                    if (repliesResponse.ok) {
-                      replies = await repliesResponse.json();
-                      replyCount = replies.length;
-                    }
-
-                    return {
-                      ...thread,
-                      replies: replies || [],
-                      replyCount: replyCount,
-                    };
-                  } catch (error) {
-                    console.error(`Error fetching replies for thread ${thread.id}:`, error);
-                    return {
-                      ...thread,
-                      replies: [],
-                      replyCount: 0,
-                    };
-                  }
-                })
-              );
-
-              console.log("📋 First discussion with replies:", discussionsWithReplies[0]);
-              setDiscussions(discussionsWithReplies);
+              console.log("📋 Threads loaded (without replies for performance):", discussionsWithoutReplies.length);
+              setDiscussions(discussionsWithoutReplies);
             } else {
               setDiscussions([]);
             }

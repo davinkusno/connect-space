@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * EventReminderChecker
@@ -8,7 +8,13 @@ import { useEffect } from "react";
  * Uses localStorage to ensure notification is only created once per event per day
  */
 export function EventReminderChecker() {
+  const hasCheckedRef = useRef(false);
+
   useEffect(() => {
+    // Prevent duplicate checks in React Strict Mode
+    if (hasCheckedRef.current) return;
+    hasCheckedRef.current = true;
+
     const checkTodayEvents = async () => {
       try {
         // Fetch user's interested events

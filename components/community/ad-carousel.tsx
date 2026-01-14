@@ -11,7 +11,7 @@ import {
 import { ExternalLink, Megaphone, Plus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface Ad {
   id: string;
@@ -40,8 +40,13 @@ export function AdCarousel({
   const [isLoading, setIsLoading] = useState(true);
   const [api, setApi] = useState<CarouselApi>();
   const [trackedAds, setTrackedAds] = useState<Set<string>>(new Set());
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate fetch in React Strict Mode
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    
     const fetchAds = async () => {
       try {
         const url = `/api/ads?community_id=${communityId}&active_only=true`;

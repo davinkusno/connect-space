@@ -17,7 +17,7 @@ import { getClientSession } from "@/lib/supabase/client";
 import { StandardizedLocation } from "@/types/location";
 import { CheckCircle, MapPin, Sparkles, Tag } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 
@@ -43,13 +43,21 @@ export default function OnboardingPage() {
   // Form data
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [location, setLocation] = useState<StandardizedLocation | null>(null);
+  const [searchTimeoutId, setSearchTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
   // User data
   const [userId, setUserId] = useState<string | null>(null);
+  // Ref to prevent duplicate API calls
+  const onboardingCheckRef = useRef(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Check authentication
+  // Check if user has already completed onboarding
   useEffect(() => {
+    // Prevent duplicate check in React Strict Mode
+    if (onboardingCheckRef.current) return;
+    onboardingCheckRef.current = true;
+
     checkAuth();
   }, []);
 

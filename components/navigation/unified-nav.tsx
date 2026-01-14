@@ -86,6 +86,7 @@ export function UnifiedNav() {
   const avatarCacheRef = useRef<{ userId: string; avatarUrl: string | null } | null>(null);
   const notificationsFetchedRef = useRef<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
+  const initialSessionFetchedRef = useRef(false);
 
   // Fetch notifications from database - only once per user
   useEffect(() => {
@@ -434,6 +435,10 @@ export function UnifiedNav() {
   };
 
   useEffect(() => {
+    // Prevent duplicate fetch in React Strict Mode
+    if (initialSessionFetchedRef.current) return;
+    initialSessionFetchedRef.current = true;
+
     const getUser = async () => {
       try {
         const {

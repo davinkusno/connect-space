@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 
 interface Event {
   id: string;
@@ -117,6 +117,12 @@ export default function EventDetailsPage({
   const [isRegistered, setIsRegistered] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [isUpdateRsvpOpen, setIsUpdateRsvpOpen] = useState(false);
+  const [isLoadingAttendees, setIsLoadingAttendees] = useState(false);
+  const [isLoadingInterest, setIsLoadingInterest] = useState(false);
+
+  // Refs to prevent duplicate API calls
+  const eventDataFetchedRef = useRef(false);
+  const attendeesFetchedRef = useRef(false);
   const [isAttendeesOpen, setIsAttendeesOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -132,7 +138,11 @@ export default function EventDetailsPage({
 
   // Fetch event data from API
   useEffect(() => {
-    const fetchEvent = async () => {
+    // Prevent duplicate fetch in React Strict Mode
+    if (eventDataFetchedRef.current) return;
+    eventDataFetchedRef.current = true;
+
+    const fetchEventData = async () => {
       if (!id) return;
       
       try {
@@ -175,13 +185,12 @@ export default function EventDetailsPage({
           setIsCommunityMember(true);
         }
 
-        // Get attendee count from API
-        const attendeesCountResponse = await fetch(`/api/events/${id}/attendees-count`).then(res => res.json());
+        // Get attendee count from event data (already included in API response)
+        const registeredCount = eventData.attendee_count || 0;
         const relatedEventsResult = { data: data.relatedEvents || [] };
         const organizerEventsResult = { data: data.organizerEvents || [] };
 
-        const registeredCount = attendeesCountResponse.count || 0;
-        console.log("[Event Detail] Attendees count from API:", registeredCount);
+        console.log("[Event Detail] Attendees count from event data:", registeredCount);
 
         // Check if current user is interested in this event using API
         if (user) {
@@ -222,31 +231,7 @@ export default function EventDetailsPage({
           price: 0, // Default to free
         }));
 
-        // Fetch attendee counts for organizer events using API
-        const organizerEventIds = organizerEventsResult.data?.map((e: any) => e.id) || [];
-        let organizerEventAttendees: Record<string, number> = {};
-        
-        if (organizerEventIds.length > 0) {
-          // Fetch counts in parallel for all organizer events
-          const attendeeCountPromises = organizerEventIds.map(async (eventId: string) => {
-            try {
-              const response = await fetch(`/api/events/${eventId}/attendees-count`);
-              if (response.ok) {
-                const data = await response.json();
-                return { eventId, count: data.count || 0 };
-              }
-            } catch (error) {
-              console.error(`Error fetching attendee count for event ${eventId}:`, error);
-            }
-            return { eventId, count: 0 };
-          });
-          
-          const counts = await Promise.all(attendeeCountPromises);
-          counts.forEach(({ eventId, count }) => {
-            organizerEventAttendees[eventId] = count;
-          });
-        }
-
+        // Use attendee_count from organizer events data (already included)
         const organizerEvents = (organizerEventsResult.data || []).map((e: any) => ({
           id: e.id,
           title: e.title,
@@ -254,7 +239,7 @@ export default function EventDetailsPage({
           image: e.image_url || "",
           category: e.category || "General",
           price: 0, // Default to free
-          attendees: organizerEventAttendees[e.id] || 0,
+          attendees: e.attendee_count || 0, // Use attendee_count from event data
         }));
 
         // Parse location - it's stored as a string that might be JSON
@@ -441,7 +426,7 @@ export default function EventDetailsPage({
       }
     };
 
-    fetchEvent();
+    fetchEventData();
   }, [id]);
 
   // Check authentication status on component mount
