@@ -264,7 +264,7 @@ const INTEREST_KEYWORDS: Record<string, string[]> = {
 }
 
 export class ContentBasedFilteringAlgorithm {
-  private enableLogging = false
+  private enableLogging = false  // Disabled for production performance
   
   private log(...args: any[]) {
     if (this.enableLogging) {

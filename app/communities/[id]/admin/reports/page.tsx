@@ -6,7 +6,7 @@ import { PageTransition } from "@/components/ui/page-transition"
 import { ReportsManagement } from "@/components/community/reports-management"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 
 export default function CommunityReportsPage({
   params,
@@ -15,7 +15,13 @@ export default function CommunityReportsPage({
 }) {
   const [communityId, setCommunityId] = useState<string | null>(null)
 
+  const paramsLoadedRef = useRef(false);
+
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode
+    if (paramsLoadedRef.current) return;
+    paramsLoadedRef.current = true;
+
     const loadParams = async () => {
       const resolvedParams = await params
       setCommunityId(resolvedParams.id)

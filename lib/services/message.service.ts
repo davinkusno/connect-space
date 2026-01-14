@@ -221,12 +221,61 @@ export class MessageService extends BaseService {
       roleMap[m.user_id] = m.role;
     });
 
-    // Transform threads with user data
+    // Fetch replies for all threads
+    const threadIds = threads.map((t: any) => t.id);
+    const { data: allReplies } = await this.supabaseAdmin
+      .from("messages")
+      .select("*")
+      .in("parent_id", threadIds)
+      .order("created_at", { ascending: true });
+
+    // Get unique sender IDs from replies
+    const replySenderIds = [...new Set((allReplies || []).map((r: any) => r.sender_id))];
+    
+    // Fetch user data for reply senders
+    const { data: replyUsers } = await this.supabaseAdmin
+      .from("users")
+      .select("id, username, full_name, avatar_url")
+      .in("id", replySenderIds);
+
+    // Fetch roles for reply senders
+    const { data: replyMemberships } = await this.supabaseAdmin
+      .from("community_members")
+      .select("user_id, role")
+      .eq("community_id", communityId)
+      .in("user_id", replySenderIds);
+
+    // Add reply users to userMap
+    (replyUsers || []).forEach((u: any) => {
+      userMap[u.id] = u;
+    });
+
+    // Add reply roles to roleMap
+    (replyMemberships || []).forEach((m: any) => {
+      roleMap[m.user_id] = m.role;
+    });
+
+    // Group replies by parent_id
+    const repliesByThread: Record<string, any[]> = {};
+    (allReplies || []).forEach((reply: any) => {
+      if (!repliesByThread[reply.parent_id]) {
+        repliesByThread[reply.parent_id] = [];
+      }
+      repliesByThread[reply.parent_id].push({
+        ...reply,
+        users: userMap[reply.sender_id] || null,
+        authorRole: roleMap[reply.sender_id] || null,
+        isCreator: reply.sender_id === community?.creator_id,
+      });
+    });
+
+    // Transform threads with user data and replies
     const threadsWithUsers = threads.map((thread: any) => ({
       ...thread,
       users: userMap[thread.sender_id] || null,
       authorRole: roleMap[thread.sender_id] || null,
       isCreator: thread.sender_id === community?.creator_id,
+      replies: repliesByThread[thread.id] || [],
     }));
 
     return ApiResponse.success<MessageWithSender[]>(threadsWithUsers as MessageWithSender[]);

@@ -163,6 +163,7 @@ export default function CommunityPage({
   // Post creation
   const [newPost, setNewPost] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [showReplies, setShowReplies] = useState<Record<string, boolean>>({});
@@ -438,16 +439,15 @@ export default function CommunityPage({
             console.log("📨 Threads data from API:", threadsData);
 
             if (threadsData && Array.isArray(threadsData) && threadsData.length > 0) {
-              // Set threads without fetching all replies (major performance improvement)
-              // Replies will be visible when user expands a thread
-              const discussionsWithoutReplies = threadsData.map((thread: any) => ({
+              // Map threads and preserve replies from API
+              const discussionsWithReplies = threadsData.map((thread: any) => ({
                 ...thread,
-                replies: [], // Don't fetch all replies upfront
-                replyCount: 0, // Will be updated when user views replies
+                replies: thread.replies || [], // Keep replies from API
+                replyCount: thread.replies?.length || 0, // Count actual replies
               }));
 
-              console.log("📋 Threads loaded (without replies for performance):", discussionsWithoutReplies.length);
-              setDiscussions(discussionsWithoutReplies);
+              console.log("📋 Threads loaded with replies:", discussionsWithReplies.length);
+              setDiscussions(discussionsWithReplies);
             } else {
               setDiscussions([]);
             }
@@ -817,7 +817,7 @@ export default function CommunityPage({
     if (!replyContent.trim() || !isMember || !currentUser) return;
 
     try {
-      setIsSubmitting(true);
+      setIsSubmittingReply(true);
 
       const response = await fetch("/api/messages/replies", {
         method: "POST",
@@ -845,7 +845,7 @@ export default function CommunityPage({
       console.error("Error posting reply:", error);
       toast.error(error.message || "Failed to post reply");
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingReply(false);
     }
   };
 
@@ -1695,7 +1695,7 @@ export default function CommunityPage({
                                                     }
                                                     className="bg-violet-600 hover:bg-violet-700 text-white"
                                                   >
-                                                    {isSubmitting ? (
+                                                    {isSubmittingReply ? (
                                                       <>
                                                         <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                                                         Posting...

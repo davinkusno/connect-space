@@ -31,7 +31,7 @@ import {
     ArrowLeft, AlertTriangle, Calendar, Search, Shield, Star, UserMinus, Users
 } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { toast as sonnerToast } from "sonner"
 
 interface Member {
@@ -78,8 +78,14 @@ export default function CommunityMembersPage({
 
   const pageSize = 10
 
+  const paramsLoadedRef = useRef(false);
+
   // Load community and members data
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode
+    if (paramsLoadedRef.current) return;
+    paramsLoadedRef.current = true;
+
     const loadParams = async () => {
       const resolvedParams = await params
       setCommunityId(resolvedParams.id)

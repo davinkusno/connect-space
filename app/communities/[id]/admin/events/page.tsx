@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import type { DateRange } from "react-day-picker"
 import { toast } from "sonner"
 
@@ -90,7 +90,13 @@ export default function CommunityAdminEventsPage({
   const [currentPage, setCurrentPage] = useState(1)
   const eventsPerPage = 10
 
+  const paramsLoadedRef = useRef(false);
+
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode
+    if (paramsLoadedRef.current) return;
+    paramsLoadedRef.current = true;
+
     const loadParams = async () => {
       const resolvedParams = await params
       setCommunityId(resolvedParams.id)
@@ -153,32 +159,8 @@ export default function CommunityAdminEventsPage({
 
       const eventsData = await eventsResponse.json()
 
-      // Fetch attendee counts for all events using API
-      const eventIds = (eventsData || []).map((e: any) => e.id)
-      let attendeeCounts: Record<string, number> = {}
-      
-      if (eventIds.length > 0) {
-        // Fetch counts in parallel for all events
-        const attendeeCountPromises = eventIds.map(async (eventId: string) => {
-          try {
-            const response = await fetch(`/api/events/${eventId}/attendees-count`)
-            if (response.ok) {
-              const data = await response.json()
-              return { eventId, count: data.count || 0 }
-            }
-          } catch (error) {
-            console.error(`Error fetching attendee count for event ${eventId}:`, error)
-          }
-          return { eventId, count: 0 }
-        })
-        
-        const counts = await Promise.all(attendeeCountPromises)
-        counts.forEach(({ eventId, count }) => {
-          attendeeCounts[eventId] = count
-        })
-      }
-
       // Convert database events to Event interface format
+      // Use attendee_count from event data instead of fetching separately
       const now = new Date()
       const realEvents: Event[] = (eventsData || []).map((event: any) => {
         const startTime = new Date(event.start_time)
@@ -227,8 +209,8 @@ export default function CommunityAdminEventsPage({
           }
         }
 
-        // Get attendee count from fetched data
-        const attendeeCount = attendeeCounts[event.id] || 0
+        // Get attendee count from event data (already included in API response)
+        const attendeeCount = event.attendee_count || 0
 
         return {
           id: event.id,

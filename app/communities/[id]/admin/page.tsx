@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import { getReportReasonLabel } from "@/lib/utils/report-utils";
 
@@ -44,8 +44,13 @@ import { getReportReasonLabel } from "@/lib/utils/report-utils";
 function EventCount({ communityId }: { communityId?: string }) {
   const [eventCount, setEventCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+  const eventCountLoadedRef = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode
+    if (eventCountLoadedRef.current) return;
+    eventCountLoadedRef.current = true;
+
     const loadEventCount = async () => {
       if (!communityId) {
         setIsLoading(false);
@@ -176,7 +181,13 @@ export default function CommunityAdminPage({
     }
   };
 
+  const paramsLoadedRef = useRef(false);
+
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode
+    if (paramsLoadedRef.current) return;
+    paramsLoadedRef.current = true;
+
     const loadParams = async () => {
       const resolvedParams = await params;
       setCommunityId(resolvedParams.id);
