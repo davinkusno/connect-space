@@ -77,8 +77,8 @@ interface CommunityRecommendationsResponse {
     }>;
   }>;
   metadata: {
-    algorithmsUsed: string[];
-    diversityScore: number;
+    totalCommunities: number;
+    processingTime: number;
   };
 }
 
@@ -124,13 +124,8 @@ export class CommunityController extends BaseController {
       
       const { searchParams } = new URL(request.url);
       const limit = parseInt(searchParams.get("limit") || "50");
-      const includePopular = searchParams.get("includePopular") !== "false";
-      const diversityWeight = parseFloat(searchParams.get("diversityWeight") || "0.3");
-
       const result = await this.recommendationService.getCommunityRecommendations(user.id, {
         maxRecommendations: limit,
-        includePopular,
-        diversityWeight,
       });
 
       if (!result.success || !result.data) {
@@ -802,25 +797,7 @@ export class CommunityController extends BaseController {
    * @param communityId - The community ID
    * @returns NextResponse with community data
    */
-  public async getCommunityById(
-    request: NextRequest,
-    communityId: string
-  ): Promise<NextResponse<unknown | ApiErrorResponse>> {
-    try {
-      const result = await this.service.getCommunityById(communityId);
 
-      if (result.success) {
-        return this.json(result.data!, result.status);
-      }
-
-      return this.error(
-        result.error?.message || "Community not found",
-        result.status
-      );
-    } catch (error: unknown) {
-      return this.handleError(error);
-    }
-  }
 
   /**
    * GET /api/communities/membership-status
@@ -1028,7 +1005,6 @@ export class CommunityController extends BaseController {
       // Get approved members
       const membersResult = await this.service.getMembers(
         communityId,
-        user.id,
         {
           page: 1,
           pageSize: 1000, // Get all members
@@ -1424,7 +1400,7 @@ export class CommunityController extends BaseController {
       // Get user (optional - if not authenticated, will return communities without membership status)
       let userId: string | undefined;
       try {
-        const user = await this.getAuthUser();
+        const user = await this.getAuthenticatedUser();
         userId = user?.id;
       } catch {
         // User not authenticated, continue without user ID

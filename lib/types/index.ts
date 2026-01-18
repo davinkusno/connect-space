@@ -18,6 +18,7 @@ export interface User {
   status: UserStatus;
   created_at: string;
   updated_at?: string;
+  moderation_strikes?: number;
 }
 
 export type UserType = "regular" | "super_admin";

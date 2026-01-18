@@ -100,7 +100,7 @@ export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedLocation, setSelectedLocation] = useState("all");
+
   const [dateRange, setDateRange] = useState("upcoming");
   const [searchFilter, setSearchFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
@@ -309,9 +309,12 @@ export default function EventsPage() {
     }
 
     // 4. Location
-    if (selectedLocation && selectedLocation !== "all") {
+    if (locationQuery) {
+      const query = locationQuery.toLowerCase();
       filtered = filtered.filter((event) =>
-        event.location.city.toLowerCase() === selectedLocation.toLowerCase()
+        event.location.city.toLowerCase().includes(query) ||
+        (event.location.venue && event.location.venue.toLowerCase().includes(query)) ||
+        (event.location.address && event.location.address.toLowerCase().includes(query))
       );
     }
 
@@ -331,7 +334,7 @@ export default function EventsPage() {
     }
 
     return filtered;
-  }, [events, searchQuery, selectedCategory, selectedLocation, dateRange, activeTab, registrationStatus]);
+  }, [events, searchQuery, selectedCategory, locationQuery, dateRange, activeTab, registrationStatus]);
 
   // Pagination logic derived from filtered events
   const totalPagesDerived = Math.ceil(filteredEvents.length / itemsPerPage);
@@ -439,7 +442,6 @@ export default function EventsPage() {
     searchQuery,
     locationQuery,
     selectedCategory,
-    selectedLocation,
     dateRange,
   ]);
 
@@ -1043,8 +1045,9 @@ export default function EventsPage() {
                   </div>
                 ) : (
                   (() => {
-                  const paginatedInterestedEvents = events;
-                  const interestedTotalPages = totalPages;
+                  const paginatedInterestedEvents = paginatedEvents;
+                  const interestedTotalPages = calculatedTotalPages;
+
 
                   return events.length > 0 ? (
                     <>
@@ -1053,7 +1056,7 @@ export default function EventsPage() {
                           <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
                             <CheckCircle2 className="h-6 w-6 text-white" />
                           </div>
-                          Interested Events ({totalEvents})
+                          Interested Events ({filteredEvents.length})
                         </h2>
                       </div>
 
@@ -1128,8 +1131,8 @@ export default function EventsPage() {
                   </div>
                 ) : (
                   (() => {
-                  const paginatedOnlineEvents = events;
-                  const onlineTotalPages = totalPages;
+                  const paginatedOnlineEvents = paginatedEvents;
+                  const onlineTotalPages = calculatedTotalPages;
 
                   return events.length > 0 ? (
                     <>
@@ -1138,7 +1141,7 @@ export default function EventsPage() {
                           <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg">
                             <Globe className="h-6 w-6 text-white" />
                           </div>
-                          Online Events ({totalEvents})
+                          Online Events ({filteredEvents.length})
                         </h2>
                       </div>
 

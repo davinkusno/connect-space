@@ -193,9 +193,6 @@ export default function CommunityPage({
   const creatorDataLoadedRef = useRef<string | null>(null);
 
   // Load community data from database
-  // Load unified community data
-  const initialLoadRef = useRef(false);
-
   useEffect(() => {
     // Prevent duplicate calls in React Strict Mode
     if (communityDataLoadedRef.current) return;
@@ -218,12 +215,12 @@ export default function CommunityPage({
   };
 
   // Load tab-specific data when tab changes
-  // Load tab-specific data when tab changes (skip on initial load as unified handles it)
+  // Load tab-specific data when tab changes
   useEffect(() => {
-    if (community && initialLoadRef.current) {
+    if (community) {
       loadTabData(activeTab);
     }
-  }, [activeTab, community]);
+  }, [activeTab, community]); // Removed creatorData dependency to prevent duplicate calls
 
   // Handle threadId and replyId from URL params for reported content
   useEffect(() => {
@@ -289,14 +286,37 @@ export default function CommunityPage({
 
 
 
+  // Ensure creator data is loaded
+  useEffect(() => {
+    const fetchCreatorIfNeeded = async () => {
+      if (community?.creator_id && !creatorData) {
+        // Prevent duplicate calls for same creator
+        if (creatorDataLoadedRef.current === community.creator_id) return;
+        creatorDataLoadedRef.current = community.creator_id;
+        
+        try {
+          const response = await fetch(`/api/user/${community.creator_id}`);
+          if (response.ok) {
+            const creatorInfo = await response.json();
+            setCreatorData(creatorInfo);
+          }
+        } catch (error) {
+          console.error("Error fetching creator:", error);
+        }
+      }
+    };
+
+    fetchCreatorIfNeeded();
+  }, [community?.creator_id, creatorData]);
+
   const loadCommunityData = async () => {
     try {
       setIsLoading(true);
       const session = await getClientSession();
 
-      // Fetch UNIFIED data
-      console.log("[CommunityPage] Fetching UNIFIED data for ID:", id);
-      const response = await fetch(`/api/communities/${id}/unified?tab=${activeTab}`);
+      // Fetch community data from API
+      console.log("[CommunityPage] Fetching community data from API for ID:", id);
+      const response = await fetch(`/api/communities/${id}`);
       
       if (!response.ok) {
         console.error("[CommunityPage] API error:", response.status);
@@ -306,73 +326,90 @@ export default function CommunityPage({
       }
 
       const result = await response.json();
+      console.log("[CommunityPage] API response:", result);
+
       if (!result.success || !result.data) {
-        throw new Error("Invalid response format");
+        console.error("[CommunityPage] Invalid API response");
+        toast.error("Failed to load community");
+        router.push("/communities");
+        return;
       }
 
-      const { community: communityData, creator, userContext, tabData } = result.data;
+      const communityData = result.data;
 
-      // Parse location settings
+      // Parse location if it's a string
       if (communityData.location && typeof communityData.location === "string") {
         try {
           communityData.location = JSON.parse(communityData.location);
         } catch {
+          // If not JSON, treat as city name
           communityData.location = { city: communityData.location };
         }
       }
 
       setCommunity(communityData);
       setMemberCount(communityData.member_count || 0);
-      setCreatorData(creator);
 
-      // Handle User Context (Role, Membership, Admin)
+      console.log("[CommunityPage] Community data loaded:", {
+        id: communityData.id,
+        name: communityData.name,
+        creator_id: communityData.creator?.id,
+        member_count: communityData.member_count,
+      });
+
+      // Set creator data from the API response
+      if (communityData.creator) {
+        console.log("[CommunityPage] Creator data from API:", communityData.creator);
+        setCreatorData(communityData.creator);
+      }
+
       if (session?.user) {
-         setCurrentUser(session.user);
-         
-         if (userContext) {
-             console.log("Setting user context:", userContext);
-             setIsSuperAdmin(userContext.isSuperAdmin);
-             setIsMember(userContext.isMember);
-             setMembershipStatus(userContext.membershipStatus);
-             setUserRole(userContext.userRole);
-         }
-      }
+        setCurrentUser(session.user);
 
-      // Handle Initial Tab Data
-      if (tabData) {
-          console.log("Setting initial tab data for:", activeTab);
-          if (activeTab === 'discussions' && tabData.discussions) {
-            setDiscussions(tabData.discussions);
-          } else if (activeTab === 'members' && tabData.members) {
-             const formattedMembers = tabData.members.map((member: any) => ({
-                 ...member,
-                 // Creator logic handled in API or here if needed
-                 role: (member.user_id === communityData.creator_id) ? "admin" : member.role,
-                 isCreator: (member.user_id === communityData.creator_id)
-             }));
-             setMembers(formattedMembers);
-          } else if (activeTab === 'events' && tabData.events) {
-             // Unified only returns upcoming (gte now). Need to split? 
-             // Unified endpoint comment says "tabData" logic.
-             // Line 186 in Unified: fetches gte start_time now (UPCOMING).
-             // Does it fetch PAST? No.
-             // So for Events tab, we might still need to fetch PAST events separately if Unified only gives Upcoming.
-             // But for PoC, maybe upcoming is enough for initial view?
-             // Actually, the page state has `upcomingEvents` and `pastEvents`.
-             // Unified returns `events` array. We will assume they are upcoming.
-             setUpcomingEvents(tabData.events || []);
-             // Note: Past events might stay empty until user interaction? 
-             // Or we intentionally assume Unified covers "First fold" content.
-             // If user wants past events, we might need to fetch them.
-             // But let's set what we have.
+        // Fetch user type separately (for superadmin check)
+        const userResponse = await fetch("/api/user/role");
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          const isSuperAdminUser = userData?.user_type === "super_admin";
+          setIsSuperAdmin(isSuperAdminUser);
+
+          // Check if user is the creator
+          if (communityData.creator_id === session.user.id) {
+            setUserRole("creator");
+            setIsMember(true);
+            setMembershipStatus("approved");
+          } else if (isSuperAdminUser) {
+            // Superadmin has read-only access without being a member
+            setIsMember(false);
+            setMembershipStatus(null);
+            setUserRole(null);
+          } else {
+            // Check membership from API response
+            // The API returns is_member, but we need more details about membership status
+            // Fetch membership details from the membership API
+            const membershipResponse = await fetch(`/api/communities/membership-status?ids=${id}`);
+            if (membershipResponse.ok) {
+              const membershipData = await membershipResponse.json();
+              const status = membershipData[id];
+
+              if (status === "pending") {
+                setMembershipStatus("pending");
+                setIsMember(false);
+                setUserRole(null);
+              } else if (status === "approved") {
+                setIsMember(true);
+                setMembershipStatus("approved");
+                // Set default member role - role can be enhanced in membership-status API later
+                setUserRole("member");
+              } else {
+                setMembershipStatus(null);
+                setIsMember(false);
+                setUserRole(null);
+              }
+            }
           }
+        }
       }
-      
-      // Mark initial load as complete to allow subsequent tab switching to fetch
-      setTimeout(() => {
-          initialLoadRef.current = true;
-      }, 500);
-
     } catch (error) {
       console.error("[CommunityPage] Error loading community:", error);
       toast.error("Failed to load community");

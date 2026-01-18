@@ -2059,6 +2059,28 @@ export class ReportService extends BaseService {
         }
         actions.push("Creator restricted from posting");
 
+        // Apply strike to the creator
+        const { data: creatorData, error: creatorError } = await this.supabaseAdmin
+          .from("users")
+          .select("moderation_strikes")
+          .eq("id", creatorId)
+          .single();
+
+        if (!creatorError && creatorData) {
+          const newCreatorStrikes = (creatorData.moderation_strikes || 0) + 1;
+          const { error: strikeError } = await this.supabaseAdmin
+            .from("users")
+            .update({ moderation_strikes: newCreatorStrikes })
+            .eq("id", creatorId);
+
+          if (!strikeError) {
+            actions.push(`Creator received strike ${newCreatorStrikes}`);
+          } else {
+            console.error("[ReportService] Failed to update creator strikes:", strikeError);
+            actions.push("Failed to update creator strikes");
+          }
+        }
+
         const { data: community } = await this.supabaseAdmin
           .from("communities")
           .select("id, name, creator_id")
@@ -2149,7 +2171,7 @@ export class ReportService extends BaseService {
           // Try to fetch event directly
           const { data: fetchedEvent, error: fetchError } = await this.supabaseAdmin
             .from("events")
-            .select("id, title, organizer_id, community_id")
+            .select("id, title, creator_id, community_id")
             .eq("id", targetId)
             .single();
           
@@ -2160,8 +2182,9 @@ export class ReportService extends BaseService {
           
           // Use the fetched event
           const event = fetchedEvent;
-          const creatorId = event.organizer_id;
+          const creatorId = event.creator_id;
           const communityId = event.community_id;
+
 
           console.log("[ReportService] Banning event (fetched directly):", { 
             eventId: targetId, 
@@ -2198,6 +2221,28 @@ export class ReportService extends BaseService {
             return ApiResponse.error("Failed to restrict creator", 500);
           }
           actions.push("Creator restricted from posting");
+
+          // Apply strike to the creator
+          const { data: creatorData, error: creatorError } = await this.supabaseAdmin
+            .from("users")
+            .select("moderation_strikes")
+            .eq("id", creatorId)
+            .single();
+
+          if (!creatorError && creatorData) {
+            const newCreatorStrikes = (creatorData.moderation_strikes || 0) + 1;
+            const { error: strikeError } = await this.supabaseAdmin
+              .from("users")
+              .update({ moderation_strikes: newCreatorStrikes })
+              .eq("id", creatorId);
+
+            if (!strikeError) {
+              actions.push(`Creator received strike ${newCreatorStrikes}`);
+            } else {
+              console.error("[ReportService] Failed to update creator strikes:", strikeError);
+              actions.push("Failed to update creator strikes");
+            }
+          }
 
           // Only process community-related actions if event belongs to a community
           if (communityId) {
@@ -2305,7 +2350,7 @@ export class ReportService extends BaseService {
           }
         } else {
           // Event was found in enriched report
-          const creatorId = event.organizer_id;
+          const creatorId = (event as any).creator_id;
           const communityId = event.community_id;
 
           console.log("[ReportService] Banning event:", { 
@@ -2318,8 +2363,8 @@ export class ReportService extends BaseService {
 
           // Validate required fields
           if (!creatorId) {
-            console.error("[ReportService] Event has no organizer_id");
-            return ApiResponse.error("Event has no organizer, cannot ban", 400);
+            console.error("[ReportService] Event has no creator_id");
+            return ApiResponse.error("Event has no creator, cannot ban", 400);
           }
 
           const { error: deleteError} = await this.supabaseAdmin
@@ -2343,6 +2388,28 @@ export class ReportService extends BaseService {
             return ApiResponse.error("Failed to restrict creator", 500);
           }
           actions.push("Creator restricted from posting");
+
+          // Apply strike to the creator
+          const { data: creatorData, error: creatorError } = await this.supabaseAdmin
+            .from("users")
+            .select("moderation_strikes")
+            .eq("id", creatorId)
+            .single();
+
+          if (!creatorError && creatorData) {
+            const newCreatorStrikes = (creatorData.moderation_strikes || 0) + 1;
+            const { error: strikeError } = await this.supabaseAdmin
+              .from("users")
+              .update({ moderation_strikes: newCreatorStrikes })
+              .eq("id", creatorId);
+
+            if (!strikeError) {
+              actions.push(`Creator received strike ${newCreatorStrikes}`);
+            } else {
+              console.error("[ReportService] Failed to update creator strikes:", strikeError);
+              actions.push("Failed to update creator strikes");
+            }
+          }
 
           // Only process community-related actions if event belongs to a community
           if (communityId) {
@@ -2480,6 +2547,28 @@ export class ReportService extends BaseService {
             return ApiResponse.error("Failed to restrict creator", 500);
           }
           actions.push("Creator restricted from posting");
+
+          // Apply strike to the creator
+          const { data: creatorData, error: creatorError } = await this.supabaseAdmin
+            .from("users")
+            .select("moderation_strikes")
+            .eq("id", creatorId)
+            .single();
+
+          if (!creatorError && creatorData) {
+            const newCreatorStrikes = (creatorData.moderation_strikes || 0) + 1;
+            const { error: strikeError } = await this.supabaseAdmin
+              .from("users")
+              .update({ moderation_strikes: newCreatorStrikes })
+              .eq("id", creatorId);
+
+            if (!strikeError) {
+              actions.push(`Creator received strike ${newCreatorStrikes}`);
+            } else {
+              console.error("[ReportService] Failed to update creator strikes:", strikeError);
+              actions.push("Failed to update creator strikes");
+            }
+          }
 
           const { data: community } = await this.supabaseAdmin
             .from("communities")

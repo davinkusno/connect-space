@@ -144,7 +144,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           userId,
           interests: selectedInterests,
-          location: locationData ? JSON.stringify(locationData) : null,
+          location: locationData,
           onboardingCompleted: true,
         }),
       });
